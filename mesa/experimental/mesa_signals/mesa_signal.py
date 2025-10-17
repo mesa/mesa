@@ -476,7 +476,21 @@ class HasObservables:
         """Convenience method for adding thresholds."""
         obs = getattr(type(self), observable_name)
         if isinstance(obs, ContinuousObservable):
-            obs._thresholds[threshold] = callback
+            obs._thresholds.add(threshold)
+
+            # Check if callback is already subscribed
+            existing_subscribers = self.subscribers.get(observable_name, {}).get(
+                "threshold_crossed", []
+            )
+            already_subscribed = any(
+                ref() == callback for ref in existing_subscribers if ref() is not None
+            )
+
+            # Only subscribe if not already subscribed
+            if not already_subscribed:
+                self.observe(observable_name, "threshold_crossed", callback)
+        else:
+            raise ValueError(f"{observable_name} is not a ContinuousObservable")
 
 
 class ContinuousObservable(Observable):
@@ -487,7 +501,7 @@ class ContinuousObservable(Observable):
         super().__init__(fallback_value=initial_value)
         self.signal_types.add("threshold_crossed")
         self._rate_func = rate_func
-        self._thresholds = {}  # threshold_value -> callback
+        self._thresholds = set()
 
     def __set__(self, instance: HasObservables, value):
         """Set the value, ensuring we store a ContinuousState."""
@@ -624,13 +638,13 @@ class ContinuousState:
             List of (threshold_value, direction) tuples for crossed thresholds
         """
         crossed = []
-        for threshold_value in self.thresholds:
+        for threshold in self.thresholds:
             # Crossed upward
-            if old_value < threshold_value <= new_value:
-                crossed.append((threshold_value, "up"))
+            if old_value < threshold <= new_value:
+                crossed.append((threshold, "up"))
             # Crossed downward
-            elif new_value <= threshold_value < old_value:
-                crossed.append((threshold_value, "down"))
+            elif new_value <= threshold < old_value:
+                crossed.append((threshold, "down"))
         return crossed
 
 
