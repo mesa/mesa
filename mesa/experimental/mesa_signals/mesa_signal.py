@@ -498,16 +498,18 @@ class ContinuousObservable(Observable):
         state = getattr(instance, self.private_name, None)
         if state is None:
             # First access - initialize
+            # Use simulator time if available, otherwise fall back to steps
+            current_time = self._get_time(instance)
             state = ContinuousState(
                 value=self.fallback_value,
-                last_update=instance.model.time,
+                last_update=current_time,
                 rate_func=self._rate_func,
                 thresholds=self._thresholds,
             )
             setattr(instance, self.private_name, state)
 
         # Calculate new value based on time
-        current_time = instance.model.time
+        current_time = self._get_time(instance)
         elapsed = current_time - state.last_update
 
         if elapsed > 0:
@@ -542,26 +544,51 @@ class ContinuousObservable(Observable):
 
         return state.value
 
+    # TODO: A universal truth for time should be implemented structurally in Mesa. See https://github.com/projectmesa/mesa/discussions/2228
+    def _get_time(self, instance):
+        """Get current time from model, trying multiple sources."""
+        model = instance.model
+
+        # Try simulator time first (for DEVS models)
+        if hasattr(model, "simulator") and hasattr(model.simulator, "time"):
+            return model.simulator.time
+
+        # Fall back to model.time if it exists
+        if hasattr(model, "time"):
+            return model.time
+
+        # Last resort: use steps as a proxy for time
+        return float(model.steps)
+
 
 class ContinuousState:
     """Internal state tracker for continuous observables."""
 
     __slots__ = ["last_update", "rate_func", "thresholds", "value"]
 
-    def __init__(self, value, last_update, rate_func, thresholds):
+    def __init__(
+        self, value: float, last_update: float, rate_func: Callable, thresholds: dict
+    ):
         self.value = value
         self.last_update = last_update
         self.rate_func = rate_func
         self.thresholds = thresholds
 
-    def calculate(self, elapsed: float, instance) -> float:
-        """Calculate new value based on elapsed time."""
+    def calculate(self, elapsed: float, instance: Any) -> float:
+        """Calculate new value based on elapsed time.
+
+        Uses simple linear integration for now. Could be extended
+        to support more complex integration methods.
+        """
         rate = self.rate_func(self.value, elapsed, instance)
-        # Simple linear integration for now
         return self.value + (rate * elapsed)
 
-    def check_thresholds(self, old_value, new_value):
-        """Check if any thresholds were crossed."""
+    def check_thresholds(self, old_value: float, new_value: float) -> list:
+        """Check if any thresholds were crossed.
+
+        Returns:
+            List of (threshold_value, direction) tuples for crossed thresholds
+        """
         crossed = []
         for threshold_value in self.thresholds:
             # Crossed upward
