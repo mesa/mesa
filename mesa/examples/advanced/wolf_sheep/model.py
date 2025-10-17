@@ -2,6 +2,8 @@
 Wolf-Sheep Predation Model
 ================================
 
+Enhanced version with continuous energy depletion and reactive behaviors.
+
 Replication of the model found in NetLogo:
     Wilensky, U. (1997). NetLogo Wolf Sheep Predation model.
     http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.
@@ -21,11 +23,16 @@ from mesa.experimental.devs import ABMSimulator
 class WolfSheep(Model):
     """Wolf-Sheep Predation Model.
 
-    A model for simulating wolf and sheep (predator-prey) ecosystem modelling.
+    A model for simulating wolf and sheep (predator-prey) ecosystem with:
+    - Continuous energy depletion over time
+    - Reactive behaviors based on hunger levels
+    - Threshold-triggered events (death, starvation mode)
+    - Computed properties for decision making
     """
 
     description = (
-        "A model for simulating wolf and sheep (predator-prey) ecosystem modelling."
+        "A model for simulating wolf and sheep (predator-prey) ecosystem modelling "
+        "with continuous energy dynamics and reactive behaviors."
     )
 
     def __init__(
@@ -55,12 +62,13 @@ class WolfSheep(Model):
             wolf_gain_from_food: Energy a wolf gains from eating a sheep
             grass: Whether to have the sheep eat grass for energy
             grass_regrowth_time: How long it takes for a grass patch to regrow
-                                once it is eaten
             sheep_gain_from_food: Energy sheep gain from grass, if enabled
             seed: Random seed
             simulator: ABMSimulator instance for event scheduling
         """
         super().__init__(seed=seed)
+
+        # Initialize time-based simulator for continuous energy dynamics
         self.simulator = simulator
         self.simulator.setup(self)
 
@@ -77,11 +85,24 @@ class WolfSheep(Model):
             random=self.random,
         )
 
-        # Set up data collection
+        # Set up data collection (tracks observable changes automatically)
         model_reporters = {
             "Wolves": lambda m: len(m.agents_by_type[Wolf]),
             "Sheep": lambda m: len(m.agents_by_type[Sheep]),
+            "Avg Wolf Energy": lambda m: (
+                sum(w.energy for w in m.agents_by_type[Wolf])
+                / len(m.agents_by_type[Wolf])
+                if len(m.agents_by_type[Wolf]) > 0
+                else 0
+            ),
+            "Avg Sheep Energy": lambda m: (
+                sum(s.energy for s in m.agents_by_type[Sheep])
+                / len(m.agents_by_type[Sheep])
+                if len(m.agents_by_type[Sheep]) > 0
+                else 0
+            ),
         }
+
         if grass:
             model_reporters["Grass"] = lambda m: len(
                 m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
@@ -89,7 +110,7 @@ class WolfSheep(Model):
 
         self.datacollector = DataCollector(model_reporters)
 
-        # Create sheep:
+        # Create sheep with random initial energy
         Sheep.create_agents(
             self,
             initial_sheep,
@@ -98,7 +119,8 @@ class WolfSheep(Model):
             energy_from_food=sheep_gain_from_food,
             cell=self.random.choices(self.grid.all_cells.cells, k=initial_sheep),
         )
-        # Create Wolves:
+
+        # Create wolves with random initial energy
         Wolf.create_agents(
             self,
             initial_wolves,
@@ -123,10 +145,15 @@ class WolfSheep(Model):
         self.datacollector.collect(self)
 
     def step(self):
-        """Execute one step of the model."""
-        # First activate all sheep, then all wolves, both in random order
+        """Execute one step of the model.
+
+        Energy continuously depletes between steps via ContinuousObservable.
+        This step method only triggers agent decisions and actions.
+        """
+        # Activate all sheep, then all wolves, both in random order
+        # Their energy has been continuously depleting since last step
         self.agents_by_type[Sheep].shuffle_do("step")
         self.agents_by_type[Wolf].shuffle_do("step")
 
-        # Collect data
+        # Collect data (automatically captures current energy levels)
         self.datacollector.collect(self)
