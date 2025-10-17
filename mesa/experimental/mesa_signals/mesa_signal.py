@@ -475,22 +475,35 @@ class HasObservables:
     def add_threshold(self, observable_name: str, threshold: float, callback: Callable):
         """Convenience method for adding thresholds."""
         obs = getattr(type(self), observable_name)
-        if isinstance(obs, ContinuousObservable):
-            obs._thresholds.add(threshold)
-
-            # Check if callback is already subscribed
-            existing_subscribers = self.subscribers.get(observable_name, {}).get(
-                "threshold_crossed", []
-            )
-            already_subscribed = any(
-                ref() == callback for ref in existing_subscribers if ref() is not None
-            )
-
-            # Only subscribe if not already subscribed
-            if not already_subscribed:
-                self.observe(observable_name, "threshold_crossed", callback)
-        else:
+        if not isinstance(obs, ContinuousObservable):
             raise ValueError(f"{observable_name} is not a ContinuousObservable")
+
+        # Get the instance's ContinuousState
+        state = getattr(self, obs.private_name, None)
+        if state is None:
+            # State not yet created - will be created on first access/set
+            # We need to ensure the observable is initialized first
+            _ = getattr(self, observable_name)  # Trigger initialization
+            state = getattr(self, obs.private_name)
+
+        # Add threshold to the instance's state
+        if threshold not in state.thresholds:
+            state.thresholds[threshold] = set()
+
+        # Add callback to this threshold's callback set
+        state.thresholds[threshold].add(callback)
+
+        # Subscribe to the threshold_crossed signal
+        # Check if callback is already subscribed to avoid duplicates
+        existing_subscribers = self.subscribers.get(observable_name, {}).get(
+            "threshold_crossed", []
+        )
+        already_subscribed = any(
+            ref() == callback for ref in existing_subscribers if ref() is not None
+        )
+
+        if not already_subscribed:
+            self.observe(observable_name, "threshold_crossed", callback)
 
 
 class ContinuousObservable(Observable):
@@ -501,7 +514,6 @@ class ContinuousObservable(Observable):
         super().__init__(fallback_value=initial_value)
         self.signal_types.add("threshold_crossed")
         self._rate_func = rate_func
-        self._thresholds = set()
 
     def __set__(self, instance: HasObservables, value):
         """Set the value, ensuring we store a ContinuousState."""
@@ -514,7 +526,6 @@ class ContinuousObservable(Observable):
                 value=float(value),
                 last_update=self._get_time(instance),
                 rate_func=self._rate_func,
-                thresholds=self._thresholds,
             )
             setattr(instance, self.private_name, state)
         else:
@@ -552,7 +563,6 @@ class ContinuousObservable(Observable):
                 value=self.fallback_value,
                 last_update=current_time,
                 rate_func=self._rate_func,
-                thresholds=self._thresholds,
             )
             setattr(instance, self.private_name, state)
 
@@ -614,13 +624,11 @@ class ContinuousState:
 
     __slots__ = ["last_update", "rate_func", "thresholds", "value"]
 
-    def __init__(
-        self, value: float, last_update: float, rate_func: Callable, thresholds: dict
-    ):
+    def __init__(self, value: float, last_update: float, rate_func: Callable):
         self.value = value
         self.last_update = last_update
         self.rate_func = rate_func
-        self.thresholds = thresholds
+        self.thresholds = {}  # {threshold_value: set(callbacks)}
 
     def calculate(self, elapsed: float, instance: Any) -> float:
         """Calculate new value based on elapsed time.
