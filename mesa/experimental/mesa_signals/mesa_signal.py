@@ -489,6 +489,40 @@ class ContinuousObservable(Observable):
         self._rate_func = rate_func
         self._thresholds = {}  # threshold_value -> callback
 
+    def __set__(self, instance: HasObservables, value):
+        """Set the value, ensuring we store a ContinuousState."""
+        # Get or create state
+        state = getattr(instance, self.private_name, None)
+
+        if state is None:
+            # First time - create ContinuousState
+            state = ContinuousState(
+                value=float(value),
+                last_update=self._get_time(instance),
+                rate_func=self._rate_func,
+                thresholds=self._thresholds,
+            )
+            setattr(instance, self.private_name, state)
+        else:
+            # Update existing - just change the value and reset timestamp
+            old_value = state.value
+            state.value = float(value)
+            state.last_update = self._get_time(instance)
+
+            # Notify changes
+            instance.notify(self.public_name, old_value, state.value, "change")
+
+            # Check thresholds
+            for threshold, direction in state.check_thresholds(old_value, state.value):
+                instance.notify(
+                    self.public_name,
+                    old_value,
+                    state.value,
+                    "threshold_crossed",
+                    threshold=threshold,
+                    direction=direction,
+                )
+
     def __get__(self, instance: HasObservables, owner):
         """Lazy evaluation - compute current value based on elapsed time."""
         if instance is None:
