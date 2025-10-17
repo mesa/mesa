@@ -604,3 +604,277 @@ def test_continuous_observable_integration_with_wolf_sheep():
     model.simulator.schedule_event_absolute(check_continued, 100.0)
     model.simulator.schedule_event_absolute(check_death, 300.0)
     model.simulator.run_until(300.0)
+
+
+def test_continuous_observable_multiple_agents_independent_values():
+    """Test that multiple agents maintain independent continuous values."""
+
+    class MyAgent(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0,
+            rate_func=lambda value, elapsed, agent: -agent.metabolic_rate,
+        )
+
+        def __init__(self, model, metabolic_rate):
+            super().__init__(model)
+            self.metabolic_rate = metabolic_rate
+            self.energy = 100.0
+
+    model = SimpleModel()
+
+    # Create agents with different metabolic rates
+    agent1 = MyAgent(model, metabolic_rate=1.0)
+    agent2 = MyAgent(model, metabolic_rate=2.0)
+    agent3 = MyAgent(model, metabolic_rate=0.5)
+
+    def check_values():
+        # Each agent should deplete at their own rate
+        assert agent1.energy == 90.0  # 100 - (1.0 * 10)
+        assert agent2.energy == 80.0  # 100 - (2.0 * 10)
+        assert agent3.energy == 95.0  # 100 - (0.5 * 10)
+
+    model.simulator.schedule_event_absolute(check_values, 10.0)
+    model.simulator.run_until(10.0)
+
+
+def test_continuous_observable_multiple_agents_independent_thresholds():
+    """Test that different agents can have different thresholds."""
+
+    class MyAgent(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0, rate_func=lambda value, elapsed, agent: -1.0
+        )
+
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.energy = 100.0
+            self.threshold_crossed = False
+
+        def on_threshold(self, signal):
+            if signal.direction == "down":
+                self.threshold_crossed = True
+
+    model = SimpleModel()
+
+    # Create agents with different thresholds
+    agent1 = MyAgent(model, "agent1")
+    agent1.add_threshold("energy", 75.0, agent1.on_threshold)
+
+    agent2 = MyAgent(model, "agent2")
+    agent2.add_threshold("energy", 25.0, agent2.on_threshold)
+
+    agent3 = MyAgent(model, "agent3")
+    agent3.add_threshold("energy", 50.0, agent3.on_threshold)
+
+    def check_at_30():
+        # At t=30, all agents at energy=70
+        _ = agent1.energy
+        _ = agent2.energy
+        _ = agent3.energy
+
+        # Only agent1 should have crossed their threshold (75)
+        assert agent1.threshold_crossed
+        assert not agent2.threshold_crossed  # Hasn't reached 25 yet
+        assert not agent3.threshold_crossed  # Hasn't reached 50 yet
+
+    def check_at_55():
+        # At t=55, all agents at energy=45
+        _ = agent1.energy
+        _ = agent2.energy
+        _ = agent3.energy
+
+        # agent1 and agent3 should have crossed
+        assert agent1.threshold_crossed
+        assert not agent2.threshold_crossed  # Still hasn't reached 25
+        assert agent3.threshold_crossed  # Crossed 50
+
+    def check_at_80():
+        # At t=80, all agents at energy=20
+        _ = agent1.energy
+        _ = agent2.energy
+        _ = agent3.energy
+
+        # All should have crossed now
+        assert agent1.threshold_crossed
+        assert agent2.threshold_crossed  # Finally crossed 25
+        assert agent3.threshold_crossed
+
+    model.simulator.schedule_event_absolute(check_at_30, 30.0)
+    model.simulator.schedule_event_absolute(check_at_55, 55.0)
+    model.simulator.schedule_event_absolute(check_at_80, 80.0)
+    model.simulator.run_until(80.0)
+
+
+def test_continuous_observable_multiple_agents_same_threshold_different_callbacks():
+    """Test that multiple agents can watch the same threshold value with different callbacks."""
+
+    class MyAgent(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0, rate_func=lambda value, elapsed, agent: -1.0
+        )
+
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.energy = 100.0
+            self.crossed_count = 0
+
+        def on_threshold(self, signal):
+            if signal.direction == "down":
+                self.crossed_count += 1
+
+    model = SimpleModel()
+
+    # Create multiple agents, all watching threshold at 50
+    agents = [MyAgent(model, f"agent{i}") for i in range(5)]
+
+    for agent in agents:
+        agent.add_threshold("energy", 50.0, agent.on_threshold)
+
+    def check_crossings():
+        # Access all agents' energy
+        for agent in agents:
+            _ = agent.energy
+
+        # Each should have crossed independently
+        for agent in agents:
+            assert agent.crossed_count == 1
+
+    model.simulator.schedule_event_absolute(check_crossings, 60.0)
+    model.simulator.run_until(60.0)
+
+
+def test_continuous_observable_agents_with_different_initial_values():
+    """Test agents starting with different energy values."""
+
+    class MyAgent(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0, rate_func=lambda value, elapsed, agent: -1.0
+        )
+
+        def __init__(self, model, initial_energy):
+            super().__init__(model)
+            self.energy = initial_energy
+
+    model = SimpleModel()
+
+    # Create agents with different starting energies
+    agent1 = MyAgent(model, initial_energy=100.0)
+    agent2 = MyAgent(model, initial_energy=50.0)
+    agent3 = MyAgent(model, initial_energy=150.0)
+
+    def check_values():
+        # Each should deplete from their starting value
+        assert agent1.energy == 90.0  # 100 - 10
+        assert agent2.energy == 40.0  # 50 - 10
+        assert agent3.energy == 140.0  # 150 - 10
+
+    model.simulator.schedule_event_absolute(check_values, 10.0)
+    model.simulator.run_until(10.0)
+
+
+def test_continuous_observable_agent_interactions():
+    """Test agents affecting each other's continuous observables."""
+
+    class Predator(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=50.0, rate_func=lambda value, elapsed, agent: -0.5
+        )
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.energy = 50.0
+            self.kills = 0
+
+        def eat(self, prey):
+            """Eat prey and gain energy."""
+            self.energy += 20
+            self.kills += 1
+            prey.die()
+
+    class Prey(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0, rate_func=lambda value, elapsed, agent: -1.0
+        )
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.energy = 100.0
+            self.alive = True
+
+        def die(self):
+            self.alive = False
+
+    model = SimpleModel()
+
+    predator = Predator(model)
+    prey1 = Prey(model)
+    prey2 = Prey(model)
+
+    def predator_hunts():
+        # Predator energy should have depleted
+        assert predator.energy == 45.0  # 50 - (0.5 * 10)
+
+        # Predator eats prey1
+        predator.eat(prey1)
+
+        # Predator gains energy
+        assert predator.energy == 65.0  # 45 + 20
+        assert not prey1.alive
+        assert prey2.alive
+
+    def check_final():
+        # Predator continues depleting from boosted energy
+        assert predator.energy == 60.0  # 65 - (0.5 * 10)
+
+        # prey2 continues depleting
+        assert prey2.energy == 80.0  # 100 - (1.0 * 20)
+        assert prey2.alive
+
+    model.simulator.schedule_event_absolute(predator_hunts, 10.0)
+    model.simulator.schedule_event_absolute(check_final, 20.0)
+    model.simulator.run_until(20.0)
+
+
+def test_continuous_observable_batch_creation_with_thresholds():
+    """Test batch agent creation where each agent has instance-specific thresholds."""
+
+    class MyAgent(Agent, HasObservables):
+        energy = ContinuousObservable(
+            initial_value=100.0, rate_func=lambda value, elapsed, agent: -1.0
+        )
+
+        def __init__(self, model, critical_threshold):
+            super().__init__(model)
+            self.energy = 100.0
+            self.critical_threshold = critical_threshold
+            self.critical = False
+
+            # Each agent watches their own critical threshold
+            self.add_threshold("energy", critical_threshold, self.on_critical)
+
+        def on_critical(self, signal):
+            if signal.direction == "down":
+                self.critical = True
+
+    model = SimpleModel()
+
+    # Create 10 agents with different critical thresholds
+    thresholds = [90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0, 20.0, 10.0, 5.0]
+    agents = [MyAgent(model, threshold) for threshold in thresholds]
+
+    def check_at_45():
+        # At t=45, all agents at energy=55
+        for agent in agents:
+            _ = agent.energy  # Trigger recalculation
+
+        # Agents with thresholds > 55 should be critical
+        for agent, threshold in zip(agents, thresholds):
+            if threshold > 55:
+                assert agent.critical
+            else:
+                assert not agent.critical
+
+    model.simulator.schedule_event_absolute(check_at_45, 45.0)
+    model.simulator.run_until(45.0)
