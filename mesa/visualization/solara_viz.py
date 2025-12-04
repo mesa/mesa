@@ -361,6 +361,10 @@ def ComponentsView(
         components: List of (components, page) to display
         model: Model instance to pass to each component
     """
+    # State for current tab and layouts
+    current_tab_index, set_current_tab_index = solara.use_state(0)
+    layouts, set_layouts = solara.use_state({})
+
     if not components:
         return
 
@@ -383,10 +387,6 @@ def ComponentsView(
             pages.setdefault(idx, [])
 
     sorted_page_indices = all_indices
-
-    # State for current tab and layouts
-    current_tab_index, set_current_tab_index = solara.use_state(0)
-    layouts, set_layouts = solara.use_state({})
 
     # Keep layouts in sync with pages
     def sync_layouts():
