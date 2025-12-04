@@ -60,7 +60,7 @@ jobs:
       - name: Setup Playwright
         run: playwright install chromium-headless-shell
       - name: Test with pytest
-        run: pytest --durations=10 --cov=mesa tests/ --cov-report=xml
+        run: pytest --durations=10 --cov=mesa tests/ --cov-report=xml -Werror -Wdefault::PendingDeprecationWarning
       - if: matrix.os == 'ubuntu'
         name: Codecov
         uses: codecov/codecov-action@v5
@@ -90,4 +90,4 @@ jobs:
       - name: Test examples
         run: |
           cd mesa-examples
-          pytest -rA -Werror -Wdefault::FutureWarning -Wi::DeprecationWarning test_examples.py
+          pytest -rA -Werror -Wdefault::PendingDeprecationWarning test_examples.py
