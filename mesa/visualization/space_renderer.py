@@ -208,8 +208,8 @@ class SpaceRenderer:
         """Setup property layers on the space without drawing.
 
         Args:
-            propertylayer_portrayal (Callable | dict): Function that returns PropertyLayerStyle
-                or dict with portrayal parameters.
+            propertylayer_portrayal (Callable | dict | PropertyLayerStyle): Function that returns PropertyLayerStyle,
+                PropertyLayerStyle instance, or dict with portrayal parameters.
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
@@ -357,6 +357,9 @@ class SpaceRenderer:
             self.propertylayer_portrayal = _dict_to_callable(
                 self.propertylayer_portrayal
             )
+        elif isinstance(self.propertylayer_portrayal, PropertyLayerStyle):
+            self.propertylayer_portrayal = lambda _: self.propertylayer_portrayal
+        # else: already a callable, use as-is
 
         number_of_propertylayers = sum(
             [1 for layer in property_layers if layer != "empty"]
@@ -373,9 +376,12 @@ class SpaceRenderer:
         """Render the complete space with structure, agents, and property layers.
 
         Args:
-            agent_portrayal: (Deprecated) Function for agent portrayal. Use setup_agents() instead.
-            propertylayer_portrayal: (Deprecated) Function for property layer portrayal. Use setup_propertylayer() instead.
-            **kwargs: (Deprecated) Additional keyword arguments.
+            agent_portrayal (Callable | None): (Deprecated) Function that returns AgentPortrayalStyle.
+                If None, agents won't be drawn. Use setup_agents() instead.
+            propertylayer_portrayal (Callable | dict | PropertyLayerStyle | None): (Deprecated) Function that returns
+                PropertyLayerStyle, PropertyLayerStyle instance, or dict with portrayal parameters.
+                If None, property layers won't be drawn. Use setup_propertylayer() instead.
+            **kwargs: (Deprecated) Additional keyword arguments. Use setup_structure() instead.
         """
         if agent_portrayal is not None or propertylayer_portrayal is not None or kwargs:
             warnings.warn(
