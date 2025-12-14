@@ -296,3 +296,7 @@ class HexGrid(Grid[T]):
         super()._validate_parameters()
         if len(self.dimensions) != 2:
             raise ValueError("HexGrid must have exactly 2 dimensions.")
+        if self.torus and (self.width % 2 != 0 or self.height % 2 != 0):
+            raise ValueError(
+                "HexGrid with torus=True requires both width and height to be even."
+            )
