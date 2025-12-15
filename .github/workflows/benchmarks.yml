@@ -61,7 +61,7 @@ jobs:
       - name: Install Mesa of the PR branch
         run: pip install --no-deps .
       - name: Download benchmark results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: timings-main
           path: benchmarks
