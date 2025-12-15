@@ -45,7 +45,7 @@ jobs:
         run: python global_benchmark.py
       # Upload benchmarks, checkout PR branch, download benchmarks
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: timings-main
           path: benchmarks/timings_1.pickle
