@@ -231,8 +231,15 @@ class Model:
         Args:
             rng: A new seed for the RNG; if None, reset using the current seed
         """
-        self.rng = np.random.default_rng(rng)
-        self._rng = self.rng.bit_generator.state
+        if rng is None:
+            # Restore from saved initial state
+            bg_class = getattr(np.random, self._rng["bit_generator"])
+            bg = bg_class()
+            bg.state = self._rng
+            self.rng = np.random.Generator(bg)
+        else:
+            self.rng = np.random.default_rng(rng)
+            self._rng = self.rng.bit_generator.state
 
     def remove_all_agents(self):
         """Remove all agents from the model.

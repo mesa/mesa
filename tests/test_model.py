@@ -129,9 +129,16 @@ def test_reset_rng(newseed=42):
 
     old_rng = new_rng
     model.reset_rng()
-    new_rng = model.rng.__getstate__()
+    new_rng = model.rng.bit_generator.state
 
-    assert old_rng != new_rng
+    assert old_rng == new_rng
+
+    model = Model(rng=np.random.MT19937(42))
+    old_rng = model._rng
+    model.reset_rng()
+    new_rng = model.rng.bit_generator.state
+
+    assert np.all(old_rng["state"]["key"] == new_rng["state"]["key"])
 
 
 def test_agent_types():

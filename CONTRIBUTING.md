@@ -220,7 +220,7 @@ warnings.warn(
 Before active deprecation, all of the following must be complete:
 
 1. **Documentation updated**: All relevant docs and tutorials reflect the new approach
-2. **Migration guide entry added**: Clear entry in the [Migration Guide](https://github.com/projectmesa/mesa/blob/main/docs/migration_guide.md) explaining what changed and how to update code
+2. **Migration guide entry added**: Clear entry in the [Migration Guide](https://github.com/mesa/mesa/blob/main/docs/migration_guide.md) explaining what changed and how to update code
 3. **Examples updated**: All example models use the new API
 
 ##### Step 3: Active deprecation
@@ -276,7 +276,7 @@ old_method()
 new_method()
 ```
 
-- Ref: [PR #1234](https://github.com/projectmesa/mesa/pull/1234), [Documentation](link)
+- Ref: [PR #1234](https://github.com/mesa/mesa/pull/1234), [Documentation](link)
 ````
 
 ## Special Thanks
