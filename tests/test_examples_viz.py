@@ -193,7 +193,8 @@ def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.P
     model = BoltzmannWealth(seed=42)
 
     def agent_portrayal(agent):
-        return AgentPortrayalStyle(color=agent.wealth)
+        color = agent.wealth  # we are using a colormap to translate wealth to color
+        return {"color": color}
 
     measure_config = "Gini"
 
