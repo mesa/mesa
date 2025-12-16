@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 
 from mesa.agent import Agent, AgentSet
+from mesa.experimental.devs import Simulator
 from mesa.mesa_logging import create_module_logger, method_logger
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
@@ -52,6 +53,7 @@ class Model:
         *args: Any,
         seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
+        step_duration: float = 1.0,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -65,6 +67,7 @@ class Model:
             rng : Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
                   `numpy.random.default_rng` to instantiate a `Generator`.
+            step_duration: How much time advances each step (default 1.0)
             kwargs: keyword arguments to pass onto super
 
         Notes:
@@ -72,8 +75,13 @@ class Model:
 
         """
         super().__init__(*args, **kwargs)
-        self.running = True
+        self.running: bool = True
         self.steps: int = 0
+        self.time: float = 0.0
+        self._step_duration: float = step_duration
+
+        # Track if a simulator is controlling time
+        self._simulator: Simulator | None = None
 
         if (seed is not None) and (rng is not None):
             raise ValueError("you have to pass either rng or seed, not both")
@@ -117,7 +125,13 @@ class Model:
         """Automatically increments time and steps after calling the user's step method."""
         # Automatically increment time and step counters
         self.steps += 1
-        _mesa_logger.info(f"calling model.step for timestep {self.steps} ")
+        # Only auto-increment time if no simulator is controlling it
+        if self._simulator is None:
+            self.time += self._step_duration
+
+        _mesa_logger.info(
+            f"calling model.step for step {self.steps} at time {self.time}"
+        )
         # Call the original user-defined step method
         self._user_step(*args, **kwargs)
 
@@ -217,8 +231,15 @@ class Model:
         Args:
             rng: A new seed for the RNG; if None, reset using the current seed
         """
-        self.rng = np.random.default_rng(rng)
-        self._rng = self.rng.bit_generator.state
+        if rng is None:
+            # Restore from saved initial state
+            bg_class = getattr(np.random, self._rng["bit_generator"])
+            bg = bg_class()
+            bg.state = self._rng
+            self.rng = np.random.Generator(bg)
+        else:
+            self.rng = np.random.default_rng(rng)
+            self._rng = self.rng.bit_generator.state
 
     def remove_all_agents(self):
         """Remove all agents from the model.

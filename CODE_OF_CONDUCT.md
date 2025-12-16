@@ -36,6 +36,16 @@ Examples of unacceptable behavior include:
 * Other conduct which could reasonably be considered inappropriate in a
   professional setting
 
+### AI and LLM Use
+
+AI tools can be valuable for learning, exploring ideas, and accelerating work. We welcome their thoughtful use. To ensure contributions remain meaningful and contributors continue to grow, we ask that you:
+
+* Understand what you submit. Be able to explain and defend any contribution you make. If you cannot, it is not ready to submit.
+* Stay in the driver's seat. Use AI to support your learning and work, not to replace the effort and critical thinking that make you a better developer.
+* Engage meaningfully. Low-effort, AI-generated submissions (issues, PRs, or proposals) without genuine personal engagement are not acceptable.
+
+Maintainers may ask contributors to explain their work. This is part of our commitment to learning and quality—not a test of whether you used AI, but whether you understood and own what you contributed.
+
 ## Enforcement Responsibilities
 
 Community leaders are responsible for clarifying and enforcing our standards of

@@ -1,5 +1,7 @@
 """Test Batchrunner."""
 
+import pytest
+
 import mesa
 from mesa.agent import Agent
 from mesa.batchrunner import _make_model_kwargs
@@ -84,6 +86,7 @@ class MockModel(Model):
         fixed_model_param=None,
         enable_agent_reporters=True,
         n_agents=3,
+        seed=None,
         **kwargs,
     ):
         """Initialize a MockModel.
@@ -94,9 +97,10 @@ class MockModel(Model):
             fixed_model_param: fixed model parameters
             enable_agent_reporters: whether to enable agent reporters
             n_agents: number of agents
+            seed : random seed
             kwargs: keyword arguments
         """
-        super().__init__()
+        super().__init__(seed=seed, **kwargs)
         self.variable_model_param = variable_model_param
         self.variable_agent_param = variable_agent_param
         self.fixed_model_param = fixed_model_param
@@ -130,7 +134,7 @@ class MockModel(Model):
 
 
 def test_batch_run():  # noqa: D103
-    result = mesa.batch_run(MockModel, {}, number_processes=2)
+    result = mesa.batch_run(MockModel, {}, number_processes=2, rng=42)
     assert result == [
         {
             "RunId": 0,
@@ -140,6 +144,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 1,
             "agent_id": 1,
             "agent_local": 250.0,
+            "seed": 42,
         },
         {
             "RunId": 0,
@@ -149,6 +154,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 2,
             "agent_id": 2,
             "agent_local": 250.0,
+            "seed": 42,
         },
         {
             "RunId": 0,
@@ -158,16 +164,122 @@ def test_batch_run():  # noqa: D103
             "AgentID": 3,
             "agent_id": 3,
             "agent_local": 250.0,
+            "seed": 42,
         },
     ]
+
+    result = mesa.batch_run(MockModel, {}, number_processes=2, iterations=1)
+    assert result == [
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 1,
+            "agent_id": 1,
+            "agent_local": 250.0,
+            "seed": None,
+        },
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 2,
+            "agent_id": 2,
+            "agent_local": 250.0,
+            "seed": None,
+        },
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 3,
+            "agent_id": 3,
+            "agent_local": 250.0,
+            "seed": None,
+        },
+    ]
+
+    result = mesa.batch_run(MockModel, {}, number_processes=2, rng=[42, 31415])
+
+    # we use 2 processes, so we are not guaranteed the order of the return
+    result = sorted(result, key=lambda x: (x["RunId"], x["AgentID"]))
+
+    assert result == [
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 1,
+            "agent_id": 1,
+            "agent_local": 250.0,
+            "seed": 42,
+        },
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 2,
+            "agent_id": 2,
+            "agent_local": 250.0,
+            "seed": 42,
+        },
+        {
+            "RunId": 0,
+            "iteration": 0,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 3,
+            "agent_id": 3,
+            "agent_local": 250.0,
+            "seed": 42,
+        },
+        {
+            "RunId": 1,
+            "iteration": 1,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 1,
+            "agent_id": 1,
+            "agent_local": 250.0,
+            "seed": 31415,
+        },
+        {
+            "RunId": 1,
+            "iteration": 1,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 2,
+            "agent_id": 2,
+            "agent_local": 250.0,
+            "seed": 31415,
+        },
+        {
+            "RunId": 1,
+            "iteration": 1,
+            "Step": 1000,
+            "reported_model_param": 42,
+            "AgentID": 3,
+            "agent_id": 3,
+            "agent_local": 250.0,
+            "seed": 31415,
+        },
+    ]
+
+    with pytest.raises(ValueError):
+        mesa.batch_run(MockModel, {}, number_processes=2, rng=42, iterations=1)
 
 
 def test_batch_run_with_params():  # noqa: D103
     mesa.batch_run(
         MockModel,
         {
-            "variable_model_params": range(3),
-            "variable_agent_params": ["H", "E", "Y"],
+            "variable_model_param": range(3),
+            "variable_agent_param": range(3),
         },
         number_processes=2,
     )
@@ -185,6 +297,7 @@ def test_batch_run_no_agent_reporters():  # noqa: D103
             "Step": 1000,
             "enable_agent_reporters": False,
             "reported_model_param": 42,
+            "seed": None,
         }
     ]
 
@@ -198,7 +311,7 @@ def test_batch_run_unhashable_param():  # noqa: D103
         MockModel,
         {
             "n_agents": 2,
-            "variable_model_params": [{"key": "value"}],
+            "variable_model_param": [{"key": "value"}],
         },
         iterations=2,
     )
@@ -207,7 +320,8 @@ def test_batch_run_unhashable_param():  # noqa: D103
         "reported_model_param": 42,
         "agent_local": 250.0,
         "n_agents": 2,
-        "variable_model_params": {"key": "value"},
+        "variable_model_param": {"key": "value"},
+        "seed": None,
     }
 
     assert result == [

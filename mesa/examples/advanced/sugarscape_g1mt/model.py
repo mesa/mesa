@@ -157,7 +157,7 @@ class SugarscapeG1mt(mesa.Model):
         mesa.time.RandomActivationByType.
 
         Please see issue #1419 at
-        https://github.com/projectmesa/mesa/issues/1419
+        https://github.com/mesa/mesa/issues/1419
         (contributions welcome)
 
         Below is one way to update agent_records to get specific Trader agent data

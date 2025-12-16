@@ -18,7 +18,7 @@ from mesa.visualization.utils import update_counter
 def make_space_altair(*args, **kwargs):  # noqa: D103
     warnings.warn(
         "make_space_altair has been renamed to make_altair_space",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     return make_altair_space(*args, **kwargs)

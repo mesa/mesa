@@ -269,19 +269,12 @@ def SpaceRendererComponent(
         for artist in itertools.chain.from_iterable(all_artists):
             artist.remove()
 
-        # Draw the space structure if specified
         if renderer.space_mesh:
-            renderer.draw_structure(**renderer.space_kwargs)
-
-        # Draw agents if specified
+            renderer.draw_structure()
         if renderer.agent_mesh:
-            renderer.draw_agents(
-                agent_portrayal=renderer.agent_portrayal, **renderer.agent_kwargs
-            )
-
-        # Draw property layers if specified
+            renderer.draw_agents()
         if renderer.propertylayer_mesh:
-            renderer.draw_propertylayer(renderer.propertylayer_portrayal)
+            renderer.draw_propertylayer()
 
         # Update the fig every time frame
         if dependencies:
@@ -306,15 +299,11 @@ def SpaceRendererComponent(
         propertylayer = renderer.propertylayer_mesh or None
 
         if renderer.space_mesh:
-            structure = renderer.draw_structure(**renderer.space_kwargs)
+            structure = renderer.draw_structure()
         if renderer.agent_mesh:
-            agents = renderer.draw_agents(
-                renderer.agent_portrayal, **renderer.agent_kwargs
-            )
+            agents = renderer.draw_agents()
         if renderer.propertylayer_mesh:
-            propertylayer = renderer.draw_propertylayer(
-                renderer.propertylayer_portrayal
-            )
+            propertylayer = renderer.draw_propertylayer()
 
         spatial_charts_list = [
             chart for chart in [structure, propertylayer, agents] if chart
@@ -423,9 +412,9 @@ def ComponentsView(
         for index in sorted_page_indices:
             solara.v.Tab(children=[f"Page {index}"])
 
-    with solara.v.TabsItems(v_model=current_tab_index):
+    with solara.v.Window(v_model=current_tab_index):
         for _, page_id in enumerate(sorted_page_indices):
-            with solara.v.TabItem():
+            with solara.v.WindowItem():
                 if page_id == current_tab_index:
                     page_components = pages[page_id]
                     page_layout = layouts.get(page_id)

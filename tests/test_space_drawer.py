@@ -1,5 +1,6 @@
 """Test space drawer classes for various grid types."""
 
+import random
 from unittest.mock import MagicMock, patch
 
 import altair as alt
@@ -20,12 +21,12 @@ from mesa.visualization.space_drawers import (
 
 @pytest.fixture
 def orthogonal_grid():  # noqa: D103
-    return OrthogonalMooreGrid([5, 5])
+    return OrthogonalMooreGrid([5, 5], random=random.Random(42))
 
 
 @pytest.fixture
 def hex_grid():  # noqa: D103
-    return HexGrid([5, 5])
+    return HexGrid([5, 5], random=random.Random(42))
 
 
 @pytest.fixture
@@ -38,13 +39,13 @@ def network_grid():  # noqa: D103
     G = nx.Graph()  # noqa: N806
     G.add_nodes_from([0, 1, 2])
     G.add_edges_from([(0, 1), (1, 2)])
-    return Network(G)
+    return Network(G, random=random.Random(42))
 
 
 @pytest.fixture
 def voronoi_space():  # noqa: D103
     points = [(0, 0), (1, 0), (0, 1), (1, 1)]
-    return VoronoiGrid(points)
+    return VoronoiGrid(points, random=random.Random(42))
 
 
 class TestOrthogonalSpaceDrawer:
@@ -288,7 +289,7 @@ class TestVoronoiSpaceDrawer:
 
 class TestEdgeCases:  # noqa: D101
     def test_single_point_voronoi_grid(self):  # noqa: D102
-        single_point_voronoi = VoronoiGrid([(0.5, 0.5)])
+        single_point_voronoi = VoronoiGrid([(0.5, 0.5)], random=random.Random(42))
         drawer = VoronoiSpaceDrawer(single_point_voronoi)
         assert drawer.viz_xmin is not None
         assert drawer.viz_xmax is not None
@@ -300,13 +301,13 @@ class TestEdgeCases:  # noqa: D101
 
     def test_network_empty_graph(self):  # noqa: D102
         empty_graph = nx.Graph()
-        network = Network(empty_graph)
+        network = Network(empty_graph, random=random.Random(42))
         drawer = NetworkSpaceDrawer(network)
         assert len(drawer.pos) == 0
         assert drawer.s_default == 1  # Default when no nodes
 
     def test_hex_grid_single_cell(self):  # noqa: D102
-        grid = HexGrid([1, 1])
+        grid = HexGrid([1, 1], random=random.Random(42))
         drawer = HexSpaceDrawer(grid)
         assert len(drawer.hexagons) == 1
         assert drawer.s_default == (180 / 1) ** 2

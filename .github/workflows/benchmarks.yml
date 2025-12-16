@@ -25,19 +25,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - name: Add project directory to PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system numpy pandas tqdm tabulate matplotlib solara networkx scipy
-      # Benchmarks on the projectmesa main branch
+      # Benchmarks on the mesa main branch
       - name: Checkout main branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: main
-          repository: projectmesa/mesa
+          repository: mesa/mesa
       - name: Install Mesa
         run: pip install --no-deps .
       - name: Run benchmarks on main branch
@@ -45,12 +45,12 @@ jobs:
         run: python global_benchmark.py
       # Upload benchmarks, checkout PR branch, download benchmarks
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: timings-main
           path: benchmarks/timings_1.pickle
       - name: Checkout PR branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.ref }}
@@ -61,7 +61,7 @@ jobs:
       - name: Install Mesa of the PR branch
         run: pip install --no-deps .
       - name: Download benchmark results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: timings-main
           path: benchmarks
