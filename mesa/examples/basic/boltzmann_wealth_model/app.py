@@ -60,10 +60,15 @@ model = BoltzmannWealth(50, 10, 10)
 # It builds the visualization in layers, first drawing the grid structure,
 # and then drawing the agents on top. It uses a specified backend
 # (like "altair" or "matplotlib") for creating the plots.
-renderer = SpaceRenderer(model, backend="altair")
-# Can customize the grid appearance.
-renderer.draw_structure(grid_color="black", grid_dash=[6, 2], grid_opacity=0.3)
-renderer.draw_agents(agent_portrayal=agent_portrayal, cmap="viridis", vmin=0, vmax=10)
+
+renderer = (
+    SpaceRenderer(model, backend="altair")
+    .setup_structure(  # To customize the grid appearance.
+        grid_color="black", grid_dash=[6, 2], grid_opacity=0.3
+    )
+    .setup_agents(agent_portrayal, cmap="viridis", vmin=0, vmax=10)
+)
+renderer.render()
 
 # The post_process function is used to modify the Altair chart after it has been created.
 # It can be used to add legends, colorbars, or other visual elements.
