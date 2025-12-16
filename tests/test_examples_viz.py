@@ -16,11 +16,12 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
     SpaceMatplotlib,
 )
-from mesa.visualization.components import AgentPortrayalStyle
+
 
 def run_model_test(
     model,
