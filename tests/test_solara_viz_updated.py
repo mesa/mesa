@@ -148,8 +148,12 @@ def test_call_space_drawer(mocker):
 
     propertylayer_portrayal = None
 
-    renderer = SpaceRenderer(model, backend="matplotlib")
-    renderer.render(agent_portrayal, propertylayer_portrayal)
+    renderer = (
+        SpaceRenderer(model, backend="matplotlib")
+        .setup_agents(agent_portrayal)
+        .setup_propertylayer(propertylayer_portrayal)
+        .render()
+    )
 
     # component must be rendered for code to run
     solara.render(
@@ -166,7 +170,7 @@ def test_call_space_drawer(mocker):
     )
 
     mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer, agent_portrayal)
+    mock_draw_agents.assert_called_with(renderer)
     # should not call this method if portrayal is None
     mock_draw_properties.assert_not_called()
 
@@ -193,8 +197,12 @@ def test_call_space_drawer(mocker):
 
     solara.render(SolaraViz(model, renderer, components=[]))
 
-    renderer = SpaceRenderer(model, backend="altair")
-    renderer.render(agent_portrayal, propertylayer_portrayal)
+    renderer = (
+        SpaceRenderer(model, backend="altair")
+        .setup_agents(agent_portrayal)
+        .setup_propertylayer(propertylayer_portrayal)
+        .render()
+    )
 
     assert renderer.backend == "altair"
     assert isinstance(
@@ -202,8 +210,8 @@ def test_call_space_drawer(mocker):
     )
 
     mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer, agent_portrayal)
-    mock_draw_properties.assert_called_with(renderer, propertylayer_portrayal)
+    mock_draw_agents.assert_called_with(renderer)
+    mock_draw_properties.assert_called_with(renderer)
 
     mock_draw_space.reset_mock()
     mock_draw_agents.reset_mock()
@@ -211,7 +219,7 @@ def test_call_space_drawer(mocker):
 
     solara.render(SolaraViz(model))
 
-    # noting is drawn if renderer is not passed
+    # nothing is drawn if renderer is not passed
     assert mock_draw_space.call_count == 0
     assert mock_draw_agents.call_count == 0
     assert mock_draw_properties.call_count == 0
