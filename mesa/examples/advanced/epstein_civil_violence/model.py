@@ -32,10 +32,8 @@ class EpsteinCivilViolence(mesa.Model):
         movement: binary, whether agents try to move at step end
         max_iters: model may not have a natural stopping point, so we set a
             max.
-        activation_order: "Random" (default) or "Sequential". Determines if
-            agents act in random order or fixed order each step.
-        grid_type: "Von Neumann" (default) or "Moore". Determines
-            neighborhood topology (4 vs 8 neighbors).
+        activation_order: "Random" (default) or "Sequential". Determines if agents act in random or fixed order.
+        grid_type: "Von Neumann" (default) or "Moore". Determines neighborhood topology (4 vs 8 neighbors).
     """
 
     def __init__(
