@@ -1,4 +1,5 @@
 import mesa
+from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid #
 from mesa.examples.advanced.epstein_civil_violence.agents import (
     Citizen,
     CitizenState,
@@ -31,6 +32,10 @@ class EpsteinCivilViolence(mesa.Model):
         movement: binary, whether agents try to move at step end
         max_iters: model may not have a natural stopping point, so we set a
             max.
+        activation_order: "Random" (default) or "Sequential". Determines if agents
+            act in random order or fixed order each step.
+        grid_type: "Von Neumann" (default) or "Moore". Determines neighborhood
+            topology (4 vs 8 neighbors).
     """
 
     def __init__(
@@ -48,14 +53,22 @@ class EpsteinCivilViolence(mesa.Model):
         movement=True,
         max_iters=1000,
         seed=None,
+        activation_order="Random",
+        grid_type="Von Neumann",
     ):
         super().__init__(seed=seed)
         self.movement = movement
         self.max_iters = max_iters
+        self.activation_order = activation_order
 
-        self.grid = mesa.discrete_space.OrthogonalVonNeumannGrid(
-            (width, height), capacity=1, torus=True, random=self.random
-        )
+        if grid_type == "Moore":
+            self.grid = OrthogonalMooreGrid(
+                (width, height), capacity=1, torus=True, random=self.random
+            )
+        else:
+            self.grid = OrthogonalVonNeumannGrid(
+                (width, height), capacity=1, torus=True, random=self.random
+            )
 
         model_reporters = {
             "active": CitizenState.ACTIVE.name,
@@ -99,7 +112,11 @@ class EpsteinCivilViolence(mesa.Model):
         """
         Advance the model by one step and collect data.
         """
-        self.agents.shuffle_do("step")
+        if self.activation_order == "Sequential":
+            self.agents.do("step")
+        else:
+            self.agents.shuffle_do("step")
+
         self._update_counts()
         self.datacollector.collect(self)
 
