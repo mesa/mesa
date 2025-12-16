@@ -149,7 +149,9 @@ def collect_agent_data(
         else:
             aps = portray_input
             # default to agent's color if not provided
-            if aps.edgecolors is None:
+            if aps.edgecolors is None and not isinstance(
+                aps.color, (int, float, np.number)
+            ):
                 aps.edgecolors = aps.color
             # get position if not specified
             if aps.x is None and aps.y is None:

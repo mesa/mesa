@@ -45,7 +45,11 @@ plot_component = make_plot_component("Cooperating_Agents", backend="altair", gri
 # Initialize model
 initial_model = PdGrid()
 # Create grid and agent visualization component using Altair
-renderer = SpaceRenderer(initial_model, backend="altair").render(pd_agent_portrayal)
+renderer = (
+    SpaceRenderer(initial_model, backend="altair")
+    .setup_agents(pd_agent_portrayal)
+    .render()
+)
 
 # Create visualization with all components
 page = SolaraViz(
