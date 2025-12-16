@@ -9,7 +9,10 @@ from __future__ import annotations
 import contextlib
 import warnings
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from mesa.visualization.components import PropertyLayerStyle
 
 import altair as alt
 import numpy as np
@@ -203,7 +206,7 @@ class SpaceRenderer:
         return self
 
     def setup_propertylayer(
-        self, propertylayer_portrayal: Callable | dict
+        self, propertylayer_portrayal: Callable | dict | PropertyLayerStyle
     ) -> SpaceRenderer:
         """Setup property layers on the space without drawing.
 
@@ -358,7 +361,9 @@ class SpaceRenderer:
                 self.propertylayer_portrayal
             )
         elif isinstance(self.propertylayer_portrayal, PropertyLayerStyle):
-            self.propertylayer_portrayal = lambda _: self.propertylayer_portrayal
+            # Capture the style instance to avoid circular reference
+            style = self.propertylayer_portrayal
+            self.propertylayer_portrayal = lambda _: style
         # else: already a callable, use as-is
 
         number_of_propertylayers = sum(
