@@ -10,7 +10,7 @@ import solara
 import mesa
 import mesa.visualization.backends
 from mesa.space import MultiGrid, PropertyLayer
-from mesa.visualization.components import PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
@@ -144,7 +144,7 @@ def test_call_space_drawer(mocker):
     model = MockModel()
 
     def agent_portrayal(agent):
-        return {"marker": "o", "color": "gray"}
+        return AgentPortrayalStyle(marker="o", color="gray")
 
     propertylayer_portrayal = None
 
