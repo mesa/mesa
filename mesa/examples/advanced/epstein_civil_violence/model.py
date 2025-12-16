@@ -1,5 +1,5 @@
 import mesa
-from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid #
+from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid  #
 from mesa.examples.advanced.epstein_civil_violence.agents import (
     Citizen,
     CitizenState,
