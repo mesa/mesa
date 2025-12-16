@@ -40,8 +40,8 @@ jobs:
       - name: Build distributions
         run: hatch build
       - name: Upload package as artifact to GitHub
-        if: github.repository == 'projectmesa/mesa' && startsWith(github.ref, 'refs/tags')
-        uses: actions/upload-artifact@v5
+        if: github.repository == 'mesa/mesa' && startsWith(github.ref, 'refs/tags')
+        uses: actions/upload-artifact@v6
         with:
           name: package
           path: dist/

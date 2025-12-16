@@ -13,9 +13,9 @@ these multiple levels, where each level can have agents with constituting_agents
 To demonstrate meta-agents capability there are two examples:
 1 - Alliance formation which shows emergent meta-agent formation in
 advanced examples:
-https://github.com/projectmesa/mesa/tree/main/mesa/examples/advanced/alliance_formation
+https://github.com/mesa/mesa/tree/main/mesa/examples/advanced/alliance_formation
 2 - Warehouse model in the Mesa example's repository
-https://github.com/projectmesa/mesa-examples/tree/main/examples/warehouse
+https://github.com/mesa/mesa-examples/tree/main/examples/warehouse
 
 To accomplish this the MetaAgent module is as follows:
 

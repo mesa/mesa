@@ -4,7 +4,7 @@
 def test_import():
     """This tests the new, simpler Mesa namespace.
 
-    See https://github.com/projectmesa/mesa/pull/1294.
+    See https://github.com/mesa/mesa/pull/1294.
     """
     import mesa  # noqa: PLC0415
     from mesa.space import MultiGrid  # noqa: PLC0415

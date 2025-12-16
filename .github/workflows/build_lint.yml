@@ -41,7 +41,7 @@ jobs:
           - os: ubuntu
             python-version: "3.14"
             pip-pre: "--pre"
-          # Disabled for now. See https://github.com/projectmesa/mesa/issues/1253
+          # Disabled for now. See https://github.com/mesa/mesa/issues/1253
           #- os: ubuntu
           #  python-version: 'pypy-3.8'
 
@@ -85,7 +85,7 @@ jobs:
       - name: Checkout mesa-examples
         uses: actions/checkout@v6
         with:
-          repository: projectmesa/mesa-examples
+          repository: mesa/mesa-examples
           path: mesa-examples
       - name: Test examples
         run: |

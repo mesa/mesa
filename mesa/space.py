@@ -559,8 +559,8 @@ class _Grid:
 
         # This method is based on Agents.jl's random_empty() implementation. See
         # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/projectmesa/mesa/issues/1052 and
-        # https://github.com/projectmesa/mesa/pull/1565. The cutoff value provided
+        # https://github.com/mesa/mesa/issues/1052 and
+        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
         if num_empty_cells > self.cutoff_empties:
             while True:

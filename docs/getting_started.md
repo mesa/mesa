@@ -36,17 +36,17 @@ To further explore Mesa and its features, we have the following resources availa
 - [Mesa API reference](apis): Detailed documentation of Mesa's classes and functions.
 
 ### Repository of models built using MESA
-- [Mesa Examples repository](https://github.com/projectmesa/mesa-examples): A collection of example models demonstrating various Mesa features and modeling techniques.
+- [Mesa Examples repository](https://github.com/mesa/mesa-examples): A collection of example models demonstrating various Mesa features and modeling techniques.
 
 ### Migration guide
 - [Mesa 3.0 Migration guide](migration_guide): If you're upgrading from an earlier version of Mesa, this guide will help you navigate the changes in Mesa 3.0.
 
 ### Source Ccode and development
-- [Mesa GitHub repository](https://github.com/projectmesa/mesa): Access the full source code of Mesa, contribute to its development, or report issues.
-- [Mesa release notes](https://github.com/projectmesa/mesa/releases): View the detailed changelog of Mesa, including all past releases and their features.
+- [Mesa GitHub repository](https://github.com/mesa/mesa): Access the full source code of Mesa, contribute to its development, or report issues.
+- [Mesa release notes](https://github.com/mesa/mesa/releases): View the detailed changelog of Mesa, including all past releases and their features.
 
 ### Community and support
-- [Mesa GitHub Discussions](https://github.com/projectmesa/mesa/discussions): Join discussions, ask questions, and connect with other Mesa users.
+- [Mesa GitHub Discussions](https://github.com/mesa/mesa/discussions): Join discussions, ask questions, and connect with other Mesa users.
 - [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org): Real-time chat for quick questions and community interaction.
 
 Enjoy modelling with Mesa, and feel free to reach out!

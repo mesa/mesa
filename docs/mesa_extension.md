@@ -22,7 +22,7 @@ Mesa-Geo is an extension of the Mesa framework designed to facilitate working wi
 
 ---
 **Additional Resources:**
-For more information, visit the official [Mesa-Geo repository](https://github.com/projectmesa/mesa-geo?tab=readme-ov-file).
+For more information, visit the official [Mesa-Geo repository](https://github.com/mesa/mesa-geo?tab=readme-ov-file).
 
 ---
 
@@ -54,7 +54,7 @@ Mesa Examples provide a collection of models and use cases demonstrating the fea
 ---
 
 **For More Information:**
-For more Detail, Visit the [Mesa Examples Repository](https://github.com/projectmesa/mesa/tree/main/mesa/examples).
+For more Detail, Visit the [Mesa Examples Repository](https://github.com/mesa/mesa/tree/main/mesa/examples).
 
 ---
 
@@ -92,6 +92,6 @@ Distributed under the MIT License.
 ---
 
 **More Information:**
-Visit the [GitHub Repository](https://github.com/projectmesa/mesa-frames).
+Visit the [GitHub Repository](https://github.com/mesa/mesa-frames).
 
 ---

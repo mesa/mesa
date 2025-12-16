@@ -12,7 +12,7 @@ if GITHUB_TOKEN is None:
         "Please specify your GitHub Personal Access Token as GITHUB_TOKEN in your .bashrc"
     )
     exit()
-GITHUB_USERNAME = "projectmesa"
+GITHUB_USERNAME = "mesa"
 GITHUB_REPO = "mesa"
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 TIMEOUT = 20
@@ -68,7 +68,7 @@ def get_closed_pull_requests_since_latest_release(
 
 
 def main() -> None:  # noqa: D103
-    # Based on https://github.com/projectmesa/mesa/pull/1917#issuecomment-1871352058
+    # Based on https://github.com/mesa/mesa/pull/1917#issuecomment-1871352058
     latest_release_date = get_latest_release_date()
     pull_requests = get_closed_pull_requests_since_latest_release(latest_release_date)
     if len(pull_requests) <= 0:
