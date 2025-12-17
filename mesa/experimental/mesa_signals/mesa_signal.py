@@ -524,7 +524,7 @@ class ContinuousObservable(Observable):
             # First time - create ContinuousState
             state = ContinuousState(
                 value=float(value),
-                last_update=self._get_time(instance),
+                last_update=instance.model.time,
                 rate_func=self._rate_func,
             )
             setattr(instance, self.private_name, state)
@@ -532,7 +532,7 @@ class ContinuousObservable(Observable):
             # Update existing - just change the value and reset timestamp
             old_value = state.value
             state.value = float(value)
-            state.last_update = self._get_time(instance)
+            state.last_update = instance.model.time
 
             # Notify changes
             instance.notify(self.public_name, old_value, state.value, "change")
@@ -558,7 +558,7 @@ class ContinuousObservable(Observable):
         if state is None:
             # First access - initialize
             # Use simulator time if available, otherwise fall back to steps
-            current_time = self._get_time(instance)
+            current_time = instance.model.time
             state = ContinuousState(
                 value=self.fallback_value,
                 last_update=current_time,
@@ -567,7 +567,7 @@ class ContinuousObservable(Observable):
             setattr(instance, self.private_name, state)
 
         # Calculate new value based on time
-        current_time = self._get_time(instance)
+        current_time = instance.model.time
         elapsed = current_time - state.last_update
 
         if elapsed > 0:
@@ -601,22 +601,6 @@ class ContinuousObservable(Observable):
             PROCESSING_SIGNALS.add(_hashable_signal(instance, self.public_name))
 
         return state.value
-
-    # TODO: A universal truth for time should be implemented structurally in Mesa. See https://github.com/projectmesa/mesa/discussions/2228
-    def _get_time(self, instance):
-        """Get current time from model, trying multiple sources."""
-        model = instance.model
-
-        # Try simulator time first (for DEVS models)
-        if hasattr(model, "simulator") and hasattr(model.simulator, "time"):
-            return model.simulator.time
-
-        # Fall back to model.time if it exists
-        if hasattr(model, "time"):
-            return model.time
-
-        # Last resort: use steps as a proxy for time
-        return float(model.steps)
 
 
 class ContinuousState:
