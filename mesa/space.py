@@ -645,7 +645,7 @@ class PropertyLayer:
         dtype_obj = np.dtype(dtype)
         try:
             # Try to convert the value to the target dtype to check compatibility
-            test_value = np.array([default_value], dtype=dtype_obj)[0]
+            _ = np.array([default_value], dtype=dtype_obj)[0]
             # Check if conversion would lose precision
             if (
                 dtype_obj.kind == "i"
