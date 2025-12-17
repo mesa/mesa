@@ -16,7 +16,7 @@ from mesa.visualization.utils import update_counter
 def make_space_matplotlib(*args, **kwargs):  # noqa: D103
     warnings.warn(
         "make_space_matplotlib has been renamed to make_mpl_space_component",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     return make_mpl_space_component(*args, **kwargs)
@@ -98,7 +98,7 @@ def SpaceMatplotlib(
 def make_plot_measure(*args, **kwargs):  # noqa: D103
     warnings.warn(
         "make_plot_measure has been renamed to make_plot_component",
-        DeprecationWarning,
+        FutureWarning,
         stacklevel=2,
     )
     return make_mpl_plot_component(*args, **kwargs)

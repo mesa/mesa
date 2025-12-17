@@ -4,12 +4,12 @@
 :target: https://doi.org/10.21105/joss.07668
 ```
 
-```{image} https://github.com/projectmesa/mesa/workflows/build/badge.svg
-:target: https://github.com/projectmesa/mesa/actions
+```{image} https://github.com/mesa/mesa/workflows/build/badge.svg
+:target: https://github.com/mesa/mesa/actions
 ```
 
-```{image} https://codecov.io/gh/projectmesa/mesa/branch/main/graph/badge.svg
-:target: https://codecov.io/gh/projectmesa/mesa
+```{image} https://codecov.io/gh/mesa/mesa/branch/main/graph/badge.svg
+:target: https://codecov.io/gh/mesa/mesa
 ```
 
 ```{image} https://img.shields.io/badge/code%20style-black-000000.svg
@@ -90,7 +90,7 @@ Mesa is an open source project and welcomes contributions:
 To cite Mesa in your publication, you can refer to our peer-reviewed article in the Journal of Open Source Software (JOSS):
 - ter Hoeven, E., Kwakkel, J., Hess, V., Pike, T., Wang, B., rht, & Kazil, J. (2025). Mesa 3: Agent-based modeling with Python in 2025. Journal of Open Source Software, 10(107), 7668. https://doi.org/10.21105/joss.07668
 
-Our [CITATION.cff](https://github.com/projectmesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
+Our [CITATION.cff](https://github.com/mesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
 
 The original Mesa conference paper from 2015 is [available here](http://conference.scipy.org.s3-website-us-east-1.amazonaws.com/proceedings/scipy2015/jacqueline_kazil.html).
 
@@ -112,13 +112,13 @@ API Documentation <apis/api_main>
 - {ref}`modindex`
 - {ref}`search`
 
-[contributors guide]: https://github.com/projectmesa/mesa/blob/main/CONTRIBUTING.md
+[contributors guide]: https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md
 [GSoC at Mesa — Candidates Guide]: GSoC.md
-[github repository]: https://github.com/projectmesa/mesa/
-[github discussions]: https://github.com/projectmesa/mesa/discussions
-[issue tracker]: https://github.com/projectmesa/mesa/issues
+[github repository]: https://github.com/mesa/mesa/
+[github discussions]: https://github.com/mesa/mesa/discussions
+[issue tracker]: https://github.com/mesa/mesa/issues
 [matrix chat room]: https://matrix.to/#/#project-mesa:matrix.org
-[mesa]: https://github.com/projectmesa/mesa/
+[mesa]: https://github.com/mesa/mesa/
 [mesa overview]: overview
 [mesa examples]: https://mesa.readthedocs.io/stable/examples.html
 [mesa introductory tutorial]: tutorials/intro_tutorial

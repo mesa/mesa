@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
+from matplotlib.figure import Figure
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from PIL import Image
 
@@ -57,7 +58,8 @@ class MatplotlibBackend(AbstractRenderer):
                 If None, creates new figure and axes.
         """
         if ax is None:
-            fig, ax = plt.subplots(constrained_layout=True)
+            fig = Figure(constrained_layout=True)
+            ax = fig.add_subplot()
             self.fig = fig
         self.ax = ax
 
@@ -113,7 +115,7 @@ class MatplotlibBackend(AbstractRenderer):
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                     ),
-                    DeprecationWarning,
+                    FutureWarning,
                     stacklevel=2,
                 )
                 # Handle legacy dict input

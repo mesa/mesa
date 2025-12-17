@@ -14,12 +14,12 @@ def test_devs_simulator():
     simulator = DEVSimulator()
 
     # setup
-    model = MagicMock(spec=Model)
+    model = Model()
     simulator.setup(model)
 
     assert len(simulator.event_list) == 0
     assert simulator.model == model
-    assert simulator.time == 0
+    assert model.time == 0.0
 
     # schedule_event_now
     fn1 = MagicMock()
@@ -43,30 +43,30 @@ def test_devs_simulator():
     simulator.run_for(0.8)
     fn1.assert_called_once()
     fn3.assert_called_once()
-    assert simulator.time == 0.8
+    assert model.time == 0.8
 
     simulator.run_for(0.2)
     fn2.assert_called_once()
-    assert simulator.time == 1.0
+    assert model.time == 1.0
 
     simulator.run_for(0.2)
-    assert simulator.time == 1.2
+    assert model.time == 1.2
 
     with pytest.raises(ValueError):
         simulator.schedule_event_absolute(fn2, 0.5)
 
     # step
     simulator = DEVSimulator()
-    model = MagicMock(spec=Model)
+    model = Model()
     simulator.setup(model)
 
     fn = MagicMock()
     simulator.schedule_event_absolute(fn, 1.0)
     simulator.run_next_event()
     fn.assert_called_once()
-    assert simulator.time == 1.0
+    assert model.time == 1.0
     simulator.run_next_event()
-    assert simulator.time == 1.0
+    assert model.time == 1.0
 
     simulator = DEVSimulator()
     with pytest.raises(Exception):
@@ -74,7 +74,7 @@ def test_devs_simulator():
 
     # cancel_event
     simulator = DEVSimulator()
-    model = MagicMock(spec=Model)
+    model = Model()
     simulator.setup(model)
     fn = MagicMock()
     event = simulator.schedule_event_relative(fn, 0.5)
@@ -85,7 +85,6 @@ def test_devs_simulator():
     simulator.reset()
     assert len(simulator.event_list) == 0
     assert simulator.model is None
-    assert simulator.time == 0.0
 
     # run without setup
     simulator = DEVSimulator()
@@ -94,15 +93,16 @@ def test_devs_simulator():
 
     # setup with time advanced
     simulator = DEVSimulator()
-    simulator.time = simulator.start_time + 1
-    model = MagicMock(spec=Model)
-    with pytest.raises(Exception):
+    model = Model()
+    model.time = 1.0  # Advance time before setup
+    with pytest.raises(ValueError):
         simulator.setup(model)
 
     # setup with event scheduled
     simulator = DEVSimulator()
-    simulator.schedule_event_now(Mock())
-    with pytest.raises(Exception):
+    model = Model()
+    simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
+    with pytest.raises(ValueError):
         simulator.setup(model)
 
 
@@ -111,7 +111,7 @@ def test_abm_simulator():
     simulator = ABMSimulator()
 
     # setup
-    model = MagicMock(spec=Model)
+    model = Model()
     simulator.setup(model)
 
     # schedule_event_next_tick
@@ -120,13 +120,23 @@ def test_abm_simulator():
     assert len(simulator.event_list) == 2
 
     simulator.run_for(3)
-    assert model.step.call_count == 3
-    assert simulator.time == 3
+    assert model.steps == 3
+    assert model.time == 3.0
 
     # run without setup
     simulator = ABMSimulator()
     with pytest.raises(Exception):
         simulator.run_until(10)
+
+
+def test_simulator_time_deprecation():
+    """Test that simulator.time emits future warning."""
+    simulator = DEVSimulator()
+    model = Model()
+    simulator.setup(model)
+
+    with pytest.warns(FutureWarning, match="simulator.time is deprecated"):
+        _ = simulator.time
 
 
 def test_simulation_event():

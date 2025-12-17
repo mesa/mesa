@@ -19,6 +19,6 @@ combining agent-based modeling with event scheduling.
 """
 
 from .eventlist import Priority, SimulationEvent
-from .simulator import ABMSimulator, DEVSimulator
+from .simulator import ABMSimulator, DEVSimulator, Simulator
 
-__all__ = ["ABMSimulator", "DEVSimulator", "Priority", "SimulationEvent"]
+__all__ = ["ABMSimulator", "DEVSimulator", "Priority", "SimulationEvent", "Simulator"]

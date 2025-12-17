@@ -1,5 +1,6 @@
 """Test Solara visualizations."""
 
+import random
 import re
 import unittest
 
@@ -117,7 +118,7 @@ def test_call_space_drawer(mocker):
         def __init__(self, seed=None):
             super().__init__(seed=seed)
             layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0
+                name="sugar", width=10, height=10, default_value=10.0, dtype=float
             )
             self.grid = MultiGrid(
                 width=10, height=10, torus=True, property_layers=layer1
@@ -204,6 +205,7 @@ def test_call_space_drawer(mocker):
     voronoi_model = mesa.Model()
     voronoi_model.grid = mesa.discrete_space.VoronoiGrid(
         centroids_coordinates=[(0, 1), (0, 0), (1, 0)],
+        random=random.Random(42),
     )
     solara.render(
         SolaraViz(voronoi_model, components=[make_mpl_space_component(agent_portrayal)])

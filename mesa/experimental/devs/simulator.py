@@ -23,6 +23,7 @@ event-driven approaches, or hybrid combinations of both.
 from __future__ import annotations
 
 import numbers
+import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -61,9 +62,17 @@ class Simulator:
         self.event_list = EventList()
         self.start_time = start_time
         self.time_unit = time_unit
+        self.model: Model | None = None
 
-        self.time = self.start_time
-        self.model = None
+    @property
+    def time(self) -> float:
+        """Simulator time (deprecated)."""
+        warnings.warn(
+            "simulator.time is deprecated, use model.time instead",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self.model.time
 
     def check_time_unit(self, time: int | float) -> bool: ...  # noqa: D102
 
@@ -78,22 +87,24 @@ class Simulator:
             Exception if event list is not empty
 
         """
-        if self.time != self.start_time:
+        if model.time != self.start_time:
             raise ValueError(
-                "trying to setup model, but current time is not equal to start_time, Has the simulator been reset or freshly initialized?"
+                f"Model time ({model.time}) does not match simulator start_time ({self.start_time}). "
+                "Has the model already been run?"
             )
         if not self.event_list.is_empty():
-            raise ValueError(
-                "trying to setup model, but events have already been scheduled. Call simulator.setup before any scheduling"
-            )
+            raise ValueError("Events already scheduled. Call setup before scheduling.")
 
         self.model = model
+        model._simulator = self  # Register simulator with model
 
     def reset(self):
-        """Reset the simulator by clearing the event list and removing the model to simulate."""
+        """Reset the simulator."""
         self.event_list.clear()
-        self.model = None
-        self.time = self.start_time
+        if self.model is not None:
+            self.model._simulator = None
+            self.model.time = self.start_time
+            self.model = None
 
     def run_until(self, end_time: int | float) -> None:
         """Run the simulator until the end time.
@@ -106,23 +117,23 @@ class Simulator:
 
         """
         if self.model is None:
-            raise Exception(
-                "simulator has not been setup, call simulator.setup(model) first"
+            raise RuntimeError(
+                "Simulator not set up. Call simulator.setup(model) first."
             )
 
         while True:
             try:
                 event = self.event_list.pop_event()
-            except IndexError:  # event list is empty
-                self.time = end_time
+            except IndexError:
+                self.model.time = end_time
                 break
 
             if event.time <= end_time:
-                self.time = event.time
+                self.model.time = event.time
                 event.execute()
             else:
-                self.time = end_time
-                self._schedule_event(event)  # reschedule event
+                self.model.time = end_time
+                self._schedule_event(event)
                 break
 
     def run_next_event(self):
@@ -133,17 +144,17 @@ class Simulator:
 
         """
         if self.model is None:
-            raise Exception(
-                "simulator has not been setup, call simulator.setup(model) first"
+            raise RuntimeError(
+                "Simulator not set up. Call simulator.setup(model) first."
             )
 
         try:
             event = self.event_list.pop_event()
-        except IndexError:  # event list is empty
+        except IndexError:
             return
-        else:
-            self.time = event.time
-            event.execute()
+
+        self.model.time = event.time
+        event.execute()
 
     def run_for(self, time_delta: int | float):
         """Run the simulator for the specified time delta.
@@ -154,7 +165,7 @@ class Simulator:
 
         """
         # fixme, raise initialization error or something like it if model.setup has not been called
-        end_time = self.time + time_delta
+        end_time = self.model.time + time_delta
         self.run_until(end_time)
 
     def schedule_event_now(
@@ -205,7 +216,7 @@ class Simulator:
             SimulationEvent: the simulation event that is scheduled
 
         """
-        if self.time > time:
+        if self.model.time > time:
             raise ValueError("trying to schedule an event in the past")
 
         event = SimulationEvent(
@@ -240,7 +251,7 @@ class Simulator:
 
         """
         event = SimulationEvent(
-            self.time + time_delta,
+            self.model.time + time_delta,
             function,
             priority=priority,
             function_args=function_args,
@@ -344,21 +355,21 @@ class ABMSimulator(Simulator):
 
         """
         if self.model is None:
-            raise Exception(
-                "simulator has not been setup, call simulator.setup(model) first"
+            raise RuntimeError(
+                "Simulator not set up. Call simulator.setup(model) first."
             )
 
         while True:
             try:
                 event = self.event_list.pop_event()
             except IndexError:
-                self.time = end_time
+                self.model.time = float(end_time)
                 break
 
-            # fixme: the alternative would be to wrap model.step with an annotation which
-            #  handles this scheduling.
             if event.time <= end_time:
-                self.time = event.time
+                self.model.time = float(event.time)
+
+                # Reschedule model.step for next tick if this is a step event
                 if event.fn() == self.model.step:
                     self.schedule_event_next_tick(
                         self.model.step, priority=Priority.HIGH
@@ -366,7 +377,7 @@ class ABMSimulator(Simulator):
 
                 event.execute()
             else:
-                self.time = end_time
+                self.model.time = float(end_time)
                 self._schedule_event(event)
                 break
 

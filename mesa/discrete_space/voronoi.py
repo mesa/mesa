@@ -62,7 +62,9 @@ class Delaunay:
         """Compute circumcenter and circumradius of a triangle in 2D."""
         points = np.asarray([self.coords[v] for v in triangle])
         points2 = np.dot(points, points.T)
-        a = np.bmat([[2 * points2, [[1], [1], [1]]], [[[1, 1, 1, 0]]]])
+        a = np.block(
+            [[2 * points2, np.array([[1], [1], [1]])], [np.array([[1, 1, 1, 0]])]]
+        )
 
         b = np.hstack((np.sum(points * points, axis=1), [1]))
         x = np.linalg.solve(a, b)

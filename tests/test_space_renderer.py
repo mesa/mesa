@@ -1,5 +1,6 @@
 """Test cases for the SpaceRenderer class in Mesa."""
 
+import random
 import re
 from unittest.mock import MagicMock, patch
 
@@ -39,8 +40,10 @@ class CustomModel(mesa.Model):
 
     def __init__(self, seed=None):  # noqa: D107
         super().__init__(seed=seed)
-        self.grid = mesa.discrete_space.OrthogonalMooreGrid([2, 2])
-        self.layer = PropertyLayer("test", [2, 2], default_value=0)
+        self.grid = mesa.discrete_space.OrthogonalMooreGrid(
+            [2, 2], random=random.Random(42)
+        )
+        self.layer = PropertyLayer("test", [2, 2], default_value=0, dtype=int)
 
         self.grid.add_property_layer(self.layer)
 
@@ -59,16 +62,22 @@ def test_backend_selection():
 @pytest.mark.parametrize(
     "grid,expected_drawer",
     [
-        (OrthogonalMooreGrid([2, 2]), OrthogonalSpaceDrawer),
+        (
+            OrthogonalMooreGrid([2, 2], random=random.Random(42)),
+            OrthogonalSpaceDrawer,
+        ),
         (SingleGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
         (MultiGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
-        (HexGrid([2, 2]), HexSpaceDrawer),
+        (HexGrid([2, 2], random=random.Random(42)), HexSpaceDrawer),
         (HexSingleGrid(width=2, height=2, torus=False), HexSpaceDrawer),
         (HexMultiGrid(width=2, height=2, torus=False), HexSpaceDrawer),
-        (Network(G=MagicMock()), NetworkSpaceDrawer),
+        (Network(G=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
         (NetworkGrid(g=MagicMock()), NetworkSpaceDrawer),
         (ContinuousSpace(x_max=2, y_max=2, torus=False), ContinuousSpaceDrawer),
-        (VoronoiGrid([[0, 0], [1, 1]]), VoronoiSpaceDrawer),
+        (
+            VoronoiGrid([[0, 0], [1, 1]], random=random.Random(42)),
+            VoronoiSpaceDrawer,
+        ),
     ],
 )
 def test_space_drawer_selection(grid, expected_drawer):
@@ -91,14 +100,16 @@ def test_map_coordinates():
     # same for orthogonal grids
     assert np.array_equal(mapped["loc"], arr)
 
-    with patch.object(model, "grid", new=HexGrid([2, 2])):
+    with patch.object(model, "grid", new=HexGrid([2, 2], random=random.Random(42))):
         sr = SpaceRenderer(model)
         mapped = sr._map_coordinates(args)
 
         assert not np.array_equal(mapped["loc"], arr)
         assert mapped["loc"].shape == arr.shape
 
-    with patch.object(model, "grid", new=Network(G=MagicMock())):
+    with patch.object(
+        model, "grid", new=Network(G=MagicMock(), random=random.Random(42))
+    ):
         sr = SpaceRenderer(model)
         # Patch the space_drawer.pos to provide a mapping for the test
         sr.space_drawer.pos = {0: (0, 0), 1: (1, 1), 2: (2, 2), 3: (3, 3)}
@@ -117,10 +128,9 @@ def test_render_calls():
     sr.draw_agents = MagicMock()
     sr.draw_propertylayer = MagicMock()
 
-    sr.render(
-        agent_portrayal=lambda _: {},
-        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red"),
-    )
+    sr.setup_agents(agent_portrayal=lambda _: {}).setup_propertylayer(
+        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red")
+    ).render()
 
     sr.draw_structure.assert_called_once()
     sr.draw_agents.assert_called_once()
@@ -139,7 +149,9 @@ def test_no_property_layers():
             Exception, match=re.escape("No property layers were found on the space.")
         ),
     ):
-        sr.draw_propertylayer(lambda _: PropertyLayerStyle(color="red"))
+        sr.setup_propertylayer(
+            lambda _: PropertyLayerStyle(color="red")
+        ).draw_propertylayer()
 
 
 def test_post_process():
