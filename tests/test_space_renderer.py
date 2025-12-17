@@ -128,10 +128,9 @@ def test_render_calls():
     sr.draw_agents = MagicMock()
     sr.draw_propertylayer = MagicMock()
 
-    sr.render(
-        agent_portrayal=lambda _: {},
-        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red"),
-    )
+    sr.setup_agents(agent_portrayal=lambda _: {}).setup_propertylayer(
+        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red")
+    ).render()
 
     sr.draw_structure.assert_called_once()
     sr.draw_agents.assert_called_once()
@@ -150,7 +149,9 @@ def test_no_property_layers():
             Exception, match=re.escape("No property layers were found on the space.")
         ),
     ):
-        sr.draw_propertylayer(lambda _: PropertyLayerStyle(color="red"))
+        sr.setup_propertylayer(
+            lambda _: PropertyLayerStyle(color="red")
+        ).draw_propertylayer()
 
 
 def test_post_process():

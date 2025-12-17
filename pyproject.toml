@@ -8,7 +8,7 @@ description = "Agent-based modeling (ABM) in Python"
 license = { text = "Apache 2.0" }
 requires-python = ">=3.12"
 authors = [
-  { name = "Project Mesa Team", email = "maintainers@projectmesa.dev" },
+  { name = "Mesa Team", email = "maintainers@projectmesa.dev" },
 ]
 keywords = [
   "agent",
@@ -87,8 +87,8 @@ docs = [
 ]
 
 [project.urls]
-homepage = "https://github.com/projectmesa/mesa"
-repository = "https://github.com/projectmesa/mesa"
+homepage = "https://github.com/mesa/mesa"
+repository = "https://github.com/mesa/mesa"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]

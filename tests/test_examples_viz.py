@@ -16,6 +16,7 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
     SpaceMatplotlib,
@@ -107,7 +108,9 @@ def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
     model = Schelling(seed=42)
 
     def agent_portrayal(agent):
-        return {"color": "tab:orange" if agent.type == 0 else "tab:blue"}
+        return AgentPortrayalStyle(
+            color="tab:orange" if agent.type == 0 else "tab:blue"
+        )
 
     measure_config = {"happy": "tab:green"}
 
@@ -136,27 +139,26 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         if agent is None:
             return
 
-        portrayal = {
-            "size": 25,
-        }
-
         if isinstance(agent, Wolf):
-            portrayal["color"] = "tab:red"
-            portrayal["marker"] = "o"
-            portrayal["zorder"] = 2
+            return AgentPortrayalStyle(
+                size=25,
+                color="tab:red",
+                marker="o",
+                zorder=2,
+            )
         elif isinstance(agent, Sheep):
-            portrayal["color"] = "tab:cyan"
-            portrayal["marker"] = "o"
-            portrayal["zorder"] = 2
+            return AgentPortrayalStyle(
+                size=25,
+                color="tab:cyan",
+                marker="o",
+                zorder=2,
+            )
         elif isinstance(agent, GrassPatch):
-            if agent.fully_grown:
-                portrayal["color"] = "tab:green"
-            else:
-                portrayal["color"] = "tab:brown"
-            portrayal["marker"] = "s"
-            portrayal["size"] = 75
-
-        return portrayal
+            return AgentPortrayalStyle(
+                size=75,
+                color="tab:green" if agent.fully_grown else "tab:brown",
+                marker="s",
+            )
 
     measure_config = {"Wolves": "tab:orange", "Sheep": "tab:cyan", "Grass": "tab:green"}
 
@@ -175,7 +177,7 @@ def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page
     model = BoidFlockers(seed=42)
 
     def agent_portrayal(agent):
-        return {"color": "tab:blue"}
+        return AgentPortrayalStyle(color="tab:blue")
 
     run_model_test(
         model=model,
@@ -192,8 +194,7 @@ def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.P
     model = BoltzmannWealth(seed=42)
 
     def agent_portrayal(agent):
-        color = agent.wealth  # we are using a colormap to translate wealth to color
-        return {"color": color}
+        return AgentPortrayalStyle(color=agent.wealth)
 
     measure_config = "Gini"
 
@@ -219,7 +220,7 @@ def test_virus_on_network_model(solara_test, page_session: playwright.sync_api.P
             State.SUSCEPTIBLE: "tab:green",
             State.RESISTANT: "tab:gray",
         }
-        return {"color": node_color_dict[agent.state], "size": 10}
+        return AgentPortrayalStyle(color=node_color_dict[agent.state], size=10)
 
     measure_config = {
         "Infected": "tab:red",
@@ -245,11 +246,11 @@ def test_conways_game_of_life_model(
     model = ConwaysGameOfLife(seed=42)
 
     def agent_portrayal(agent):
-        return {
-            "color": "white" if agent.state == 0 else "black",
-            "marker": "s",
-            "size": 25,
-        }
+        return AgentPortrayalStyle(
+            color="white" if agent.state == 0 else "black",
+            marker="s",
+            size=25,
+        )
 
     measure_config = None
 
@@ -283,16 +284,16 @@ def test_epstein_civil_violence_model(
         if agent is None:
             return
 
-        portrayal = {
-            "size": 50,
-        }
-
         if isinstance(agent, Citizen):
-            portrayal["color"] = agent_colors[agent.state]
+            return AgentPortrayalStyle(
+                size=50,
+                color=agent_colors[agent.state],
+            )
         elif isinstance(agent, Cop):
-            portrayal["color"] = COP_COLOR
-
-        return portrayal
+            return AgentPortrayalStyle(
+                size=50,
+                color=COP_COLOR,
+            )
 
     measure_config = {state.name.lower(): agent_colors[state] for state in CitizenState}
 
@@ -311,7 +312,7 @@ def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Pa
     model = SugarscapeG1mt(seed=42)
 
     def agent_portrayal(agent):
-        return {"marker": "o", "color": "red", "size": 10}
+        return AgentPortrayalStyle(marker="o", color="red", size=10)
 
     measure_config = "Price"
 
@@ -321,6 +322,7 @@ def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Pa
         measure_config=measure_config,
         solara_test=solara_test,
         page_session=page_session,
+        steps=50,
     )
 
 
@@ -330,11 +332,11 @@ def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
     model = PdGrid(seed=42)
 
     def agent_portrayal(agent):
-        return {
-            "color": "blue" if agent.move == "C" else "red",
-            "marker": "s",  # square marker
-            "size": 25,
-        }
+        return AgentPortrayalStyle(
+            color="blue" if agent.move == "C" else "red",
+            marker="s",  # square marker
+            size=25,
+        )
 
     measure_config = "Cooperating_Agents"
 

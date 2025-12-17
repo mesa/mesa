@@ -13,31 +13,31 @@ We're excited to welcome six new contributors to the Mesa project in this releas
 
 ## What's Changed
 ### 🐛 Bugs fixed
-* Fix visualization error for PropertyLayers on HexGrids. Add transpose … by @flucco in https://github.com/projectmesa/mesa/pull/2868
-* Fix: Property layer data mapping for both Altair and Matplotlib backends by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2869
-* Fix: AgentSet initialization should not require explicit random number generator by @verisimilidude2 in https://github.com/projectmesa/mesa/pull/2789
+* Fix visualization error for PropertyLayers on HexGrids. Add transpose … by @flucco in https://github.com/mesa/mesa/pull/2868
+* Fix: Property layer data mapping for both Altair and Matplotlib backends by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2869
+* Fix: AgentSet initialization should not require explicit random number generator by @verisimilidude2 in https://github.com/mesa/mesa/pull/2789
 ### 🔍 Examples updated
-* Fix missing variable g in the tutorial by @pazmiller in https://github.com/projectmesa/mesa/pull/2849
+* Fix missing variable g in the tutorial by @pazmiller in https://github.com/mesa/mesa/pull/2849
 ### 📜 Documentation improvements
-* fix broken link in example by @BigTurtle8 in https://github.com/projectmesa/mesa/pull/2847
-* Docs: Fix ValueError in tutorial by adding default value to MoneyModel by @pragam-m25 in https://github.com/projectmesa/mesa/pull/2871
-* Add guide for GSoC contributors by @colinfrisch in https://github.com/projectmesa/mesa/pull/2873
-* Deprecate `agent_portrayal` and update Migration guide by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2872
-* Docs: List overview separate from tutorials by @dhiraj-143r in https://github.com/projectmesa/mesa/pull/2878
+* fix broken link in example by @BigTurtle8 in https://github.com/mesa/mesa/pull/2847
+* Docs: Fix ValueError in tutorial by adding default value to MoneyModel by @pragam-m25 in https://github.com/mesa/mesa/pull/2871
+* Add guide for GSoC contributors by @colinfrisch in https://github.com/mesa/mesa/pull/2873
+* Deprecate `agent_portrayal` and update Migration guide by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2872
+* Docs: List overview separate from tutorials by @dhiraj-143r in https://github.com/mesa/mesa/pull/2878
 ### 🔧 Maintenance
-* ruff fixes in visualization by @quaquel in https://github.com/projectmesa/mesa/pull/2867
-* [pre-commit.ci] pre-commit autoupdate: Update to ruff v0.13 by @pre-commit-ci[bot] in https://github.com/projectmesa/mesa/pull/2840
-* Tests: Add test for InputText in UserInputs by @pragam-m25 in https://github.com/projectmesa/mesa/pull/2870
+* ruff fixes in visualization by @quaquel in https://github.com/mesa/mesa/pull/2867
+* [pre-commit.ci] pre-commit autoupdate: Update to ruff v0.13 by @pre-commit-ci[bot] in https://github.com/mesa/mesa/pull/2840
+* Tests: Add test for InputText in UserInputs by @pragam-m25 in https://github.com/mesa/mesa/pull/2870
 
 ## New Contributors
-* @BigTurtle8 made their first contribution in https://github.com/projectmesa/mesa/pull/2847
-* @pazmiller made their first contribution in https://github.com/projectmesa/mesa/pull/2849
-* @flucco made their first contribution in https://github.com/projectmesa/mesa/pull/2868
-* @pragam-m25 made their first contribution in https://github.com/projectmesa/mesa/pull/2870
-* @dhiraj-143r made their first contribution in https://github.com/projectmesa/mesa/pull/2878
-* @verisimilidude2 made their first contribution in https://github.com/projectmesa/mesa/pull/2789
+* @BigTurtle8 made their first contribution in https://github.com/mesa/mesa/pull/2847
+* @pazmiller made their first contribution in https://github.com/mesa/mesa/pull/2849
+* @flucco made their first contribution in https://github.com/mesa/mesa/pull/2868
+* @pragam-m25 made their first contribution in https://github.com/mesa/mesa/pull/2870
+* @dhiraj-143r made their first contribution in https://github.com/mesa/mesa/pull/2878
+* @verisimilidude2 made their first contribution in https://github.com/mesa/mesa/pull/2789
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.3.0...v3.3.1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.3.0...v3.3.1
 
 # 3.3.0 (2025-09-06)
 ## Highlights
@@ -56,80 +56,80 @@ In addition, there were many other improvements to mesa, from bug fixes to impro
 
 ## What's Changed
 ### 🧪 Experimental features
-* Introduction of Space Renderer by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2803
+* Introduction of Space Renderer by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2803
 ### 🎉 New features added
-* docs/nix flake by @hussainsultan in https://github.com/projectmesa/mesa/pull/2788
+* docs/nix flake by @hussainsultan in https://github.com/mesa/mesa/pull/2788
 ### 🛠 Enhancements made
-* Added `AgentPortrayalStyle` and `PropertyLayerStyle` by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2786
-* Allow image markers to plot agents by @Holzhauer in https://github.com/projectmesa/mesa/pull/2799
-* Renderer null check fix in solaraviz by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2809
-* Add Altair plotting functionality by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2810
-* Fix: Grid not showing in altair if both draw_structure and draw_agnets are called. by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2817
-* Allowing color mapping to integers in AgentPortrayalStyle by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2818
-* Added multipage functionality by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2827
+* Added `AgentPortrayalStyle` and `PropertyLayerStyle` by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2786
+* Allow image markers to plot agents by @Holzhauer in https://github.com/mesa/mesa/pull/2799
+* Renderer null check fix in solaraviz by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2809
+* Add Altair plotting functionality by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2810
+* Fix: Grid not showing in altair if both draw_structure and draw_agnets are called. by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2817
+* Allowing color mapping to integers in AgentPortrayalStyle by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2818
+* Added multipage functionality by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2827
 ### 🐛 Bugs fixed
-* Bugfix ModelCreator for required model parameters and user adjusted model parameters by @Holzhauer in https://github.com/projectmesa/mesa/pull/2780
-* Remove unneeded int cast by @derkweijers in https://github.com/projectmesa/mesa/pull/2791
-* Add quotes to readme to insure multi-terminal compliance. by @jackiekazil in https://github.com/projectmesa/mesa/pull/2787
-* Fix broken docs link - Fix issue 2792 by @catherinedevlin in https://github.com/projectmesa/mesa/pull/2793
-* Bug fixes for portrayal components by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2798
-* fix : prevent breakdown when citizen_density (Initial Agent Density s… by @colinfrisch in https://github.com/projectmesa/mesa/pull/2806
-* Fix issue #2812 by @Tosiekdev in https://github.com/projectmesa/mesa/pull/2821
+* Bugfix ModelCreator for required model parameters and user adjusted model parameters by @Holzhauer in https://github.com/mesa/mesa/pull/2780
+* Remove unneeded int cast by @derkweijers in https://github.com/mesa/mesa/pull/2791
+* Add quotes to readme to insure multi-terminal compliance. by @jackiekazil in https://github.com/mesa/mesa/pull/2787
+* Fix broken docs link - Fix issue 2792 by @catherinedevlin in https://github.com/mesa/mesa/pull/2793
+* Bug fixes for portrayal components by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2798
+* fix : prevent breakdown when citizen_density (Initial Agent Density s… by @colinfrisch in https://github.com/mesa/mesa/pull/2806
+* Fix issue #2812 by @Tosiekdev in https://github.com/mesa/mesa/pull/2821
 ### 📜 Documentation improvements
-* Benchmarks documentation by @colinfrisch in https://github.com/projectmesa/mesa/pull/2764
-* minor corrections in tutorials by @Holzhauer in https://github.com/projectmesa/mesa/pull/2778
-* Correct example code in "Overview of the MESA library" by @Holzhauer in https://github.com/projectmesa/mesa/pull/2781
-* Updating Examples and Docs inline with the new API. by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2819
+* Benchmarks documentation by @colinfrisch in https://github.com/mesa/mesa/pull/2764
+* minor corrections in tutorials by @Holzhauer in https://github.com/mesa/mesa/pull/2778
+* Correct example code in "Overview of the MESA library" by @Holzhauer in https://github.com/mesa/mesa/pull/2781
+* Updating Examples and Docs inline with the new API. by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2819
 ### 🔧 Maintenance
-* Add `.coderabbit.yaml` file to allow reviewing and updating our CodeRabbit configuration by @EwoutH in https://github.com/projectmesa/mesa/pull/2761
-* add nix flake by @hussainsultan in https://github.com/projectmesa/mesa/pull/2785
-* Removing Deprecations Warnings from `agent_portrayal` and `propertylayer_portrayal` until next release. by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2797
-* Added Basic Visualization tests by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2767
+* Add `.coderabbit.yaml` file to allow reviewing and updating our CodeRabbit configuration by @EwoutH in https://github.com/mesa/mesa/pull/2761
+* add nix flake by @hussainsultan in https://github.com/mesa/mesa/pull/2785
+* Removing Deprecations Warnings from `agent_portrayal` and `propertylayer_portrayal` until next release. by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2797
+* Added Basic Visualization tests by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2767
 ### Other changes
-* Update __init__.py by @tpike3 in https://github.com/projectmesa/mesa/pull/2770
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/projectmesa/mesa/pull/2751
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/projectmesa/mesa/pull/2802
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/projectmesa/mesa/pull/2808
-* Bump actions/download-artifact from 4 to 5 by @dependabot[bot] in https://github.com/projectmesa/mesa/pull/2826
-* Bump actions/checkout from 4 to 5 by @dependabot[bot] in https://github.com/projectmesa/mesa/pull/2825
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/projectmesa/mesa/pull/2823
+* Update __init__.py by @tpike3 in https://github.com/mesa/mesa/pull/2770
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/mesa/mesa/pull/2751
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/mesa/mesa/pull/2802
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/mesa/mesa/pull/2808
+* Bump actions/download-artifact from 4 to 5 by @dependabot[bot] in https://github.com/mesa/mesa/pull/2826
+* Bump actions/checkout from 4 to 5 by @dependabot[bot] in https://github.com/mesa/mesa/pull/2825
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci[bot] in https://github.com/mesa/mesa/pull/2823
 
 ## New Contributors
-* @derkweijers made their first contribution in https://github.com/projectmesa/mesa/pull/2791
-* @hussainsultan made their first contribution in https://github.com/projectmesa/mesa/pull/2785
-* @catherinedevlin made their first contribution in https://github.com/projectmesa/mesa/pull/2793
-* @Tosiekdev made their first contribution in https://github.com/projectmesa/mesa/pull/2821
+* @derkweijers made their first contribution in https://github.com/mesa/mesa/pull/2791
+* @hussainsultan made their first contribution in https://github.com/mesa/mesa/pull/2785
+* @catherinedevlin made their first contribution in https://github.com/mesa/mesa/pull/2793
+* @Tosiekdev made their first contribution in https://github.com/mesa/mesa/pull/2821
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.2.0...v3.3.0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.2.0...v3.3.0
 
 # 3.2.0 (2025-05-04)
 ## Highlights
 Mesa 3.2.0 is a feature-packed release, which stabilizes our discrete space, improves many of our visualisation capabilities, improves our tutorial organization, adds the experimental meta-agents, and includes other quality of life enhancements.
 
-We also celebrate the publication of our peer-reviewed [Mesa 3 paper](https://doi.org/10.21105/joss.07668) in JOSS. See the updated [Citing Mesa](https://github.com/projectmesa/mesa?tab=readme-ov-file#citing-mesa) section on how to cite us.
+We also celebrate the publication of our peer-reviewed [Mesa 3 paper](https://doi.org/10.21105/joss.07668) in JOSS. See the updated [Citing Mesa](https://github.com/mesa/mesa?tab=readme-ov-file#citing-mesa) section on how to cite us.
 
 ### Stabilization of Discrete Space
-The experimental Cell Space system has been stabilized and is now available as `mesa.discrete_space` ([#2610](https://github.com/projectmesa/mesa/pull/2610)). This powerful spatial modeling framework enables cell-centric simulations with integrated PropertyLayers and improved agent movement capabilities. Key improvements include:
+The experimental Cell Space system has been stabilized and is now available as `mesa.discrete_space` ([#2610](https://github.com/mesa/mesa/pull/2610)). This powerful spatial modeling framework enables cell-centric simulations with integrated PropertyLayers and improved agent movement capabilities. Key improvements include:
 
-- Support for dynamic modifications to discrete spaces during simulation ([#2755](https://github.com/projectmesa/mesa/pull/2755))
+- Support for dynamic modifications to discrete spaces during simulation ([#2755](https://github.com/mesa/mesa/pull/2755))
 - Methods to add/remove cells and connections in real-time
-- Full integration with PropertyLayers ([#2440](https://github.com/projectmesa/mesa/pull/2440)) for representing environmental variables
+- Full integration with PropertyLayers ([#2440](https://github.com/mesa/mesa/pull/2440)) for representing environmental variables
 - Compatible with all examples and existing visualizations
 
-The PropertyLayer itself has also been stabilized, allowing for efficient management of spatial environmental properties like terrain, resources, or any grid-based variables. Core examples including [Schelling](https://github.com/projectmesa/mesa/tree/main/mesa/examples/basic/schelling), [Game of Life](https://github.com/projectmesa/mesa/tree/main/mesa/examples/basic/conways_game_of_life), [Boltzmann Wealth](https://github.com/projectmesa/mesa/tree/main/mesa/examples/basic/boltzmann_wealth_model), and [Virus on Network](https://github.com/projectmesa/mesa/tree/main/mesa/examples/basic/virus_on_network) have been updated to use the new discrete space system.
+The PropertyLayer itself has also been stabilized, allowing for efficient management of spatial environmental properties like terrain, resources, or any grid-based variables. Core examples including [Schelling](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/schelling), [Game of Life](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/conways_game_of_life), [Boltzmann Wealth](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/boltzmann_wealth_model), and [Virus on Network](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/virus_on_network) have been updated to use the new discrete space system.
 
 ### Enhanced Visualization Experience
 The SolaraViz visualization system has received substantial upgrades:
 
-- **Command Console** ([#2697](https://github.com/projectmesa/mesa/pull/2697)): An interactive Python console embedded directly in the visualization, allowing real-time model inspection and manipulation
-- **Asynchronous Updates** ([#2656](https://github.com/projectmesa/mesa/pull/2656)): Visualization now runs in a separate thread, dramatically improving performance for complex models
-- **Dark Mode** ([#2689](https://github.com/projectmesa/mesa/pull/2689)): Support for Solara Dark theme, automatically matching system preferences
-- **Improved Error Handling** ([#2747](https://github.com/projectmesa/mesa/pull/2747), [#2753](https://github.com/projectmesa/mesa/pull/2753)): Better visualization of errors with options to view detailed traceback information
-- **Enhanced UI**: Arrow key navigation ([#2725](https://github.com/projectmesa/mesa/pull/2725)), movable input field with auto-scroll ([#2710](https://github.com/projectmesa/mesa/pull/2710)), and other quality-of-life improvements
-- **PropertyLayer visualisation in Altair** ([#2643](https://github.com/projectmesa/mesa/pull/2643)): Support for visualising PropertyLayers using the Altair frontend in Solara.
+- **Command Console** ([#2697](https://github.com/mesa/mesa/pull/2697)): An interactive Python console embedded directly in the visualization, allowing real-time model inspection and manipulation
+- **Asynchronous Updates** ([#2656](https://github.com/mesa/mesa/pull/2656)): Visualization now runs in a separate thread, dramatically improving performance for complex models
+- **Dark Mode** ([#2689](https://github.com/mesa/mesa/pull/2689)): Support for Solara Dark theme, automatically matching system preferences
+- **Improved Error Handling** ([#2747](https://github.com/mesa/mesa/pull/2747), [#2753](https://github.com/mesa/mesa/pull/2753)): Better visualization of errors with options to view detailed traceback information
+- **Enhanced UI**: Arrow key navigation ([#2725](https://github.com/mesa/mesa/pull/2725)), movable input field with auto-scroll ([#2710](https://github.com/mesa/mesa/pull/2710)), and other quality-of-life improvements
+- **PropertyLayer visualisation in Altair** ([#2643](https://github.com/mesa/mesa/pull/2643)): Support for visualising PropertyLayers using the Altair frontend in Solara.
 
 ### Restructured and updated tutorial
-Our [introduction tutorial](https://mesa.readthedocs.io/latest/overview.html) has been completely restructured ([#2731](https://github.com/projectmesa/mesa/pull/2731)). Instead of one huge notebook, the tutorial is now divided into smaller, focused modules that build progressively:
+Our [introduction tutorial](https://mesa.readthedocs.io/latest/overview.html) has been completely restructured ([#2731](https://github.com/mesa/mesa/pull/2731)). Instead of one huge notebook, the tutorial is now divided into smaller, focused modules that build progressively:
 
 - **Creating Your First Model**: Essential basics to get started
 - **Adding Space**: Learn how to use the new discrete space system
@@ -142,61 +142,61 @@ Our [introduction tutorial](https://mesa.readthedocs.io/latest/overview.html) ha
 Complex systems often have multiple levels of components. An organization is not one entity, but is made of departments, sub-departments, and people. A person is not a single entity, but it is made of micro biomes, organs and cells. A city is not a single entity, but it is made of districts, neighborhoods, buildings, and people. A forest comprises an ecosystem of trees, plants, animals, and microorganisms.
 
 This reality is the motivation for meta-agents. It allows users to represent these multiple levels, where each level can have meta-agents with constituting agents.
-- **Meta agents** [#2748](https://github.com/projectmesa/mesa/pull/2748)
+- **Meta agents** [#2748](https://github.com/mesa/mesa/pull/2748)
 
 To demonstrate meta-agents capability there are two examples:
 
 1.  Dynamic meta-agent creation - [Alliance formation](https://mesa.readthedocs.io/latest/examples/advanced/alliance_formation.html), which shows emergent meta-agent formation through a game theoretic based alliance formation.
-2. Deliberate meta-agent creation - [Warehouse model](https://github.com/projectmesa/mesa-examples/tree/main/examples/warehouse), which provides a pseudo warehouse model to demonstrate meta-agent functionality.
+2. Deliberate meta-agent creation - [Warehouse model](https://github.com/mesa/mesa-examples/tree/main/examples/warehouse), which provides a pseudo warehouse model to demonstrate meta-agent functionality.
 
 Let us know what you think on our [Matrix Channel](https://matrix.to/#/#project-mesa:matrix.org)
 
 ### Other improvements
-- AgentSet's `agg` method now supports multiple aggregation functions in a single call ([#2743](https://github.com/projectmesa/mesa/pull/2743))
+- AgentSet's `agg` method now supports multiple aggregation functions in a single call ([#2743](https://github.com/mesa/mesa/pull/2743))
 - Many documentation improvements have been made based on feedback by our JOSS reviewers
 
 ## What's Changed
 ### 🎉 New features added
-* Stabilize experimental Cell Space as `mesa.discrete_space` by @quaquel in https://github.com/projectmesa/mesa/pull/2610
-* Feat: Added Command Console by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2697
-* Stabilize PropertyLayer by @EwoutH in https://github.com/projectmesa/mesa/pull/2440
+* Stabilize experimental Cell Space as `mesa.discrete_space` by @quaquel in https://github.com/mesa/mesa/pull/2610
+* Feat: Added Command Console by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2697
+* Stabilize PropertyLayer by @EwoutH in https://github.com/mesa/mesa/pull/2440
 ### 🛠 Enhancements made
-* Visualisation: Add dark mode by @sanika-n in https://github.com/projectmesa/mesa/pull/2689
-* Creating threads to update visualization asynchronously  by @HMNS19 in https://github.com/projectmesa/mesa/pull/2656
-* Movable Input Field with auto-scroll by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2710
-* Feat: Added arrow key navigation by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2725
-* added property_layer with altair by @sanika-n in https://github.com/projectmesa/mesa/pull/2643
-* Debug option for errors in visualisation by @colinfrisch in https://github.com/projectmesa/mesa/pull/2747
-* Debug option for errors in visualisation front end by @colinfrisch in https://github.com/projectmesa/mesa/pull/2753
-* Add support for dynamic discrete spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2755
-* Support multiple functions in AgentSet `agg` method by @EwoutH in https://github.com/projectmesa/mesa/pull/2743
+* Visualisation: Add dark mode by @sanika-n in https://github.com/mesa/mesa/pull/2689
+* Creating threads to update visualization asynchronously  by @HMNS19 in https://github.com/mesa/mesa/pull/2656
+* Movable Input Field with auto-scroll by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2710
+* Feat: Added arrow key navigation by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2725
+* added property_layer with altair by @sanika-n in https://github.com/mesa/mesa/pull/2643
+* Debug option for errors in visualisation by @colinfrisch in https://github.com/mesa/mesa/pull/2747
+* Debug option for errors in visualisation front end by @colinfrisch in https://github.com/mesa/mesa/pull/2753
+* Add support for dynamic discrete spaces by @quaquel in https://github.com/mesa/mesa/pull/2755
+* Support multiple functions in AgentSet `agg` method by @EwoutH in https://github.com/mesa/mesa/pull/2743
 ### 🔍 Examples updated
-* Move boltzmann to cell spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2680
-* Move Game of life to cell space by @quaquel in https://github.com/projectmesa/mesa/pull/2681
-* Move Schelling to discrete space by @quaquel in https://github.com/projectmesa/mesa/pull/2684
-* Move virus_on_a_network to discrete_space by @quaquel in https://github.com/projectmesa/mesa/pull/2688
-* Update boid_flockers example include flight direction by @sanika-n in https://github.com/projectmesa/mesa/pull/2696
+* Move boltzmann to cell spaces by @quaquel in https://github.com/mesa/mesa/pull/2680
+* Move Game of life to cell space by @quaquel in https://github.com/mesa/mesa/pull/2681
+* Move Schelling to discrete space by @quaquel in https://github.com/mesa/mesa/pull/2684
+* Move virus_on_a_network to discrete_space by @quaquel in https://github.com/mesa/mesa/pull/2688
+* Update boid_flockers example include flight direction by @sanika-n in https://github.com/mesa/mesa/pull/2696
 ### 📜 Documentation improvements
-* docs: Split off the overview page, extend with spaces/activation by @EwoutH in https://github.com/projectmesa/mesa/pull/2673
-* docs: Add Roles section to CONTRIBUTING.md by @EwoutH in https://github.com/projectmesa/mesa/pull/2694
-* [JOSS] Docs: Clarify difference between core and user examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2706
-* [JOSS] docs: Improve batch_run documentation for parallel processing by @EwoutH in https://github.com/projectmesa/mesa/pull/2707
-* JOSS Tutorial Fixes by @tpike3 in https://github.com/projectmesa/mesa/pull/2708
-* Clean-up old images, compress wolf-sheep image, remove version switch artifact by @EwoutH in https://github.com/projectmesa/mesa/pull/2717
-* docs: Update citation to JOSS article by @EwoutH in https://github.com/projectmesa/mesa/pull/2740
-* update intro tutorial discrete space by @tpike3 in https://github.com/projectmesa/mesa/pull/2731
-* docs: fix broken links to Readthedocs in example descriptions by @reyan-singh in https://github.com/projectmesa/mesa/pull/2757
+* docs: Split off the overview page, extend with spaces/activation by @EwoutH in https://github.com/mesa/mesa/pull/2673
+* docs: Add Roles section to CONTRIBUTING.md by @EwoutH in https://github.com/mesa/mesa/pull/2694
+* [JOSS] Docs: Clarify difference between core and user examples by @EwoutH in https://github.com/mesa/mesa/pull/2706
+* [JOSS] docs: Improve batch_run documentation for parallel processing by @EwoutH in https://github.com/mesa/mesa/pull/2707
+* JOSS Tutorial Fixes by @tpike3 in https://github.com/mesa/mesa/pull/2708
+* Clean-up old images, compress wolf-sheep image, remove version switch artifact by @EwoutH in https://github.com/mesa/mesa/pull/2717
+* docs: Update citation to JOSS article by @EwoutH in https://github.com/mesa/mesa/pull/2740
+* update intro tutorial discrete space by @tpike3 in https://github.com/mesa/mesa/pull/2731
+* docs: fix broken links to Readthedocs in example descriptions by @reyan-singh in https://github.com/mesa/mesa/pull/2757
 ### 🧪 Experimental features
-* Meta agents by @tpike3 in https://github.com/projectmesa/mesa/pull/2748
+* Meta agents by @tpike3 in https://github.com/mesa/mesa/pull/2748
 ### 🐛 Bugs fixed
-* Minor (bug) fixes to discrete_space by @quaquel in https://github.com/projectmesa/mesa/pull/2687
-* Fixed Marker in mpl by @sanika-n in https://github.com/projectmesa/mesa/pull/2670
+* Minor (bug) fixes to discrete_space by @quaquel in https://github.com/mesa/mesa/pull/2687
+* Fixed Marker in mpl by @sanika-n in https://github.com/mesa/mesa/pull/2670
 
 ## New Contributors
-* @colinfrisch made their first contribution in https://github.com/projectmesa/mesa/pull/2747
-* @reyan-singh made their first contribution in https://github.com/projectmesa/mesa/pull/2757
+* @colinfrisch made their first contribution in https://github.com/mesa/mesa/pull/2747
+* @reyan-singh made their first contribution in https://github.com/mesa/mesa/pull/2757
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.4...v3.2.0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.4...v3.2.0
 
 # 3.1.5 (2025-03-26)
 ## Highlights
@@ -208,13 +208,13 @@ On the maintenance side, we've cleaned up unused images and compressed existing 
 
 ## What's Changed
 ### 📜 Documentation improvements
-* docs: Split off the overview page, extend with spaces/activation by @EwoutH in https://github.com/projectmesa/mesa/pull/2673
-* docs: Add Roles section to CONTRIBUTING.md by @EwoutH in https://github.com/projectmesa/mesa/pull/2694
-* [JOSS] Docs: Clarify difference between core and user examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2706
-* [JOSS] docs: Improve batch_run documentation for parallel processing by @EwoutH in https://github.com/projectmesa/mesa/pull/2707
-* Clean-up old images, compress wolf-sheep image, remove version switch artifact by @EwoutH in https://github.com/projectmesa/mesa/pull/2717
+* docs: Split off the overview page, extend with spaces/activation by @EwoutH in https://github.com/mesa/mesa/pull/2673
+* docs: Add Roles section to CONTRIBUTING.md by @EwoutH in https://github.com/mesa/mesa/pull/2694
+* [JOSS] Docs: Clarify difference between core and user examples by @EwoutH in https://github.com/mesa/mesa/pull/2706
+* [JOSS] docs: Improve batch_run documentation for parallel processing by @EwoutH in https://github.com/mesa/mesa/pull/2707
+* Clean-up old images, compress wolf-sheep image, remove version switch artifact by @EwoutH in https://github.com/mesa/mesa/pull/2717
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.4...v3.1.5
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.4...v3.1.5
 
 # 3.1.4 (2025-02-09)
 ## Highlights
@@ -222,36 +222,36 @@ This release contains various improvements and bugfixes to the matplotlib-based 
 
 ## What's Changed
 ### 🛠 Enhancements made
-* Fixed hex-space draw function to avoid overlaps by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2609
-* Fix: Property layer visualization for HexGrid by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2646
-* Enhance DataCollector to validate model_reporters functions by @peter-kinger in https://github.com/projectmesa/mesa/pull/2605
-* Implemented post_process in Altair based components by @sanika-n in https://github.com/projectmesa/mesa/pull/2641
+* Fixed hex-space draw function to avoid overlaps by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2609
+* Fix: Property layer visualization for HexGrid by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2646
+* Enhance DataCollector to validate model_reporters functions by @peter-kinger in https://github.com/mesa/mesa/pull/2605
+* Implemented post_process in Altair based components by @sanika-n in https://github.com/mesa/mesa/pull/2641
 ### 🐛 Bugs fixed
-* bugfix for draw_property_layer by @quaquel in https://github.com/projectmesa/mesa/pull/2639
-* Uses array for hex grid property layer fix by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2651
-* Update Binder environment to use latest Mesa version (#2652) by @aarav-shukla07 in https://github.com/projectmesa/mesa/pull/2655
-* Change Hexgrid._connect_cells_2d to use x,y coordinates by @quaquel in https://github.com/projectmesa/mesa/pull/2632
+* bugfix for draw_property_layer by @quaquel in https://github.com/mesa/mesa/pull/2639
+* Uses array for hex grid property layer fix by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2651
+* Update Binder environment to use latest Mesa version (#2652) by @aarav-shukla07 in https://github.com/mesa/mesa/pull/2655
+* Change Hexgrid._connect_cells_2d to use x,y coordinates by @quaquel in https://github.com/mesa/mesa/pull/2632
 ### 🔍 Examples updated
-* Added property layer viz to sugarscape by @sanika-n in https://github.com/projectmesa/mesa/pull/2653
-* added color-bar for spice by @sanika-n in https://github.com/projectmesa/mesa/pull/2622
+* Added property layer viz to sugarscape by @sanika-n in https://github.com/mesa/mesa/pull/2653
+* added color-bar for spice by @sanika-n in https://github.com/mesa/mesa/pull/2622
 ### 📜 Documentation improvements
-* remove any reference to using --pre by @quaquel in https://github.com/projectmesa/mesa/pull/2618
-* Updated Docs by @sanika-n in https://github.com/projectmesa/mesa/pull/2624
-* Fixed 404 error for Examples Tab in Introductory Tutorial (#2662) by @aarav-shukla07 in https://github.com/projectmesa/mesa/pull/2664
-* Documentation by @Spartan-71 in https://github.com/projectmesa/mesa/pull/2630
-* Adding a copy option at the top of the code written in the docs by @PrashantChoudhary13579 in https://github.com/projectmesa/mesa/pull/2628
-* Adding Mesa Extension page by @PrashantChoudhary13579 in https://github.com/projectmesa/mesa/pull/2627
+* remove any reference to using --pre by @quaquel in https://github.com/mesa/mesa/pull/2618
+* Updated Docs by @sanika-n in https://github.com/mesa/mesa/pull/2624
+* Fixed 404 error for Examples Tab in Introductory Tutorial (#2662) by @aarav-shukla07 in https://github.com/mesa/mesa/pull/2664
+* Documentation by @Spartan-71 in https://github.com/mesa/mesa/pull/2630
+* Adding a copy option at the top of the code written in the docs by @PrashantChoudhary13579 in https://github.com/mesa/mesa/pull/2628
+* Adding Mesa Extension page by @PrashantChoudhary13579 in https://github.com/mesa/mesa/pull/2627
 ### 🔧 Maintenance
-* remove remnants of mesa cli by @quaquel in https://github.com/projectmesa/mesa/pull/2617
-* benchmarks.yml: Install SciPy and use uv for pip install by @EwoutH in https://github.com/projectmesa/mesa/pull/2633
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci in https://github.com/projectmesa/mesa/pull/2659
+* remove remnants of mesa cli by @quaquel in https://github.com/mesa/mesa/pull/2617
+* benchmarks.yml: Install SciPy and use uv for pip install by @EwoutH in https://github.com/mesa/mesa/pull/2633
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci in https://github.com/mesa/mesa/pull/2659
 
 ## New Contributors
-* @PrashantChoudhary13579 made their first contribution in https://github.com/projectmesa/mesa/pull/2628
-* @aarav-shukla07 made their first contribution in https://github.com/projectmesa/mesa/pull/2655
-* @peter-kinger made their first contribution in https://github.com/projectmesa/mesa/pull/2605
+* @PrashantChoudhary13579 made their first contribution in https://github.com/mesa/mesa/pull/2628
+* @aarav-shukla07 made their first contribution in https://github.com/mesa/mesa/pull/2655
+* @peter-kinger made their first contribution in https://github.com/mesa/mesa/pull/2605
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.3...v3.1.4
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.3...v3.1.4
 
 # 3.1.3 (2025-01-11)
 ## Highlights
@@ -287,25 +287,25 @@ neighbors, distances = agent.get_neighbors_in_radius(radius=0.2)
 nearest, distances = agent.get_nearest_neighbors(k=5)
 ```
 
-The new implementation particularly benefits models requiring frequent position updates and neighbor queries, such as flocking simulations or particle systems. See [#2584](https://github.com/projectmesa/mesa/pull/2584) for more details. We would love to get feedback on the new Continuous Space in [#2611](https://github.com/projectmesa/mesa/discussions/2611).
+The new implementation particularly benefits models requiring frequent position updates and neighbor queries, such as flocking simulations or particle systems. See [#2584](https://github.com/mesa/mesa/pull/2584) for more details. We would love to get feedback on the new Continuous Space in [#2611](https://github.com/mesa/mesa/discussions/2611).
 
-Other improvements in this release include consistent visualization behavior across space types with the reimplementation of `draw_voronoi` [#2608](https://github.com/projectmesa/mesa/pull/2608), and a new render interval slider for controlling visualization update frequency in SolaraViz, which helps improve performance when working with complex visualizations [#2596](https://github.com/projectmesa/mesa/pull/2596). We've also fixed a bug affecting random number generation determinism when using `Model(seed=something)`, ensuring both `model.random` and `model.rng` now behave consistently when seeded with the same initial value [#2598](https://github.com/projectmesa/mesa/pull/2598).
+Other improvements in this release include consistent visualization behavior across space types with the reimplementation of `draw_voronoi` [#2608](https://github.com/mesa/mesa/pull/2608), and a new render interval slider for controlling visualization update frequency in SolaraViz, which helps improve performance when working with complex visualizations [#2596](https://github.com/mesa/mesa/pull/2596). We've also fixed a bug affecting random number generation determinism when using `Model(seed=something)`, ensuring both `model.random` and `model.rng` now behave consistently when seeded with the same initial value [#2598](https://github.com/mesa/mesa/pull/2598).
 
 ## What's Changed
 ### 🧪 Experimental features
-* Reimplementation of Continuous Space by @quaquel in https://github.com/projectmesa/mesa/pull/2584
+* Reimplementation of Continuous Space by @quaquel in https://github.com/mesa/mesa/pull/2584
 ### 🛠 Enhancements made
-* reimplementation of draw_voroinoi by @quaquel in https://github.com/projectmesa/mesa/pull/2608
-* Add render interval slider to control visualization update frequency by @HMNS19 in https://github.com/projectmesa/mesa/pull/2596
+* reimplementation of draw_voroinoi by @quaquel in https://github.com/mesa/mesa/pull/2608
+* Add render interval slider to control visualization update frequency by @HMNS19 in https://github.com/mesa/mesa/pull/2596
 ### 🐛 Bugs fixed
-* Bugfix for non deterministic rng behavior by @quaquel in https://github.com/projectmesa/mesa/pull/2598
+* Bugfix for non deterministic rng behavior by @quaquel in https://github.com/mesa/mesa/pull/2598
 ### 🔍 Examples updated
-* Clarify ContinuousSpace.get_neighbors behavior with multiple agents at same position by @quaquel in https://github.com/projectmesa/mesa/pull/2599
+* Clarify ContinuousSpace.get_neighbors behavior with multiple agents at same position by @quaquel in https://github.com/mesa/mesa/pull/2599
 
 ## New Contributors
-* @HMNS19 made their first contribution in https://github.com/projectmesa/mesa/pull/2596
+* @HMNS19 made their first contribution in https://github.com/mesa/mesa/pull/2596
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.2...v3.1.3
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.2...v3.1.3
 
 # 3.1.2 (2025-01-04)
 ## Highlights
@@ -313,19 +313,19 @@ Mesa v3.1.2 is a patch release containing updates to our wolf-sheep, shelling an
 
 ## What's Changed
 ### 🔍 Examples updated
-* examples/wolf_sheep: Don't allow dumb moves by @EwoutH in https://github.com/projectmesa/mesa/pull/2503
-* Added homophily ratio in basic schelling example by @vbv-shm in https://github.com/projectmesa/mesa/pull/2520
-* examples: Update pd_grid analysis.ipynb to use new spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2553
+* examples/wolf_sheep: Don't allow dumb moves by @EwoutH in https://github.com/mesa/mesa/pull/2503
+* Added homophily ratio in basic schelling example by @vbv-shm in https://github.com/mesa/mesa/pull/2520
+* examples: Update pd_grid analysis.ipynb to use new spaces by @quaquel in https://github.com/mesa/mesa/pull/2553
 ### 📜 Documentation improvements
-* Corrected a few errors in Intro tutorial by @sanika-n in https://github.com/projectmesa/mesa/pull/2583
-* Small draw_space docstring fix by @quaquel in https://github.com/projectmesa/mesa/pull/2554
-* fix: model name in visualization tutorial by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2591
+* Corrected a few errors in Intro tutorial by @sanika-n in https://github.com/mesa/mesa/pull/2583
+* Small draw_space docstring fix by @quaquel in https://github.com/mesa/mesa/pull/2554
+* fix: model name in visualization tutorial by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2591
 
 ## New Contributors
-* @vbv-shm made their first contribution in https://github.com/projectmesa/mesa/pull/2520
-* @sanika-n made their first contribution in https://github.com/projectmesa/mesa/pull/2583
+* @vbv-shm made their first contribution in https://github.com/mesa/mesa/pull/2520
+* @sanika-n made their first contribution in https://github.com/mesa/mesa/pull/2583
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.1...v3.1.2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.1...v3.1.2
 
 # 3.1.1 (2024-12-14)
 ## Highlights
@@ -337,24 +337,24 @@ Bug fixes include improvements to PropertyLayer visualization and a correction t
 
 ## What's Changed
 ### 🎉 New features added
-* Add Interactive Play Interval Control to Mesa Visualization by @AdamZh0u in https://github.com/projectmesa/mesa/pull/2540
+* Add Interactive Play Interval Control to Mesa Visualization by @AdamZh0u in https://github.com/mesa/mesa/pull/2540
 ### 🐛 Bugs fixed
-* bug fixes for draw_property_layers by @quaquel in https://github.com/projectmesa/mesa/pull/2548
+* bug fixes for draw_property_layers by @quaquel in https://github.com/mesa/mesa/pull/2548
 ### 🔍 Examples updated
-* Wolf-sheep to use `create_agent` by @quaquel in https://github.com/projectmesa/mesa/pull/2543
-* Shift sugarscape example to using create_agent by @quaquel in https://github.com/projectmesa/mesa/pull/2544
-* Fix: Schelling Model Neighbor Similarity Calculation by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2518
-* Change pd_grid example to use create_agents by @quaquel in https://github.com/projectmesa/mesa/pull/2545
-* Switch sugarscape to using property layers by @quaquel in https://github.com/projectmesa/mesa/pull/2546
+* Wolf-sheep to use `create_agent` by @quaquel in https://github.com/mesa/mesa/pull/2543
+* Shift sugarscape example to using create_agent by @quaquel in https://github.com/mesa/mesa/pull/2544
+* Fix: Schelling Model Neighbor Similarity Calculation by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2518
+* Change pd_grid example to use create_agents by @quaquel in https://github.com/mesa/mesa/pull/2545
+* Switch sugarscape to using property layers by @quaquel in https://github.com/mesa/mesa/pull/2546
 ### 📜 Documentation improvements
-* Updated docs and check_model param by @nissu99 in https://github.com/projectmesa/mesa/pull/2510
-* Update tutorials to use `create_agents` and `rng.integers` by @DarshPareek in https://github.com/projectmesa/mesa/pull/2541
+* Updated docs and check_model param by @nissu99 in https://github.com/mesa/mesa/pull/2510
+* Update tutorials to use `create_agents` and `rng.integers` by @DarshPareek in https://github.com/mesa/mesa/pull/2541
 
 ## New Contributors
-* @nissu99 made their first contribution in https://github.com/projectmesa/mesa/pull/2510
-* @DarshPareek made their first contribution in https://github.com/projectmesa/mesa/pull/2541
+* @nissu99 made their first contribution in https://github.com/mesa/mesa/pull/2510
+* @DarshPareek made their first contribution in https://github.com/mesa/mesa/pull/2541
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.1.0...3.1.1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.1.0...3.1.1
 
 # 3.1.0 (2024-12-04)
 ## Highlights
@@ -372,34 +372,34 @@ In addition to the major new features, this release includes a number of smaller
 
 ## What's Changed
 ### 🧪 Experimental features
-* Add support for Observables to MESA by @quaquel in https://github.com/projectmesa/mesa/pull/2291
-* Add full support for property layers to cell spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2512
+* Add support for Observables to MESA by @quaquel in https://github.com/mesa/mesa/pull/2291
+* Add full support for property layers to cell spaces by @quaquel in https://github.com/mesa/mesa/pull/2512
 ### 🎉 New features added
-* Add logging to MESA by @quaquel in https://github.com/projectmesa/mesa/pull/2506
-* Add `create_agents` factory method to Agent by @quaquel in https://github.com/projectmesa/mesa/pull/2351
+* Add logging to MESA by @quaquel in https://github.com/mesa/mesa/pull/2506
+* Add `create_agents` factory method to Agent by @quaquel in https://github.com/mesa/mesa/pull/2351
 ### 🔍 Examples updated
-* Add seed control to all examples by @quaquel in https://github.com/projectmesa/mesa/pull/2496
+* Add seed control to all examples by @quaquel in https://github.com/mesa/mesa/pull/2496
 ### 📜 Documentation improvements
-* doc fix for pip install error on mac by @quaquel in https://github.com/projectmesa/mesa/pull/2508
-* Refactored docs for Introductory Tutorial by @Spartan-71 in https://github.com/projectmesa/mesa/pull/2511
-* Add module-level docstring to experimental features by @EwoutH in https://github.com/projectmesa/mesa/pull/2532
+* doc fix for pip install error on mac by @quaquel in https://github.com/mesa/mesa/pull/2508
+* Refactored docs for Introductory Tutorial by @Spartan-71 in https://github.com/mesa/mesa/pull/2511
+* Add module-level docstring to experimental features by @EwoutH in https://github.com/mesa/mesa/pull/2532
 ### 🔧 Maintenance
-* Remove deprecated time module by @EwoutH in https://github.com/projectmesa/mesa/pull/2476
-* Drop support for Python 3.10, require Python >= 3.11 by @EwoutH in https://github.com/projectmesa/mesa/pull/2474
-* Remove deprecated functionality by @EwoutH in https://github.com/projectmesa/mesa/pull/2483
-* Remove visualization modules from `mesa.experimental` by @quaquel in https://github.com/projectmesa/mesa/pull/2495
-* Cleanup two occurrences of removed scheduler by @EwoutH in https://github.com/projectmesa/mesa/pull/2499
-* move _setup_agent_registration into `Model.__init__` by @quaquel in https://github.com/projectmesa/mesa/pull/2501
-* remove devs related examples from devs/examples by @quaquel in https://github.com/projectmesa/mesa/pull/2507
-* added empty iterable checks and updated tests by @Sahil-Chhoker in https://github.com/projectmesa/mesa/pull/2523
-* Fix: running Mesa in Docker with Schelling model by @AdamZh0u in https://github.com/projectmesa/mesa/pull/2524
+* Remove deprecated time module by @EwoutH in https://github.com/mesa/mesa/pull/2476
+* Drop support for Python 3.10, require Python >= 3.11 by @EwoutH in https://github.com/mesa/mesa/pull/2474
+* Remove deprecated functionality by @EwoutH in https://github.com/mesa/mesa/pull/2483
+* Remove visualization modules from `mesa.experimental` by @quaquel in https://github.com/mesa/mesa/pull/2495
+* Cleanup two occurrences of removed scheduler by @EwoutH in https://github.com/mesa/mesa/pull/2499
+* move _setup_agent_registration into `Model.__init__` by @quaquel in https://github.com/mesa/mesa/pull/2501
+* remove devs related examples from devs/examples by @quaquel in https://github.com/mesa/mesa/pull/2507
+* added empty iterable checks and updated tests by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2523
+* Fix: running Mesa in Docker with Schelling model by @AdamZh0u in https://github.com/mesa/mesa/pull/2524
 
 ## New Contributors
-* @Spartan-71 made their first contribution in https://github.com/projectmesa/mesa/pull/2511
-* @Sahil-Chhoker made their first contribution in https://github.com/projectmesa/mesa/pull/2523
-* @AdamZh0u made their first contribution in https://github.com/projectmesa/mesa/pull/2524
+* @Spartan-71 made their first contribution in https://github.com/mesa/mesa/pull/2511
+* @Sahil-Chhoker made their first contribution in https://github.com/mesa/mesa/pull/2523
+* @AdamZh0u made their first contribution in https://github.com/mesa/mesa/pull/2524
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.3...v3.1.0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.3...v3.1.0
 
 # 3.0.3 (2024-11-14)
 ## Highlights
@@ -407,11 +407,11 @@ A small bugfix release that fixes two bugs.
 
 ## What's Changed
 ### 🧪 Experimental features
-* cell_space: Allow CellCollection to be empty by @EwoutH in https://github.com/projectmesa/mesa/pull/2502
+* cell_space: Allow CellCollection to be empty by @EwoutH in https://github.com/mesa/mesa/pull/2502
 ### 🐛 Bugs fixed
-* Only set model_parameters once by @Corvince in https://github.com/projectmesa/mesa/pull/2505
+* Only set model_parameters once by @Corvince in https://github.com/mesa/mesa/pull/2505
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.2...v3.0.3
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.2...v3.0.3
 
 # 3.0.2 (2024-11-11)
 ## Highlighst
@@ -419,39 +419,39 @@ Mesa 3.0.2 is a small follow-up patch release, in which we fixed a lot of small 
 
 ## What's Changed
 ### 🐛 Bugs fixed
-* allow components as a positional argument again by @Corvince in https://github.com/projectmesa/mesa/pull/2488
+* allow components as a positional argument again by @Corvince in https://github.com/mesa/mesa/pull/2488
 ### 🔍 Examples updated
-* examples: Add required components keyword by @EwoutH in https://github.com/projectmesa/mesa/pull/2485
-* examples: Fix boid_flockers viz by @EwoutH in https://github.com/projectmesa/mesa/pull/2492
-* examples: Fix schelling viz by @EwoutH in https://github.com/projectmesa/mesa/pull/2490
-* example: Add input sliders to Sugerscape viz by @EwoutH in https://github.com/projectmesa/mesa/pull/2487
-* examples/gol: Add initial fraction alive, add sliders to viz by @EwoutH in https://github.com/projectmesa/mesa/pull/2489
+* examples: Add required components keyword by @EwoutH in https://github.com/mesa/mesa/pull/2485
+* examples: Fix boid_flockers viz by @EwoutH in https://github.com/mesa/mesa/pull/2492
+* examples: Fix schelling viz by @EwoutH in https://github.com/mesa/mesa/pull/2490
+* example: Add input sliders to Sugerscape viz by @EwoutH in https://github.com/mesa/mesa/pull/2487
+* examples/gol: Add initial fraction alive, add sliders to viz by @EwoutH in https://github.com/mesa/mesa/pull/2489
 ### 🔧 Maintenance
-* test app init of examples by @Corvince in https://github.com/projectmesa/mesa/pull/2491
+* test app init of examples by @Corvince in https://github.com/mesa/mesa/pull/2491
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.1...v3.0.2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.1...v3.0.2
 
 # 3.0.1 (2024-11-11)
 ## Highlights
-After our huge [3.0.0 release](https://github.com/projectmesa/mesa/releases/tag/v3.0.0), Mesa 3.0.1 follows up with two improvements to experimental features, examples and docs.
+After our huge [3.0.0 release](https://github.com/mesa/mesa/releases/tag/v3.0.0), Mesa 3.0.1 follows up with two improvements to experimental features, examples and docs.
 
 ## What's Changed
 ### 🧪 Experimental features
-* Bugfixes to DEVS by @quaquel in https://github.com/projectmesa/mesa/pull/2478
-* Support simulators in SolaraViz by @quaquel in https://github.com/projectmesa/mesa/pull/2470
+* Bugfixes to DEVS by @quaquel in https://github.com/mesa/mesa/pull/2478
+* Support simulators in SolaraViz by @quaquel in https://github.com/mesa/mesa/pull/2470
 ### 🛠 Enhancements made
-* issue a user warning if random is None by @quaquel in https://github.com/projectmesa/mesa/pull/2479
+* issue a user warning if random is None by @quaquel in https://github.com/mesa/mesa/pull/2479
 ### 🔍 Examples updated
-* Integrate benchmarks and example models by @EwoutH in https://github.com/projectmesa/mesa/pull/2473
+* Integrate benchmarks and example models by @EwoutH in https://github.com/mesa/mesa/pull/2473
 ### 📜 Documentation improvements
-* docs/tutorial: Replace scheduler in MoneyModel by @EwoutH in https://github.com/projectmesa/mesa/pull/2475
-* docs: update migration_guide.md by @eltociear in https://github.com/projectmesa/mesa/pull/2480
-* Update some DeprecationWarnings to note they are removed in Mesa 3.1 by @EwoutH in https://github.com/projectmesa/mesa/pull/2481
+* docs/tutorial: Replace scheduler in MoneyModel by @EwoutH in https://github.com/mesa/mesa/pull/2475
+* docs: update migration_guide.md by @eltociear in https://github.com/mesa/mesa/pull/2480
+* Update some DeprecationWarnings to note they are removed in Mesa 3.1 by @EwoutH in https://github.com/mesa/mesa/pull/2481
 
 ## New Contributors
-* @eltociear made their first contribution in https://github.com/projectmesa/mesa/pull/2480
+* @eltociear made their first contribution in https://github.com/mesa/mesa/pull/2480
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0...v3.0.1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0...v3.0.1
 
 # 3.0.0 (2024-11-09)
 ## Highlights
@@ -589,9 +589,9 @@ For updating existing models, we recommend upgrading in steps:
 3. Upgrade to Mesa 3.0
 4. Replace schedulers with AgentSet functionality
 
-A detailed [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#mesa-3-0) is available to help moving to Mesa 3.0. For questions or support, join our [GitHub Discussions](https://github.com/projectmesa/mesa/discussions) or [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org).
+A detailed [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#mesa-3-0) is available to help moving to Mesa 3.0. For questions or support, join our [GitHub Discussions](https://github.com/mesa/mesa/discussions) or [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org).
 
-We would love to hear what you think about Mesa 3.0! [Say hello here](https://github.com/projectmesa/mesa/discussions/2465) and leave any [feedback on 3.0 here](https://github.com/projectmesa/mesa/discussions/2338).
+We would love to hear what you think about Mesa 3.0! [Say hello here](https://github.com/mesa/mesa/discussions/2465) and leave any [feedback on 3.0 here](https://github.com/mesa/mesa/discussions/2338).
 
 # 3.0.0rc0 (2024-11-06)
 ## Highlights
@@ -601,31 +601,31 @@ In this last 3.0 pre-release, the visualisation has been thoroughly updated, wit
 
 We're still working very active on the visualisation, so we have marked that experimental for Mesa 3.0. We will stabilize SolaraViz in Mesa 3.1.
 
-Any feedback and last-minute bug reports are welcome [here](https://github.com/projectmesa/mesa/discussions/2338).
+Any feedback and last-minute bug reports are welcome [here](https://github.com/mesa/mesa/discussions/2338).
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* Viz: Refactor Matplotlib plotting by @quaquel in https://github.com/projectmesa/mesa/pull/2430
-* api reorganization by @quaquel in https://github.com/projectmesa/mesa/pull/2447
+* Viz: Refactor Matplotlib plotting by @quaquel in https://github.com/mesa/mesa/pull/2430
+* api reorganization by @quaquel in https://github.com/mesa/mesa/pull/2447
 ### 🧪 Experimental features
-* Mark SolaraViz as experimental for Mesa 3.0 by @EwoutH in https://github.com/projectmesa/mesa/pull/2459
+* Mark SolaraViz as experimental for Mesa 3.0 by @EwoutH in https://github.com/mesa/mesa/pull/2459
 ### 🛠 Enhancements made
-* expand ax.scatter kwargs that can be used by @quaquel in https://github.com/projectmesa/mesa/pull/2445
+* expand ax.scatter kwargs that can be used by @quaquel in https://github.com/mesa/mesa/pull/2445
 ### 🐛 Bugs fixed
-* Fix #2452 - handle solara viz model params better by @Corvince in https://github.com/projectmesa/mesa/pull/2454
-* Update MoneyModel.py by @quaquel in https://github.com/projectmesa/mesa/pull/2458
+* Fix #2452 - handle solara viz model params better by @Corvince in https://github.com/mesa/mesa/pull/2454
+* Update MoneyModel.py by @quaquel in https://github.com/mesa/mesa/pull/2458
 ### 🔍 Examples updated
-* Updates to Epstein example by @quaquel in https://github.com/projectmesa/mesa/pull/2429
-* Update examples to use updated space drawing by @quaquel in https://github.com/projectmesa/mesa/pull/2442
+* Updates to Epstein example by @quaquel in https://github.com/mesa/mesa/pull/2429
+* Update examples to use updated space drawing by @quaquel in https://github.com/mesa/mesa/pull/2442
 ### 📜 Documentation improvements
-* Update wolf-sheep png and fix typo in file name by @quaquel in https://github.com/projectmesa/mesa/pull/2444
-* Include main examples readme in docs by @quaquel in https://github.com/projectmesa/mesa/pull/2448
-* remove how-to guide and update docs in places by @quaquel in https://github.com/projectmesa/mesa/pull/2449
+* Update wolf-sheep png and fix typo in file name by @quaquel in https://github.com/mesa/mesa/pull/2444
+* Include main examples readme in docs by @quaquel in https://github.com/mesa/mesa/pull/2448
+* remove how-to guide and update docs in places by @quaquel in https://github.com/mesa/mesa/pull/2449
 ### 🔧 Maintenance
-* remove deprecated HexGrid class by @quaquel in https://github.com/projectmesa/mesa/pull/2441
-* rename make_plot_measure to make_plot_component and add some kwargs by @quaquel in https://github.com/projectmesa/mesa/pull/2446
+* remove deprecated HexGrid class by @quaquel in https://github.com/mesa/mesa/pull/2441
+* rename make_plot_measure to make_plot_component and add some kwargs by @quaquel in https://github.com/mesa/mesa/pull/2446
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0b2...v3.0.0rc0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0b2...v3.0.0rc0
 
 # 3.0.0b2 (2024-10-26)
 ## Highlights
@@ -645,141 +645,141 @@ The rarely used `mesa startproject` cookiecutter feature was removed. We updated
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* remove cookiecutter by @quaquel in https://github.com/projectmesa/mesa/pull/2421
+* remove cookiecutter by @quaquel in https://github.com/mesa/mesa/pull/2421
 ### 🧪 Experimental features
-* Add support for drawing discrete grids by @quaquel in https://github.com/projectmesa/mesa/pull/2386
-* Altair spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2397
+* Add support for drawing discrete grids by @quaquel in https://github.com/mesa/mesa/pull/2386
+* Altair spaces by @quaquel in https://github.com/mesa/mesa/pull/2397
 ### 🎉 New features added
-* remove_all_agents method added to model by @quaquel in https://github.com/projectmesa/mesa/pull/2394
-* Pass through model.rgn in agent analogous to model.random by @quaquel in https://github.com/projectmesa/mesa/pull/2400
-* add agents property to all spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2418
+* remove_all_agents method added to model by @quaquel in https://github.com/mesa/mesa/pull/2394
+* Pass through model.rgn in agent analogous to model.random by @quaquel in https://github.com/mesa/mesa/pull/2400
+* add agents property to all spaces by @quaquel in https://github.com/mesa/mesa/pull/2418
 ### 🛠 Enhancements made
-* update_tutorial environment by @tpike3 in https://github.com/projectmesa/mesa/pull/2411
+* update_tutorial environment by @tpike3 in https://github.com/mesa/mesa/pull/2411
 ### 🐛 Bugs fixed
-* Fix for mistaken removal of _draw_grid by @quaquel in https://github.com/projectmesa/mesa/pull/2398
-* fixes weakref bug in shuffe_do by @quaquel in https://github.com/projectmesa/mesa/pull/2399
+* Fix for mistaken removal of _draw_grid by @quaquel in https://github.com/mesa/mesa/pull/2398
+* fixes weakref bug in shuffe_do by @quaquel in https://github.com/mesa/mesa/pull/2399
 ### 🔍 Examples updated
-* refactor: Simplify Schelling code by @rht in https://github.com/projectmesa/mesa/pull/2353
-* Move examples into mesa by @Corvince in https://github.com/projectmesa/mesa/pull/2387
-* Explicitly test basic examples by @quaquel in https://github.com/projectmesa/mesa/pull/2390
-* Make example import absolute by @quaquel in https://github.com/projectmesa/mesa/pull/2402
-* Cleanup and restructure EpsteinCivilViolence and PdGrid examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2408
-* Reorganize advanced examples: wolf_sheep and sugarscape_g1mt by @quaquel in https://github.com/projectmesa/mesa/pull/2410
-* reactivate ruff for advanced examples and include them in tests by @quaquel in https://github.com/projectmesa/mesa/pull/2414
+* refactor: Simplify Schelling code by @rht in https://github.com/mesa/mesa/pull/2353
+* Move examples into mesa by @Corvince in https://github.com/mesa/mesa/pull/2387
+* Explicitly test basic examples by @quaquel in https://github.com/mesa/mesa/pull/2390
+* Make example import absolute by @quaquel in https://github.com/mesa/mesa/pull/2402
+* Cleanup and restructure EpsteinCivilViolence and PdGrid examples by @EwoutH in https://github.com/mesa/mesa/pull/2408
+* Reorganize advanced examples: wolf_sheep and sugarscape_g1mt by @quaquel in https://github.com/mesa/mesa/pull/2410
+* reactivate ruff for advanced examples and include them in tests by @quaquel in https://github.com/mesa/mesa/pull/2414
 ### 📜 Documentation improvements
-* Include examples in readthedocs (port) by @EwoutH in https://github.com/projectmesa/mesa/pull/2392
-* Update into_tutorial by @tpike3 in https://github.com/projectmesa/mesa/pull/2372
-* Update Schelling Readme.md by @quaquel in https://github.com/projectmesa/mesa/pull/2406
-* Update Conway example by @quaquel in https://github.com/projectmesa/mesa/pull/2403
-* Boltzman readme by @quaquel in https://github.com/projectmesa/mesa/pull/2405
-* Update Readme.md of Boid flockers by @quaquel in https://github.com/projectmesa/mesa/pull/2404
-* add advanced examples to rtd by @quaquel in https://github.com/projectmesa/mesa/pull/2413
-* Tutorial Improvements by @tpike3 in https://github.com/projectmesa/mesa/pull/2415
-* space: Add note that Grids are maintenance only by @EwoutH in https://github.com/projectmesa/mesa/pull/2420
-* Migration guide: Update automatic unique_id assignment examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2419
-* Update docstring of SimEvent by @quaquel in https://github.com/projectmesa/mesa/pull/2417
-* best-practices: Update Model Layout section by @EwoutH in https://github.com/projectmesa/mesa/pull/2424
-* docs: Clean-up index.md by @EwoutH in https://github.com/projectmesa/mesa/pull/2422
+* Include examples in readthedocs (port) by @EwoutH in https://github.com/mesa/mesa/pull/2392
+* Update into_tutorial by @tpike3 in https://github.com/mesa/mesa/pull/2372
+* Update Schelling Readme.md by @quaquel in https://github.com/mesa/mesa/pull/2406
+* Update Conway example by @quaquel in https://github.com/mesa/mesa/pull/2403
+* Boltzman readme by @quaquel in https://github.com/mesa/mesa/pull/2405
+* Update Readme.md of Boid flockers by @quaquel in https://github.com/mesa/mesa/pull/2404
+* add advanced examples to rtd by @quaquel in https://github.com/mesa/mesa/pull/2413
+* Tutorial Improvements by @tpike3 in https://github.com/mesa/mesa/pull/2415
+* space: Add note that Grids are maintenance only by @EwoutH in https://github.com/mesa/mesa/pull/2420
+* Migration guide: Update automatic unique_id assignment examples by @EwoutH in https://github.com/mesa/mesa/pull/2419
+* Update docstring of SimEvent by @quaquel in https://github.com/mesa/mesa/pull/2417
+* best-practices: Update Model Layout section by @EwoutH in https://github.com/mesa/mesa/pull/2424
+* docs: Clean-up index.md by @EwoutH in https://github.com/mesa/mesa/pull/2422
 ### 🔧 Maintenance
-* Add empty `pull_request_template.md` to enable PR template chooser by @EwoutH in https://github.com/projectmesa/mesa/pull/2409
+* Add empty `pull_request_template.md` to enable PR template chooser by @EwoutH in https://github.com/mesa/mesa/pull/2409
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0b1...v3.0.0b2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0b1...v3.0.0b2
 
 # 3.0.0b1 (2024-10-17)
 ## Highlights
-Mesa 3.0 beta 1 is our last beta release before the Mesa 3.0 stable release. We are restructuring our examples and have move 9 core examples from [mesa-examples](https://github.com/projectmesa/mesa-examples) to mesa itself ([#2358](https://github.com/projectmesa/mesa/pull/2358)). The 5 basic examples are now directly importable ([#2381](https://github.com/projectmesa/mesa/pull/2381)):
+Mesa 3.0 beta 1 is our last beta release before the Mesa 3.0 stable release. We are restructuring our examples and have move 9 core examples from [mesa-examples](https://github.com/mesa/mesa-examples) to mesa itself ([#2358](https://github.com/mesa/mesa/pull/2358)). The 5 basic examples are now directly importable ([#2381](https://github.com/mesa/mesa/pull/2381)):
 ```Python
 from examples.basic import BoidFlockers, BoltzmannWealthModel, ConwaysGameOfLife, Schelling, VirusOnNetwork
 ```
 The 5 basic examples will always use stable Mesa features, we are also working on 4 more advanced example which can also include experimental features.
 
-All our core examples can now be viewed in the [`examples`](https://github.com/projectmesa/mesa/tree/main/examples) folder. [mesa-examples](https://github.com/projectmesa/mesa-examples) will continue to exists for user showcases. We're also working on making the examples visible in the ReadtheDocs ([#2382](https://github.com/projectmesa/mesa/pull/2382)) and on an website ([mesa-examples#139](https://github.com/projectmesa/mesa-examples/issues/139)). Follow all our work on the examples in this tracking issue [#2364](https://github.com/projectmesa/mesa/issues/2364).
+All our core examples can now be viewed in the [`examples`](https://github.com/mesa/mesa/tree/main/examples) folder. [mesa-examples](https://github.com/mesa/mesa-examples) will continue to exists for user showcases. We're also working on making the examples visible in the ReadtheDocs ([#2382](https://github.com/mesa/mesa/pull/2382)) and on an website ([mesa-examples#139](https://github.com/mesa/mesa-examples/issues/139)). Follow all our work on the examples in this tracking issue [#2364](https://github.com/mesa/mesa/issues/2364).
 
-Furthermore, the visualizations are improved by making visualization elements scalable and more clearly labeling the plots, and the Model now has an `rng` argument for an [SPEC 7](https://scientific-python.org/specs/spec-0007/) compliant NumPy random number generator ([#2352](https://github.com/projectmesa/mesa/pull/2352)). Following SPEC 7, you have to pass either `seed` or `rng`. Whichever one you pass will be used to seed both `random.Random`, and `numpy.random.Generator.`
+Furthermore, the visualizations are improved by making visualization elements scalable and more clearly labeling the plots, and the Model now has an `rng` argument for an [SPEC 7](https://scientific-python.org/specs/spec-0007/) compliant NumPy random number generator ([#2352](https://github.com/mesa/mesa/pull/2352)). Following SPEC 7, you have to pass either `seed` or `rng`. Whichever one you pass will be used to seed both `random.Random`, and `numpy.random.Generator.`
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* replace model with random in AgentSet init by @quaquel in https://github.com/projectmesa/mesa/pull/2350
+* replace model with random in AgentSet init by @quaquel in https://github.com/mesa/mesa/pull/2350
 ### 🧪 Experimental features
-* cell space: Add convenience properties for grid width and height by @quaquel in https://github.com/projectmesa/mesa/pull/2348
-* Bugfix for deepcopy / pickling discrete spaces by @quaquel in https://github.com/projectmesa/mesa/pull/2378
+* cell space: Add convenience properties for grid width and height by @quaquel in https://github.com/mesa/mesa/pull/2348
+* Bugfix for deepcopy / pickling discrete spaces by @quaquel in https://github.com/mesa/mesa/pull/2378
 ### 🎉 New features added
-* Move core example models back (v2) by @EwoutH in https://github.com/projectmesa/mesa/pull/2358
-* Add Model.rng for SPEC-7 compliant numpy random number generation by @quaquel in https://github.com/projectmesa/mesa/pull/2352
+* Move core example models back (v2) by @EwoutH in https://github.com/mesa/mesa/pull/2358
+* Add Model.rng for SPEC-7 compliant numpy random number generation by @quaquel in https://github.com/mesa/mesa/pull/2352
 ### 🛠 Enhancements made
-* use GridDraggable instead of Column in SolaraViz by @wang-boyu in https://github.com/projectmesa/mesa/pull/2344
-* update legend, xlabel & format of matplotlib plots by @wang-boyu in https://github.com/projectmesa/mesa/pull/2346
-* __init__.py: Import mesa.experimental by @EwoutH in https://github.com/projectmesa/mesa/pull/2374
-* Importable examples by @Corvince in https://github.com/projectmesa/mesa/pull/2381
+* use GridDraggable instead of Column in SolaraViz by @wang-boyu in https://github.com/mesa/mesa/pull/2344
+* update legend, xlabel & format of matplotlib plots by @wang-boyu in https://github.com/mesa/mesa/pull/2346
+* __init__.py: Import mesa.experimental by @EwoutH in https://github.com/mesa/mesa/pull/2374
+* Importable examples by @Corvince in https://github.com/mesa/mesa/pull/2381
 ### 🐛 Bugs fixed
-* experimental init: Fix Solara import by making it lazy by @EwoutH in https://github.com/projectmesa/mesa/pull/2357
-* fix: pass `model.random` to schedulers by @quaquel in https://github.com/projectmesa/mesa/pull/2359
-* fix: register agent after creating unique_id and pos attributes by @wang-boyu in https://github.com/projectmesa/mesa/pull/2368
-* solara: viz tutorial: fix histogram code by @Corvince in https://github.com/projectmesa/mesa/pull/2379
+* experimental init: Fix Solara import by making it lazy by @EwoutH in https://github.com/mesa/mesa/pull/2357
+* fix: pass `model.random` to schedulers by @quaquel in https://github.com/mesa/mesa/pull/2359
+* fix: register agent after creating unique_id and pos attributes by @wang-boyu in https://github.com/mesa/mesa/pull/2368
+* solara: viz tutorial: fix histogram code by @Corvince in https://github.com/mesa/mesa/pull/2379
 ### 🔍 Examples updated
-* Cleanup and restructure basic example models by @EwoutH in https://github.com/projectmesa/mesa/pull/2365
-* Ruff basic examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2370
+* Cleanup and restructure basic example models by @EwoutH in https://github.com/mesa/mesa/pull/2365
+* Ruff basic examples by @EwoutH in https://github.com/mesa/mesa/pull/2370
 ### 📜 Documentation improvements
-* Update migration_guide.md by @quaquel in https://github.com/projectmesa/mesa/pull/2347
+* Update migration_guide.md by @quaquel in https://github.com/mesa/mesa/pull/2347
 ### 🔧 Maintenance
-* Code coverage: ignore experimental and visualization by @Corvince in https://github.com/projectmesa/mesa/pull/2361
-* add codecov token, fixes #2363 by @Corvince in https://github.com/projectmesa/mesa/pull/2366
-* add test_time back by @quaquel in https://github.com/projectmesa/mesa/pull/2367
-* Release notes: Add example category by @EwoutH in https://github.com/projectmesa/mesa/pull/2369
+* Code coverage: ignore experimental and visualization by @Corvince in https://github.com/mesa/mesa/pull/2361
+* add codecov token, fixes #2363 by @Corvince in https://github.com/mesa/mesa/pull/2366
+* add test_time back by @quaquel in https://github.com/mesa/mesa/pull/2367
+* Release notes: Add example category by @EwoutH in https://github.com/mesa/mesa/pull/2369
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0b0...v3.0.0b1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0b0...v3.0.0b1
 
 # 3.0.0b0 (2024-10-04)
 ## Highlights
 We're proud to release the first Mesa 3.0 beta! This pre-release announces that we're ready for Mesa 3.0 to be tested by all our regular users. We try to not making breaking changes anymore, but focus on resolving bugs and imperfections.
 
 In this beta, not so much has changed as in the alphas (we're stabilizing, that's a good sign), but there are still a few notable things:
-- Agents now have to be initialized without their `unique_id`. See [#2328](https://github.com/projectmesa/mesa/pull/2328) and the [Migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#automatic-assignment-of-unique-id-to-agents).
-- PropertyLayers can now be visualized! See [#2336](https://github.com/projectmesa/mesa/pull/2336) for details and some examples, and [mesa-examples#214](https://github.com/projectmesa/mesa-examples/pull/214) as a simple example model.
-- We reduced the core dependencies of Mesa, so that's a lighter and simpler install. You can now use extras to install the dependencies, for example add `[viz]` to install all visualisation dependencies: `pip install -U --pre mesa[viz]`. See [#2265](https://github.com/projectmesa/mesa/pull/2265) for details.
+- Agents now have to be initialized without their `unique_id`. See [#2328](https://github.com/mesa/mesa/pull/2328) and the [Migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#automatic-assignment-of-unique-id-to-agents).
+- PropertyLayers can now be visualized! See [#2336](https://github.com/mesa/mesa/pull/2336) for details and some examples, and [mesa-examples#214](https://github.com/mesa/mesa-examples/pull/214) as a simple example model.
+- We reduced the core dependencies of Mesa, so that's a lighter and simpler install. You can now use extras to install the dependencies, for example add `[viz]` to install all visualisation dependencies: `pip install -U --pre mesa[viz]`. See [#2265](https://github.com/mesa/mesa/pull/2265) for details.
 - The [Mesa Overview](https://mesa.readthedocs.io/latest/overview.html) as fully updated for 3.0. We highly recommend reading though it!
 - We made some more progress on the experimental Cell Space, adding movement and integrating the PropertyLayer. Among others, Agents have nu initial movement capabilities for grids. Development continues during the betas and
 
-We plan to release one or two more beta's in the coming weeks, and tag a release candidate and Mesa 3.0 late October. In the [v3.0 milestone](https://github.com/projectmesa/mesa/milestone/43) are the critical items on our todo-list.
+We plan to release one or two more beta's in the coming weeks, and tag a release candidate and Mesa 3.0 late October. In the [v3.0 milestone](https://github.com/mesa/mesa/milestone/43) are the critical items on our todo-list.
 
 You can install this pre-release as usual with:
 
 ```bash
 pip install --upgrade --pre mesa
 ```
-We're very curious what you think, try it out and ask any questions or share any feedback [here](https://github.com/projectmesa/mesa/discussions/2338)!
+We're very curious what you think, try it out and ask any questions or share any feedback [here](https://github.com/mesa/mesa/discussions/2338)!
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* update `Agent.__init__` to remove deprecation warning by @quaquel in https://github.com/projectmesa/mesa/pull/2328
+* update `Agent.__init__` to remove deprecation warning by @quaquel in https://github.com/mesa/mesa/pull/2328
 ### 🎉 New features added
-* Visualize PropertyLayers by @EwoutH in https://github.com/projectmesa/mesa/pull/2336
+* Visualize PropertyLayers by @EwoutH in https://github.com/mesa/mesa/pull/2336
 ### 🧪 Experimental features
-* Encapsulate cell movement in properties by @quaquel in https://github.com/projectmesa/mesa/pull/2333
-* experimental: Integrate PropertyLayers into cell space by @EwoutH in https://github.com/projectmesa/mesa/pull/2319
-* Generalize CellAgent by @Corvince in https://github.com/projectmesa/mesa/pull/2292
+* Encapsulate cell movement in properties by @quaquel in https://github.com/mesa/mesa/pull/2333
+* experimental: Integrate PropertyLayers into cell space by @EwoutH in https://github.com/mesa/mesa/pull/2319
+* Generalize CellAgent by @Corvince in https://github.com/mesa/mesa/pull/2292
 ### 🛠 Enhancements made
-* Reduce core dependencies, split in optional dependencies by @EwoutH in https://github.com/projectmesa/mesa/pull/2265
+* Reduce core dependencies, split in optional dependencies by @EwoutH in https://github.com/mesa/mesa/pull/2265
 ### 🐛 Bugs fixed
-* viz: stop running and disable buttons when model.running is False by @wang-boyu in https://github.com/projectmesa/mesa/pull/2332
+* viz: stop running and disable buttons when model.running is False by @wang-boyu in https://github.com/mesa/mesa/pull/2332
 ### 📜 Documentation improvements
-* docs: Update overview for Mesa 3.0 by @EwoutH in https://github.com/projectmesa/mesa/pull/2317
-* Readthedocs: Add version switch and update URL by @EwoutH in https://github.com/projectmesa/mesa/pull/2324
+* docs: Update overview for Mesa 3.0 by @EwoutH in https://github.com/mesa/mesa/pull/2317
+* Readthedocs: Add version switch and update URL by @EwoutH in https://github.com/mesa/mesa/pull/2324
 ### 🔧 Maintenance
-* tests: Resolve warnings by removing scheduler and updating arguments by @EwoutH in https://github.com/projectmesa/mesa/pull/2329
-* add super call to Model and remove self.schedule by @quaquel in https://github.com/projectmesa/mesa/pull/2334
+* tests: Resolve warnings by removing scheduler and updating arguments by @EwoutH in https://github.com/mesa/mesa/pull/2329
+* add super call to Model and remove self.schedule by @quaquel in https://github.com/mesa/mesa/pull/2334
 ### Other changes
-* Deprecate `initialize_data_collector` by @EwoutH in https://github.com/projectmesa/mesa/pull/2327
+* Deprecate `initialize_data_collector` by @EwoutH in https://github.com/mesa/mesa/pull/2327
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a5...v3.0.0b0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a5...v3.0.0b0
 
 # 3.0.0a5 (2024-09-21)
 ## Highlights
 Mesa v3.0 alpha 5 release contains many quality of life updates, a big new feature for the DataCollector and a major deprecation.
 
-The entire `mesa.time` module, including all schedulers, has been deprecated ([#2306](https://github.com/projectmesa/mesa/pull/2306)). Users are encouraged to transition to AgentSet functionality for more flexible and explicit agent activation patterns. Check the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#time-and-schedulers) on how to upgrade.
+The entire `mesa.time` module, including all schedulers, has been deprecated ([#2306](https://github.com/mesa/mesa/pull/2306)). Users are encouraged to transition to AgentSet functionality for more flexible and explicit agent activation patterns. Check the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#time-and-schedulers) on how to upgrade.
 
-The DataCollector now supports collecting data from specific Agent subclasses using the new `agenttype_reporters` parameter ([#2300](https://github.com/projectmesa/mesa/pull/2300)). This allows collecting different metrics for different agent types. For example:
+The DataCollector now supports collecting data from specific Agent subclasses using the new `agenttype_reporters` parameter ([#2300](https://github.com/mesa/mesa/pull/2300)). This allows collecting different metrics for different agent types. For example:
 
 ```python
 self.datacollector = DataCollector(
@@ -790,40 +790,40 @@ self.datacollector = DataCollector(
 )
 ```
 
-Furthermore, a new `shuffle_do()` method for AgentSets provides a faster way to perform `shuffle().do()` ([#2283](https://github.com/projectmesa/mesa/pull/2283)). The GroupBy class gained `count()` and `agg()` methods to count the number of agents in groups and aggregate variables of them ([#2290](https://github.com/projectmesa/mesa/pull/2290)).
+Furthermore, a new `shuffle_do()` method for AgentSets provides a faster way to perform `shuffle().do()` ([#2283](https://github.com/mesa/mesa/pull/2283)). The GroupBy class gained `count()` and `agg()` methods to count the number of agents in groups and aggregate variables of them ([#2290](https://github.com/mesa/mesa/pull/2290)).
 
-In the experimental Cell Space, the `CellCollection.select` method was updated to use `at_most` instead of `n`, aligning with the AgentSet API ([#2307](https://github.com/projectmesa/mesa/pull/2307)). Additionally, the Cell class now features a dedicated `neighborhood` property for direct neighbors (default radius=1) and a `get_neighborhood` method for larger radii ([#2309](https://github.com/projectmesa/mesa/pull/2309)).
+In the experimental Cell Space, the `CellCollection.select` method was updated to use `at_most` instead of `n`, aligning with the AgentSet API ([#2307](https://github.com/mesa/mesa/pull/2307)). Additionally, the Cell class now features a dedicated `neighborhood` property for direct neighbors (default radius=1) and a `get_neighborhood` method for larger radii ([#2309](https://github.com/mesa/mesa/pull/2309)).
 
-Finally, SolaraViz received updates improving its interface and performance ([#2299](https://github.com/projectmesa/mesa/pull/2299), [#2304](https://github.com/projectmesa/mesa/pull/2304)). Cell connections in grids and networks are now public and named for more intuitive agent movements ([#2296](https://github.com/projectmesa/mesa/pull/2296)). The Model class initialization process was simplified by moving random seed and random object creation to `__init__` ([#1940](https://github.com/projectmesa/mesa/pull/1940)). Documentation has been extensively updated, including enforcing Google docstrings ([#2294](https://github.com/projectmesa/mesa/pull/2294)) and reorganizing the API documentation ([#2298](https://github.com/projectmesa/mesa/pull/2298)) for better clarity and navigation.
+Finally, SolaraViz received updates improving its interface and performance ([#2299](https://github.com/mesa/mesa/pull/2299), [#2304](https://github.com/mesa/mesa/pull/2304)). Cell connections in grids and networks are now public and named for more intuitive agent movements ([#2296](https://github.com/mesa/mesa/pull/2296)). The Model class initialization process was simplified by moving random seed and random object creation to `__init__` ([#1940](https://github.com/mesa/mesa/pull/1940)). Documentation has been extensively updated, including enforcing Google docstrings ([#2294](https://github.com/mesa/mesa/pull/2294)) and reorganizing the API documentation ([#2298](https://github.com/mesa/mesa/pull/2298)) for better clarity and navigation.
 
 While the Mesa 3.0 timeline is still being discussed, we're aiming at the first Mesa 3.0 beta in October followed by a stable release in November. Testing new features and sharing feedback is appreciated!
 
 ## What's Changed
 ### 🎉 New features added
-* GroupBy: Add `count` and `agg` methods by @EwoutH in https://github.com/projectmesa/mesa/pull/2290
-* datacollector: Allow collecting data from Agent (sub)classes by @EwoutH in https://github.com/projectmesa/mesa/pull/2300
-* Add optimized shuffle_do() method to AgentSet by @EwoutH in https://github.com/projectmesa/mesa/pull/2283
+* GroupBy: Add `count` and `agg` methods by @EwoutH in https://github.com/mesa/mesa/pull/2290
+* datacollector: Allow collecting data from Agent (sub)classes by @EwoutH in https://github.com/mesa/mesa/pull/2300
+* Add optimized shuffle_do() method to AgentSet by @EwoutH in https://github.com/mesa/mesa/pull/2283
 ### 🛠 Enhancements made
-* Make cell connections public and named by @Corvince in https://github.com/projectmesa/mesa/pull/2296
-* SolaraViz Updates by @Corvince in https://github.com/projectmesa/mesa/pull/2299
-* Solara viz: use_task for non-threaded continuous play by @Corvince in https://github.com/projectmesa/mesa/pull/2304
+* Make cell connections public and named by @Corvince in https://github.com/mesa/mesa/pull/2296
+* SolaraViz Updates by @Corvince in https://github.com/mesa/mesa/pull/2299
+* Solara viz: use_task for non-threaded continuous play by @Corvince in https://github.com/mesa/mesa/pull/2304
 ### 🧪 Experimental features
-* Update to CellCollection.select by @quaquel in https://github.com/projectmesa/mesa/pull/2307
-* Have a dedicated neighborhood property and a get_neighborhood method on Cell by @quaquel in https://github.com/projectmesa/mesa/pull/2309
+* Update to CellCollection.select by @quaquel in https://github.com/mesa/mesa/pull/2307
+* Have a dedicated neighborhood property and a get_neighborhood method on Cell by @quaquel in https://github.com/mesa/mesa/pull/2309
 ### 📜 Documentation improvements
-* Enforce google docstrings by @quaquel in https://github.com/projectmesa/mesa/pull/2294
-* Api docs by @quaquel in https://github.com/projectmesa/mesa/pull/2298
-* update migration guide to describe solaraviz updates by @Corvince in https://github.com/projectmesa/mesa/pull/2297
-* Migration Guide: Add Model initialization requirement and automatic Agent.unique_id assignment by @EwoutH in https://github.com/projectmesa/mesa/pull/2302
-* Deprecate Time module and all its Schedulers by @EwoutH in https://github.com/projectmesa/mesa/pull/2306
-* intro_tutorial: Don't initialize agents with an unique_id by @EwoutH in https://github.com/projectmesa/mesa/pull/2315
-* Migration guide: Intro, upgrade strategy, model.agents, headers by @EwoutH in https://github.com/projectmesa/mesa/pull/2314
+* Enforce google docstrings by @quaquel in https://github.com/mesa/mesa/pull/2294
+* Api docs by @quaquel in https://github.com/mesa/mesa/pull/2298
+* update migration guide to describe solaraviz updates by @Corvince in https://github.com/mesa/mesa/pull/2297
+* Migration Guide: Add Model initialization requirement and automatic Agent.unique_id assignment by @EwoutH in https://github.com/mesa/mesa/pull/2302
+* Deprecate Time module and all its Schedulers by @EwoutH in https://github.com/mesa/mesa/pull/2306
+* intro_tutorial: Don't initialize agents with an unique_id by @EwoutH in https://github.com/mesa/mesa/pull/2315
+* Migration guide: Intro, upgrade strategy, model.agents, headers by @EwoutH in https://github.com/mesa/mesa/pull/2314
 ### 🔧 Maintenance
-* make typing behavior of AgentSet.get explicit by @quaquel in https://github.com/projectmesa/mesa/pull/2293
-* model: Move random seed and random to __init__ by @rht in https://github.com/projectmesa/mesa/pull/1940
-* Remove schedulers from benchmark models. by @quaquel in https://github.com/projectmesa/mesa/pull/2308
+* make typing behavior of AgentSet.get explicit by @quaquel in https://github.com/mesa/mesa/pull/2293
+* model: Move random seed and random to __init__ by @rht in https://github.com/mesa/mesa/pull/1940
+* Remove schedulers from benchmark models. by @quaquel in https://github.com/mesa/mesa/pull/2308
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a4...v3.0.0a5
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a4...v3.0.0a5
 
 # 3.0.0a4 (2024-09-09)
 ## Highlights
@@ -840,43 +840,43 @@ Mesa 3.0.0a4 contains two major breaking changes:
     - wolf = Wolf(unique_id, model)
     + wolf = Wolf(model)
     ```
-    Example models were updated in [mesa-examples#194](https://github.com/projectmesa/mesa-examples/pull/194), which shows more examples on how to update existing models.
+    Example models were updated in [mesa-examples#194](https://github.com/mesa/mesa-examples/pull/194), which shows more examples on how to update existing models.
 
-2. Our visualisation API is being overhauled, to be more flexible and powerful. For more details, see [#2278](https://github.com/projectmesa/mesa/pull/2278).
-    - An initial update to the tutorial was made in [#2289](https://github.com/projectmesa/mesa/pull/2289) and is [available here](https://mesa.readthedocs.io/latest/tutorials/visualization_tutorial.html).
-    - An initial example model was updated in [mesa-examples#195](https://github.com/projectmesa/mesa-examples/pull/195), and more examples will be updated in [mesa-examples#195](https://github.com/projectmesa/mesa-examples/pull/193).
+2. Our visualisation API is being overhauled, to be more flexible and powerful. For more details, see [#2278](https://github.com/mesa/mesa/pull/2278).
+    - An initial update to the tutorial was made in [#2289](https://github.com/mesa/mesa/pull/2289) and is [available here](https://mesa.readthedocs.io/latest/tutorials/visualization_tutorial.html).
+    - An initial example model was updated in [mesa-examples#195](https://github.com/mesa/mesa-examples/pull/195), and more examples will be updated in [mesa-examples#195](https://github.com/mesa/mesa-examples/pull/193).
     - The old SolaraViz API is still available at `mesa.experimental`, but might be removed in future releases.
 
-Furthermore, the AgentSet has a new `agg` method to quickly get an aggerate value (for example `min_energy = model.agents.agg("energy", min)`) ([#2266](https://github.com/projectmesa/mesa/pull/2266)), The Model `get_agents_of_type` function is replaced by directly exposing the `agents_by_type` property (which can be accessed as a dict) ([#2267](https://github.com/projectmesa/mesa/pull/2267), [mesa-examples#190](https://github.com/projectmesa/mesa-examples/pull/190)) and the AgentSet get() methods can now handle missing values by replacing it with a default value ([#2279](https://github.com/projectmesa/mesa/pull/2279)).
+Furthermore, the AgentSet has a new `agg` method to quickly get an aggerate value (for example `min_energy = model.agents.agg("energy", min)`) ([#2266](https://github.com/mesa/mesa/pull/2266)), The Model `get_agents_of_type` function is replaced by directly exposing the `agents_by_type` property (which can be accessed as a dict) ([#2267](https://github.com/mesa/mesa/pull/2267), [mesa-examples#190](https://github.com/mesa/mesa-examples/pull/190)) and the AgentSet get() methods can now handle missing values by replacing it with a default value ([#2279](https://github.com/mesa/mesa/pull/2279)).
 
-Finally, it fixes a bug in which the Grid's `move_agent_to_one_of` method with `selection="closest"` selected a location deterministically, instead of randomly ([#2118](https://github.com/projectmesa/mesa/pull/2118)).
+Finally, it fixes a bug in which the Grid's `move_agent_to_one_of` method with `selection="closest"` selected a location deterministically, instead of randomly ([#2118](https://github.com/mesa/mesa/pull/2118)).
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* move solara_viz back to experimental by @Corvince in https://github.com/projectmesa/mesa/pull/2278
-* track unique_id automatically by @quaquel in https://github.com/projectmesa/mesa/pull/2260
+* move solara_viz back to experimental by @Corvince in https://github.com/mesa/mesa/pull/2278
+* track unique_id automatically by @quaquel in https://github.com/mesa/mesa/pull/2260
 ### 🎉 New features added
-* AgentSet: Add `agg` method by @EwoutH in https://github.com/projectmesa/mesa/pull/2266
-* Implement new SolaraViz API by @Corvince in https://github.com/projectmesa/mesa/pull/2263
+* AgentSet: Add `agg` method by @EwoutH in https://github.com/mesa/mesa/pull/2266
+* Implement new SolaraViz API by @Corvince in https://github.com/mesa/mesa/pull/2263
 ### 🛠 Enhancements made
-* Model: Replace `get_agents_of_type` method with `agents_by_type` property by @EwoutH in https://github.com/projectmesa/mesa/pull/2267
-* add default SolaraViz by @Corvince in https://github.com/projectmesa/mesa/pull/2280
-* Simplify ModelController by @Corvince in https://github.com/projectmesa/mesa/pull/2282
-* Add default values and missing value handling to `agentset.get` by @quaquel in https://github.com/projectmesa/mesa/pull/2279
+* Model: Replace `get_agents_of_type` method with `agents_by_type` property by @EwoutH in https://github.com/mesa/mesa/pull/2267
+* add default SolaraViz by @Corvince in https://github.com/mesa/mesa/pull/2280
+* Simplify ModelController by @Corvince in https://github.com/mesa/mesa/pull/2282
+* Add default values and missing value handling to `agentset.get` by @quaquel in https://github.com/mesa/mesa/pull/2279
 ### 🐛 Bugs fixed
-* Fix deterministic behavior in `move_agent_to_one_of` with `selection="closest"` by @OrenBochman in https://github.com/projectmesa/mesa/pull/2118
+* Fix deterministic behavior in `move_agent_to_one_of` with `selection="closest"` by @OrenBochman in https://github.com/mesa/mesa/pull/2118
 ### 📜 Documentation improvements
-* docs: Fix Visualization Tutorial (main branch) by @EwoutH in https://github.com/projectmesa/mesa/pull/2271
-* Docs: Fix broken relative links by removing `.html` suffix by @EwoutH in https://github.com/projectmesa/mesa/pull/2274
-* Readthedocs: Don't let notebook failures pass silently by @EwoutH in https://github.com/projectmesa/mesa/pull/2276
-* Update viz tutorial to the new API by @Corvince in https://github.com/projectmesa/mesa/pull/2289
+* docs: Fix Visualization Tutorial (main branch) by @EwoutH in https://github.com/mesa/mesa/pull/2271
+* Docs: Fix broken relative links by removing `.html` suffix by @EwoutH in https://github.com/mesa/mesa/pull/2274
+* Readthedocs: Don't let notebook failures pass silently by @EwoutH in https://github.com/mesa/mesa/pull/2276
+* Update viz tutorial to the new API by @Corvince in https://github.com/mesa/mesa/pull/2289
 ### 🔧 Maintenance
-* Resolve multiprocessing warning, state Python 3.13 support by @rht in https://github.com/projectmesa/mesa/pull/2246
+* Resolve multiprocessing warning, state Python 3.13 support by @rht in https://github.com/mesa/mesa/pull/2246
 
 ## New Contributors
-* @OrenBochman made their first contribution in https://github.com/projectmesa/mesa/pull/2118
+* @OrenBochman made their first contribution in https://github.com/mesa/mesa/pull/2118
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a3...v3.0.0a4
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a3...v3.0.0a4
 
 # 3.0.0a3 (2024-08-30)
 ## Highlights
@@ -884,78 +884,78 @@ Developments toward Mesa 3.0 are steaming ahead, and our fourth alpha release is
 
 Mesa 3.0.0a3 contains one breaking change: We now automatically increase the `steps` counter by one at the beginning of each `Model.steps()` call. That means increasing `steps` by hand isn't necessary anymore.
 
-The big new features is the experimental Voronoi grid that @vitorfrois implemented in #2084. It allows creating cells in a [Voronoi](https://en.wikipedia.org/wiki/Voronoi_diagram) layout as part of the experimental cell space. An example using it to model Cholera spread can be [found here](https://github.com/projectmesa/mesa-examples/pull/118).
+The big new features is the experimental Voronoi grid that @vitorfrois implemented in #2084. It allows creating cells in a [Voronoi](https://en.wikipedia.org/wiki/Voronoi_diagram) layout as part of the experimental cell space. An example using it to model Cholera spread can be [found here](https://github.com/mesa/mesa-examples/pull/118).
 
 The AgentSet got a lot of love with two brand new methods: `.groupby()` to split in groups (#2220) and `.set()` to easily assign variables to all agents in that set (#2254). The `select()` method is improved by allowing to select at most a fraction of the agents (#2253), and we split the `do()` method in `do()` and `map()` to make a distinction between the return types (#2237).
 
 Furthermore, we improved the performance of accessing `Model.agents`, squashed a bug in SolaraViz, started testing on Python 3.13 and added a new benchmark model.
 
-Our example models also got more love: We removed the `RandomActivation` scheduler in 14 models and removed SimultaneousActivation in 3 models ([examples#183](https://github.com/projectmesa/mesa-examples/pull/183)). They now use the automatic step increase and AgentSet functionality. We started testing our GIS model in CI ([examples#171](https://github.com/projectmesa/mesa-examples/pull/171)) and resolved a lot of bugs in them ([examples#172](https://github.com/projectmesa/mesa-examples/issues/172), help appreciated!).
+Our example models also got more love: We removed the `RandomActivation` scheduler in 14 models and removed SimultaneousActivation in 3 models ([examples#183](https://github.com/mesa/mesa-examples/pull/183)). They now use the automatic step increase and AgentSet functionality. We started testing our GIS model in CI ([examples#171](https://github.com/mesa/mesa-examples/pull/171)) and resolved a lot of bugs in them ([examples#172](https://github.com/mesa/mesa-examples/issues/172), help appreciated!).
 
-Finally, we have two brand new examples: An Ant Colony Optimization model using an Ant System approach to the Traveling Salesman problem, a Mesa NetworkGrid, and a custom visualisation with SolaraViz ([examples#157](https://github.com/projectmesa/mesa-examples/pull/157) by @zjost). The first example using the `PropertyLayer` was added, a very fast implementation of Conway's Game of Life ([examples#182](https://github.com/projectmesa/mesa-examples/pull/182)).
+Finally, we have two brand new examples: An Ant Colony Optimization model using an Ant System approach to the Traveling Salesman problem, a Mesa NetworkGrid, and a custom visualisation with SolaraViz ([examples#157](https://github.com/mesa/mesa-examples/pull/157) by @zjost). The first example using the `PropertyLayer` was added, a very fast implementation of Conway's Game of Life ([examples#182](https://github.com/mesa/mesa-examples/pull/182)).
 
-To help the transition to Mesa 3.0, we started writing a [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html). Progress is tracked in #2233, feedback and help is appreciated! Finally, we also added a new section to our [contributor guide](https://github.com/projectmesa/mesa/blob/main/CONTRIBUTING.md#i-have-no-idea-where-to-start) to get new contributors up to speed.
+To help the transition to Mesa 3.0, we started writing a [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html). Progress is tracked in #2233, feedback and help is appreciated! Finally, we also added a new section to our [contributor guide](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md#i-have-no-idea-where-to-start) to get new contributors up to speed.
 
 This pre-release can be installed as always with `pip install --pre mesa`
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* model: Automatically increase `steps` counter by @EwoutH in https://github.com/projectmesa/mesa/pull/2223
+* model: Automatically increase `steps` counter by @EwoutH in https://github.com/mesa/mesa/pull/2223
 ### 🧪 Experimental features
-* Voronoi Tessellation based Discrete Space by @vitorfrois in https://github.com/projectmesa/mesa/pull/2084
+* Voronoi Tessellation based Discrete Space by @vitorfrois in https://github.com/mesa/mesa/pull/2084
 ### 🎉 New features added
-* Add AgentSet.groupby by @quaquel in https://github.com/projectmesa/mesa/pull/2220
-* AgentSet: Add `set` method by @EwoutH in https://github.com/projectmesa/mesa/pull/2254
+* Add AgentSet.groupby by @quaquel in https://github.com/mesa/mesa/pull/2220
+* AgentSet: Add `set` method by @EwoutH in https://github.com/mesa/mesa/pull/2254
 ### 🛠 Enhancements made
-* Split AgentSet into map and do to separate return types by @quaquel in https://github.com/projectmesa/mesa/pull/2237
-* Performance enhancements for Model.agents by @quaquel in https://github.com/projectmesa/mesa/pull/2251
-* AgentSet: Allow selecting a fraction of agents in the AgentSet by @EwoutH in https://github.com/projectmesa/mesa/pull/2253
+* Split AgentSet into map and do to separate return types by @quaquel in https://github.com/mesa/mesa/pull/2237
+* Performance enhancements for Model.agents by @quaquel in https://github.com/mesa/mesa/pull/2251
+* AgentSet: Allow selecting a fraction of agents in the AgentSet by @EwoutH in https://github.com/mesa/mesa/pull/2253
 ### 🐛 Bugs fixed
-* SolaraViz: Reset components when params are changed by @rht in https://github.com/projectmesa/mesa/pull/2240
+* SolaraViz: Reset components when params are changed by @rht in https://github.com/mesa/mesa/pull/2240
 ### 📜 Documentation improvements
-* Contribution: Add "I have no idea where to start" section by @EwoutH in https://github.com/projectmesa/mesa/pull/2258
-* Write initial Mesa Migration guide by @EwoutH in https://github.com/projectmesa/mesa/pull/2257
+* Contribution: Add "I have no idea where to start" section by @EwoutH in https://github.com/mesa/mesa/pull/2258
+* Write initial Mesa Migration guide by @EwoutH in https://github.com/mesa/mesa/pull/2257
 ### 🔧 Maintenance
-* CI: Add test job for Python 3.13 by @EwoutH in https://github.com/projectmesa/mesa/pull/2173
-* Add pull request templates by @EwoutH in https://github.com/projectmesa/mesa/pull/2217
-* benchmarks: Add BoltzmannWealth model by @EwoutH in https://github.com/projectmesa/mesa/pull/2252
-* CI: Add optional dependency for examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2261
+* CI: Add test job for Python 3.13 by @EwoutH in https://github.com/mesa/mesa/pull/2173
+* Add pull request templates by @EwoutH in https://github.com/mesa/mesa/pull/2217
+* benchmarks: Add BoltzmannWealth model by @EwoutH in https://github.com/mesa/mesa/pull/2252
+* CI: Add optional dependency for examples by @EwoutH in https://github.com/mesa/mesa/pull/2261
 
 ## New Contributors
-* @vitorfrois made their first contribution in https://github.com/projectmesa/mesa/pull/2084
+* @vitorfrois made their first contribution in https://github.com/mesa/mesa/pull/2084
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a2...v3.0.0a3
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a2...v3.0.0a3
 
 # 3.0.0a2 (2024-08-21)
 ## Highlights
-In Mesa 3.0 alpha 2 (`v3.0.0a2`) we've done more clean-up in preparation for Mesa 3.0. We now [require](https://github.com/projectmesa/mesa/pull/2218) `super().__init__()`  to run on initializing a Mesa model subclass, `Model.agents` is now fully reserved for the Model's internal AgentSet and we fixed a bug in our Solara space_drawer.
+In Mesa 3.0 alpha 2 (`v3.0.0a2`) we've done more clean-up in preparation for Mesa 3.0. We now [require](https://github.com/mesa/mesa/pull/2218) `super().__init__()`  to run on initializing a Mesa model subclass, `Model.agents` is now fully reserved for the Model's internal AgentSet and we fixed a bug in our Solara space_drawer.
 
-A new feature was added in [#2219](https://github.com/projectmesa/mesa/pull/2219), which now also allows `AgentSet.do()` to take any callable function, instead of only a string referencing to an Agent method. The argument name was changed from `method_name` to `method`.
+A new feature was added in [#2219](https://github.com/mesa/mesa/pull/2219), which now also allows `AgentSet.do()` to take any callable function, instead of only a string referencing to an Agent method. The argument name was changed from `method_name` to `method`.
 
-The new Solara visualisation now allows portraying agents in different shapes, checkout some examples in [#2214](https://github.com/projectmesa/mesa/pull/2214).
+The new Solara visualisation now allows portraying agents in different shapes, checkout some examples in [#2214](https://github.com/mesa/mesa/pull/2214).
 
-We're also working hard on our [example models](https://github.com/projectmesa/mesa-examples). All model warnings were [resolved](https://github.com/projectmesa/mesa-examples/pull/153) and we've [replaced](https://github.com/projectmesa/mesa-examples/pull/161) a lot of schedulers with simpler and more flexible AgentSet functionality. Checkout our [open issues](https://github.com/projectmesa/mesa-examples/issues) if you want to help improve our example models further!
+We're also working hard on our [example models](https://github.com/mesa/mesa-examples). All model warnings were [resolved](https://github.com/mesa/mesa-examples/pull/153) and we've [replaced](https://github.com/mesa/mesa-examples/pull/161) a lot of schedulers with simpler and more flexible AgentSet functionality. Checkout our [open issues](https://github.com/mesa/mesa-examples/issues) if you want to help improve our example models further!
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* breaking: Add dependencies argument to custom space_drawer by @rht in https://github.com/projectmesa/mesa/pull/2209
-* Require Mesa models to be initialized with `super().__init__()` by @EwoutH in https://github.com/projectmesa/mesa/pull/2218
-* Allow AgentSet.do() to take Callable function by @quaquel in https://github.com/projectmesa/mesa/pull/2219
-* Change warning when setting model.agents to error by @EwoutH in https://github.com/projectmesa/mesa/pull/2225
+* breaking: Add dependencies argument to custom space_drawer by @rht in https://github.com/mesa/mesa/pull/2209
+* Require Mesa models to be initialized with `super().__init__()` by @EwoutH in https://github.com/mesa/mesa/pull/2218
+* Allow AgentSet.do() to take Callable function by @quaquel in https://github.com/mesa/mesa/pull/2219
+* Change warning when setting model.agents to error by @EwoutH in https://github.com/mesa/mesa/pull/2225
 ### 🧪 Experimental features
-* devs/eventlist: Add repr method to print EventList pretty by @EwoutH in https://github.com/projectmesa/mesa/pull/2195
+* devs/eventlist: Add repr method to print EventList pretty by @EwoutH in https://github.com/mesa/mesa/pull/2195
 ### 🛠 Enhancements made
-* Visualisation: Allow specifying Agent shapes in agent_portrayal by @rmhopkins4 in https://github.com/projectmesa/mesa/pull/2214
+* Visualisation: Allow specifying Agent shapes in agent_portrayal by @rmhopkins4 in https://github.com/mesa/mesa/pull/2214
 ### 📜 Documentation improvements
-* docs/conf.py: Use modern `intersphinx_mapping` format by @EwoutH in https://github.com/projectmesa/mesa/pull/2206
-* docs: Update Readme and tutorials to mention Mesa 3.0 pre-releases by @EwoutH in https://github.com/projectmesa/mesa/pull/2203
+* docs/conf.py: Use modern `intersphinx_mapping` format by @EwoutH in https://github.com/mesa/mesa/pull/2206
+* docs: Update Readme and tutorials to mention Mesa 3.0 pre-releases by @EwoutH in https://github.com/mesa/mesa/pull/2203
 ### 🔧 Maintenance
-* CI: Let pytest treat warnings as errors for examples by @EwoutH in https://github.com/projectmesa/mesa/pull/2204
+* CI: Let pytest treat warnings as errors for examples by @EwoutH in https://github.com/mesa/mesa/pull/2204
 
 ## New Contributors
-* @rmhopkins4 made their first contribution in https://github.com/projectmesa/mesa/pull/2214
+* @rmhopkins4 made their first contribution in https://github.com/mesa/mesa/pull/2214
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a1...v3.0.0a2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a1...v3.0.0a2
 
 # 3.0.0a1 (2024-08-01)
 ## Highlights
@@ -963,20 +963,20 @@ Mesa 3.0 alpha 1 (`v3.0.0a1`) is another step towards our next major version. Th
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* viz: Combine code for rendering in browser and Jupyter by @rht in https://github.com/projectmesa/mesa/pull/2180
+* viz: Combine code for rendering in browser and Jupyter by @rht in https://github.com/mesa/mesa/pull/2180
 ### 🛠 Enhancements made
-* Rename JupyterViz to SolaraViz by @rht in https://github.com/projectmesa/mesa/pull/2187
-* refactor: Rename jupyter_viz namespace to solara_viz by @rht in https://github.com/projectmesa/mesa/pull/2188
+* Rename JupyterViz to SolaraViz by @rht in https://github.com/mesa/mesa/pull/2187
+* refactor: Rename jupyter_viz namespace to solara_viz by @rht in https://github.com/mesa/mesa/pull/2188
 ### 🐛 Bugs fixed
-* fix: Render agent marker radius correctly by @rht in https://github.com/projectmesa/mesa/pull/2181
-* fix: Use model.schedule.steps -> mode._steps for batch_run by @rht in https://github.com/projectmesa/mesa/pull/2183
+* fix: Render agent marker radius correctly by @rht in https://github.com/mesa/mesa/pull/2181
+* fix: Use model.schedule.steps -> mode._steps for batch_run by @rht in https://github.com/mesa/mesa/pull/2183
 ### 📜 Documentation improvements
-* Add original conference paper link to docs by @ENUMERA8OR in https://github.com/projectmesa/mesa/pull/2160
+* Add original conference paper link to docs by @ENUMERA8OR in https://github.com/mesa/mesa/pull/2160
 
 ## New Contributors
-* @ENUMERA8OR made their first contribution in https://github.com/projectmesa/mesa/pull/2160
+* @ENUMERA8OR made their first contribution in https://github.com/mesa/mesa/pull/2160
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v3.0.0a0...v3.0.0a1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.0a0...v3.0.0a1
 
 # 3.0.0a0 (2024-07-04)
 ## Highlights
@@ -994,26 +994,26 @@ This pre-release can be installed with `pip install mesa --upgrade --pre`.
 
 ## What's Changed
 ### ⚠️ Breaking changes
-* Remove mesa.flat namespace by @rht in https://github.com/projectmesa/mesa/pull/2091
-* breaking: Remove visualization_old (mesa-viz-tornado) by @rht in https://github.com/projectmesa/mesa/pull/2133
+* Remove mesa.flat namespace by @rht in https://github.com/mesa/mesa/pull/2091
+* breaking: Remove visualization_old (mesa-viz-tornado) by @rht in https://github.com/mesa/mesa/pull/2133
 ### 🎉 New features added
-* Set JupyterViz as stable by @rht in https://github.com/projectmesa/mesa/pull/2090
+* Set JupyterViz as stable by @rht in https://github.com/mesa/mesa/pull/2090
 ### 🐛 Bugs fixed
-* Jupyter_viz: Allow measures to be None by @EwoutH in https://github.com/projectmesa/mesa/pull/2163
-* Jupyter Viz: Don't avoid interactive backend by @EwoutH in https://github.com/projectmesa/mesa/pull/2165
+* Jupyter_viz: Allow measures to be None by @EwoutH in https://github.com/mesa/mesa/pull/2163
+* Jupyter Viz: Don't avoid interactive backend by @EwoutH in https://github.com/mesa/mesa/pull/2165
 ### 📜 Documentation improvements
-* Fix image on landing page of docs. by @jackiekazil in https://github.com/projectmesa/mesa/pull/2146
-* Replace links in docs - google group to matrix. by @jackiekazil in https://github.com/projectmesa/mesa/pull/2148
-* Update visualisation docs by @EwoutH in https://github.com/projectmesa/mesa/pull/2162
+* Fix image on landing page of docs. by @jackiekazil in https://github.com/mesa/mesa/pull/2146
+* Replace links in docs - google group to matrix. by @jackiekazil in https://github.com/mesa/mesa/pull/2148
+* Update visualisation docs by @EwoutH in https://github.com/mesa/mesa/pull/2162
 ### 🔧 Maintenance
-* CI: Add weekly scheduled run to all CI workflows by @EwoutH in https://github.com/projectmesa/mesa/pull/2130
-* Drop support for Python 3.9, require Python >= 3.10  by @EwoutH in https://github.com/projectmesa/mesa/pull/2132
-* Add script to list unlabeled PR's since latest release by @rht in https://github.com/projectmesa/mesa/pull/2047
+* CI: Add weekly scheduled run to all CI workflows by @EwoutH in https://github.com/mesa/mesa/pull/2130
+* Drop support for Python 3.9, require Python >= 3.10  by @EwoutH in https://github.com/mesa/mesa/pull/2132
+* Add script to list unlabeled PR's since latest release by @rht in https://github.com/mesa/mesa/pull/2047
 
 ## New Contributors
-* @stephenfmann made their first contribution in https://github.com/projectmesa/mesa/pull/2154
+* @stephenfmann made their first contribution in https://github.com/mesa/mesa/pull/2154
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.3.1...v3.0.0a0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.3.1...v3.0.0a0
 
 # 2.3.2 (2024-07-22)
 ## Highlights
@@ -1021,10 +1021,10 @@ Mesa 2.3.2 is a small patch release which fixes two bugs, one to the batch_run f
 
 ## What's Changed
 ### 🐛 Bugs fixed
-* fix: Render agent marker radius correctly by @rht in https://github.com/projectmesa/mesa/pull/2181
-* fix: Use model.schedule.steps -> mode._steps for batch_run by @rht in https://github.com/projectmesa/mesa/pull/2183
+* fix: Render agent marker radius correctly by @rht in https://github.com/mesa/mesa/pull/2181
+* fix: Use model.schedule.steps -> mode._steps for batch_run by @rht in https://github.com/mesa/mesa/pull/2183
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.3.1...v2.3.2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.3.1...v2.3.2
 
 # 2.3.1 (2024-07-03)
 ## Highlights
@@ -1032,11 +1032,11 @@ Mesa 2.3.1 is a small patch release with a datacollector bug fixed and improved 
 
 ## What's Changed
 ### 🐛 Bugs fixed
-* datacollector: store separate snapshots of model data per step by @EwoutH in https://github.com/projectmesa/mesa/pull/2129
+* datacollector: store separate snapshots of model data per step by @EwoutH in https://github.com/mesa/mesa/pull/2129
 ### 📜 Documentation improvements
-* Add experimental features to documentation as per #2122 by @stephenfmann in https://github.com/projectmesa/mesa/pull/2154
+* Add experimental features to documentation as per #2122 by @stephenfmann in https://github.com/mesa/mesa/pull/2154
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.3.0...v2.3.1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.3.0...v2.3.1
 
 # 2.3.0 (2024-04-23)
 ## Highlights
@@ -1058,91 +1058,91 @@ The Mesa 2.3.x-series supports Python 3.9 to 3.12. The next major release will r
 
 ## What's Changed
 ### 🧪 Experimental features
-* Add cell-centric discrete spaces (experimental) by @Corvince in https://github.com/projectmesa/mesa/pull/1994
+* Add cell-centric discrete spaces (experimental) by @Corvince in https://github.com/mesa/mesa/pull/1994
 ### 🎉 New features added
-* Add performance benchmarking scripts by @EwoutH in https://github.com/projectmesa/mesa/pull/1979
-* feat: Implement Slider class for JupyterViz by @rht in https://github.com/projectmesa/mesa/pull/1972
-* Stabilize AgentSet by @EwoutH in https://github.com/projectmesa/mesa/pull/2065
-* Support discrete event scheduling by @quaquel in https://github.com/projectmesa/mesa/pull/2066
+* Add performance benchmarking scripts by @EwoutH in https://github.com/mesa/mesa/pull/1979
+* feat: Implement Slider class for JupyterViz by @rht in https://github.com/mesa/mesa/pull/1972
+* Stabilize AgentSet by @EwoutH in https://github.com/mesa/mesa/pull/2065
+* Support discrete event scheduling by @quaquel in https://github.com/mesa/mesa/pull/2066
 ### 🛠 Enhancements made
-* JupyterViz: Automatically deduce display name from model class by @rht in https://github.com/projectmesa/mesa/pull/1975
-* Add radius argument to NetworkGrid.get_neighbors() by @EwoutH in https://github.com/projectmesa/mesa/pull/1973
-* Speedup of Agentset.shuffle by @quaquel in https://github.com/projectmesa/mesa/pull/2010
-* feat: Let mesa runserver detect server.py as fallback by @rht in https://github.com/projectmesa/mesa/pull/2015
-* JupyterViz: {Convert make_plot & prepare ColorCard} to become Solara component by @rht in https://github.com/projectmesa/mesa/pull/2020
-* new feature: AgentSet.get can retrieve one or more then one attribute by @quaquel in https://github.com/projectmesa/mesa/pull/2044
-* Update CODE_OF_CONDUCT.md to version 2+ of contrib covenant by @jackiekazil in https://github.com/projectmesa/mesa/pull/2052
-* Improve flocking benchmark  by @coderbeta1 in https://github.com/projectmesa/mesa/pull/2054
-* Remove JupyterViz Altair marker overlap for huge grid size by @rht in https://github.com/projectmesa/mesa/pull/2062
-* Add tooltip option to Altair chart by @FoFFolo in https://github.com/projectmesa/mesa/pull/2082
-* feat: Display model seed & allow user to specify it in JupyterViz by @rht in https://github.com/projectmesa/mesa/pull/2069
-* warn if placing already placed agent by @puer-robustus in https://github.com/projectmesa/mesa/pull/2083
+* JupyterViz: Automatically deduce display name from model class by @rht in https://github.com/mesa/mesa/pull/1975
+* Add radius argument to NetworkGrid.get_neighbors() by @EwoutH in https://github.com/mesa/mesa/pull/1973
+* Speedup of Agentset.shuffle by @quaquel in https://github.com/mesa/mesa/pull/2010
+* feat: Let mesa runserver detect server.py as fallback by @rht in https://github.com/mesa/mesa/pull/2015
+* JupyterViz: {Convert make_plot & prepare ColorCard} to become Solara component by @rht in https://github.com/mesa/mesa/pull/2020
+* new feature: AgentSet.get can retrieve one or more then one attribute by @quaquel in https://github.com/mesa/mesa/pull/2044
+* Update CODE_OF_CONDUCT.md to version 2+ of contrib covenant by @jackiekazil in https://github.com/mesa/mesa/pull/2052
+* Improve flocking benchmark  by @coderbeta1 in https://github.com/mesa/mesa/pull/2054
+* Remove JupyterViz Altair marker overlap for huge grid size by @rht in https://github.com/mesa/mesa/pull/2062
+* Add tooltip option to Altair chart by @FoFFolo in https://github.com/mesa/mesa/pull/2082
+* feat: Display model seed & allow user to specify it in JupyterViz by @rht in https://github.com/mesa/mesa/pull/2069
+* warn if placing already placed agent by @puer-robustus in https://github.com/mesa/mesa/pull/2083
 ### 🐛 Bugs fixed
-* fix: Apply default value to slider by @rht in https://github.com/projectmesa/mesa/pull/2016
-* fix: Initialize model _steps and _time during __new__ by @rht in https://github.com/projectmesa/mesa/pull/2026
-* fix: Use model.schedule only when it is not None by @rht in https://github.com/projectmesa/mesa/pull/2050
-* fix: Remove JupyterViz grid marker overlap for huge grid size by @rht in https://github.com/projectmesa/mesa/pull/2049
+* fix: Apply default value to slider by @rht in https://github.com/mesa/mesa/pull/2016
+* fix: Initialize model _steps and _time during __new__ by @rht in https://github.com/mesa/mesa/pull/2026
+* fix: Use model.schedule only when it is not None by @rht in https://github.com/mesa/mesa/pull/2050
+* fix: Remove JupyterViz grid marker overlap for huge grid size by @rht in https://github.com/mesa/mesa/pull/2049
 ### 📜 Documentation improvements
-* Improve readability of badges by @rht in https://github.com/projectmesa/mesa/pull/2009
-* More pythonic implementation of wolf sheep by @quaquel in https://github.com/projectmesa/mesa/pull/2011
-* Adding super().__init__() to MoneyModel tutorial by @sw23 in https://github.com/projectmesa/mesa/pull/2025
-* docs: Convert howto.rst -> howto.md via rst2myst by @rht in https://github.com/projectmesa/mesa/pull/2033
-* docs: Convert best-practices,overview,packages,mesa,index to .md via rst2myst by @rht in https://github.com/projectmesa/mesa/pull/2034
-* docs: Convert api/*.rst -> api/*.md via rst2myst by @rht in https://github.com/projectmesa/mesa/pull/2035
-* docs: Rewrite howto.md using ChatGPT for clarity and conciseness by @rht in https://github.com/projectmesa/mesa/pull/2037
-* docs: Corrected Contributing Guide Link to Ensure Accessibility by @sahusiddharth in https://github.com/projectmesa/mesa/pull/2057
-* Rename links to internal .rst files to .md by @rht in https://github.com/projectmesa/mesa/pull/2058
-* docs: improve introductory tutorial by @puer-robustus in https://github.com/projectmesa/mesa/pull/2087
+* Improve readability of badges by @rht in https://github.com/mesa/mesa/pull/2009
+* More pythonic implementation of wolf sheep by @quaquel in https://github.com/mesa/mesa/pull/2011
+* Adding super().__init__() to MoneyModel tutorial by @sw23 in https://github.com/mesa/mesa/pull/2025
+* docs: Convert howto.rst -> howto.md via rst2myst by @rht in https://github.com/mesa/mesa/pull/2033
+* docs: Convert best-practices,overview,packages,mesa,index to .md via rst2myst by @rht in https://github.com/mesa/mesa/pull/2034
+* docs: Convert api/*.rst -> api/*.md via rst2myst by @rht in https://github.com/mesa/mesa/pull/2035
+* docs: Rewrite howto.md using ChatGPT for clarity and conciseness by @rht in https://github.com/mesa/mesa/pull/2037
+* docs: Corrected Contributing Guide Link to Ensure Accessibility by @sahusiddharth in https://github.com/mesa/mesa/pull/2057
+* Rename links to internal .rst files to .md by @rht in https://github.com/mesa/mesa/pull/2058
+* docs: improve introductory tutorial by @puer-robustus in https://github.com/mesa/mesa/pull/2087
 ### 🔧 Maintenance
-* Quality of Life: Make codecov less meticulous by @Corvince in https://github.com/projectmesa/mesa/pull/1966
-* Add CI workflow for performance benchmarks by @EwoutH in https://github.com/projectmesa/mesa/pull/1983
-* tests: Resolve warnings by defining PropertyLayer dtypes by @EwoutH in https://github.com/projectmesa/mesa/pull/1987
-* benchmarks.yml: Fix PR branch checkout when triggered by comment by @EwoutH in https://github.com/projectmesa/mesa/pull/1998
-* Quality of life: automatically fix ruff errors by @Corvince in https://github.com/projectmesa/mesa/pull/2004
-* benchmarks.yml: Run on addition of label instead of comment by @EwoutH in https://github.com/projectmesa/mesa/pull/2002
-* ci: Move codespell to pre-commit by @rht in https://github.com/projectmesa/mesa/pull/2040
-* Schelling by @coderbeta1 in https://github.com/projectmesa/mesa/pull/2053
-* Move ruff lint settings into dedicated section by @Corvince in https://github.com/projectmesa/mesa/pull/2073
-* ci: Use uv pip for faster build by @rht in https://github.com/projectmesa/mesa/pull/2038
-* test: Remove place_agent duplicate warnings by @rht in https://github.com/projectmesa/mesa/pull/2086
+* Quality of Life: Make codecov less meticulous by @Corvince in https://github.com/mesa/mesa/pull/1966
+* Add CI workflow for performance benchmarks by @EwoutH in https://github.com/mesa/mesa/pull/1983
+* tests: Resolve warnings by defining PropertyLayer dtypes by @EwoutH in https://github.com/mesa/mesa/pull/1987
+* benchmarks.yml: Fix PR branch checkout when triggered by comment by @EwoutH in https://github.com/mesa/mesa/pull/1998
+* Quality of life: automatically fix ruff errors by @Corvince in https://github.com/mesa/mesa/pull/2004
+* benchmarks.yml: Run on addition of label instead of comment by @EwoutH in https://github.com/mesa/mesa/pull/2002
+* ci: Move codespell to pre-commit by @rht in https://github.com/mesa/mesa/pull/2040
+* Schelling by @coderbeta1 in https://github.com/mesa/mesa/pull/2053
+* Move ruff lint settings into dedicated section by @Corvince in https://github.com/mesa/mesa/pull/2073
+* ci: Use uv pip for faster build by @rht in https://github.com/mesa/mesa/pull/2038
+* test: Remove place_agent duplicate warnings by @rht in https://github.com/mesa/mesa/pull/2086
 ### Other changes
-* Minor edits to benchmarking code by @quaquel in https://github.com/projectmesa/mesa/pull/1985
-* build(deps): bump codecov/codecov-action from 3 to 4 by @dependabot in https://github.com/projectmesa/mesa/pull/2030
-* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci in https://github.com/projectmesa/mesa/pull/2029
-* tests: Speed up test_batch_run by @rht in https://github.com/projectmesa/mesa/pull/2039
-* Update benchmarks.yml by @Corvince in https://github.com/projectmesa/mesa/pull/2043
-* docs: Convert visualization .rst -> .md via rst2myst by @rht in https://github.com/projectmesa/mesa/pull/2036
-* docs: Convert CONTRIBUTING .rst -> .md via rst2myst by @rht in https://github.com/projectmesa/mesa/pull/2041
-* Correct wolf energy gained from eating sheep by @JackAtOmenApps in https://github.com/projectmesa/mesa/pull/2048
-* feat: Implement Altair version of grid visualization by @rht in https://github.com/projectmesa/mesa/pull/1991
+* Minor edits to benchmarking code by @quaquel in https://github.com/mesa/mesa/pull/1985
+* build(deps): bump codecov/codecov-action from 3 to 4 by @dependabot in https://github.com/mesa/mesa/pull/2030
+* [pre-commit.ci] pre-commit autoupdate by @pre-commit-ci in https://github.com/mesa/mesa/pull/2029
+* tests: Speed up test_batch_run by @rht in https://github.com/mesa/mesa/pull/2039
+* Update benchmarks.yml by @Corvince in https://github.com/mesa/mesa/pull/2043
+* docs: Convert visualization .rst -> .md via rst2myst by @rht in https://github.com/mesa/mesa/pull/2036
+* docs: Convert CONTRIBUTING .rst -> .md via rst2myst by @rht in https://github.com/mesa/mesa/pull/2041
+* Correct wolf energy gained from eating sheep by @JackAtOmenApps in https://github.com/mesa/mesa/pull/2048
+* feat: Implement Altair version of grid visualization by @rht in https://github.com/mesa/mesa/pull/1991
 
 ## New Contributors
-* @sw23 made their first contribution in https://github.com/projectmesa/mesa/pull/2025
-* @JackAtOmenApps made their first contribution in https://github.com/projectmesa/mesa/pull/2048
-* @coderbeta1 made their first contribution in https://github.com/projectmesa/mesa/pull/2054
-* @sahusiddharth made their first contribution in https://github.com/projectmesa/mesa/pull/2057
-* @FoFFolo made their first contribution in https://github.com/projectmesa/mesa/pull/2082
-* @puer-robustus made their first contribution in https://github.com/projectmesa/mesa/pull/2083
+* @sw23 made their first contribution in https://github.com/mesa/mesa/pull/2025
+* @JackAtOmenApps made their first contribution in https://github.com/mesa/mesa/pull/2048
+* @coderbeta1 made their first contribution in https://github.com/mesa/mesa/pull/2054
+* @sahusiddharth made their first contribution in https://github.com/mesa/mesa/pull/2057
+* @FoFFolo made their first contribution in https://github.com/mesa/mesa/pull/2082
+* @puer-robustus made their first contribution in https://github.com/mesa/mesa/pull/2083
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.2.4...2.3.0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.2.4...2.3.0
 
 # 2.3.0-rc1 (2024-04-18)
 Mesa 2.3.0-rc1 is pre-release in preparation for 2.3.0 stable. It had the same release notes as 2.3.0.
 
 # 2.2.4 (2024-01-26)
 ## Highlights
-Mesa v2.2.4 is a small but important bugfix release for the 2.2 release series. It fixes an essential bug in where agents weren't shuffled in the `BaseScheduler`, affecting mainly the `RandomActivation` scheduler (effectively making it sequential activation)([#2007](https://github.com/projectmesa/mesa/pull/2007)). It also fixes a small behaviour change in `RandomActivationByType.agents_by_type()` ([#1996](https://github.com/projectmesa/mesa/pull/1996)). Furthermore, this release adds an internal clock to the `Model`, which allows to use a Mesa model without a scheduler (using the `AgentSet` API)([#1942](https://github.com/projectmesa/mesa/pull/1942)).
+Mesa v2.2.4 is a small but important bugfix release for the 2.2 release series. It fixes an essential bug in where agents weren't shuffled in the `BaseScheduler`, affecting mainly the `RandomActivation` scheduler (effectively making it sequential activation)([#2007](https://github.com/mesa/mesa/pull/2007)). It also fixes a small behaviour change in `RandomActivationByType.agents_by_type()` ([#1996](https://github.com/mesa/mesa/pull/1996)). Furthermore, this release adds an internal clock to the `Model`, which allows to use a Mesa model without a scheduler (using the `AgentSet` API)([#1942](https://github.com/mesa/mesa/pull/1942)).
 
 Updating from previous 2.2 releases is highly recommended, especially when using the `RandomActivation` scheduler.
 
 ## What's Changed
 ### 🛠 Enhancements made
-* refactor: Remove dependence on model.schedule, add clock to Model by @rht in https://github.com/projectmesa/mesa/pull/1942
+* refactor: Remove dependence on model.schedule, add clock to Model by @rht in https://github.com/mesa/mesa/pull/1942
 ### 🐛 Bugs fixed
-* Fix AgentSet inplace shuffle (and thus RandomActivation), add tests by @EwoutH and @quaquel in https://github.com/projectmesa/mesa/pull/2007
-* fix: Reverse dict key and value for agents_by_type by @rht in https://github.com/projectmesa/mesa/pull/1996
+* Fix AgentSet inplace shuffle (and thus RandomActivation), add tests by @EwoutH and @quaquel in https://github.com/mesa/mesa/pull/2007
+* fix: Reverse dict key and value for agents_by_type by @rht in https://github.com/mesa/mesa/pull/1996
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.2.3...v2.2.4
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.2.3...v2.2.4
 
 # 2.2.3 (2024-01-22)
 ## Highlights
@@ -1150,23 +1150,23 @@ Mesa 2.2.3 is a small release with two improvements to the experimental Solara v
 
 ## What's Changed
 ### 🧪 Experimental features
-* solara_viz: Add borders around ContinuousSpace by @EwoutH in https://github.com/projectmesa/mesa/pull/1988
+* solara_viz: Add borders around ContinuousSpace by @EwoutH in https://github.com/mesa/mesa/pull/1988
 ### 🐛 Bugs fixed
-* fix: Explicitly specify JupyterViz space view limits by @rht in https://github.com/projectmesa/mesa/pull/1984
+* fix: Explicitly specify JupyterViz space view limits by @rht in https://github.com/mesa/mesa/pull/1984
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.2.2...v2.2.3
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.2.2...v2.2.3
 
 # 2.2.2 (2024-01-22)
 
 ## Highlights
 
-Mesa 2.2.2 is a small bugfix release, for models in which users had defined  `Model.agents` (`self.agents` in a Model (sub)class). This is deprecated, but for now allowed. See [#1919 (comment)](https://github.com/projectmesa/mesa/discussions/1919#discussioncomment-8141844).
+Mesa 2.2.2 is a small bugfix release, for models in which users had defined  `Model.agents` (`self.agents` in a Model (sub)class). This is deprecated, but for now allowed. See [#1919 (comment)](https://github.com/mesa/mesa/discussions/1919#discussioncomment-8141844).
 
 ## What's Changed
 ### 🐛 Bugs fixed
-* Allow user models to assign `Model.agents` for now, but add warning by @quaquel in [#1976](https://github.com/projectmesa/mesa/pull/1976)
+* Allow user models to assign `Model.agents` for now, but add warning by @quaquel in [#1976](https://github.com/mesa/mesa/pull/1976)
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.2.1...v2.2.2
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.2.1...v2.2.2
 
 
 # 2.2.1 (2024-01-16)
@@ -1178,22 +1178,22 @@ We highly recommend updating to 2.2.1 if you're using 2.2.0.
 
 ## What's Changed
 ### 🧪 Experimental features
-* jupyter_viz: Implement multiline plot by @rht in https://github.com/projectmesa/mesa/pull/1941
+* jupyter_viz: Implement multiline plot by @rht in https://github.com/mesa/mesa/pull/1941
 ### 🛠 Enhancements made
-* make mesa runable without some dependencies by @Corvince in https://github.com/projectmesa/mesa/pull/1950
-* Improve performance of AgentSet and iter_cell_list_contents by @Corvince in https://github.com/projectmesa/mesa/pull/1964
+* make mesa runable without some dependencies by @Corvince in https://github.com/mesa/mesa/pull/1950
+* Improve performance of AgentSet and iter_cell_list_contents by @Corvince in https://github.com/mesa/mesa/pull/1964
 ### 🐛 Bugs fixed
-* Bugfix in agentset to handle addition and removal correctly by @quaquel in https://github.com/projectmesa/mesa/pull/1960
-* Make RandomActivationByType.agents_by_type backward compatible by @quaquel in https://github.com/projectmesa/mesa/pull/1965
+* Bugfix in agentset to handle addition and removal correctly by @quaquel in https://github.com/mesa/mesa/pull/1960
+* Make RandomActivationByType.agents_by_type backward compatible by @quaquel in https://github.com/mesa/mesa/pull/1965
 ### 📜 Documentation improvements
-* Refer to just Python instead of Python 3 by @rht in https://github.com/projectmesa/mesa/pull/1957
-* intro tutorial: Analysing model reporters by @EwoutH in https://github.com/projectmesa/mesa/pull/1955
+* Refer to just Python instead of Python 3 by @rht in https://github.com/mesa/mesa/pull/1957
+* intro tutorial: Analysing model reporters by @EwoutH in https://github.com/mesa/mesa/pull/1955
 ### 🔧 Maintenance
-* Migrate from setuptools to hatch by @rht in https://github.com/projectmesa/mesa/pull/1882
-* ci: Add tests for mesa-examples by @rht in https://github.com/projectmesa/mesa/pull/1956
-* refactor: Move Matplotlib-specific Solara components to separate file by @rht in https://github.com/projectmesa/mesa/pull/1943
+* Migrate from setuptools to hatch by @rht in https://github.com/mesa/mesa/pull/1882
+* ci: Add tests for mesa-examples by @rht in https://github.com/mesa/mesa/pull/1956
+* refactor: Move Matplotlib-specific Solara components to separate file by @rht in https://github.com/mesa/mesa/pull/1943
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.2.0...v2.2.1
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.2.0...v2.2.1
 
 
 # 2.2.0 (2024-01-09)
@@ -1267,34 +1267,34 @@ _The DiscreteEventScheduler is an experimental feature. We would love feedback o
 ## What's Changed
 
 ### 🧪 Experimental features
-* Native support for multiple agent types by @EwoutH in https://github.com/projectmesa/mesa/pull/1894
-* space: Implement PropertyLayer and _PropertyGrid by @EwoutH in https://github.com/projectmesa/mesa/pull/1898
-* Add DiscreteEventScheduler by @EwoutH in https://github.com/projectmesa/mesa/pull/1890
+* Native support for multiple agent types by @EwoutH in https://github.com/mesa/mesa/pull/1894
+* space: Implement PropertyLayer and _PropertyGrid by @EwoutH in https://github.com/mesa/mesa/pull/1898
+* Add DiscreteEventScheduler by @EwoutH in https://github.com/mesa/mesa/pull/1890
 
 ### 🎉 New features added
-* Introduce AgentSet class by @EwoutH in https://github.com/projectmesa/mesa/pull/1916
+* Introduce AgentSet class by @EwoutH in https://github.com/mesa/mesa/pull/1916
 
 ### 🛠 Enhancements made
-* Reimplement schedulers to use AgentSet by @quaquel in https://github.com/projectmesa/mesa/pull/1926
-* space: Let move_agent choose from multiple positions by @EwoutH in https://github.com/projectmesa/mesa/pull/1920
+* Reimplement schedulers to use AgentSet by @quaquel in https://github.com/mesa/mesa/pull/1926
+* space: Let move_agent choose from multiple positions by @EwoutH in https://github.com/mesa/mesa/pull/1920
 
 ### 🐛 Bugs fixed
-* Work around for initializing model._agent by @quaquel in https://github.com/projectmesa/mesa/pull/1928
-* Honor disabled space drawer option when rendering in the browser by @rlskoeser in https://github.com/projectmesa/mesa/pull/1907
+* Work around for initializing model._agent by @quaquel in https://github.com/mesa/mesa/pull/1928
+* Honor disabled space drawer option when rendering in the browser by @rlskoeser in https://github.com/mesa/mesa/pull/1907
 
 ### 📜 Documentation improvements
-* Document empties property by @EwoutH in https://github.com/projectmesa/mesa/pull/1888
-* docs: Fix README.md inline code formatting by @rht in https://github.com/projectmesa/mesa/pull/1887
+* Document empties property by @EwoutH in https://github.com/mesa/mesa/pull/1888
+* docs: Fix README.md inline code formatting by @rht in https://github.com/mesa/mesa/pull/1887
 
 ### 🔧 Maintenance
-* ci: Speed up pip install by caching deps install output by @rht in https://github.com/projectmesa/mesa/pull/1885
-* Create release.yml file for automatic release notes generation by @EwoutH in https://github.com/projectmesa/mesa/pull/1925
-* Drop support for Python 3.8 by @rht in https://github.com/projectmesa/mesa/pull/1756
+* ci: Speed up pip install by caching deps install output by @rht in https://github.com/mesa/mesa/pull/1885
+* Create release.yml file for automatic release notes generation by @EwoutH in https://github.com/mesa/mesa/pull/1925
+* Drop support for Python 3.8 by @rht in https://github.com/mesa/mesa/pull/1756
 
 ### New Contributors
-* @quaquel made their first contribution in https://github.com/projectmesa/mesa/pull/1928
+* @quaquel made their first contribution in https://github.com/mesa/mesa/pull/1928
 
-**Full Changelog**: https://github.com/projectmesa/mesa/compare/v2.1.5...v2.2.0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v2.1.5...v2.2.0
 
 
 # 2.1.5 (2023-11-26)
@@ -1333,7 +1333,7 @@ improvements to datacollection and the documentation.
 
 This release updates mesa-viz-tornado dependency v0.1.3. This removes
 the external JavaScript templates and
-[prevents 404 errors](https://github.com/projectmesa/mesa-viz-tornado/issues/40)
+[prevents 404 errors](https://github.com/mesa/mesa-viz-tornado/issues/40)
 
 -   bugfix: ensure mesa_viz_tornado\>=0.1.3 #1862
 
@@ -1555,7 +1555,7 @@ Mesa 2.0 includes:
 
 # 1.2.1 (2023-03-18)
 
-This release fixes <https://github.com/projectmesa/mesa/issues/1606>,
+This release fixes <https://github.com/mesa/mesa/issues/1606>,
 where `mesa startproject` doesn\'t work.
 
 Changes:
@@ -1657,7 +1657,7 @@ Some highlights for the perf improvements:
 
 -   Update resources in README #1605
 
--   Fix accident from <https://github.com/projectmesa/mesa/pull/1488>
+-   Fix accident from <https://github.com/mesa/mesa/pull/1488>
     #1489
 
 -   pre-commit autoupdate #1598, #1576, #1548, #1494
@@ -1712,7 +1712,7 @@ Some highlights for the perf improvements:
 
 # 1.1.1 (2022-10-21)
 
-This release fixes <https://github.com/projectmesa/mesa/issues/1461>
+This release fixes <https://github.com/mesa/mesa/issues/1461>
 where custom user-specified portrayal images don\'t load in the
 visualization server.
 

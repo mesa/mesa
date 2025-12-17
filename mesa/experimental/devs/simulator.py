@@ -216,7 +216,7 @@ class Simulator:
             SimulationEvent: the simulation event that is scheduled
 
         """
-        if self.time > time:
+        if self.model.time > time:
             raise ValueError("trying to schedule an event in the past")
 
         event = SimulationEvent(

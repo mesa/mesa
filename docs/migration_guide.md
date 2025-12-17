@@ -1,7 +1,33 @@
 # Mesa Migration guide
 This guide contains breaking changes between major Mesa versions and how to resolve them.
 
-Non-breaking changes aren't included, for those see our [Release history](https://github.com/projectmesa/mesa/releases).
+Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
+
+## Mesa 3.4.0
+
+### batch run
+`batch_run` has been updated to offer explicit control over the random seeds that are used to run multiple replications of a given experiment. For this a new keyword argument, `rng` has been added and `iterations` will issue a `DeprecationWarning`. The new `rng` keyword argument takes a valid value for seeding or a list of valid values. If you want to run multiple iterations/replications of a given experiment, you need to pass the required seeds explicitly.
+
+Below is a simple example of the new recommended usage of `batch_run`. Note how we first create 5 random integers which we then use as seed values for the new `rng` keyword argument.
+
+```python
+import numpy as np
+import sys
+
+# let's create 5 random integers
+rng = np.random.default_rng(42)
+rng_values = rng.integers(0, sys.maxsize, size=(5,))
+
+results = mesa.batch_run(
+    MoneyModel,
+    parameters=params,
+    rng=rng_values.tolist(), # we pass the 5 seed values to rng
+    max_steps=100,
+    number_processes=1,
+    data_collection_period=1,
+    display_progress=True,
+)
+```
 
 ## Mesa 3.3.0
 
@@ -9,7 +35,7 @@ Mesa 3.3.0 is a visualization upgrade introducing a new and improved API, full s
 For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html).
 
 
-_This guide is a work in progress. The development of it is tracked in [Issue #2233](https://github.com/projectmesa/mesa/issues/2233)._
+_This guide is a work in progress. The development of it is tracked in [Issue #2233](https://github.com/mesa/mesa/issues/2233)._
 
 
 ### Defining Portrayal Components
@@ -55,7 +81,7 @@ def propertylayer_portrayal(layer):
         )
 ```
 
-* Ref: [PR #2786](https://github.com/projectmesa/mesa/pull/2786)
+* Ref: [PR #2786](https://github.com/mesa/mesa/pull/2786)
 
 ### Default Space Visualization
 While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
@@ -84,7 +110,7 @@ SolaraViz(
 )
 ```
 
-* Ref: [PR #2803](https://github.com/projectmesa/mesa/pull/2803), [PR #2810](https://github.com/projectmesa/mesa/pull/2810)
+* Ref: [PR #2803](https://github.com/mesa/mesa/pull/2803), [PR #2810](https://github.com/mesa/mesa/pull/2810)
 
 ### Page Tab View
 
@@ -104,7 +130,7 @@ SolaraViz(
 )
 ```
 
-* Ref: [PR #2827](https://github.com/projectmesa/mesa/pull/2827)
+* Ref: [PR #2827](https://github.com/mesa/mesa/pull/2827)
 
 
 ## Mesa 3.0
@@ -121,7 +147,7 @@ With each update, resolve all errors and warnings, before updating to the next o
 
 
 ### Reserved and private variables
-<!-- TODO: Update this section based on https://github.com/projectmesa/mesa/discussions/2230 -->
+<!-- TODO: Update this section based on https://github.com/mesa/mesa/discussions/2230 -->
 
 #### Reserved variables
 Currently, we have reserved the following variables:
@@ -133,13 +159,13 @@ You can use (read) any reserved variable, but Mesa may update them automatically
 #### Private variables
 Any variables starting with an underscore (`_`) are considered private and for Mesa's internal use. We might use any of those. Modifying or overwriting any private variable is at your own risk.
 
-- Ref: [Discussion #2230](https://github.com/projectmesa/mesa/discussions/2230), [PR #2225](https://github.com/projectmesa/mesa/pull/2225)
+- Ref: [Discussion #2230](https://github.com/mesa/mesa/discussions/2230), [PR #2225](https://github.com/mesa/mesa/pull/2225)
 
 
 ### Removal of `mesa.flat` namespace
 The `mesa.flat` namespace is removed. Use the full namespace for your imports.
 
-- Ref: [PR #2091](https://github.com/projectmesa/mesa/pull/2091)
+- Ref: [PR #2091](https://github.com/mesa/mesa/pull/2091)
 
 
 ### Mandatory Model initialization with `super().__init__()`
@@ -166,7 +192,7 @@ If you forget to call `super().__init__()`, you'll now see this error:
 RuntimeError: The Mesa Model class was not initialized. You must explicitly initialize the Model by calling super().__init__() on initialization.
 ```
 
-- Ref: [PR #2218](https://github.com/projectmesa/mesa/pull/2218), [PR #1928](https://github.com/projectmesa/mesa/pull/1928), Mesa-examples [PR #83](https://github.com/projectmesa/mesa-examples/pull/83)
+- Ref: [PR #2218](https://github.com/mesa/mesa/pull/2218), [PR #1928](https://github.com/mesa/mesa/pull/1928), Mesa-examples [PR #83](https://github.com/mesa/mesa-examples/pull/83)
 
 
 ### Automatic assignment of `unique_id` to Agents
@@ -202,7 +228,7 @@ In Mesa 3.0, `unique_id` for agents is now automatically assigned, simplifying a
    - `Model.next_id()` is removed
    - If you previously used custom `unique_id` values, store that information in a separate attribute
 
-- Ref: [PR #2226](https://github.com/projectmesa/mesa/pull/2226), [PR #2260](https://github.com/projectmesa/mesa/pull/2260), Mesa-examples [PR #194](https://github.com/projectmesa/mesa-examples/pull/194), [Issue #2213](https://github.com/projectmesa/mesa/issues/2213)
+- Ref: [PR #2226](https://github.com/mesa/mesa/pull/2226), [PR #2260](https://github.com/mesa/mesa/pull/2260), Mesa-examples [PR #194](https://github.com/mesa/mesa-examples/pull/194), [Issue #2213](https://github.com/mesa/mesa/issues/2213)
 
 
 ### AgentSet and `Model.agents`
@@ -237,7 +263,7 @@ The `steps` counter is now automatically increased. With each call to `Model.ste
 
 You can access it by `Model.steps`, and it's internally in the datacollector, batchrunner and the visualisation.
 
-- Ref: [PR #2223](https://github.com/projectmesa/mesa/pull/2223), Mesa-examples [PR #161](https://github.com/projectmesa/mesa-examples/pull/161)
+- Ref: [PR #2223](https://github.com/mesa/mesa/pull/2223), Mesa-examples [PR #161](https://github.com/mesa/mesa-examples/pull/161)
 
 #### Removal of `Model._time` and rename `._steps`
 - `Model._time` is removed. You can define your own time variable if needed.
@@ -347,7 +373,7 @@ self.agents_by_type[AgentType].shuffle_do("step")
 
 From now on you're now not bound by 5 distinct schedulers, but can mix and match any combination of AgentSet methods (`do`, `shuffle`, `select`, etc.) to get the desired Agent activation.
 
-Ref: Original discussion [#1912](https://github.com/projectmesa/mesa/discussions/1912), decision discussion [#2231](https://github.com/projectmesa/mesa/discussions/2231), example updates [#183](https://github.com/projectmesa/mesa-examples/pull/183) and [#201](https://github.com/projectmesa/mesa-examples/pull/201), PR [#2306](https://github.com/projectmesa/mesa/pull/2306)
+Ref: Original discussion [#1912](https://github.com/mesa/mesa/discussions/1912), decision discussion [#2231](https://github.com/mesa/mesa/discussions/2231), example updates [#183](https://github.com/mesa/mesa-examples/pull/183) and [#201](https://github.com/mesa/mesa-examples/pull/201), PR [#2306](https://github.com/mesa/mesa/pull/2306)
 
 ### Visualisation
 
@@ -444,4 +470,4 @@ With:
 self.datacollector = DataCollector(...)
 ```
 
-- Ref: [PR #2327](https://github.com/projectmesa/mesa/pull/2327), Mesa-examples [PR #208](https://github.com/projectmesa/mesa-examples/pull/208))
+- Ref: [PR #2327](https://github.com/mesa/mesa/pull/2327), Mesa-examples [PR #208](https://github.com/mesa/mesa-examples/pull/208))
