@@ -80,7 +80,11 @@ class PropertyLayer:
             # Try to convert the value to the target dtype to check compatibility
             test_value = np.array([default_value], dtype=dtype_obj)[0]
             # Check if conversion would lose precision
-            if dtype_obj.kind == 'i' and isinstance(default_value, float) and default_value != int(default_value):
+            if (
+                dtype_obj.kind == "i"
+                and isinstance(default_value, float)
+                and default_value != int(default_value)
+            ):
                 warnings.warn(
                     f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
                     UserWarning,
