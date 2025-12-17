@@ -268,7 +268,14 @@ class OrthogonalVonNeumannGrid(Grid[T]):
 
 
 class HexGrid(Grid[T]):
-    """A Grid with hexagonal tilling of the space."""
+    """A Grid with hexagonal tilling of the space.
+
+    Note:
+        When torus=True, both width and height must be even.
+
+    Raises:
+        ValueError: If torus=True and either width or height is odd.
+    """
 
     def _connect_cells_2d(self) -> None:
         # fmt: off
