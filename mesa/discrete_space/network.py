@@ -15,18 +15,26 @@ or any environment where connectivity matters more than physical location.
 from random import Random
 from typing import Any
 
+import numpy as np
+from numpy.random import BitGenerator, Generator, RandomState, SeedSequence
+
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.util import deprecate_kwarg
+
+SeedLike = int | np.ndarray[int] | SeedSequence | BitGenerator | Generator | RandomState
 
 
 class Network(DiscreteSpace[Cell]):
     """A networked discrete space."""
 
+    @deprecate_kwarg("random")
     def __init__(
         self,
         G: Any,  # noqa: N803
         capacity: int | None = None,
         random: Random | None = None,
+        rng: SeedLike | None = None,
         cell_klass: type[Cell] = Cell,
     ) -> None:
         """A Networked grid.
@@ -35,16 +43,17 @@ class Network(DiscreteSpace[Cell]):
             G: a NetworkX Graph instance.
             capacity (int) : the capacity of the cell
             random (Random): a random number generator
+            rng (SeedLike | None): the random number generator
             cell_klass (type[Cell]): The base Cell class to use in the Network
 
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity, random=random, rng=rng, cell_klass=cell_klass
+        )
         self.G = G
 
         for node_id in self.G.nodes:
-            self._cells[node_id] = self.cell_klass(
-                node_id, capacity, random=self.random
-            )
+            self._cells[node_id] = self.cell_klass(node_id, capacity, rng=self.rng)
 
         self._connect_cells()
 

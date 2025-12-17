@@ -22,9 +22,16 @@ from functools import cached_property
 from random import Random
 from typing import TYPE_CHECKING, TypeVar
 
+import numpy as np
+from numpy.random import BitGenerator, Generator, RandomState, SeedSequence
+
+from mesa.util import deprecate_kwarg
+
 if TYPE_CHECKING:
     from mesa.discrete_space.cell import Cell
     from mesa.discrete_space.cell_agent import CellAgent
+
+SeedLike = int | np.ndarray[int] | SeedSequence | BitGenerator | Generator | RandomState
 
 T = TypeVar("T", bound="Cell")
 
@@ -35,7 +42,8 @@ class CellCollection[T: Cell]:
     Attributes:
         cells (List[Cell]): The list of cells this collection represents
         agents (List[CellAgent]) : List of agents occupying the cells in this collection
-        random (Random) : The random number generator
+        random (Random) : The random number generator, deprecated
+        rng (Random) : The random number generator
 
     Notes:
         A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly
@@ -45,16 +53,19 @@ class CellCollection[T: Cell]:
 
     """
 
+    @deprecate_kwarg("random")
     def __init__(
         self,
         cells: Mapping[T, list[CellAgent]] | Iterable[T],
         random: Random | None = None,
+        rng: SeedLike | None = None,
     ) -> None:
         """Initialize a CellCollection.
 
         Args:
             cells: cells to add to the collection
             random: a seeded random number generator.
+            rng (SeedLike | None): the random number generator
         """
         if isinstance(cells, dict):
             self._cells = cells
@@ -66,14 +77,17 @@ class CellCollection[T: Cell]:
             next(iter(self._cells.keys())).capacity if self._cells else None
         )
 
-        if random is None:
+        if random is None and rng is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
                 UserWarning,
                 stacklevel=2,
             )
-            random = Random()
-        self.random = random
+            rng = np.random.default_rng()
+        if random is not None:
+            rng = np.random.default_rng(random.getstate()[1])
+
+        self.rng = np.random.default_rng(rng)
 
     def __iter__(self):  # noqa
         return iter(self._cells)
@@ -98,7 +112,7 @@ class CellCollection[T: Cell]:
 
     def select_random_cell(self) -> T:
         """Select a random cell."""
-        return self.random.choice(self.cells)
+        return self.cells[self.rng.integers(0, len(self.cells))]
 
     def select_random_agent(self) -> CellAgent:
         """Select a random agent.
@@ -108,7 +122,8 @@ class CellCollection[T: Cell]:
 
 
         """
-        return self.random.choice(list(self.agents))
+        agents = list(self.agents)
+        return agents[self.rng.integers(0, len(agents))]
 
     def select(
         self,
@@ -142,4 +157,4 @@ class CellCollection[T: Cell]:
                     yield cell
                     count += 1
 
-        return CellCollection(cell_generator(filter_func, at_most), random=self.random)
+        return CellCollection(cell_generator(filter_func, at_most), rng=self.rng)

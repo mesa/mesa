@@ -19,7 +19,8 @@ class PDAgent(CellAgent):
         if starting_move:
             self.move = starting_move
         else:
-            self.move = self.random.choice(["C", "D"])
+            choices = ["C", "D"]
+            self.move = choices[self.rng.integers(0, len(choices))]
         self.next_move = None
 
     @property

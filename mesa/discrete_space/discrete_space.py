@@ -20,10 +20,15 @@ from functools import cached_property
 from random import Random
 from typing import TypeVar
 
+import numpy as np
+from numpy.random import BitGenerator, Generator, RandomState, SeedSequence
+
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.util import deprecate_kwarg
 
+SeedLike = int | np.ndarray[int] | SeedSequence | BitGenerator | Generator | RandomState
 T = TypeVar("T", bound=Cell)
 
 
@@ -45,11 +50,13 @@ class DiscreteSpace[T: Cell]:
 
     """
 
+    @deprecate_kwarg("random")
     def __init__(
         self,
         capacity: int | None = None,
         cell_klass: type[T] = Cell,
         random: Random | None = None,
+        rng: SeedLike | None = None,
     ):
         """Instantiate a DiscreteSpace.
 
@@ -57,18 +64,22 @@ class DiscreteSpace[T: Cell]:
             capacity: capacity of cells
             cell_klass: base class for all cells
             random: random number generator
+            rng (SeedLike | None): the random number generator
         """
         super().__init__()
         self.capacity = capacity
         self._cells: dict[tuple[int, ...], T] = {}
-        if random is None:
+        if random is None and rng is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
                 UserWarning,
                 stacklevel=2,
             )
-            random = Random()
-        self.random = random
+            rng = np.random.default_rng()
+        if random is not None:
+            rng = np.random.default_rng(random.getstate()[1])
+
+        self.rng = np.random.default_rng(rng)
         self.cell_klass = cell_klass
 
         self._empties: dict[tuple[int, ...], None] = {}
@@ -80,7 +91,7 @@ class DiscreteSpace[T: Cell]:
     @property
     def agents(self) -> AgentSet:
         """Return an AgentSet with the agents in the space."""
-        return AgentSet(self.all_cells.agents, random=self.random)
+        return AgentSet(self.all_cells.agents, rng=self.rng)
 
     def _connect_cells(self): ...
     def _connect_single_cell(self, cell: T): ...
@@ -151,7 +162,7 @@ class DiscreteSpace[T: Cell]:
     def all_cells(self):
         """Return all cells in space."""
         return CellCollection(
-            {cell: cell._agents for cell in self._cells.values()}, random=self.random
+            {cell: cell._agents for cell in self._cells.values()}, rng=self.rng
         )
 
     def __iter__(self):  # noqa
@@ -167,7 +178,8 @@ class DiscreteSpace[T: Cell]:
 
     def select_random_empty_cell(self) -> T:
         """Select random empty cell."""
-        return self.random.choice(list(self.empties))
+        empties = list(self.empties)
+        return empties[self.rng.integers(0, len(empties))]
 
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""

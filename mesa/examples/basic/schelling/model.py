@@ -1,3 +1,5 @@
+import numpy as np
+
 from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
@@ -15,7 +17,7 @@ class Schelling(Model):
         minority_pc: float = 0.5,
         homophily: float = 0.4,
         radius: int = 1,
-        seed=None,
+        rng=None,
     ):
         """Create a new Schelling model.
 
@@ -26,16 +28,16 @@ class Schelling(Model):
             minority_pc: Chance for an agent to be in minority class (0-1)
             homophily: Minimum number of similar neighbors needed for happiness
             radius: Search radius for checking neighbor similarity
-            seed: Seed for reproducibility
+            rng: Seed for reproducibility
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
 
         # Model parameters
         self.density = density
         self.minority_pc = minority_pc
 
         # Initialize grid
-        self.grid = OrthogonalMooreGrid((width, height), random=self.random, capacity=1)
+        self.grid = OrthogonalMooreGrid((width, height), rng=self.rng, capacity=1)
 
         # Track happiness
         self.happy = 0
@@ -60,11 +62,18 @@ class Schelling(Model):
         )
 
         # Create agents and place them on the grid
+        random_numbers = self.rng.random(size=(height, width))
+        occupied = random_numbers < density
+        agent_type = iter(self.rng.random(size=np.sum(occupied)) < minority_pc)
+
         for cell in self.grid.all_cells:
-            if self.random.random() < self.density:
-                agent_type = 1 if self.random.random() < minority_pc else 0
+            if occupied[cell.coordinate]:
                 SchellingAgent(
-                    self, cell, agent_type, homophily=homophily, radius=radius
+                    self,
+                    cell,
+                    next(agent_type).astype(int),
+                    homophily=homophily,
+                    radius=radius,
                 )
 
         # Collect initial state
@@ -78,3 +87,11 @@ class Schelling(Model):
         self.agents.do("assign_state")
         self.datacollector.collect(self)  # Collect data
         self.running = self.happy < len(self.agents)  # Continue until everyone is happy
+
+
+if __name__ == "__main__":
+    agent = Schelling(
+        height=20,
+        width=20,
+        density=0.8,
+    )

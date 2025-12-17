@@ -63,7 +63,7 @@ def evaluate_combination(
         Optional[Tuple[AgentSet, float]]: The evaluated group and its value,
         or None.
     """
-    group_set = AgentSet(candidate_group, random=model.random)
+    group_set = AgentSet(candidate_group, rng=model.rng)
     if evaluation_func:
         value = evaluation_func(group_set)
         return group_set, value
@@ -287,7 +287,7 @@ class MetaAgent(Agent):
             name (str, optional): The name of the MetaAgent. Defaults to "MetaAgent".
         """
         super().__init__(model)
-        self._constituting_set = AgentSet(agents or [], random=model.random)
+        self._constituting_set = AgentSet(agents or [], rng=model.rng)
         self.name = name
 
         # Add ref to meta_agent in constituting_agents

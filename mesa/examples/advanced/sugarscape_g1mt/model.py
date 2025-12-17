@@ -53,9 +53,9 @@ class SugarscapeG1mt(mesa.Model):
         vision_min=1,
         vision_max=5,
         enable_trade=True,
-        seed=None,
+        rng=None,
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         # Initiate width and height of sugarscape
         self.width = width
         self.height = height
@@ -66,7 +66,7 @@ class SugarscapeG1mt(mesa.Model):
 
         # initiate mesa grid class
         self.grid = OrthogonalVonNeumannGrid(
-            (self.width, self.height), torus=False, random=self.random
+            (self.width, self.height), torus=False, rng=self.rng
         )
         # initiate datacollector
         self.datacollector = mesa.DataCollector(
@@ -94,7 +94,7 @@ class SugarscapeG1mt(mesa.Model):
         Trader.create_agents(
             self,
             initial_population,
-            self.random.choices(self.grid.all_cells.cells, k=initial_population),
+            self.rng.choice(self.grid.all_cells.cells, size=initial_population),
             sugar=self.rng.integers(
                 endowment_min, endowment_max, (initial_population,), endpoint=True
             ),

@@ -6,10 +6,14 @@ from itertools import compress
 from random import Random
 
 import numpy as np
+from numpy.random import BitGenerator, Generator, RandomState, SeedSequence
 from numpy.typing import ArrayLike
 from scipy.spatial.distance import cdist
 
 from mesa.agent import Agent, AgentSet
+from mesa.util import deprecate_kwarg
+
+SeedLike = int | np.ndarray[int] | SeedSequence | BitGenerator | Generator | RandomState
 
 
 class ContinuousSpace:
@@ -45,11 +49,13 @@ class ContinuousSpace:
         # compatibility with solara_viz
         return self.size[1]
 
+    @deprecate_kwarg("random")
     def __init__(
         self,
         dimensions: ArrayLike,
         torus: bool = False,
         random: Random | None = None,
+        rng: SeedLike | None = None,
         n_agents: int = 100,
     ) -> None:
         """Create a new continuous space.
@@ -58,6 +64,7 @@ class ContinuousSpace:
             dimensions: a numpy array like object where each row specifies the minimum and maximum value of that dimension.
             torus: boolean for whether the space wraps around or not
             random: a seeded stdlib random.Random instance
+            rng (SeedLike | None): the random number generator
             n_agents: the expected number of agents in the space
 
         Internally, a numpy array is used to store the positions of all agents. This is resized if needed,
@@ -65,14 +72,17 @@ class ContinuousSpace:
 
 
         """
-        if random is None:
+        if random is None and rng is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
                 UserWarning,
                 stacklevel=2,
             )
-            random = Random()
-        self.random = random
+            rng = np.random.default_rng()
+        if random is not None:
+            rng = np.random.default_rng(random.getstate()[1])
+
+        self.rng = np.random.default_rng(rng)
 
         self.dimensions: np.array = np.asanyarray(dimensions)
         self.ndims: int = self.dimensions.shape[0]
@@ -102,7 +112,7 @@ class ContinuousSpace:
     @property
     def agents(self) -> AgentSet:
         """Return an AgentSet with the agents in the space."""
-        return AgentSet(self.active_agents, random=self.random)
+        return AgentSet(self.active_agents, rng=self.rng)
 
     def _add_agent(self, agent: Agent) -> int:
         """Helper method for adding an agent to the space.

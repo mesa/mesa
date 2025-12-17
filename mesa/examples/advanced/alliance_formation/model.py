@@ -15,7 +15,7 @@ class MultiLevelAllianceModel(mesa.Model):
     Model for simulating multi-level alliances among agents.
     """
 
-    def __init__(self, n=50, mean=0.5, std_dev=0.1, seed=42):
+    def __init__(self, n=50, mean=0.5, std_dev=0.1, rng=42):
         """
         Initialize the model.
 
@@ -25,7 +25,7 @@ class MultiLevelAllianceModel(mesa.Model):
             std_dev (float): Standard deviation for normal distribution.
             seed (int): Random seed.
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.population = n
         self.network = nx.Graph()  # Initialize the network
         self.datacollector = mesa.DataCollector(model_reporters={"Network": "network"})

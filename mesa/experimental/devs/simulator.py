@@ -27,6 +27,8 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from .eventlist import EventList, Priority, SimulationEvent
 
 if TYPE_CHECKING:
@@ -313,9 +315,9 @@ class ABMSimulator(Simulator):
             bool: whether the time is of the correct unit
 
         """
-        if isinstance(time, int):
+        if isinstance(time, (int, np.integer)):
             return True
-        if isinstance(time, float):
+        if isinstance(time, (float, np.float64)):
             return time.is_integer()
         else:
             return False

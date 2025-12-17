@@ -5,12 +5,6 @@ A Mesa implementation of Craig Reynolds's Boids flocker model.
 Uses numpy arrays to represent vectors.
 """
 
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath("../../../.."))
-
-
 import numpy as np
 
 from mesa import Model
@@ -32,7 +26,7 @@ class BoidFlockers(Model):
         cohere=0.03,
         separate=0.015,
         match=0.05,
-        seed=None,
+        rng=None,
     ):
         """Create a new Boids Flocking model.
 
@@ -46,9 +40,9 @@ class BoidFlockers(Model):
             cohere: Weight of cohesion behavior (default: 0.03)
             separate: Weight of separation behavior (default: 0.015)
             match: Weight of alignment behavior (default: 0.05)
-            seed: Random seed for reproducibility (default: None)
+            rng: Random seed for reproducibility (default: None)
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.agent_angles = np.zeros(
             population_size
         )  # holds the angle representing the direction of all agents at a given step
@@ -57,7 +51,7 @@ class BoidFlockers(Model):
         self.space = ContinuousSpace(
             [[0, width], [0, height]],
             torus=True,
-            random=self.random,
+            rng=self.rng,
             n_agents=population_size,
         )
 

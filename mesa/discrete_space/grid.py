@@ -19,12 +19,17 @@ from itertools import product
 from random import Random
 from typing import Any, TypeVar
 
+import numpy as np
+from numpy.random import BitGenerator, Generator, RandomState, SeedSequence
+
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
     PropertyDescriptor,
 )
+from mesa.util import deprecate_kwarg
 
+SeedLike = int | np.ndarray[int] | SeedSequence | BitGenerator | Generator | RandomState
 T = TypeVar("T", bound=Cell)
 
 
@@ -81,12 +86,14 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         """Convenience access to the height of the grid."""
         return self.dimensions[1]
 
+    @deprecate_kwarg("random")
     def __init__(
         self,
         dimensions: Sequence[int],
         torus: bool = False,
         capacity: float | None = None,
         random: Random | None = None,
+        rng: SeedLike | None = None,
         cell_klass: type[T] = Cell,
     ) -> None:
         """Initialise the grid class.
@@ -96,9 +103,12 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             torus: whether the space wraps
             capacity: capacity of the grid cell
             random: a random number generator
+            rng (SeedLike | None): the random number generator
             cell_klass: the base class to use for the cells
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity, rng=rng, random=random, cell_klass=cell_klass
+        )
         self.torus = torus
         self.dimensions = dimensions
         self._try_random = True
@@ -116,7 +126,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
         self._cells = {
-            coord: self.cell_klass(coord, capacity, random=self.random)
+            coord: self.cell_klass(coord, capacity, rng=self.rng)
             for coord in coordinates
         }
         self._connect_cells()

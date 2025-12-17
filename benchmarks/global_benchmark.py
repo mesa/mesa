@@ -32,9 +32,9 @@ def run_model(model_class, seed, parameters):
     start_init = timeit.default_timer()
     if model_class.__name__ in uses_simulator:
         simulator = ABMSimulator()
-        model = model_class(simulator=simulator, seed=seed, **parameters)
+        model = model_class(simulator=simulator, rng=seed, **parameters)
     else:
-        model = model_class(seed=seed, **parameters)
+        model = model_class(rng=seed, **parameters)
 
     end_init_start_run = timeit.default_timer()
 

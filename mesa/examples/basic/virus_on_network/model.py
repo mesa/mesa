@@ -36,12 +36,12 @@ class VirusOnNetwork(Model):
         virus_check_frequency=0.4,
         recovery_chance=0.3,
         gain_resistance_chance=0.5,
-        seed=None,
+        rng=None,
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         prob = avg_node_degree / num_nodes
         graph = nx.erdos_renyi_graph(n=num_nodes, p=prob)
-        self.grid = Network(graph, capacity=1, random=self.random)
+        self.grid = Network(graph, capacity=1, rng=self.rng)
 
         self.initial_outbreak_size = (
             initial_outbreak_size if initial_outbreak_size <= num_nodes else num_nodes
@@ -69,8 +69,8 @@ class VirusOnNetwork(Model):
 
         # Infect some nodes
         infected_nodes = CellCollection(
-            self.random.sample(list(self.grid.all_cells), self.initial_outbreak_size),
-            random=self.random,
+            self.rng.choice(list(self.grid.all_cells), size=self.initial_outbreak_size),
+            rng=self.rng,
         )
         for a in infected_nodes.agents:
             a.state = State.INFECTED

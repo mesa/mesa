@@ -35,7 +35,7 @@ class VirusAgent(FixedAgent):
     def try_to_infect_neighbors(self):
         for agent in self.cell.neighborhood.agents:
             if (agent.state is State.SUSCEPTIBLE) and (
-                self.random.random() < self.virus_spread_chance
+                self.rng.random() < self.virus_spread_chance
             ):
                 agent.state = State.INFECTED
 

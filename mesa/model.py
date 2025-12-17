@@ -19,6 +19,7 @@ import numpy as np
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
 from mesa.mesa_logging import create_module_logger, method_logger
+from mesa.util import deprecate_kwarg
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -47,6 +48,7 @@ class Model:
 
     """
 
+    @deprecate_kwarg("seed")
     @method_logger(__name__)
     def __init__(
         self,
@@ -108,6 +110,8 @@ class Model:
                 self.rng: np.random.Generator = np.random.default_rng(rng)
             self._rng = self.rng.bit_generator.state
 
+        self._random_number_sequence = random_number_sequence_generator(self.rng)
+
         # Wrap the user-defined step method
         self._user_step = self.step
         self.step = self._wrapped_step
@@ -117,9 +121,7 @@ class Model:
         self._agents_by_type: dict[
             type[Agent], AgentSet
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents = AgentSet(
-            [], random=self.random
-        )  # an agenset with all agents
+        self._all_agents = AgentSet([], rng=self.rng)  # an agenset with all agents
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
@@ -180,7 +182,7 @@ class Model:
                 [
                     agent,
                 ],
-                random=self.random,
+                rng=self.rng,
             )
 
         self._all_agents.add(agent)
@@ -214,12 +216,17 @@ class Model:
     def step(self) -> None:
         """A single step. Fill in here."""
 
-    def reset_randomizer(self, seed: int | None = None) -> None:
+    @deprecate_kwarg("seed")
+    def reset_randomizer(
+        self, seed: int | None = None, rng: SeedLike | None = None
+    ) -> None:
         """Reset the model random number generator.
 
         Args:
             seed: A new seed for the RNG; if None, reset using the current seed
+            rng: A new seed for the RNG; if None, reset using the current seed
         """
+        # fixme
         if seed is None:
             seed = self._seed
         self.random.seed(seed)
@@ -253,3 +260,16 @@ class Model:
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
         for agent in list(self._agents.keys()):
             agent.remove()
+
+    def rand(self) -> float:
+        """Return the next random value on unit interval."""
+        return next(self._random_number_sequence)
+
+
+def random_number_sequence_generator(rng, initial_size=100):
+    """Generator for random numbers on unit interval."""
+    initial_values = rng.random(size=initial_size)
+
+    while True:
+        yield from initial_values
+        initial_values = rng.random(size=initial_size)

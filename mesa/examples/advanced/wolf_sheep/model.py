@@ -40,7 +40,7 @@ class WolfSheep(Model):
         grass=True,
         grass_regrowth_time=30,
         sheep_gain_from_food=4,
-        seed=None,
+        rng=None,
         simulator: ABMSimulator = None,
     ):
         """Create a new Wolf-Sheep model with the given parameters.
@@ -57,10 +57,10 @@ class WolfSheep(Model):
             grass_regrowth_time: How long it takes for a grass patch to regrow
                                 once it is eaten
             sheep_gain_from_food: Energy sheep gain from grass, if enabled
-            seed: Random seed
+            rng: Random seed
             simulator: ABMSimulator instance for event scheduling
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.simulator = simulator
         self.simulator.setup(self)
 
@@ -74,7 +74,7 @@ class WolfSheep(Model):
             [self.height, self.width],
             torus=True,
             capacity=math.inf,
-            random=self.random,
+            rng=self.rng,
         )
 
         # Set up data collection
@@ -96,7 +96,7 @@ class WolfSheep(Model):
             energy=self.rng.random((initial_sheep,)) * 2 * sheep_gain_from_food,
             p_reproduce=sheep_reproduce,
             energy_from_food=sheep_gain_from_food,
-            cell=self.random.choices(self.grid.all_cells.cells, k=initial_sheep),
+            cell=self.rng.choice(self.grid.all_cells.cells, size=initial_sheep),
         )
         # Create Wolves:
         Wolf.create_agents(
@@ -105,17 +105,21 @@ class WolfSheep(Model):
             energy=self.rng.random((initial_wolves,)) * 2 * wolf_gain_from_food,
             p_reproduce=wolf_reproduce,
             energy_from_food=wolf_gain_from_food,
-            cell=self.random.choices(self.grid.all_cells.cells, k=initial_wolves),
+            cell=self.rng.choice(self.grid.all_cells.cells, size=initial_wolves),
         )
 
         # Create grass patches if enabled
         if grass:
-            possibly_fully_grown = [True, False]
+            possibly_fully_grown = self.rng.integers(
+                0, 2, size=(height, width), dtype=bool
+            )
+            regrowth_time = self.rng.integers(
+                low=0, high=grass_regrowth_time, size=(height, width)
+            )
+            regrowth_time[possibly_fully_grown] = 0
+
             for cell in self.grid:
-                fully_grown = self.random.choice(possibly_fully_grown)
-                countdown = (
-                    0 if fully_grown else self.random.randrange(0, grass_regrowth_time)
-                )
+                countdown = regrowth_time[cell.coordinate]
                 GrassPatch(self, countdown, grass_regrowth_time, cell)
 
         # Collect initial data

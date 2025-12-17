@@ -30,7 +30,11 @@ class MoneyAgent(CellAgent):
         cellmates = [a for a in self.cell.agents if a is not self]
 
         if cellmates:  # Only give money if there are other agents present
-            other = self.random.choice(cellmates)
+            other = (
+                cellmates[0]
+                if len(cellmates) == 1
+                else cellmates[self.rng.integers(0, len(cellmates))]
+            )
             other.wealth += 1
             self.wealth -= 1
 

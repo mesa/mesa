@@ -143,14 +143,14 @@ def test_agentset_initialization():
 def test_agentset_initialization_w_random():
     """Test agentset initialization."""
     model = Model()
-    empty_agentset = AgentSet([], random=model.random)
+    empty_agentset = AgentSet([], rng=model.rng)
     assert len(empty_agentset) == 0
-    assert empty_agentset.random == model.random
+    assert empty_agentset.rng == model.rng
 
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
     assert len(agentset) == 10
-    assert agentset.random == model.random
+    assert agentset.rng == model.rng
 
 
 def test_agentset_serialization():

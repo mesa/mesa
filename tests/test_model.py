@@ -166,8 +166,8 @@ def test_agents_by_type():
     wolf = Wolf(model)
     sheep = Sheep(model)
 
-    assert model.agents_by_type[Wolf] == AgentSet([wolf], random=model.random)
-    assert model.agents_by_type[Sheep] == AgentSet([sheep], random=model.random)
+    assert model.agents_by_type[Wolf] == AgentSet([wolf], rng=model.rng)
+    assert model.agents_by_type[Sheep] == AgentSet([sheep], rng=model.rng)
     assert len(model.agents_by_type) == 2
 
 
