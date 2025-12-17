@@ -75,9 +75,21 @@ class PropertyLayer:
         self.dimensions = dimensions
 
         # Check if the dtype is suitable for the data
-        if not isinstance(default_value, dtype):
+        dtype_obj = np.dtype(dtype)
+        try:
+            # Try to convert the value to the target dtype to check compatibility
+            test_value = np.array([default_value], dtype=dtype_obj)[0]
+            # Check if conversion would lose precision
+            if dtype_obj.kind == 'i' and isinstance(default_value, float) and default_value != int(default_value):
+                warnings.warn(
+                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except (ValueError, TypeError, OverflowError):
+            # Value cannot be converted to the target dtype
             warnings.warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype.__name__}.",
+                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name}.",
                 UserWarning,
                 stacklevel=2,
             )
