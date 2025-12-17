@@ -110,7 +110,10 @@ class Cell:
         self.empty = False
 
         if self.capacity and n >= self.capacity:
-            raise RuntimeError("Cell is full")
+            raise Exception(
+                f"Cannot add agent {agent.unique_id} to cell at {self.coordinate}: "
+                f"cell is full (capacity: {self.capacity}, current: {n})"
+            )  # FIXME we might want dedicated MESA errors types
 
         self._agents.append(agent)
 
