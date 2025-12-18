@@ -9,7 +9,10 @@ from __future__ import annotations
 import contextlib
 import warnings
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from mesa.visualization.components import PropertyLayerStyle
 
 import altair as alt
 import numpy as np
@@ -203,13 +206,13 @@ class SpaceRenderer:
         return self
 
     def setup_propertylayer(
-        self, propertylayer_portrayal: Callable | dict
+        self, propertylayer_portrayal: Callable | dict | PropertyLayerStyle
     ) -> SpaceRenderer:
         """Setup property layers on the space without drawing.
 
         Args:
-            propertylayer_portrayal (Callable | dict): Function that returns PropertyLayerStyle
-                or dict with portrayal parameters.
+            propertylayer_portrayal (Callable | dict | PropertyLayerStyle): A PropertyLayerStyle,
+                a function that produces a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
@@ -284,8 +287,9 @@ class SpaceRenderer:
         """Draw property layers on the space.
 
         Args:
-            propertylayer_portrayal: (Deprecated) Function that takes a property layer and returns PropertyLayerStyle.
-                                   Use setup_propertylayer() instead.
+            propertylayer_portrayal: (Deprecated) A PropertyLayerStyle, a function that produces
+            a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
+            Use setup_propertylayer() instead.
 
         Returns:
             The visual representation of the property layers.
@@ -357,6 +361,11 @@ class SpaceRenderer:
             self.propertylayer_portrayal = _dict_to_callable(
                 self.propertylayer_portrayal
             )
+        elif isinstance(self.propertylayer_portrayal, PropertyLayerStyle):
+            # Capture the style instance to avoid circular reference
+            style = self.propertylayer_portrayal
+            self.propertylayer_portrayal = lambda _: style
+        # else: already a callable, use as-is
 
         number_of_propertylayers = sum(
             [1 for layer in property_layers if layer != "empty"]
