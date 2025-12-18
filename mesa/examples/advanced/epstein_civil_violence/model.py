@@ -59,14 +59,17 @@ class EpsteinCivilViolence(mesa.Model):
         self.max_iters = max_iters
         self.activation_order = activation_order
 
-        if grid_type == "Moore":
-            self.grid = OrthogonalMooreGrid(
-                (width, height), capacity=1, torus=True, random=self.random
-            )
-        else:
-            self.grid = OrthogonalVonNeumannGrid(
-                (width, height), capacity=1, torus=True, random=self.random
-            )
+        match grid_type:
+            case "Moore":
+                self.grid = OrthogonalMooreGrid(
+                    (width, height), capacity=1, torus=True, random=self.random
+                )
+            case "Von Neumann":
+                self.grid = OrthogonalVonNeumannGrid(
+                    (width, height), capacity=1, torus=True, random=self.random
+                )
+            case _:
+                raise ValueError(f"Unknown value of grid_type: {grid_type}")
 
         model_reporters = {
             "active": CitizenState.ACTIVE.name,
@@ -110,10 +113,15 @@ class EpsteinCivilViolence(mesa.Model):
         """
         Advance the model by one step and collect data.
         """
-        if self.activation_order == "Sequential":
-            self.agents.do("step")
-        else:
-            self.agents.shuffle_do("step")
+        match self.activation_order:
+            case "Random":
+                self.agents.shuffle_do("step")
+            case "Sequential":
+                self.agents.do("step")
+            case _:
+                raise ValueError(
+                    f"unknown value of activation_order: {self.activation_order}"
+                )
 
         self._update_counts()
         self.datacollector.collect(self)
