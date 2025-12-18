@@ -90,6 +90,16 @@ docs = [
 homepage = "https://github.com/mesa/mesa"
 repository = "https://github.com/mesa/mesa"
 
+[tool.codespell]
+ignore-words-list = ["ist", "hart", "nD"]
+
+[tool.coverage.run]
+source = ["mesa"]
+branch = true
+
+[tool.coverage.report]
+omit = ["tests/*"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]
 
