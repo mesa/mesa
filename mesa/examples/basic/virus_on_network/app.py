@@ -109,12 +109,16 @@ def post_process_lineplot(chart):
 
 
 model1 = VirusOnNetwork()
-renderer = SpaceRenderer(model1, backend="altair")
-renderer.draw_structure(
-    node_kwargs={"color": "black", "filled": False, "strokeWidth": 5},
-    edge_kwargs={"strokeDash": [6, 1]},
-)  # Do this to draw the underlying network and customize it
-renderer.draw_agents(agent_portrayal)
+renderer = (
+    SpaceRenderer(model1, backend="altair")
+    .setup_structure(  # Do this to draw the underlying network and customize it
+        node_kwargs={"color": "black", "filled": False, "strokeWidth": 5},
+        edge_kwargs={"strokeDash": [6, 1]},
+    )
+    .setup_agents(agent_portrayal)
+)
+
+renderer.render()
 
 # Plot components can also be in altair and support post_process
 StatePlot = make_plot_component(

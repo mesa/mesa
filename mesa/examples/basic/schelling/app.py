@@ -73,12 +73,11 @@ model_params = {
 
 # Note: Models with images as markers are very performance intensive.
 model1 = Schelling()
-renderer = SpaceRenderer(model1, backend="matplotlib")
+renderer = SpaceRenderer(model1, backend="matplotlib").setup_agents(agent_portrayal)
 # Here we use renderer.render() to render the agents and grid in one go.
 # This function always renders the grid and then renders the agents or
-# property layers on top of it if specified. It also supports passing the
-# post_process function to fine-tune the plot after rendering in itself.
-renderer.render(agent_portrayal=agent_portrayal)
+# property layers on top of it if specified.
+renderer.render()
 
 HappyPlot = make_plot_component({"happy": "tab:green"})
 

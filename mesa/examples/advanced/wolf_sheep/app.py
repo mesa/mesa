@@ -84,9 +84,9 @@ model = WolfSheep(simulator=simulator, grass=True)
 renderer = SpaceRenderer(
     model,
     backend="matplotlib",
-)
-renderer.draw_agents(wolf_sheep_portrayal)
+).setup_agents(wolf_sheep_portrayal)
 renderer.post_process = post_process_space
+renderer.draw_agents()
 
 page = SolaraViz(
     model,

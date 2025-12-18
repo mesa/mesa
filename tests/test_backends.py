@@ -67,11 +67,13 @@ def test_matplotlib_backend_collects_agent_data():
     data = mb.collect_agent_data(DummySpace(), agent_portrayal_style)
     assert "loc" in data and data["loc"].shape[0] == 1
 
-    # Test with dict-based portrayal
+    # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
         return {"size": 5, "color": "red", "marker": "o"}
 
-    data = mb.collect_agent_data(DummySpace(), agent_portrayal_dict)
+    with pytest.warns(FutureWarning):
+        data = mb.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
     assert "loc" in data and data["loc"].shape[0] == 1
 
 
@@ -203,11 +205,13 @@ def test_altair_backend_collects_agent_data():
     data = ab.collect_agent_data(DummySpace(), agent_portrayal_style)
     assert "loc" in data and data["loc"].shape[0] == 1
 
-    # Test with dict-based portrayal
+    # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
         return {"size": 5, "color": "red", "marker": "o"}
 
-    data = ab.collect_agent_data(DummySpace(), agent_portrayal_dict)
+    with pytest.warns(FutureWarning):
+        data = ab.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
     assert "loc" in data and data["loc"].shape[0] == 1
 
 

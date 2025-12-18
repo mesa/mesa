@@ -64,8 +64,11 @@ chart_component = make_plot_component(
 )
 
 epstein_model = EpsteinCivilViolence()
-renderer = SpaceRenderer(epstein_model, backend="matplotlib")
-renderer.draw_agents(citizen_cop_portrayal)
+renderer = SpaceRenderer(epstein_model, backend="matplotlib").setup_agents(
+    citizen_cop_portrayal
+)
+# Specifically, avoid drawing the grid to hide the grid lines.
+renderer.draw_agents()
 renderer.post_process = post_process
 
 page = SolaraViz(
