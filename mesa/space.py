@@ -652,17 +652,13 @@ class PropertyLayer:
                 and isinstance(default_value, float)
                 and default_value != int(default_value)
             ):
-                warn(
-                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
-                    UserWarning,
-                    stacklevel=2,
+                raise TypeError(
+                    f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name} (loss of precision)."
                 )
         except (ValueError, TypeError, OverflowError):
             # Value cannot be converted to the target dtype
-            warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name}.",
-                UserWarning,
-                stacklevel=2,
+            raise TypeError(
+                f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name}."
             )
 
         self.data = np.full((width, height), default_value, dtype=dtype)

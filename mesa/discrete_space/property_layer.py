@@ -85,17 +85,16 @@ class PropertyLayer:
                 and isinstance(default_value, float)
                 and default_value != int(default_value)
             ):
-                warnings.warn(
-                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
-                    UserWarning,
-                    stacklevel=2,
+                raise TypeError(
+                    f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name} (loss of precision)."
                 )
-        except (ValueError, TypeError, OverflowError):
+        except (ValueError, TypeError, OverflowError) as e:
             # Value cannot be converted to the target dtype
-            warnings.warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name}.",
-                UserWarning,
-                stacklevel=2,
+            if isinstance(e, TypeError) and "loss of precision" in str(e):
+                # Re-raise the TypeError from the precision check above
+                raise
+            raise TypeError(
+                f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name}."
             )
 
         # fixme why not initialize with empty?
