@@ -652,8 +652,10 @@ class PropertyLayer:
                 and isinstance(default_value, float)
                 and default_value != int(default_value)
             ):
-                raise TypeError(
-                    f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name} (loss of precision)."
+                warn(
+                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
+                    UserWarning,
+                    stacklevel=2,
                 )
         except (ValueError, TypeError, OverflowError):
             # Value cannot be converted to the target dtype

@@ -14,7 +14,7 @@ maintaining an intuitive interface through cell attributes. Properties
 can represent environmental factors, cell states, or any other grid-wide
 attributes.
 """
-
+import warnings
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
 
@@ -66,7 +66,8 @@ class PropertyLayer:
             dtype (data-type, optional): The desired data-type for the grid's elements. Default is float.
 
         Notes:
-            A UserWarning is raised if the default_value is not of a type compatible with dtype.
+            An exception is raised if the default_value is not of a type compatible with dtype.
+            A UserWarning is raised if the conversion would results in a loss of precision.
             The dtype parameter can accept both Python data types (like bool, int or float) and NumPy data types
             (like np.int64 or np.float64).
         """
@@ -84,17 +85,16 @@ class PropertyLayer:
                 and isinstance(default_value, float)
                 and default_value != int(default_value)
             ):
-                raise TypeError(
-                    f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name} (loss of precision)."
+                warnings.warn(
+                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
+                    UserWarning,
+                    stacklevel=2,
                 )
         except (ValueError, TypeError, OverflowError) as e:
             # Value cannot be converted to the target dtype
-            if isinstance(e, TypeError) and "loss of precision" in str(e):
-                # Re-raise the TypeError from the precision check above
-                raise
             raise TypeError(
                 f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name}."
-            )
+            ) from e
 
         # fixme why not initialize with empty?
         self._mesa_data = np.full(self.dimensions, default_value, dtype=dtype)
