@@ -657,11 +657,11 @@ class PropertyLayer:
                     UserWarning,
                     stacklevel=2,
                 )
-        except (ValueError, TypeError, OverflowError):
+        except (ValueError, TypeError, OverflowError) as e:
             # Value cannot be converted to the target dtype
             raise TypeError(
                 f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name}."
-            )
+            ) from e
 
         self.data = np.full((width, height), default_value, dtype=dtype)
 

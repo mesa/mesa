@@ -14,7 +14,6 @@ maintaining an intuitive interface through cell attributes. Properties
 can represent environmental factors, cell states, or any other grid-wide
 attributes.
 """
-
 import warnings
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
