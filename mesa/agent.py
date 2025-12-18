@@ -24,13 +24,11 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import numpy as np
 
 if TYPE_CHECKING:
-    # We ensure that these are not imported during runtime to prevent cyclic
-    # dependency.
     from mesa.model import Model
     from mesa.space import Position
 
 
-class Agent:
+class Agent[M: Model]:
     """Base class for a model agent in Mesa.
 
     Attributes:
@@ -48,7 +46,7 @@ class Agent:
     # so, unique_id is unique relative to a model, and counting starts from 1
     _ids = defaultdict(functools.partial(itertools.count, 1))
 
-    def __init__(self, model: Model, *args, **kwargs) -> None:
+    def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
         Args:
@@ -62,7 +60,7 @@ class Agent:
         """
         super().__init__(*args, **kwargs)
 
-        self.model: Model = model
+        self.model: M = model
         self.unique_id: int = next(self._ids[model])
         self.pos: Position | None = None
         self.model.register_agent(self)
@@ -85,7 +83,9 @@ class Agent:
         pass
 
     @classmethod
-    def create_agents(cls, model: Model, n: int, *args, **kwargs) -> AgentSet[Agent]:
+    def create_agents[T: Agent](
+        cls: type[T], model: Model, n: int, *args, **kwargs
+    ) -> AgentSet[T]:
         """Create N agents.
 
         Args:
@@ -146,7 +146,7 @@ class Agent:
         return self.model.rng
 
 
-class AgentSet(MutableSet, Sequence):
+class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
     """A collection class that represents an ordered set of agents within an agent-based model (ABM).
 
     This class extends both MutableSet and Sequence, providing set-like functionality with order preservation and
@@ -171,7 +171,7 @@ class AgentSet(MutableSet, Sequence):
 
     def __init__(
         self,
-        agents: Iterable[Agent],
+        agents: Iterable[A],
         random: Random | None = None,
     ):
         """Initializes the AgentSet with a collection of agents and a reference to the model.
@@ -200,11 +200,11 @@ class AgentSet(MutableSet, Sequence):
         """Return the number of agents in the AgentSet."""
         return len(self._agents)
 
-    def __iter__(self) -> Iterator[Agent]:
+    def __iter__(self) -> Iterator[A]:
         """Provide an iterator over the agents in the AgentSet."""
         return self._agents.keys()
 
-    def __contains__(self, agent: Agent) -> bool:
+    def __contains__(self, agent: A) -> bool:
         """Check if an agent is in the AgentSet. Can be used like `agent in agentset`."""
         return agent in self._agents
 
@@ -213,7 +213,7 @@ class AgentSet(MutableSet, Sequence):
         filter_func: Callable[[Agent], bool] | None = None,
         at_most: int | float = float("inf"),
         inplace: bool = False,
-        agent_type: type[Agent] | None = None,
+        agent_type: type[A] | None = None,
     ) -> AgentSet:
         """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
 
@@ -256,7 +256,7 @@ class AgentSet(MutableSet, Sequence):
 
         return AgentSet(agents, self.random) if not inplace else self._update(agents)
 
-    def shuffle(self, inplace: bool = False) -> AgentSet:
+    def shuffle(self, inplace: bool = False) -> AgentSet[A]:
         """Randomly shuffle the order of agents in the AgentSet.
 
         Args:
@@ -307,7 +307,7 @@ class AgentSet(MutableSet, Sequence):
             else self._update(sorted_agents)
         )
 
-    def _update(self, agents: Iterable[Agent]):
+    def _update(self, agents: Iterable[A]):
         """Update the AgentSet with a new set of agents.
 
         This is a private method primarily used internally by other methods like select, shuffle, and sort.
@@ -315,7 +315,7 @@ class AgentSet(MutableSet, Sequence):
         self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
         return self
 
-    def do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
+    def do(self, method: str | Callable, *args, **kwargs) -> AgentSet[A]:
         """Invoke a method or function on each agent in the AgentSet.
 
         Args:
@@ -342,7 +342,7 @@ class AgentSet(MutableSet, Sequence):
 
         return self
 
-    def shuffle_do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
+    def shuffle_do(self, method: str | Callable, *args, **kwargs) -> AgentSet[A]:
         """Shuffle the agents in the AgentSet and then invoke a method or function on each agent.
 
         It's a fast, optimized version of calling shuffle() followed by do().
@@ -488,7 +488,7 @@ class AgentSet(MutableSet, Sequence):
                 "should be one of 'error' or 'default'"
             )
 
-    def set(self, attr_name: str, value: Any) -> AgentSet:
+    def set(self, attr_name: str, value: Any) -> AgentSet[A]:
         """Set a specified attribute to a given value for all agents in the AgentSet.
 
         Args:
@@ -502,7 +502,7 @@ class AgentSet(MutableSet, Sequence):
             setattr(agent, attr_name, value)
         return self
 
-    def __getitem__(self, item: int | slice) -> Agent:
+    def __getitem__(self, item: int | slice) -> A:
         """Retrieve an agent or a slice of agents from the AgentSet.
 
         Args:
@@ -513,7 +513,7 @@ class AgentSet(MutableSet, Sequence):
         """
         return list(self._agents.keys())[item]
 
-    def add(self, agent: Agent):
+    def add(self, agent: A):
         """Add an agent to the AgentSet.
 
         Args:
@@ -524,7 +524,7 @@ class AgentSet(MutableSet, Sequence):
         """
         self._agents[agent] = None
 
-    def discard(self, agent: Agent):
+    def discard(self, agent: A):
         """Remove an agent from the AgentSet if it exists.
 
         This method does not raise an error if the agent is not present.
@@ -538,7 +538,7 @@ class AgentSet(MutableSet, Sequence):
         with contextlib.suppress(KeyError):
             del self._agents[agent]
 
-    def remove(self, agent: Agent):
+    def remove(self, agent: A):
         """Remove an agent from the AgentSet.
 
         This method raises an error if the agent is not present.

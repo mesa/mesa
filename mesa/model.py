@@ -12,13 +12,16 @@ import sys
 from collections.abc import Sequence
 
 # mypy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
 from mesa.mesa_logging import create_module_logger, method_logger
+
+if TYPE_CHECKING:
+    pass
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -27,7 +30,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 _mesa_logger = create_module_logger()
 
 
-class Model:
+class Model[A: Agent]:
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
@@ -115,9 +118,9 @@ class Model:
         # setup agent registration data structures
         self._agents = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
-            type[Agent], AgentSet
+            type[A], AgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents = AgentSet(
+        self._all_agents: AgentSet[A] = AgentSet(
             [], random=self.random
         )  # an agenset with all agents
 
@@ -136,7 +139,7 @@ class Model:
         self._user_step(*args, **kwargs)
 
     @property
-    def agents(self) -> AgentSet:
+    def agents(self) -> AgentSet[A]:
         """Provides an AgentSet of all agents in the model, combining agents from all types."""
         return self._all_agents
 
@@ -154,11 +157,11 @@ class Model:
         return list(self._agents_by_type.keys())
 
     @property
-    def agents_by_type(self) -> dict[type[Agent], AgentSet]:
+    def agents_by_type(self) -> dict[type[A], AgentSet[A]]:
         """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
         return self._agents_by_type
 
-    def register_agent(self, agent):
+    def register_agent(self, agent: A):
         """Register the agent with the model.
 
         Args:
@@ -188,7 +191,7 @@ class Model:
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
-    def deregister_agent(self, agent):
+    def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
 
         Args:

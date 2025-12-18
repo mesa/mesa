@@ -33,7 +33,7 @@ import math
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from numbers import Real
-from typing import Any, TypeVar, cast, overload
+from typing import Any, cast, overload
 from warnings import warn
 
 with contextlib.suppress(ImportError):
@@ -57,8 +57,6 @@ Position = Coordinate | FloatCoordinate | NetworkCoordinate
 
 GridContent = Agent | None
 MultiGridContent = list[Agent]
-
-F = TypeVar("F", bound=Callable[..., Any])
 
 
 def accept_tuple_argument[F: Callable[..., Any]](wrapped_function: F) -> F:
