@@ -363,7 +363,7 @@ def ComponentsView(
     """
     if not components:
         return
-    
+
     # Backward's compatibility, page = 0 if not passed.
     for i, comp in enumerate(components):
         if not isinstance(comp, tuple):
