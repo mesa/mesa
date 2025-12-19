@@ -361,6 +361,9 @@ def ComponentsView(
         components: List of (components, page) to display
         model: Model instance to pass to each component
     """
+    if not components:
+        return
+    
     # Backward's compatibility, page = 0 if not passed.
     for i, comp in enumerate(components):
         if not isinstance(comp, tuple):
