@@ -119,7 +119,7 @@ def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
     """Format agent portrayal data for new-style discrete spaces.
 
     Args:
-        space: the mesa.experiment.cell_space.Grid instance
+        space: the mesa.discrete_space.Grid instance
         agent_portrayal: the agent portrayal callable
 
     Returns:

@@ -188,3 +188,22 @@ def test_post_process():
     # Assert that the chart properties were set correctly
     chart.properties.assert_called_once_with(width=400, height=400)
     assert processed == chart
+
+
+def test_property_layer_style_instance():
+    """Test that draw_propertylayer accepts a PropertyLayerStyle instance."""
+    model = CustomModel()
+    sr = SpaceRenderer(model)
+    sr.backend_renderer = MagicMock()
+
+    style = PropertyLayerStyle(color="blue")
+    sr.draw_propertylayer(style)
+
+    # Verify that the backend renderer's draw_propertylayer was called
+    sr.backend_renderer.draw_propertylayer.assert_called_once()
+
+    # Verify that the portrayal passed to the backend is a callable that returns the style
+    call_args = sr.backend_renderer.draw_propertylayer.call_args
+    portrayal_arg = call_args[0][2]
+    assert callable(portrayal_arg)
+    assert portrayal_arg("any_layer") == style
