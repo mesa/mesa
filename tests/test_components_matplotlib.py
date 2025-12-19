@@ -31,12 +31,7 @@ from mesa.visualization.mpl_space_drawing import (
 
 
 def agent_portrayal(agent):
-    """Simple portrayal of an agent.
-
-    Args:
-        agent (Agent): The agent to portray
-
-    """
+    """Return a simple AgentPortrayalStyle for testing matplotlib drawing."""
     return AgentPortrayalStyle(
         size=10,
         color="tab:blue",
