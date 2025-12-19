@@ -1,18 +1,25 @@
 ## Overview of the MESA library
 
-Mesa is modular, meaning that its modeling, analysis and visualization components are kept separate but intended to work together. The modules are grouped into three categories:
+Mesa is modular, meaning that its modeling, analysis, and visualization components are kept separate, but are designed to work together. The modules are grouped into three categories:
 
-1. **Modeling:** Classes used to build the models themselves: a model and agent classes, space for them to move around in, and built-in functionality for managing agents.
+1. **Modeling:** Core classes required to define agent-based models, including the base `Model` and `Agent` classes, spatial environments, and schedulers that control agent activation.
 2. **Analysis:** Tools to collect data generated from your model, or to run it multiple times with different parameter values.
 3. **Visualization:** Classes to create and launch an interactive model visualization, using a browser-based interface.
+
 
 ### Modeling modules
 
 Most models consist of one class to represent the model itself and one or more classes for agents. Mesa provides built-in functionality for managing agents and their interactions. These are implemented in Mesa's modeling modules:
 
-- [mesa.model](apis/model)
-- [mesa.agent](apis/agent)
-- [mesa.space](apis/space)
+- [mesa.model](apis/model): Base `Model` class and core model lifecycle logic.
+- [mesa.agent](apis/agent): Base `Agent` class used to define individual entities.
+- [mesa.space](apis/space): Spatial representations such as grids and continuous spaces where agents interact.
+
+For example, a minimal Mesa model typically subclasses `mesa.model.Model`,
+defines one or more custom `mesa.agent.Agent` classes, and places agents
+within a space provided by `mesa.space`.
+
+
 
 The skeleton of a model might look like this:
 
