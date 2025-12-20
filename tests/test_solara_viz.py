@@ -12,6 +12,7 @@ import mesa
 import mesa.visualization.components.altair_components
 import mesa.visualization.components.matplotlib_components
 from mesa.space import MultiGrid, PropertyLayer
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.components.altair_components import make_altair_space
 from mesa.visualization.components.matplotlib_components import make_mpl_space_component
 from mesa.visualization.solara_viz import (
@@ -129,7 +130,7 @@ def test_call_space_drawer(mocker):
     model = MockModel()
 
     def agent_portrayal(agent):
-        return {"marker": "o", "color": "gray"}
+        return AgentPortrayalStyle(marker="o", color="gray")
 
     propertylayer_portrayal = None
     # initialize with space drawer unspecified (use default)
@@ -153,15 +154,16 @@ def test_call_space_drawer(mocker):
     assert mock_space_altair.call_count == 1  # altair is the default method
 
     # checking if SpaceAltair is working as intended with post_process
-    propertylayer_portrayal = {
-        "sugar": {
-            "colormap": "pastel1",
-            "alpha": 0.75,
-            "colorbar": True,
-            "vmin": 0,
-            "vmax": 10,
-        }
-    }
+    def propertylayer_portrayal(layer):
+        if layer.name == "sugar":
+            return PropertyLayerStyle(
+                colormap="pastel1",
+                alpha=0.75,
+                colorbar=True,
+                vmin=0,
+                vmax=10,
+            )
+        return None
     mock_post_process = mocker.MagicMock()
     solara.render(
         SolaraViz(

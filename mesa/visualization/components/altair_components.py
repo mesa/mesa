@@ -2,6 +2,7 @@
 
 import warnings
 from collections.abc import Callable
+import dataclasses
 
 import altair as alt
 import numpy as np
@@ -87,7 +88,6 @@ def SpaceAltair(
 
     solara.FigureAltair(chart)
 
-
 def _get_agent_data_old__discrete_space(space, agent_portrayal):
     """Format agent portrayal data for old-style discrete spaces.
 
@@ -109,11 +109,12 @@ def _get_agent_data_old__discrete_space(space, agent_portrayal):
         for agent in content:
             # use all data from agent portrayal, and add x,y coordinates
             agent_data = agent_portrayal(agent)
+            if not isinstance(agent_data, dict):
+                agent_data = dataclasses.asdict(agent_data)
             agent_data["x"] = x
             agent_data["y"] = y
             all_agent_data.append(agent_data)
     return all_agent_data
-
 
 def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
     """Format agent portrayal data for new-style discrete spaces.
@@ -131,11 +132,12 @@ def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
     for cell in space.all_cells:
         for agent in cell.agents:
             agent_data = agent_portrayal(agent)
+            if not isinstance(agent_data, dict):
+                agent_data = dataclasses.asdict(agent_data)
             agent_data["x"] = cell.coordinate[0]
             agent_data["y"] = cell.coordinate[1]
             all_agent_data.append(agent_data)
     return all_agent_data
-
 
 def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
     """Format agent portrayal data for continuous space.
@@ -150,11 +152,12 @@ def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
     all_agent_data = []
     for agent in space._agent_to_index:
         agent_data = agent_portrayal(agent)
+        if not isinstance(agent_data, dict):
+            agent_data = dataclasses.asdict(agent_data)
         agent_data["x"] = agent.pos[0]
         agent_data["y"] = agent.pos[1]
         all_agent_data.append(agent_data)
     return all_agent_data
-
 
 def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
     match space:
@@ -233,10 +236,9 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
 
     Args:
         space: the ContinuousSpace instance
-        propertylayer_portrayal:Dictionary of PropertyLayer portrayal specifications
+        propertylayer_portrayal: Dictionary or Callable of PropertyLayer portrayal specifications
         chart_width: width of the agent chart to maintain consistency with the property charts
         chart_height: height of the agent chart to maintain consistency with the property charts
-        agent_chart: the agent chart to layer with the property layers on the grid
     Returns:
         Altair Chart
     """
@@ -248,12 +250,27 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
         property_layers = space._mesa_property_layers
     base = None
     bar_chart = None
-    for layer_name, portrayal in propertylayer_portrayal.items():
-        layer = property_layers.get(layer_name, None)
+
+    # Iterate over the actual layers present in the space
+    for layer_name, layer in property_layers.items():
         if not isinstance(
             layer,
-            PropertyLayer | mesa.discrete_space.property_layer.PropertyLayer,
+            (PropertyLayer, mesa.discrete_space.property_layer.PropertyLayer),
         ):
+            continue
+
+        # Determine the style/portrayal for this layer
+        portrayal = None
+        if isinstance(propertylayer_portrayal, dict):
+            portrayal = propertylayer_portrayal.get(layer_name)
+        elif callable(propertylayer_portrayal):
+            portrayal = propertylayer_portrayal(layer)
+            # Convert Style object to dict if needed
+            if portrayal is not None and not isinstance(portrayal, dict):
+                portrayal = dataclasses.asdict(portrayal)
+        
+        # If no style is defined for this layer, skip it
+        if portrayal is None:
             continue
 
         data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
@@ -278,21 +295,10 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
             }
         )
 
-        if "color" in portrayal:
+        if portrayal.get("color") is not None:
             # Create a function to map values to RGBA colors with proper opacity scaling
             def apply_rgba(val, vmin=vmin, vmax=vmax, alpha=alpha, portrayal=portrayal):
-                """Maps data values to RGBA colors with opacity based on value magnitude.
-
-                Args:
-                    val: The data value to convert
-                    vmin: The smallest value for which the color is displayed in the colorbar
-                    vmax: The largest value for which the color is displayed in the colorbar
-                    alpha: The opacity of the color
-                    portrayal: The specifics of the current property layer in the iterative loop
-
-                Returns:
-                    String representation of RGBA color
-                """
+                """Maps data values to RGBA colors with opacity based on value magnitude."""
                 # Normalize value to range [0,1] and clamp
                 normalized = max(0, min((val - vmin) / (vmax - vmin), 1))
 
@@ -423,7 +429,7 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
                     else combined_colorbar
                 )
 
-        elif "colormap" in portrayal:
+        elif portrayal.get("colormap") is not None:
             cmap = portrayal.get("colormap", "viridis")
             cmap_scale = alt.Scale(scheme=cmap, domain=[vmin, vmax])
 
