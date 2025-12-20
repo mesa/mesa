@@ -1,7 +1,8 @@
 """Test validation for HexGrid torus configurations."""
 
-import pytest
 import random
+
+import pytest
 
 from mesa.discrete_space import HexGrid
 
