@@ -1,8 +1,8 @@
 """Altair based solara components for visualization mesa spaces."""
 
+import dataclasses
 import warnings
 from collections.abc import Callable
-import dataclasses
 
 import altair as alt
 import numpy as np
@@ -88,6 +88,7 @@ def SpaceAltair(
 
     solara.FigureAltair(chart)
 
+
 def _get_agent_data_old__discrete_space(space, agent_portrayal):
     """Format agent portrayal data for old-style discrete spaces.
 
@@ -116,6 +117,7 @@ def _get_agent_data_old__discrete_space(space, agent_portrayal):
             all_agent_data.append(agent_data)
     return all_agent_data
 
+
 def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
     """Format agent portrayal data for new-style discrete spaces.
 
@@ -139,6 +141,7 @@ def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
             all_agent_data.append(agent_data)
     return all_agent_data
 
+
 def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
     """Format agent portrayal data for continuous space.
 
@@ -158,6 +161,7 @@ def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
         agent_data["y"] = agent.pos[1]
         all_agent_data.append(agent_data)
     return all_agent_data
+
 
 def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
     match space:
@@ -268,7 +272,7 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
             # Convert Style object to dict if needed
             if portrayal is not None and not isinstance(portrayal, dict):
                 portrayal = dataclasses.asdict(portrayal)
-        
+
         # If no style is defined for this layer, skip it
         if portrayal is None:
             continue

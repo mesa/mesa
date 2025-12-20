@@ -164,6 +164,7 @@ def test_call_space_drawer(mocker):
                 vmax=10,
             )
         return None
+
     mock_post_process = mocker.MagicMock()
     solara.render(
         SolaraViz(
