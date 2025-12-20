@@ -328,3 +328,41 @@ def test_check_model_params_with_args_only():
         ),
     ):
         _check_model_params(ModelWithArgsOnly.__init__, model_params)
+
+
+def test_solara_viz_required_params():
+    """Test SolaraViz with models having required parameters (no defaults)."""
+
+    class MoneyModel(mesa.Model):
+        """Model with required parameters (no defaults)."""
+
+        def __init__(self, n: int, width: int, height: int, seed=None):
+            super().__init__(seed=seed)
+            self.n = n
+            self.width = width
+            self.height = height
+
+    # 1. Test missing required model parameters raises ValueError
+    # We pass an empty dict for model_params, so n, width, height are missing.
+    # Note: We must pass an instance to SolaraViz
+    model = MoneyModel(n=10, width=10, height=10)
+
+    # We test ModelCreator directly for the failure case because SolaraViz
+    # renders it inside a Sidebar, which might swallow exceptions in headless tests.
+    with pytest.raises(ValueError, match="Missing required model parameter"):
+        solara.render(
+            ModelCreator(solara.reactive(model), user_params={}),
+            handle_error=False,
+        )
+
+    # 2. Test correct parameters passed via model_params (should not raise)
+    valid_params = {
+        "n": 10,
+        "width": 10,
+        "height": 10,
+    }
+    # This should succeed without exception
+    solara.render(
+        SolaraViz(model, model_params=valid_params),
+        handle_error=False,
+    )
