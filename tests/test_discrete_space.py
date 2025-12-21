@@ -1041,3 +1041,18 @@ def test_copying_discrete_spaces():  # noqa: D103
     for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
         for k, v in c1.connections.items():
             assert v.coordinate == c2.connections[k].coordinate
+
+
+def test_select_random_agent_empty_safe():
+    """Test that select_random_agent returns None when no agents are present."""
+    rng = random.Random(42)
+    empty_collection = CellCollection([], random=rng)
+    assert empty_collection.select_random_agent() is None
+
+    cells = [Cell((i,), random=rng) for i in range(5)]
+    sparse_collection = CellCollection(cells, random=rng)
+
+    assert len(sparse_collection) == 5
+    assert len(list(sparse_collection.agents)) == 0
+
+    assert sparse_collection.select_random_agent() is None

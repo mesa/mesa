@@ -104,11 +104,14 @@ class CellCollection[T: Cell]:
         """Select a random agent.
 
         Returns:
-            CellAgent instance
+            CellAgent instance, or None if the collection is empty.
 
 
         """
-        return self.random.choice(list(self.agents))
+        agents = list(self.agents)
+        if not agents:
+            return None
+        return self.random.choice(agents)
 
     def select(
         self,
