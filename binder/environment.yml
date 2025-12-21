@@ -1,0 +1,16 @@
+name: mesa-tutorials
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - numpy
+  - pip
+  - pip:
+    - nbgitpuller
+    - pandas
+    - matplotlib
+    - seaborn
+    - solara
+    - mesa[rec]
+
+# TODO: Move to pyproject.toml when upstream implemented in https://github.com/jupyterhub/repo2docker/issues/1427
