@@ -76,25 +76,16 @@ class PropertyLayer:
         self.dimensions = dimensions
 
         # Check if the dtype is suitable for the data
-        dtype_obj = np.dtype(dtype)
         try:
-            # Try to convert the value to the target dtype to check compatibility
-            _ = np.array([default_value], dtype=dtype_obj)[0]
-            # Check if conversion would lose precision
-            if (
-                dtype_obj.kind == "i"
-                and isinstance(default_value, float)
-                and default_value != int(default_value)
-            ):
+            if dtype(default_value) != default_value:
                 warnings.warn(
-                    f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype_obj.name} (loss of precision).",
+                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
                     UserWarning,
                     stacklevel=2,
                 )
-        except (ValueError, TypeError, OverflowError) as e:
-            # Value cannot be converted to the target dtype
+        except (ValueError, TypeError) as e:
             raise TypeError(
-                f"Default value {default_value} ({type(default_value).__name__}) is not compatible with dtype={dtype_obj.name}."
+                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
             ) from e
 
         # fixme why not initialize with empty?
