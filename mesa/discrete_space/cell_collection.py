@@ -118,7 +118,6 @@ class CellCollection[T: Cell]:
         agents = list(self.agents)
 
         if not agents:
-            # Check if the user provided a default value
             if default is _no_default:
                 raise LookupError("Cannot select random agent from empty collection")
             return default
