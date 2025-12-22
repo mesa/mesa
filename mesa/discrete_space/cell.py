@@ -135,7 +135,7 @@ class Cell:
     def is_full(self) -> bool:
         """Returns a bool of the contents of a cell."""
         if self.capacity is None:
-            return False  
+            return False
         return len(self.agents) >= self.capacity
 
     @property

@@ -605,28 +605,28 @@ def test_cell():
 def test_cell_is_full_with_none_capacity():
     cell = Cell((0, 0), capacity=None)
     assert cell.is_full is False
-    
+
     model = Model()
     for _ in range(100):
         agent = CellAgent(model)
         agent._mesa_cell = cell
         cell._agents.append(agent)
-    
+
     assert cell.is_full is False
 
 
 def test_cell_is_full_with_finite_capacity():
     cell = Cell((0, 0), capacity=3)
     model = Model()
-    
+
     assert cell.is_full is False
-    
+
     cell.add_agent(CellAgent(model))
     assert cell.is_full is False
-    
+
     cell.add_agent(CellAgent(model))
     assert cell.is_full is False
-    
+
     cell.add_agent(CellAgent(model))
     assert cell.is_full is True
 
