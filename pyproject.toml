@@ -63,7 +63,7 @@ adaptive = [
 ]
 # Dev and CI stuff
 dev = [
-  "mesa[rec]",
+  "mesa[rec, adaptive]",
   "ruff",
   "pytest",
   "pytest-cov",
