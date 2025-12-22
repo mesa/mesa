@@ -400,6 +400,14 @@ class TestPropertyLayer(unittest.TestCase):  # noqa: D101
         self.layer.set_cell((5, 5), 5.5)
         self.assertIsInstance(self.layer.data[5, 5], self.layer.data.dtype.type)
 
+    def test_initialization_type_mismatch(self):  # noqa: D102
+        with self.assertRaises(TypeError):
+            PropertyLayer("test_layer", 10, 10, "abc", dtype=int)
+
+    def test_initialization_precision_loss(self):  # noqa: D102
+        with self.assertWarns(UserWarning):
+            PropertyLayer("test_layer", 10, 10, 10.5, dtype=int)
+
 
 class TestSingleGrid(unittest.TestCase):  # noqa: D101
     def setUp(self):  # noqa: D102

@@ -927,8 +927,13 @@ def test_property_layer_errors():
     ):
         grid.add_property_layer(elevation)
 
+    # Test that precision loss warnings are raised (float with decimals -> int)
     with pytest.warns(UserWarning):
-        PropertyLayer("elevation", (10, 10), default_value=0, dtype=float)
+        PropertyLayer("elevation", (10, 10), default_value=10.5, dtype=int)
+
+    # Test that incompatible types raise TypeError
+    with pytest.raises(TypeError):
+        PropertyLayer("elevation", (10, 10), default_value="abc", dtype=int)
 
 
 def test_cell_agent():  # noqa: D103
