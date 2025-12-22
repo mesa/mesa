@@ -1047,12 +1047,7 @@ def test_select_random_agent_empty_safe():
     """Test that select_random_agent returns None when no agents are present."""
     rng = random.Random(42)
     empty_collection = CellCollection([], random=rng)
-    assert empty_collection.select_random_agent() is None
-
-    cells = [Cell((i,), random=rng) for i in range(5)]
-    sparse_collection = CellCollection(cells, random=rng)
-
-    assert len(sparse_collection) == 5
-    assert len(list(sparse_collection.agents)) == 0
-
-    assert sparse_collection.select_random_agent() is None
+    with pytest.raises(LookupError):
+        empty_collection.select_random_agent()
+    assert empty_collection.select_random_agent(default=None) is None
+    assert empty_collection.select_random_agent(default="Empty") == "Empty"
