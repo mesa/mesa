@@ -360,3 +360,49 @@ def test_iterations_deprecation_warning():
     """Test that using iterations parameter raises DeprecationWarning."""
     with pytest.warns(DeprecationWarning, match="iterations.*deprecated.*rng"):
         mesa.batch_run(MockModel, {}, number_processes=1, iterations=1)
+
+
+class SparseAgent(Agent):
+    def __init__(self, model):
+        super().__init__(model)
+        self.value = 0
+
+    def step(self):
+        self.value += 1
+
+
+class SparseCollectionModel(Model):
+    def __init__(self, collect_interval=5, rng=None):
+        super().__init__(rng=rng)
+        self.collect_interval = collect_interval
+        self.agent = SparseAgent(self)
+        
+        self.datacollector = DataCollector(
+            model_reporters={"Value": lambda m: m.agent.value}
+        )
+        self.running = True
+
+    def step(self):
+        if self.steps % self.collect_interval == 0:
+            self.datacollector.collect(self)
+        
+        self.agent.step()
+        
+        if self.steps >= 20:
+            self.running = False
+
+
+def test_batch_run_sparse_collection():
+    """Test batch_run with sparse data collection (only collecting every N steps)."""
+    result = mesa.batch_run(
+        SparseCollectionModel,
+        parameters={"collect_interval": [5]},
+        rng=[42],
+        max_steps=20,
+        data_collection_period=1,
+        number_processes=1,
+    )
+    
+    assert len(result) > 0
+    assert all("Value" in row for row in result)
+    assert all("Step" in row for row in result)

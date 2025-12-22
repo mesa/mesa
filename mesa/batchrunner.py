@@ -253,7 +253,16 @@ def _collect_data(
         )
     dc = model.datacollector
 
-    model_data = {param: values[step] for param, values in dc.model_vars.items()}
+    available_steps = sorted(dc._agent_records.keys())
+    if step not in available_steps:
+        step = max((s for s in available_steps if s <= step), default=0)
+    
+    try:
+        collection_index = available_steps.index(step)
+    except ValueError:
+        collection_index = 0
+    
+    model_data = {param: values[collection_index] for param, values in dc.model_vars.items()}
 
     all_agents_data = []
     raw_agent_data = dc._agent_records.get(step, [])
