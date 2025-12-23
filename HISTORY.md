@@ -61,6 +61,9 @@ The policy guarantees:
 - Breaking changes only occur in major version releases
 - Experimental features have more flexibility but still communicate changes
 
+### Organization name change
+Mesa has migrated from the `projectmesa` to `mesa` organization on GitHub (#2880), (#2887), thanks to Daniel Langemann ([@dlangemann](https://github.com/dlangemann)) who generously transferred the `mesa` name to us. Our repositories are now accessible at `github.com/mesa/mesa` instead of `github.com/projectmesa/mesa`, signaling authority and maturity in a way that better reflects Mesa's position as *the* agent-based modeling framework in Python. GitHub automatically redirects old links, so existing URLs and git remotes continue to work seamlessly.
+
 ### Python 3.12+ required
 Mesa 3.4.0 drops support for Python 3.11 and now requires Python 3.12 or higher (#2842). This allows Mesa to use modern Python type parameter syntax and prepares the codebase for future Python features. Python 3.14 is now also fully tested in CI.
 
