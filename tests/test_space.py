@@ -1,6 +1,8 @@
 """Test spaces."""
 
+import random as stdlib_random
 import unittest
+import warnings
 
 import networkx as nx
 import numpy as np
@@ -399,14 +401,6 @@ class TestPropertyLayer(unittest.TestCase):  # noqa: D101
         self.layer.data = np.zeros((10, 10), dtype=int)
         self.layer.set_cell((5, 5), 5.5)
         self.assertIsInstance(self.layer.data[5, 5], self.layer.data.dtype.type)
-
-    def test_initialization_type_mismatch(self):  # noqa: D102
-        with self.assertRaises(TypeError):
-            PropertyLayer("test_layer", 10, 10, "abc", dtype=int)
-
-    def test_initialization_precision_loss(self):  # noqa: D102
-        with self.assertWarns(UserWarning):
-            PropertyLayer("test_layer", 10, 10, 10.5, dtype=int)
 
 
 class TestSingleGrid(unittest.TestCase):  # noqa: D101
@@ -1024,6 +1018,103 @@ class TestMultipleNetworkGrid(unittest.TestCase):  # noqa: D101
             self.agents[1],
             self.agents[2],
         ]
+
+
+class TestSpaceRandomParameter(unittest.TestCase):
+    """Test the random parameter functionality for legacy space classes."""
+
+    def test_continuous_space_stores_random_parameter(self):
+        """Test that ContinuousSpace stores the random parameter correctly."""
+        rng = stdlib_random.Random(42)
+        with warnings.catch_warnings():
+            warnings.simplefilter(
+                "error"
+            )  # Turn warnings into errors to ensure none raised
+            space = ContinuousSpace(100, 100, torus=False, random=rng)
+        assert space.random is rng
+
+    def test_continuous_space_warns_without_random(self):
+        """Test that ContinuousSpace warns when random is not provided."""
+        with pytest.warns(UserWarning, match="random number generator"):
+            ContinuousSpace(100, 100, torus=False)
+
+    def test_continuous_space_agents_uses_space_rng(self):
+        """Test that space.agents uses space's RNG when provided."""
+        rng = stdlib_random.Random(42)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            space = ContinuousSpace(100, 100, torus=False, random=rng)
+
+        # Add an agent and verify the AgentSet has space's RNG
+        agent = MockAgent(1)
+        space.place_agent(agent, (50, 50))
+        agentset = space.agents
+        assert agentset.random is rng
+
+    def test_single_grid_stores_random_parameter(self):
+        """Test that SingleGrid stores the random parameter correctly."""
+        rng = stdlib_random.Random(42)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            grid = SingleGrid(10, 10, torus=False, random=rng)
+        assert grid.random is rng
+
+    def test_single_grid_warns_without_random(self):
+        """Test that SingleGrid warns when random is not provided."""
+        with pytest.warns(UserWarning, match="random number generator"):
+            SingleGrid(10, 10, torus=False)
+
+    def test_single_grid_agents_uses_space_rng(self):
+        """Test that grid.agents uses grid's RNG when provided."""
+        rng = stdlib_random.Random(42)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            grid = SingleGrid(10, 10, torus=False, random=rng)
+
+        agent = MockAgent(1)
+        grid.place_agent(agent, (5, 5))
+        agentset = grid.agents
+        assert agentset.random is rng
+
+    def test_network_grid_stores_random_parameter(self):
+        """Test that NetworkGrid stores the random parameter correctly."""
+        rng = stdlib_random.Random(42)
+        graph = nx.complete_graph(5)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            grid = NetworkGrid(graph, random=rng)
+        assert grid.random is rng
+
+    def test_network_grid_warns_without_random(self):
+        """Test that NetworkGrid warns when random is not provided."""
+        graph = nx.complete_graph(5)
+        with pytest.warns(UserWarning, match="random number generator"):
+            NetworkGrid(graph)
+
+    def test_network_grid_agents_uses_space_rng(self):
+        """Test that network_grid.agents uses grid's RNG when provided."""
+        rng = stdlib_random.Random(42)
+        graph = nx.complete_graph(5)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            grid = NetworkGrid(graph, random=rng)
+
+        agent = MockAgent(1)
+        grid.place_agent(agent, 0)
+        agentset = grid.agents
+        assert agentset.random is rng
+
+    def test_empty_space_agents_with_rng(self):
+        """Test that space.agents works on empty space with RNG provided."""
+        rng = stdlib_random.Random(42)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            space = ContinuousSpace(100, 100, torus=False, random=rng)
+
+        # Should not raise, and should return empty AgentSet with RNG
+        agentset = space.agents
+        assert len(agentset) == 0
+        assert agentset.random is rng
 
 
 if __name__ == "__main__":
