@@ -1046,3 +1046,20 @@ def test_copying_discrete_spaces():  # noqa: D103
     for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
         for k, v in c1.connections.items():
             assert v.coordinate == c2.connections[k].coordinate
+
+
+def test_select_random_empty_cell_on_full_grid():
+    """Test that select_random_empty_cell raises ValueError when grid is full."""
+    model = Model()
+    grid = OrthogonalMooreGrid(dimensions=(3, 3), capacity=1, random=model.random)
+
+    for cell in grid.all_cells:
+        agent = CellAgent(model)
+        agent.cell = cell
+
+    assert len(grid.empties) == 0
+
+    with pytest.raises(
+        ValueError, match="Cannot select random empty cell: grid is full"
+    ):
+        grid.select_random_empty_cell()

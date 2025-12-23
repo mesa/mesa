@@ -150,6 +150,14 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+
+        # Check if there are any empty cells to avoid infinite loop
+        if not self.empties:
+            raise ValueError(
+                "Cannot select random empty cell: grid is full. "
+                "Check grid.empties or grid.exists_empty_cells() before calling."
+            )
+
         if self._try_random:
             while True:
                 cell = self.all_cells.select_random_cell()
