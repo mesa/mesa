@@ -27,7 +27,7 @@ from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import AttributeDict, create_weakref
 
-__all__ = ["All", "Computable", "HasObservables", "Observable"]
+__all__ = ["All", "Computable", "ContinuousObservable", "HasObservables", "Observable"]
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
@@ -471,6 +471,173 @@ class HasObservables:
                 active_observers.append(observer)
         # use iteration to also remove inactive observers
         self.subscribers[observable][signal_type] = active_observers
+
+    def add_threshold(self, observable_name: str, threshold: float, callback: Callable):
+        """Convenience method for adding thresholds."""
+        obs = getattr(type(self), observable_name)
+        if not isinstance(obs, ContinuousObservable):
+            raise ValueError(f"{observable_name} is not a ContinuousObservable")
+
+        # Get the instance's ContinuousState
+        state = getattr(self, obs.private_name, None)
+        if state is None:
+            # State not yet created - will be created on first access/set
+            # We need to ensure the observable is initialized first
+            _ = getattr(self, observable_name)  # Trigger initialization
+            state = getattr(self, obs.private_name)
+
+        # Add threshold to the instance's state
+        if threshold not in state.thresholds:
+            state.thresholds[threshold] = set()
+
+        # Add callback to this threshold's callback set
+        state.thresholds[threshold].add(callback)
+
+        # Subscribe to the threshold_crossed signal
+        # Check if callback is already subscribed to avoid duplicates
+        existing_subscribers = self.subscribers.get(observable_name, {}).get(
+            "threshold_crossed", []
+        )
+        already_subscribed = any(
+            ref() == callback for ref in existing_subscribers if ref() is not None
+        )
+
+        if not already_subscribed:
+            self.observe(observable_name, "threshold_crossed", callback)
+
+
+class ContinuousObservable(Observable):
+    """An Observable that changes continuously over time."""
+
+    def __init__(self, initial_value: float, rate_func: Callable):
+        """Initialize a ContinuousObservable."""
+        super().__init__(fallback_value=initial_value)
+        self.signal_types.add("threshold_crossed")
+        self._rate_func = rate_func
+
+    def __set__(self, instance: HasObservables, value):
+        """Set the value, ensuring we store a ContinuousState."""
+        # Get or create state
+        state = getattr(instance, self.private_name, None)
+
+        if state is None:
+            # First time - create ContinuousState
+            state = ContinuousState(
+                value=float(value),
+                last_update=instance.model.time,
+                rate_func=self._rate_func,
+            )
+            setattr(instance, self.private_name, state)
+        else:
+            # Update existing - just change the value and reset timestamp
+            old_value = state.value
+            state.value = float(value)
+            state.last_update = instance.model.time
+
+            # Notify changes
+            instance.notify(self.public_name, old_value, state.value, "change")
+
+            # Check thresholds
+            for threshold, direction in state.check_thresholds(old_value, state.value):
+                instance.notify(
+                    self.public_name,
+                    old_value,
+                    state.value,
+                    "threshold_crossed",
+                    threshold=threshold,
+                    direction=direction,
+                )
+
+    def __get__(self, instance: HasObservables, owner):
+        """Lazy evaluation - compute current value based on elapsed time."""
+        if instance is None:
+            return self
+
+        # Get stored state
+        state = getattr(instance, self.private_name, None)
+        if state is None:
+            # First access - initialize
+            # Use simulator time if available, otherwise fall back to steps
+            current_time = instance.model.time
+            state = ContinuousState(
+                value=self.fallback_value,
+                last_update=current_time,
+                rate_func=self._rate_func,
+            )
+            setattr(instance, self.private_name, state)
+
+        # Calculate new value based on time
+        current_time = instance.model.time
+        elapsed = current_time - state.last_update
+
+        if elapsed > 0:
+            old_value = state.value
+            new_value = state.calculate(elapsed, instance)
+
+            # Check thresholds
+            crossed = state.check_thresholds(old_value, new_value)
+
+            # Update stored state
+            state.value = new_value
+            state.last_update = current_time
+
+            # Emit signals
+            if new_value != old_value:
+                instance.notify(self.public_name, old_value, new_value, "change")
+
+            for threshold, direction in crossed:
+                instance.notify(
+                    self.public_name,
+                    old_value,
+                    new_value,
+                    "threshold_crossed",
+                    threshold=threshold,
+                    direction=direction,
+                )
+
+        # Register dependency if inside a Computed
+        if CURRENT_COMPUTED is not None:
+            CURRENT_COMPUTED._add_parent(instance, self.public_name, state.value)
+            PROCESSING_SIGNALS.add(_hashable_signal(instance, self.public_name))
+
+        return state.value
+
+
+class ContinuousState:
+    """Internal state tracker for continuous observables."""
+
+    __slots__ = ["last_update", "rate_func", "thresholds", "value"]
+
+    def __init__(self, value: float, last_update: float, rate_func: Callable):
+        self.value = value
+        self.last_update = last_update
+        self.rate_func = rate_func
+        self.thresholds = {}  # {threshold_value: set(callbacks)}
+
+    def calculate(self, elapsed: float, instance: Any) -> float:
+        """Calculate new value based on elapsed time.
+
+        Uses simple linear integration for now. Could be extended
+        to support more complex integration methods.
+        """
+        rate = self.rate_func(self.value, elapsed, instance)
+        return self.value + (rate * elapsed)
+
+    def check_thresholds(self, old_value: float, new_value: float) -> list:
+        """Check if any thresholds were crossed.
+
+        Returns:
+            List of (threshold_value, direction) tuples for crossed thresholds
+        """
+        crossed = []
+        for threshold in self.thresholds:
+            # Crossed upward
+            if old_value < threshold <= new_value:
+                crossed.append((threshold, "up"))
+            # Crossed downward
+            elif new_value <= threshold < old_value:
+                crossed.append((threshold, "down"))
+        return crossed
 
 
 def descriptor_generator(obj) -> [str, BaseObservable]:
