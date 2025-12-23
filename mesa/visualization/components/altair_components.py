@@ -88,6 +88,23 @@ def SpaceAltair(
     solara.FigureAltair(chart)
 
 
+def _portrayal_to_dict(portrayal_result, agent):
+    """Convert AgentPortrayalStyle to dict or return dict as-is."""
+    from mesa.visualization.components import AgentPortrayalStyle  # noqa
+
+    if isinstance(portrayal_result, AgentPortrayalStyle):
+        # Convert AgentPortrayalStyle to dict for Altair
+        # Altair only uses 'color' and 'size' from the portrayal
+        agent_data = {"id": getattr(agent, "unique_id", id(agent))}
+        if portrayal_result.color is not None:
+            agent_data["color"] = portrayal_result.color
+        if portrayal_result.size is not None:
+            agent_data["size"] = portrayal_result.size
+        return agent_data
+    else:
+        return portrayal_result
+
+
 def _get_agent_data_old__discrete_space(space, agent_portrayal):
     """Format agent portrayal data for old-style discrete spaces.
 
@@ -108,7 +125,7 @@ def _get_agent_data_old__discrete_space(space, agent_portrayal):
             content = [content]  # noqa: PLW2901
         for agent in content:
             # use all data from agent portrayal, and add x,y coordinates
-            agent_data = agent_portrayal(agent)
+            agent_data = _portrayal_to_dict(agent_portrayal(agent), agent)
             agent_data["x"] = x
             agent_data["y"] = y
             all_agent_data.append(agent_data)
@@ -130,7 +147,7 @@ def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
 
     for cell in space.all_cells:
         for agent in cell.agents:
-            agent_data = agent_portrayal(agent)
+            agent_data = _portrayal_to_dict(agent_portrayal(agent), agent)
             agent_data["x"] = cell.coordinate[0]
             agent_data["y"] = cell.coordinate[1]
             all_agent_data.append(agent_data)
@@ -149,7 +166,7 @@ def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
     """
     all_agent_data = []
     for agent in space._agent_to_index:
-        agent_data = agent_portrayal(agent)
+        agent_data = _portrayal_to_dict(agent_portrayal(agent), agent)
         agent_data["x"] = agent.pos[0]
         agent_data["y"] = agent.pos[1]
         all_agent_data.append(agent_data)
