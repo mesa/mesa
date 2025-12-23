@@ -60,13 +60,13 @@ class FiniteLifeAgent(Agent):
         self.model = model
 
     def step(self):  # noqa: D102
-        inactivated = self.inactivate()
-        if not inactivated:
+        deactivated = self.deactivate()
+        if not deactivated:
             self.steps += 1  # keep track of how many ticks are seen
             if np.random.binomial(1, 0.1) != 0:  # 10% chance of dying
                 self.remove()
 
-    def inactivate(self):  # noqa: D102
+    def deactivate(self):  # noqa: D102
         self.remaining_life -= 1
         if self.remaining_life < 0:
             self.remove()
