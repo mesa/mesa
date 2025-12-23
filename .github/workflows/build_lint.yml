@@ -60,10 +60,23 @@ jobs:
       - name: Setup Playwright
         run: playwright install chromium-headless-shell
       - name: Test with pytest
-        run: pytest --durations=10 --cov=mesa tests/ --cov-report=xml -Werror -Wdefault::PendingDeprecationWarning
-      - if: matrix.os == 'ubuntu'
-        name: Codecov
-        uses: codecov/codecov-action@v5
+        run: pytest --durations=10 tests/ -Werror -Wdefault::PendingDeprecationWarning
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: pip install uv
+      - run: uv pip install --system .[dev]
+      - run: playwright install chromium-headless-shell
+      - run: |
+          coverage run -m pytest tests/
+          coverage xml
+      - uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
