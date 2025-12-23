@@ -29,10 +29,9 @@ class MesaError(Exception):
 
 # Model Errors
 
+
 class ModelError(MesaError):
     """Generic errors related to model initialization or execution."""
-
-    pass
 
 
 class ConfigurationError(ModelError):
@@ -63,29 +62,23 @@ class SeedError(ModelError):
     Example: Providing both a fixed 'seed' and an external 'rng' object.
     """
 
-    pass
-
 
 # Agent Errors
 
+
 class AgentError(MesaError):
     """Generic errors related to agent behavior or lifecycle."""
-
-    pass
 
 
 class AgentStateError(AgentError):
     """Raised when an agent performs an action invalid for its current state (e.g. moving when dead)."""
 
-    pass
-
 
 # Space Errors
 
+
 class SpaceError(MesaError):
     """Generic errors related to space, grids, or movement."""
-
-    pass
 
 
 class GridDimensionError(SpaceError):
@@ -94,8 +87,6 @@ class GridDimensionError(SpaceError):
     Examples: Negative width/height, non-integer dimensions, or mismatching
     dimensions between a grid and a property layer.
     """
-
-    pass
 
 
 class OutOfBoundsError(SpaceError):
@@ -160,16 +151,13 @@ class PropertyLayerNotFoundError(SpaceError):
 
 # Scheduler Errors
 
+
 class TimeError(MesaError):
     """Base class for errors related to time or scheduling."""
-
-    pass
 
 
 class ScheduleError(TimeError):
     """Errors related to the Time/Scheduler (e.g., removing an agent not in schedule)."""
-
-    pass
 
 
 class EventSchedulingError(TimeError):
@@ -178,15 +166,12 @@ class EventSchedulingError(TimeError):
     Example: Attempting to schedule an event in the past.
     """
 
-    pass
-
 
 # Visualization Errors
 
+
 class VisualizationError(MesaError):
     """Errors related to visualization backends (Solara, Canvas, etc.)."""
-
-    pass
 
 
 class UserInputError(VisualizationError):
