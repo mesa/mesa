@@ -1,11 +1,11 @@
 """Test the backends of the visualization package."""
 
+import random
 import types
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-import random 
 
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.discrete_space.property_layer import PropertyLayer
