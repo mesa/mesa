@@ -56,29 +56,6 @@ class HasCell:
         self._private_name = f"_{name}"
 
 
-# class HasCell:
-#     """Descriptor for cell movement behavior."""
-#
-#     _mesa_cell: Cell | None = None
-#
-#     @property
-#     def cell(self) -> Cell | None:
-#         return self._mesa_cell
-#
-#     @cell.setter
-#     def cell(self, cell: Cell | None) -> None:
-#         # remove from current cell
-#         if self.cell is not None:
-#             self.cell.remove_agent(self)
-#
-#         # update private attribute
-#         self._mesa_cell = cell
-#
-#         # add to new cell
-#         if cell is not None:
-#             cell.add_agent(self)
-
-
 class BasicMovement:
     """Mixin for moving agents in discrete space."""
 
