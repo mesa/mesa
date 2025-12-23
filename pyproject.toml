@@ -96,8 +96,6 @@ ignore-words-list = ["ist", "hart", "nD"]
 [tool.coverage.run]
 source = ["mesa"]
 branch = true
-
-[tool.coverage.report]
 omit = ["tests/*"]
 
 [tool.hatch.build.targets.wheel]
