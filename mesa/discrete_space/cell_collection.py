@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="Cell")
 
+RAISES = object()
+
 
 class CellCollection[T: Cell]:
     """An immutable collection of cells.
@@ -100,15 +102,27 @@ class CellCollection[T: Cell]:
         """Select a random cell."""
         return self.random.choice(self.cells)
 
-    def select_random_agent(self) -> CellAgent:
-        """Select a random agent.
+    def select_random_agent(self, default=RAISES) -> CellAgent | None:
+        """Select a random agent from the collection.
+
+        Args:
+            default: Value to return if the collection is empty.
+                     If not provided, raises LookupError.
 
         Returns:
-            CellAgent instance
+            CellAgent: A random agent, or the default value if provided and collection is empty.
 
-
+        Raises:
+            LookupError: If collection is empty and no default is provided.
         """
-        return self.random.choice(list(self.agents))
+        agents = list(self.agents)
+
+        if not agents:
+            if default is RAISES:
+                raise LookupError("Cannot select random agent from empty collection")
+            return default
+
+        return self.random.choice(agents)
 
     def select(
         self,

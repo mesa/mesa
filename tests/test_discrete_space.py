@@ -601,6 +601,42 @@ def test_cell():
     with pytest.raises(Exception):
         cell1.add_agent(CellAgent(model))
 
+    # Test capacity=0 (no agents allowed)
+    cell_zero = Cell((1,), capacity=0, random=random.Random())
+    with pytest.raises(Exception):
+        cell_zero.add_agent(CellAgent(model))
+
+
+def test_cell_is_full_with_none_capacity():
+    """Ensure a cell with unlimited capacity is never considered full regardless of agent count."""
+    cell = Cell((0, 0), capacity=None)
+    assert cell.is_full is False
+
+    model = Model()
+    for _ in range(100):
+        agent = CellAgent(model)
+        agent._mesa_cell = cell
+        cell._agents.append(agent)
+
+    assert cell.is_full is False
+
+
+def test_cell_is_full_with_finite_capacity():
+    """Verify a cell reports full only after reaching its defined finite capacity."""
+    cell = Cell((0, 0), capacity=3)
+    model = Model()
+
+    assert cell.is_full is False
+
+    cell.add_agent(CellAgent(model))
+    assert cell.is_full is False
+
+    cell.add_agent(CellAgent(model))
+    assert cell.is_full is False
+
+    cell.add_agent(CellAgent(model))
+    assert cell.is_full is True
+
 
 def test_cell_collection():
     """Test CellCollection."""
@@ -1046,3 +1082,13 @@ def test_copying_discrete_spaces():  # noqa: D103
     for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
         for k, v in c1.connections.items():
             assert v.coordinate == c2.connections[k].coordinate
+
+
+def test_select_random_agent_empty_safe():
+    """Test that select_random_agent returns None when no agents are present."""
+    rng = random.Random(42)
+    empty_collection = CellCollection([], random=rng)
+    with pytest.raises(LookupError):
+        empty_collection.select_random_agent()
+    assert empty_collection.select_random_agent(default=None) is None
+    assert empty_collection.select_random_agent(default="Empty") == "Empty"
