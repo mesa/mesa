@@ -487,7 +487,7 @@ def test_networkgrid():
 
     pickle.loads(pickle.dumps(grid))  # noqa: S301
 
-    cell = Cell(10)  # n = 10, so 10 + 1
+    cell = Cell(10, random=random.Random(42))  # n = 10, so 10 + 1
     grid.add_cell(cell)
     grid.add_connection(cell, grid._cells[0])
     assert cell in grid._cells[0].neighborhood
@@ -497,7 +497,7 @@ def test_networkgrid():
     assert cell not in grid._cells[0].neighborhood
     assert grid._cells[0] not in cell.neighborhood
 
-    cell = Cell(10)  # n = 10, so 10 + 1
+    cell = Cell(10, random=random.Random(42))  # n = 10, so 10 + 1
     grid.add_cell(cell)
     grid.add_connection(cell, grid._cells[0])
     grid.remove_cell(cell)  # this also removes all connections
