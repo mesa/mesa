@@ -17,7 +17,9 @@ import solara
 import mesa
 import mesa.visualization.backends
 from mesa.space import MultiGrid, PropertyLayer
-from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle
+from mesa.visualization.components.altair_components import make_altair_space
+from mesa.visualization.components.matplotlib_components import make_mpl_space_component
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
