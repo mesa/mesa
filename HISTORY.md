@@ -34,7 +34,7 @@ print(model.time)  # 3.0
 
 The old `simulator.time` still works but emits a deprecation warning.
 
-### Improved Batch Run Reproducibility
+### Improved batch run reproducibility
 The `batch_run` function has been updated to provide explicit control over random seeds across replications (#2841). Previously, using `iterations` with a fixed seed caused all iterations to use the same seed, producing identical results instead of independent replications.
 
 The new `rng` parameter accepts either a single seed value or an iterable of seed values, giving you complete control over reproducibility:
@@ -52,7 +52,7 @@ results = mesa.batch_run(
 
 The old `iterations` parameter is now deprecated and will be removed in Mesa 4.0. See the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#batch-run) for details on updating your code.
 
-### Strengthened Deprecation Policy
+### Strengthened deprecation policy
 Mesa now has a formal [deprecation policy](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md#deprecation-policy) that ensures users have adequate time to migrate while allowing Mesa to evolve (#2900). A related change is that all deprecation warnings now use `FutureWarning` instead of `DeprecationWarning` (#2905), making them visible by default since `DeprecationWarning` is hidden for imported modules.
 
 The policy guarantees:
@@ -67,7 +67,7 @@ Mesa has migrated from the `projectmesa` to `mesa` organization on GitHub (#2880
 ### Python 3.12+ required
 Mesa 3.4.0 drops support for Python 3.11 and now requires Python 3.12 or higher (#2842). This allows Mesa to use modern Python type parameter syntax and prepares the codebase for future Python features. Python 3.14 is now also fully tested in CI.
 
-### Other Improvements
+### Other improvements
 This release includes significant enhancements to the visualization system, including support for `AgentPortrayalStyle` in Altair components, improved property layer styling, and better error handling. The experimental cell space module has been removed in favor of the stable `mesa.discrete_space` module (#2969).
 
 Numerous bugs were fixed, including issues with scalar color handling in matplotlib, empty cell collection indexing, and cell capacity handling. The test suite was reorganized to mirror the source module structure and now treats warnings as errors to prevent accumulation.
