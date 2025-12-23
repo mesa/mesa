@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from mesa.space import ContinuousSpace, NetworkGrid, PropertyLayer, SingleGrid
-from tests.test_grid import MockAgent
+from tests.discrete_space.test_grid import MockAgent
 
 TEST_AGENTS = [(-20, -20), (-20, -20.05), (65, 18)]
 TEST_AGENTS_GRID = [(1, 1), (10, 0), (10, 10)]
