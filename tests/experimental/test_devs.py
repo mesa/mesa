@@ -310,6 +310,29 @@ def test_eventlist():
     with pytest.raises(Exception):
         event_list.peak_ahead()
 
+    # peak_ahead should return events in chronological order
+    # This tests the fix for heap iteration bug where events were returned
+    event_list = EventList()
+    some_test_function = MagicMock()
+    times = [5.0, 15.0, 10.0, 25.0, 20.0, 8.0]
+    for t in times:
+        event = SimulationEvent(
+            t,
+            some_test_function,
+            priority=Priority.DEFAULT,
+            function_args=[],
+            function_kwargs={},
+        )
+        event_list.add_event(event)
+
+    events = event_list.peak_ahead(5)
+    event_times = [e.time for e in events]
+    # Events should be in chronological order: [5.0, 8.0, 10.0, 15.0, 20.0]
+    assert event_times == sorted(event_times), (
+        f"peak_ahead should return events in chronological order, got {event_times}"
+    )
+    assert event_times == [5.0, 8.0, 10.0, 15.0, 20.0]
+
     # pop event
     event_list = EventList()
     for i in range(10):

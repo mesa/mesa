@@ -23,7 +23,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Callable
 from enum import IntEnum
-from heapq import heapify, heappop, heappush
+from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
 from typing import Any
 from weakref import WeakMethod, ref
@@ -168,13 +168,9 @@ class EventList:
         if self.is_empty():
             raise IndexError("event list is empty")
 
-        peek: list[SimulationEvent] = []
-        for event in self._events:
-            if not event.CANCELED:
-                peek.append(event)
-            if len(peek) >= n:
-                return peek
-        return peek
+        # Filter out canceled events and get n smallest in correct chronological order
+        valid_events = [e for e in self._events if not e.CANCELED]
+        return nsmallest(n, valid_events)
 
     def pop_event(self) -> SimulationEvent:
         """Pop the first element from the event list."""
