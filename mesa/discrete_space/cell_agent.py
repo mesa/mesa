@@ -114,6 +114,22 @@ class FixedCellPosition(CellPosition):
         value.add_agent(obj)
 
 
+class FixedCell(HasCell):
+    """Mixin for agents that are fixed to a cell."""
+
+    @property
+    def cell(self) -> Cell | None:  # noqa: D102
+        return self._mesa_cell
+
+    @cell.setter
+    def cell(self, cell: Cell) -> None:
+        if self.cell is not None:
+            raise ValueError("Cannot move agent in FixedCell")
+        self._mesa_cell = cell
+
+        cell.add_agent(self)
+
+
 class CellAgent(Agent, HasCell, BasicMovement):
     """Cell Agent is an extension of the Agent class and adds behavior for moving in discrete spaces.
 

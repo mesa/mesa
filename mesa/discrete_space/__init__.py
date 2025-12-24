@@ -20,6 +20,7 @@ from mesa.discrete_space.cell_agent import (
     CellAgent,
     CellPosition,
     FixedAgent,
+    FixedCellPosition,
     Grid2DMovingAgent,
 )
 from mesa.discrete_space.cell_collection import CellCollection
@@ -41,6 +42,7 @@ __all__ = [
     "CellPosition",
     "DiscreteSpace",
     "FixedAgent",
+    "FixedCellPosition",
     "Grid",
     "Grid2DMovingAgent",
     "HexGrid",
