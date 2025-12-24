@@ -361,8 +361,9 @@ def ComponentsView(
         components: List of (components, page) to display
         model: Model instance to pass to each component
     """
-    if not components:
-        return
+    # State for current tab and layouts
+    current_tab_index, set_current_tab_index = solara.use_state(0)
+    layouts, set_layouts = solara.use_state({})
 
     # Backward's compatibility, page = 0 if not passed.
     for i, comp in enumerate(components):
@@ -384,12 +385,11 @@ def ComponentsView(
 
     sorted_page_indices = all_indices
 
-    # State for current tab and layouts
-    current_tab_index, set_current_tab_index = solara.use_state(0)
-    layouts, set_layouts = solara.use_state({})
-
     # Keep layouts in sync with pages
     def sync_layouts():
+        if not components:  # Handle empty case inside the effect
+            return
+
         current_keys = set(pages.keys())
         layout_keys = set(layouts.keys())
 
@@ -406,6 +406,10 @@ def ComponentsView(
             set_layouts({**cleaned_layouts, **new_layouts})
 
     solara.use_effect(sync_layouts, list(pages.keys()))
+
+    # Allow early return (which is now safe because all hooks have been called)
+    if not components:
+        return
 
     # Tab Navigation
     with solara.v.Tabs(v_model=current_tab_index, on_v_model=set_current_tab_index):
