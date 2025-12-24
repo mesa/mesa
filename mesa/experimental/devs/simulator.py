@@ -258,6 +258,11 @@ class Simulator:
             SimulationEvent: the simulation event that is scheduled
 
         """
+        # --- NEW CODE START ---
+        if time_delta < 0:
+            raise ValueError("Cannot schedule event in the past")
+        # --- NEW CODE END ---
+
         event = SimulationEvent(
             self.model.time + time_delta,
             function,
