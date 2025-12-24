@@ -2,12 +2,12 @@
 
 import numpy as np
 import pytest
+from test_grid import MockAgent
 
 from mesa.model import Model
 from mesa.space_adaptive import AdaptiveVoronoiSpace
 from mesa.visualization.space_drawers import ContinuousSpaceDrawer
 from mesa.visualization.space_renderer import SpaceRenderer
-from tests.test_grid import MockAgent
 
 
 @pytest.fixture
