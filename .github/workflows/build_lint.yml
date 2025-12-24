@@ -73,9 +73,7 @@ jobs:
       - run: pip install uv
       - run: uv pip install --system .[dev]
       - run: playwright install chromium-headless-shell
-      - run: |
-          coverage run -m pytest tests/
-          coverage xml
+      - run: pytest --cov=mesa --cov-report=xml --cov-context=test tests/
       - uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
