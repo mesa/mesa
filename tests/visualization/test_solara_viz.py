@@ -436,9 +436,7 @@ def test_hex_multigrid_with_backend(backend):
     """Test HexMultiGrid (legacy) rendering works with both backends."""
     model = HexMultiGridModel()
     renderer = (
-        SpaceRenderer(model, backend=backend)
-        .setup_agents(agent_portrayal)
-        .render()
+        SpaceRenderer(model, backend=backend).setup_agents(agent_portrayal).render()
     )
 
     # Should not raise
