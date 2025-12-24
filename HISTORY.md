@@ -9,7 +9,7 @@ The Mesa 3.4.0 feature release introduces universal time tracking, improves batc
 Mesa now provides a single source of truth for simulation time through the `model.time` attribute (#2903). Previously, time was fragmented across different components - simple models used `model.steps` as a proxy, while discrete event simulations stored time in `simulator.time`. This created complexity for features needing consistent time access.
 
 Now all models have a `model.time` attribute that:
-- Automatically increments with each step (by `step_duration`, default 1.0)
+- Automatically increments with each step (by 1.0)
 - Works seamlessly with discrete event simulators
 - Provides a consistent interface for data collection, visualization, and user code
 
@@ -18,11 +18,6 @@ Now all models have a `model.time` attribute that:
 model = Model()
 model.step()
 print(model.time)  # 1.0
-
-# Custom step duration for staged activation
-model = Model(step_duration=0.25)
-model.step()
-print(model.time)  # 0.25
 
 # With discrete event simulation
 simulator = DEVSimulator()
