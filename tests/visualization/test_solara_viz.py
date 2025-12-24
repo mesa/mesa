@@ -4,6 +4,16 @@ This is the primary test file for Mesa's visualization components.
 Uses AgentPortrayalStyle, PropertyLayerStyle, and SpaceRenderer APIs.
 
 For backwards compatibility tests with dict-based portrayals, see test_solara_viz_legacy.py.
+
+Test Coverage:
+- SpaceRenderer with both matplotlib and altair backends
+- AgentPortrayalStyle attribute handling
+- PropertyLayerStyle visualization
+- Multiple space types (Orthogonal, Hex, Voronoi, Continuous, Network)
+- User input components (Slider, Checkbox, InputText)
+- Model parameter validation
+- Custom space components
+- Error handling for invalid configurations
 """
 
 import random
@@ -16,7 +26,12 @@ import solara
 
 import mesa
 import mesa.visualization.backends
-from mesa.space import MultiGrid, PropertyLayer
+from mesa.space import (
+    ContinuousSpace,
+    HexMultiGrid,
+    MultiGrid,
+    PropertyLayer,
+)
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
@@ -72,6 +87,55 @@ def propertylayer_portrayal(_):
         vmin=0,
         vmax=10,
     )
+
+
+# --- Additional Model Fixtures for Different Space Types ---
+
+
+class HexMultiGridModel(mesa.Model):
+    """Mock model with legacy HexMultiGrid for testing."""
+
+    def __init__(self, seed=None):
+        """Initialize model with HexMultiGrid."""
+        super().__init__(seed=seed)
+        self.grid = HexMultiGrid(width=10, height=10, torus=True)
+        a = MockAgent(self)
+        self.grid.place_agent(a, (5, 5))
+
+
+class ContinuousSpaceModel(mesa.Model):
+    """Mock model with ContinuousSpace for testing."""
+
+    def __init__(self, seed=None):
+        """Initialize model with ContinuousSpace."""
+        super().__init__(seed=seed)
+        self.space = ContinuousSpace(x_max=100, y_max=100, torus=True)
+        a = MockAgent(self)
+        self.space.place_agent(a, (50.0, 50.0))
+
+
+class VoronoiModel(mesa.Model):
+    """Mock model with VoronoiGrid for testing."""
+
+    def __init__(self, seed=None):
+        """Initialize model with VoronoiGrid."""
+        super().__init__(seed=seed)
+        self.grid = mesa.discrete_space.VoronoiGrid(
+            centroids_coordinates=[(0, 1), (0, 0), (1, 0), (1, 1)],
+            random=random.Random(42),
+        )
+
+
+@pytest.fixture
+def continuous_model():
+    """Fixture that provides a ContinuousSpaceModel instance."""
+    return ContinuousSpaceModel()
+
+
+@pytest.fixture
+def voronoi_model():
+    """Fixture that provides a VoronoiModel instance."""
+    return VoronoiModel()
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
@@ -342,6 +406,127 @@ def test_agent_portrayal_style_attributes(mock_model, backend):
     )
 
     solara.render(SolaraViz(mock_model, renderer, components=[]))
+    assert renderer.backend == backend
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_conditional_agent_portrayal(mock_model, backend):
+    """Test conditional agent portrayal based on agent attributes."""
+
+    def conditional_portrayal(agent):
+        # Conditional portrayal based on agent unique_id
+        color = "red" if agent.unique_id % 2 == 0 else "blue"
+        return AgentPortrayalStyle(marker="o", color=color, size=50)
+
+    renderer = (
+        SpaceRenderer(mock_model, backend=backend)
+        .setup_agents(conditional_portrayal)
+        .render()
+    )
+
+    solara.render(SolaraViz(mock_model, renderer, components=[]))
+    assert renderer.backend == backend
+
+
+# --- Different Space Types Tests ---
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_hex_multigrid_with_backend(backend):
+    """Test HexMultiGrid (legacy) rendering works with both backends."""
+    model = HexMultiGridModel()
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .render()
+    )
+
+    # Should not raise
+    solara.render(SolaraViz(model, renderer, components=[]))
+    assert renderer.backend == backend
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_continuous_space_with_backend(continuous_model, backend):
+    """Test ContinuousSpace rendering works with both backends."""
+    renderer = (
+        SpaceRenderer(continuous_model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .render()
+    )
+
+    # Should not raise
+    solara.render(SolaraViz(continuous_model, renderer, components=[]))
+    assert renderer.backend == backend
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_voronoi_with_backend_fixture(voronoi_model, backend):
+    """Test VoronoiGrid rendering using fixture with both backends."""
+    renderer = (
+        SpaceRenderer(voronoi_model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .render()
+    )
+
+    # Should not raise
+    solara.render(SolaraViz(voronoi_model, renderer, components=[]))
+    assert renderer.backend == backend
+
+
+# --- Error Handling Tests ---
+
+
+def test_invalid_backend_raises():
+    """Test that invalid backend raises ValueError."""
+    model = MockModel()
+    with pytest.raises(ValueError, match="Unsupported backend"):
+        SpaceRenderer(model, backend="invalid_backend")
+
+
+def test_no_space_raises():
+    """Test that model without space raises ValueError."""
+
+    class NoSpaceModel(mesa.Model):
+        def __init__(self):
+            super().__init__()
+            # No grid or space attribute
+
+    model = NoSpaceModel()
+    with pytest.raises(ValueError, match="Unsupported space type"):
+        SpaceRenderer(model)
+
+
+# --- Multiple Agents Tests ---
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_multiple_agents_rendering(backend):
+    """Test rendering model with multiple agents."""
+
+    class MultiAgentModel(mesa.Model):
+        def __init__(self):
+            super().__init__()
+            self.grid = MultiGrid(width=10, height=10, torus=True)
+            # Add multiple agents
+            for i in range(5):
+                a = MockAgent(self)
+                self.grid.place_agent(a, (i, i))
+
+    model = MultiAgentModel()
+
+    def multi_agent_portrayal(agent):
+        return AgentPortrayalStyle(
+            marker="o", color="blue", size=30 + agent.unique_id * 10
+        )
+
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(multi_agent_portrayal)
+        .render()
+    )
+
+    solara.render(SolaraViz(model, renderer, components=[]))
     assert renderer.backend == backend
 
 
