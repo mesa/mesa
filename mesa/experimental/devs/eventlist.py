@@ -147,7 +147,7 @@ class EventList:
         """
         heappush(self._events, event)
 
-    def peak_ahead(self, n: int = 1) -> list[SimulationEvent]:
+    def peek_ahead(self, n: int = 1) -> list[SimulationEvent]:
         """Look at the first n non-canceled event in the event list.
 
         Args:
@@ -210,7 +210,7 @@ class EventList:
         """
         # we cannot simply remove items from _eventlist because this breaks
         # heap structure invariant. So, we use a form of lazy deletion.
-        # SimEvents have a CANCELED flag that we set to True, while popping and peak_ahead
+        # SimEvents have a CANCELED flag that we set to True, while popping and peek_ahead
         # silently ignore canceled events
         event.cancel()
 

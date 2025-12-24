@@ -294,23 +294,23 @@ def test_eventlist():
             function_kwargs={},
         )
         event_list.add_event(event)
-    events = event_list.peak_ahead(2)
+    events = event_list.peek_ahead(2)
     assert len(events) == 2
     assert events[0].time == 0
     assert events[1].time == 1
 
-    events = event_list.peak_ahead(11)
+    events = event_list.peek_ahead(11)
     assert len(events) == 10
 
     event_list._events[6].cancel()
-    events = event_list.peak_ahead(10)
+    events = event_list.peek_ahead(10)
     assert len(events) == 9
 
     event_list = EventList()
     with pytest.raises(Exception):
-        event_list.peak_ahead()
+        event_list.peek_ahead()
 
-    # peak_ahead should return events in chronological order
+    # peek_ahead should return events in chronological order
     # This tests the fix for heap iteration bug where events were returned
     event_list = EventList()
     some_test_function = MagicMock()
@@ -325,13 +325,10 @@ def test_eventlist():
         )
         event_list.add_event(event)
 
-    events = event_list.peak_ahead(5)
+    events = event_list.peek_ahead(5)
     event_times = [e.time for e in events]
-    # Events should be in chronological order: [5.0, 8.0, 10.0, 15.0, 20.0]
-    assert event_times == sorted(event_times), (
-        f"peak_ahead should return events in chronological order, got {event_times}"
-    )
-    assert event_times == [5.0, 8.0, 10.0, 15.0, 20.0]
+    # Events should be in chronological order
+    assert event_times == sorted(times)[:5]
 
     # pop event
     event_list = EventList()
