@@ -120,6 +120,7 @@ class CellAgent(Agent, HasCell, BasicMovement):
     Attributes:
         cell (Cell): The cell the agent is currently in.
     """
+
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
