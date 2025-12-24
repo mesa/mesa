@@ -18,9 +18,9 @@ space system is experimental and under active development.
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_agent import (
     CellAgent,
+    CellPosition,
     FixedAgent,
     Grid2DMovingAgent,
-    CellPosition,
 )
 from mesa.discrete_space.cell_collection import CellCollection
 from mesa.discrete_space.discrete_space import DiscreteSpace
