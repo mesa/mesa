@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from mesa.space import ContinuousSpace, NetworkGrid, PropertyLayer, SingleGrid
-from tests.test_grid import MockAgent
+from tests.discrete_space.test_grid import MockAgent
 
 TEST_AGENTS = [(-20, -20), (-20, -20.05), (65, 18)]
 TEST_AGENTS_GRID = [(1, 1), (10, 0), (10, 10)]
@@ -399,6 +399,14 @@ class TestPropertyLayer(unittest.TestCase):  # noqa: D101
         self.layer.data = np.zeros((10, 10), dtype=int)
         self.layer.set_cell((5, 5), 5.5)
         self.assertIsInstance(self.layer.data[5, 5], self.layer.data.dtype.type)
+
+    def test_initialization_type_mismatch(self):  # noqa: D102
+        with self.assertRaises(TypeError):
+            PropertyLayer("test_layer", 10, 10, "abc", dtype=int)
+
+    def test_initialization_precision_loss(self):  # noqa: D102
+        with self.assertWarns(UserWarning):
+            PropertyLayer("test_layer", 10, 10, 10.5, dtype=int)
 
 
 class TestSingleGrid(unittest.TestCase):  # noqa: D101

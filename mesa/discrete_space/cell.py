@@ -109,7 +109,7 @@ class Cell:
         n = len(self._agents)
         self.empty = False
 
-        if self.capacity and n >= self.capacity:
+        if self.capacity is not None and n >= self.capacity:
             raise Exception(
                 f"Cannot add agent {agent.unique_id} to cell at {self.coordinate}: "
                 f"cell is full (capacity: {self.capacity}, current: {n})"
@@ -135,7 +135,9 @@ class Cell:
     @property
     def is_full(self) -> bool:
         """Returns a bool of the contents of a cell."""
-        return len(self.agents) == self.capacity
+        if self.capacity is None:
+            return False
+        return len(self.agents) >= self.capacity
 
     @property
     def agents(self) -> list[CellAgent]:

@@ -55,6 +55,10 @@ def test_devs_simulator():
     with pytest.raises(ValueError):
         simulator.schedule_event_absolute(fn2, 0.5)
 
+    # schedule_event_relative with negative time_delta (causality violation)
+    with pytest.raises(ValueError, match="Cannot schedule event in the past"):
+        simulator.schedule_event_relative(fn2, -0.5)
+
     # step
     simulator = DEVSimulator()
     model = Model()
