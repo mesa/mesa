@@ -88,6 +88,7 @@ We welcome 10 new contributors to the Mesa project in this release! Thank you to
 * Fix: IndexError in select_random_agent when cell collection is empty by @Nithurshen in #2983
 * Fix: Handle capacity=None in Cell.is_full property by @Nithin9585 in #2981
 * Fix/cell capacity zero by @ahmednabiled in #2990
+* Fix SolaraViz multipage rendering when renderer is absent by @falloficarus22 in #2966
 ### 🔍 Examples updated
 * examples: Add Activation Order and Grid Type selectors to EpsteinCivilViolence by @Nithurshen in #2955
 ### 📜 Documentation improvements
@@ -124,6 +125,8 @@ We welcome 10 new contributors to the Mesa project in this release! Thank you to
 * ci: treat warnings as errors to prevent accumulation by @EwoutH in #2926
 * Reject negative time_delta in schedule_event_relative by @Nithin9585 in #2999
 * CI: Add job that runs tests with pip pre-release dependencies by @EwoutH in #1852
+* CI: Split off separate coverage job by @EwoutH in #3005
+* Model: remove unreleased `step_duration` parameter by @EwoutH in #3007
 
 ## New Contributors
 * @GlyphicGuy made their first contribution in #2892
