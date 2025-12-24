@@ -111,8 +111,9 @@ class Cell:
 
         if self.capacity is not None and n >= self.capacity:
             raise Exception(
-                "ERROR: Cell is full"
-            )  # FIXME we need MESA errors or a proper error
+                f"Cannot add agent {agent.unique_id} to cell at {self.coordinate}: "
+                f"cell is full (capacity: {self.capacity}, current: {n})"
+            )  # FIXME we might want dedicated MESA errors types
 
         self._agents.append(agent)
 
