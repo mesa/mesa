@@ -47,9 +47,7 @@ class MockModel(mesa.Model):
         layer1 = PropertyLayer(
             name="sugar", width=10, height=10, default_value=10.0, dtype=float
         )
-        self.grid = MultiGrid(
-            width=10, height=10, torus=True, property_layers=layer1
-        )
+        self.grid = MultiGrid(width=10, height=10, torus=True, property_layers=layer1)
         a = MockAgent(self)
         self.grid.place_agent(a, (5, 5))
 
