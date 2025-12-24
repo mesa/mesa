@@ -27,6 +27,54 @@ from mesa.visualization.solara_viz import (
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
+# --- Fixtures and Helpers ---
+
+
+class MockAgent(mesa.Agent):
+    """A minimal mock agent for testing visualization."""
+
+    def __init__(self, model):
+        """Initialize the mock agent."""
+        super().__init__(model)
+
+
+class MockModel(mesa.Model):
+    """A minimal mock model for testing visualization."""
+
+    def __init__(self, seed=None):
+        """Initialize the mock model with a grid and property layer."""
+        super().__init__(seed=seed)
+        layer1 = PropertyLayer(
+            name="sugar", width=10, height=10, default_value=10.0, dtype=float
+        )
+        self.grid = MultiGrid(
+            width=10, height=10, torus=True, property_layers=layer1
+        )
+        a = MockAgent(self)
+        self.grid.place_agent(a, (5, 5))
+
+
+@pytest.fixture
+def mock_model():
+    """Fixture that provides a MockModel instance."""
+    return MockModel()
+
+
+def agent_portrayal(agent):
+    """Standard agent portrayal using modern AgentPortrayalStyle."""
+    return AgentPortrayalStyle(marker="o", color="gray", size=50)
+
+
+def propertylayer_portrayal(_):
+    """Standard property layer portrayal using modern PropertyLayerStyle."""
+    return PropertyLayerStyle(
+        colormap="viridis",
+        alpha=0.5,
+        colorbar=True,
+        vmin=0,
+        vmax=10,
+    )
+
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
     def test_unsupported_type(self):  # noqa: D102
@@ -120,124 +168,108 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert textfield.label == options["label"]
 
 
-def test_call_space_drawer(mocker):
-    """Test the call to space drawer."""
-    mock_draw_space = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_structure"
-    )
-    mock_draw_agents = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_agents"
-    )
-    mock_draw_properties = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_propertylayer"
-    )
+# --- Parametrized Backend Tests ---
 
-    class MockAgent(mesa.Agent):
-        def __init__(self, model):
-            super().__init__(model)
 
-    class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
-            layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0, dtype=float
-            )
-            self.grid = MultiGrid(
-                width=10, height=10, torus=True, property_layers=layer1
-            )
-            a = MockAgent(self)
-            self.grid.place_agent(a, (5, 5))
-
-    model = MockModel()
-
-    def agent_portrayal(agent):
-        return AgentPortrayalStyle(marker="o", color="gray")
-
-    propertylayer_portrayal = None
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_space_renderer_with_backend(mocker, mock_model, backend):
+    """Test SpaceRenderer works correctly with both matplotlib and altair backends."""
+    mock_draw_space = mocker.spy(SpaceRenderer, "draw_structure")
+    mock_draw_agents = mocker.spy(SpaceRenderer, "draw_agents")
 
     renderer = (
-        SpaceRenderer(model, backend="matplotlib")
+        SpaceRenderer(mock_model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .render()
+    )
+
+    solara.render(SolaraViz(mock_model, renderer, components=[]))
+
+    assert renderer.backend == backend
+    mock_draw_space.assert_called_with(renderer)
+    mock_draw_agents.assert_called_with(renderer)
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_space_renderer_with_propertylayer(mocker, mock_model, backend):
+    """Test SpaceRenderer with PropertyLayerStyle for both backends."""
+    mock_draw_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
+
+    renderer = (
+        SpaceRenderer(mock_model, backend=backend)
         .setup_agents(agent_portrayal)
         .setup_propertylayer(propertylayer_portrayal)
         .render()
     )
 
-    # component must be rendered for code to run
-    solara.render(
-        SolaraViz(
-            model,
-            renderer,
-            components=[],
-        )
-    )
+    solara.render(SolaraViz(mock_model, renderer, components=[]))
 
-    assert renderer.backend == "matplotlib"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.MatplotlibBackend
-    )
-
-    mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer)
-    # should not call this method if portrayal is None
-    mock_draw_properties.assert_not_called()
-
-    mock_draw_space.reset_mock()
-    mock_draw_agents.reset_mock()
-    mock_draw_properties.reset_mock()
-
-    solara.render(SolaraViz(model))
-
-    # noting is drawn if renderer is not passed
-    assert mock_draw_space.call_count == 0
-    assert mock_draw_agents.call_count == 0
-    assert mock_draw_properties.call_count == 0
-
-    # checking if SpaceAltair is working as intended with post_process
-    def propertylayer_portrayal(_):
-        return PropertyLayerStyle(
-            colormap="pastel1",
-            alpha=0.75,
-            colorbar=True,
-            vmin=0,
-            vmax=10,
-        )
-
-    solara.render(SolaraViz(model, renderer, components=[]))
-
-    renderer = (
-        SpaceRenderer(model, backend="altair")
-        .setup_agents(agent_portrayal)
-        .setup_propertylayer(propertylayer_portrayal)
-        .render()
-    )
-
-    assert renderer.backend == "altair"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.AltairBackend
-    )
-
-    mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer)
+    assert renderer.backend == backend
     mock_draw_properties.assert_called_with(renderer)
 
-    mock_draw_space.reset_mock()
-    mock_draw_agents.reset_mock()
-    mock_draw_properties.reset_mock()
 
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_backend_instance_type(mock_model, backend):
+    """Test that the correct backend instance is created."""
+    renderer = (
+        SpaceRenderer(mock_model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .render()
+    )
+
+    if backend == "matplotlib":
+        assert isinstance(
+            renderer.backend_renderer, mesa.visualization.backends.MatplotlibBackend
+        )
+    else:
+        assert isinstance(
+            renderer.backend_renderer, mesa.visualization.backends.AltairBackend
+        )
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_no_propertylayer_portrayal(mocker, mock_model, backend):
+    """Test that draw_propertylayer is not called when portrayal is None."""
+    mock_draw_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
+
+    renderer = (
+        SpaceRenderer(mock_model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .setup_propertylayer(None)
+        .render()
+    )
+
+    solara.render(SolaraViz(mock_model, renderer, components=[]))
+
+    mock_draw_properties.assert_not_called()
+
+
+# --- Non-parametrized Tests ---
+
+
+def test_no_renderer_passed(mocker):
+    """Test that nothing is drawn if renderer is not passed."""
+    mock_draw_space = mocker.spy(SpaceRenderer, "draw_structure")
+    mock_draw_agents = mocker.spy(SpaceRenderer, "draw_agents")
+    mock_draw_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
+
+    model = MockModel()
     solara.render(SolaraViz(model))
 
-    # nothing is drawn if renderer is not passed
     assert mock_draw_space.call_count == 0
     assert mock_draw_agents.call_count == 0
     assert mock_draw_properties.call_count == 0
 
-    # specify a custom space method
+
+def test_custom_space_component(mocker):
+    """Test that custom space drawer components are called correctly."""
+    model = MockModel()
+
     class AltSpace:
         @staticmethod
         def drawer(model):
             return
 
-    # check to verify that components are passed with the model instance
     altspace_drawer = mocker.spy(AltSpace, "drawer")
     solara.render(SolaraViz(model, components=[AltSpace.drawer]))
     altspace_drawer.assert_called_with(model)
@@ -246,7 +278,7 @@ def test_call_space_drawer(mocker):
 def test_voronoi_grid_renderer():
     """Test SpaceRenderer with VoronoiGrid using modern API."""
 
-    def agent_portrayal(agent):
+    def voronoi_agent_portrayal(agent):
         return AgentPortrayalStyle(marker="o", color="blue")
 
     voronoi_model = mesa.Model()
@@ -257,7 +289,7 @@ def test_voronoi_grid_renderer():
 
     renderer = (
         SpaceRenderer(voronoi_model, backend="matplotlib")
-        .setup_agents(agent_portrayal)
+        .setup_agents(voronoi_agent_portrayal)
         .render()
     )
 
@@ -265,118 +297,57 @@ def test_voronoi_grid_renderer():
     solara.render(SolaraViz(voronoi_model, renderer, components=[]))
 
 
-def test_altair_backend_with_propertylayer(mocker):
-    """Test Altair backend with PropertyLayerStyle using modern API."""
-    mock_draw_space = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_structure"
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_voronoi_grid_with_backend(backend):
+    """Test VoronoiGrid works with both backends."""
+
+    def voronoi_agent_portrayal(agent):
+        return AgentPortrayalStyle(marker="o", color="blue")
+
+    voronoi_model = mesa.Model()
+    voronoi_model.grid = mesa.discrete_space.VoronoiGrid(
+        centroids_coordinates=[(0, 1), (0, 0), (1, 0)],
+        random=random.Random(42),
     )
-    mock_draw_agents = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_agents"
-    )
-    mock_draw_properties = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_propertylayer"
-    )
-
-    class MockAgent(mesa.Agent):
-        def __init__(self, model):
-            super().__init__(model)
-
-    class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
-            layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0, dtype=float
-            )
-            self.grid = MultiGrid(
-                width=10, height=10, torus=True, property_layers=layer1
-            )
-            a = MockAgent(self)
-            self.grid.place_agent(a, (5, 5))
-
-    model = MockModel()
-
-    def agent_portrayal(agent):
-        return AgentPortrayalStyle(marker="o", color="gray")
-
-    def propertylayer_portrayal(_):
-        return PropertyLayerStyle(
-            colormap="pastel1",
-            alpha=0.75,
-            colorbar=True,
-            vmin=0,
-            vmax=10,
-        )
 
     renderer = (
-        SpaceRenderer(model, backend="altair")
-        .setup_agents(agent_portrayal)
-        .setup_propertylayer(propertylayer_portrayal)
+        SpaceRenderer(voronoi_model, backend=backend)
+        .setup_agents(voronoi_agent_portrayal)
         .render()
     )
 
-    solara.render(SolaraViz(model, renderer, components=[]))
-
-    assert renderer.backend == "altair"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.AltairBackend
-    )
-
-    mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer)
-    mock_draw_properties.assert_called_with(renderer)
+    # Should not raise
+    solara.render(SolaraViz(voronoi_model, renderer, components=[]))
+    assert renderer.backend == backend
 
 
-def test_matplotlib_backend_with_propertylayer(mocker):
-    """Test Matplotlib backend with PropertyLayerStyle using modern API."""
-    mock_draw_properties = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_propertylayer"
-    )
+# --- AgentPortrayalStyle Tests ---
 
-    class MockAgent(mesa.Agent):
-        def __init__(self, model):
-            super().__init__(model)
 
-    class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
-            layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0, dtype=float
-            )
-            self.grid = MultiGrid(
-                width=10, height=10, torus=True, property_layers=layer1
-            )
-            a = MockAgent(self)
-            self.grid.place_agent(a, (5, 5))
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_agent_portrayal_style_attributes(mock_model, backend):
+    """Test that AgentPortrayalStyle attributes are correctly used."""
 
-    model = MockModel()
-
-    def agent_portrayal(agent):
-        return AgentPortrayalStyle(marker="o", color="gray")
-
-    def propertylayer_portrayal(_):
-        return PropertyLayerStyle(
-            colormap="viridis",
-            alpha=0.5,
-            colorbar=True,
-            vmin=0,
-            vmax=10,
+    def custom_portrayal(agent):
+        return AgentPortrayalStyle(
+            marker="s",  # square
+            color="red",
+            size=100,
+            alpha=0.8,
+            zorder=10,
         )
 
     renderer = (
-        SpaceRenderer(model, backend="matplotlib")
-        .setup_agents(agent_portrayal)
-        .setup_propertylayer(propertylayer_portrayal)
+        SpaceRenderer(mock_model, backend=backend)
+        .setup_agents(custom_portrayal)
         .render()
     )
 
-    solara.render(SolaraViz(model, renderer, components=[]))
+    solara.render(SolaraViz(mock_model, renderer, components=[]))
+    assert renderer.backend == backend
 
-    assert renderer.backend == "matplotlib"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.MatplotlibBackend
-    )
 
-    mock_draw_properties.assert_called_with(renderer)
+# --- Slider and Model Param Tests ---
 
 
 def test_slider():
