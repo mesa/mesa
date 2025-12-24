@@ -27,8 +27,8 @@ class HasCellProtocol(Protocol):
     cell: Cell
 
 
-class HasCell:
-    """Descriptor for agents have a cell."""
+class CellPosition:
+    """Descriptor for cell position on agents."""
 
     def __get__(self, obj: Agent, type=None) -> Cell | None:  # noqa: D105
         try:
@@ -54,6 +54,29 @@ class HasCell:
 
     def __set_name__(self, owner: Agent, name) -> None:  # noqa: D105
         self._private_name = f"_{name}"
+
+
+class HasCell:
+    """Descriptor for cell movement behavior."""
+
+    _mesa_cell: Cell | None = None
+
+    @property
+    def cell(self) -> Cell | None:  # noqa: D102
+        return self._mesa_cell
+
+    @cell.setter
+    def cell(self, cell: Cell | None) -> None:
+        # remove from current cell
+        if self.cell is not None:
+            self.cell.remove_agent(self)
+
+        # update private attribute
+        self._mesa_cell = cell
+
+        # add to new cell
+        if cell is not None:
+            cell.add_agent(self)
 
 
 class BasicMovement:
@@ -91,25 +114,20 @@ class FixedCell(HasCell):
         value.add_agent(obj)
 
 
-class CellAgent(Agent, BasicMovement):
+class CellAgent(Agent, HasCell, BasicMovement):
     """Cell Agent is an extension of the Agent class and adds behavior for moving in discrete spaces.
 
     Attributes:
         cell (Cell): The cell the agent is currently in.
     """
-
-    cell = HasCell()
-
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
         self.cell = None  # ensures that we are also removed from cell
 
 
-class FixedAgent(Agent):
+class FixedAgent(Agent, FixedCell):
     """A patch in a 2D grid."""
-
-    cell = FixedCell()
 
     def remove(self):
         """Remove the agent from the model."""
