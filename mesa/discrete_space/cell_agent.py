@@ -99,7 +99,7 @@ class BasicMovement:
             raise ValueError(f"No cell in direction {direction}")
 
 
-class FixedCell(HasCell):
+class FixedCellPosition(CellPosition):
     """Descriptor for agents that are fixed to a cell."""
 
     def __set__(self, obj: Agent, value: Cell) -> None:  # noqa: D105
