@@ -38,7 +38,7 @@ __all__ = [
     "Cell",
     "CellAgent",
     "CellCollection",
-    "CellPosition"
+    "CellPosition",
     "DiscreteSpace",
     "FixedAgent",
     "Grid",
