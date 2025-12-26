@@ -140,23 +140,23 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise ValueError("Capacity must be a number or None.")
 
-    def select_random_empty_cell(self) -> T:  # noqa
-        # FIXME:: currently just a simple boolean to control behavior
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
-        # This method is based on Agents.jl's random_empty() implementation. See
-        # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
+    def select_random_empty_cell(self) -> T:
+        """Select a random empty cell with heuristic fallback optimization."""
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+        #
+        # FIX: Added a limit (50 attempts) to prevent infinite loops on full grids.
+        # See https://github.com/mesa/mesa/issues/2968
         if self._try_random:
-            while True:
+            for _ in range(50):
                 cell = self.all_cells.select_random_cell()
                 if cell.is_empty:
                     return cell
-        else:
-            return super().select_random_empty_cell()
+
+        # Fallback to the robust parent method (O(N)) if random sampling fails
+        # or if the grid is full.
+        return super().select_random_empty_cell()
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
