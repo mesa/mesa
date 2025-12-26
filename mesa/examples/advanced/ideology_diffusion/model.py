@@ -34,5 +34,21 @@ class IdeologyDiffusionModel(Model):
         self.unemployment_increase = unemployment_increase
         self.media_influence = media_influence
         self.government_repression = government_repression
+
+        self.datacollector = DataCollector(
+        model_reporters={
+        "Fraction_Radicalized": self.fraction_radicalized,
+    }) 
         
-      
+    def count_agents_ideology(model):
+        neutral = sum(1 for a in model.agents if a.political_ideology == 0)
+        moderated = sum(1 for a in model.agents if a.political_ideology == 1)
+        radical = sum(1 for a in model.agents if a.political_ideology == 2)
+            
+        return {
+            "Neutral": neutral,
+            "Moderated": moderated,
+            "Radical": radical
+       }
+
+    
