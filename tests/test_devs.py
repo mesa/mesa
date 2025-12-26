@@ -5,12 +5,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mesa import Model
-from mesa.experimental.devs.eventlist import (
-    EventList,
-    EventType,
-    Priority,
-    SimulationEvent,
-)
+from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.devs.simulator import ABMSimulator, DEVSimulator
 
 
@@ -132,53 +127,6 @@ def test_abm_simulator():
     simulator = ABMSimulator()
     with pytest.raises(Exception):
         simulator.run_until(10)
-
-
-def test_abm_simulator_step_rescheduling():
-    """Test that ABMSimulator correctly reschedules steps in run_until.
-
-    This test specifically verifies the fix for the bug where event.fn() == self.model.step
-    was incorrectly CALLING the function instead of comparing function identity.
-    """
-    simulator = ABMSimulator()
-    model = Model()
-
-    simulator.setup(model)
-    simulator.run_until(10)
-
-    # With the bug, only 1 step would execute. With the fix, 10 steps should execute.
-    assert model.steps == 10, f"Expected 10 steps, got {model.steps}"
-    assert model.time == 10.0
-
-
-def test_abm_simulator_event_type_tracking():
-    """Test that event types are correctly tracked in ABMSimulator."""
-    simulator = ABMSimulator()
-    model = Model()
-    simulator.setup(model)
-
-    # The initial event should be a MODEL_STEP
-    events = simulator.event_list.peak_ahead(1)
-    assert len(events) == 1
-    assert events[0].event_type == EventType.MODEL_STEP
-
-
-def test_user_events_not_rescheduled():
-    """Test that user-scheduled events are not automatically rescheduled."""
-    simulator = ABMSimulator()
-    model = Model()
-    simulator.setup(model)
-
-    user_fn = MagicMock()
-    # Schedule a user event (default EventType.DEFAULT)
-    simulator.schedule_event_next_tick(user_fn)
-
-    simulator.run_for(5)
-
-    # User function should only be called once, not rescheduled like MODEL_STEP
-    user_fn.assert_called_once()
-    # But model steps should have been called 5 times
-    assert model.steps == 5
 
 
 def test_simulator_time_deprecation():

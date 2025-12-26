@@ -37,21 +37,6 @@ class Priority(IntEnum):
     HIGH = 1
 
 
-class EventType(IntEnum):
-    """Types of simulation events.
-
-    Used to distinguish between different kinds of events in the simulation,
-    particularly for automatic rescheduling of model step events.
-
-    Attributes:
-        DEFAULT: Regular user-scheduled events
-        MODEL_STEP: Automatic model step events that should be rescheduled
-    """
-
-    DEFAULT = 0
-    MODEL_STEP = 1
-
-
 class SimulationEvent:
     """A simulation event.
 
@@ -87,7 +72,6 @@ class SimulationEvent:
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
-        event_type: EventType = EventType.DEFAULT,
     ) -> None:
         """Initialize a simulation event.
 
@@ -97,16 +81,14 @@ class SimulationEvent:
             priority: the priority of the event
             function_args: arguments for callable
             function_kwargs: keyword arguments for the callable
-            event_type: the type of event (DEFAULT or MODEL_STEP)
         """
         super().__init__()
         if not callable(function):
-            raise TypeError(f"function must be callable, got {type(function).__name__}")
+            raise Exception()
 
         self.time = time
         self.priority = priority.value
         self._canceled = False
-        self.event_type = event_type
 
         if isinstance(function, MethodType):
             function = WeakMethod(function)
