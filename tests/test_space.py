@@ -1046,6 +1046,21 @@ class TestMultiGridEmptyMask(unittest.TestCase):  # noqa: D101
         grid.remove_agent(agent)
         self.assertTrue(grid._empty_mask[5, 5])
 
+    def test_empty_mask_multiple_agents(self):  # noqa: D102
+        grid = MultiGrid(10, 10, False)
+        agent1 = MockAgent(0)
+        agent2 = MockAgent(1)
+
+        grid.place_agent(agent1, (5, 5))
+        grid.place_agent(agent2, (5, 5))
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent1)
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent2)
+        self.assertTrue(grid._empty_mask[5, 5])
+
 
 if __name__ == "__main__":
     unittest.main()
