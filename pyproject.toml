@@ -99,6 +99,15 @@ source_pkgs = ["mesa"]
 relative_files = true
 branch = true
 
+[tool.coverage.paths]
+_site-packages-to-flat-layout-mapping = [
+  'mesa',
+  '*/mesa',
+  '*/lib/pypy*/site-packages/mesa',
+  '*/lib/python*/site-packages/mesa',
+  '*/Lib/site-packages/mesa',
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]
 
