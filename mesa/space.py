@@ -1044,7 +1044,6 @@ class MultiGrid(_PropertyGrid):
                 self._empties.discard(pos)
             self._empty_mask[pos] = False
 
-
     def remove_agent(self, agent: Agent) -> None:
         """Remove the agent from the given location and set its pos attribute to None."""
         pos = agent.pos

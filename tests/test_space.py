@@ -1032,7 +1032,6 @@ class TestMultipleNetworkGrid(unittest.TestCase):  # noqa: D101
         ]
 
 
-
 class TestMultiGridEmptyMask(unittest.TestCase):  # noqa: D101
     def test_empty_mask_update(self):  # noqa: D102
         grid = MultiGrid(10, 10, False)
@@ -1050,4 +1049,3 @@ class TestMultiGridEmptyMask(unittest.TestCase):  # noqa: D101
 
 if __name__ == "__main__":
     unittest.main()
-
