@@ -1,49 +1,50 @@
 from mesa import Model
+from mesa.space import MultiGrid
+from mesa.time import RandomActivation
 from mesa.datacollection import DataCollector
-from mesa.discrete_space import OrthogonalMooreGrid
-from agents import IndividualAgent
+from agents import Person
 
-class IdeologyDiffusionModel(Model):
+
+class IdeologyModel(Model):
     def __init__(
-        self, 
-        width: int = 20, 
-        height: int = 20, 
-        economic_crisis: bool = False,
-        unemployment_increase: float = 0.2,
-        media_influence: bool = False,
-        government_repression: bool = False
+        self,
+        N=120,
+        width=15,
+        height=15,
+        economic_crisis=0.5,
+        propaganda=0.2,
+        seed=None,
     ):
-        super().__init__()
-        self.grid = OrthogonalMooreGrid(width, height, torus=True)
-        self.economic_crisis = economic_crisis
-        self.unemployment_increase = unemployment_increase
-        self.media_influence = media_influence
-        self.government_repression = government_repression
+        super().__init__(seed=seed)
 
-        # Setup agents with randomized initial traits
-        for cell in self.grid.coord_iter():
-            agent = IndividualAgent(
-                model=self,
-                cell=cell[0],
-                economic_dissatisfaction=self.random.random(),
-                propaganda_susceptibility=self.random.random(),
-                resistance_to_change=self.random.random(),
-                political_ideology=0
-            )
-            self.grid.place_agent(agent, cell[1])
+        self.grid = MultiGrid(width, height, torus=True)
+        self.schedule = RandomActivation(self)
+
+        self.economic_crisis = economic_crisis
+        self.propaganda = propaganda
+
+        for i in range(N):
+            agent = Person(self)
+            self.schedule.add(agent)
+
+            x = self.random.randrange(width)
+            y = self.random.randrange(height)
+            self.grid.place_agent(agent, (x, y))
 
         self.datacollector = DataCollector(
-            model_reporters={
-                "Neutral": lambda m: self.count_ideology(m, 0),
-                "Moderate": lambda m: self.count_ideology(m, 1),
-                "Radical": lambda m: self.count_ideology(m, 2),
+            {
+                "Neutrals": lambda m: sum(
+                    a.opinion == "neutral" for a in m.schedule.agents
+                ),
+                "Moderates": lambda m: sum(
+                    a.opinion == "moderate" for a in m.schedule.agents
+                ),
+                "Radicals": lambda m: sum(
+                    a.opinion == "radical" for a in m.schedule.agents
+                ),
             }
         )
 
-    @staticmethod
-    def count_ideology(model, level):
-        return sum(1 for a in model.agents if a.political_ideology == level)
-
     def step(self):
-        self.agents.shuffle_do("step")
         self.datacollector.collect(self)
+        self.schedule.step()

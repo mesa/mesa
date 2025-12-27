@@ -1,36 +1,50 @@
 import solara
-from mesa.visualization import SolaraViz, make_plot_component
-from model import IdeologyDiffusionModel
+from mesa.experimental.solara_viz import (
+    SolaraViz,
+    make_space_component,
+    make_plot_component,
+)
+from model import IdeologyModel
 
-# Parameters with reactive variables for the UI
-model_params = {
-    "economic_crisis": solara.reactive(True),
-    "media_influence": solara.reactive(True),
-    "government_repression": solara.reactive(False),
-    "unemployment_increase": solara.reactive(0.25),
-    "width": 20,
-    "height": 20,
-}
 
 def agent_portrayal(agent):
-    # Neutral: Blue | Moderate: Orange | Radical: Red
-    colors = {0: "#3498db", 1: "#e67e22", 2: "#e74c3c"}
+    color = {
+        "neutral": "gray",
+        "moderate": "orange",
+        "radical": "red",
+    }[agent.opinion]
+
     return {
-        "color": colors.get(agent.political_ideology, "gray"),
-        "size": 10,
+        "color": color,
+        "size": 40,
     }
 
 
-page = SolaraViz(
-    model=IdeologyDiffusionModel, 
-    model_params=model_params,
-    agent_portrayal=agent_portrayal,
-    name="Ideological Diffusion Model",
-    components=[
-        make_plot_component({
-            "Neutral": "#3498db", 
-            "Moderate": "#e67e22", 
-            "Radical": "#e74c3c"
-        })
-    ]
+model_params = {
+    "N": solara.SliderInt(10, 300, value=120, label="Population"),
+    "economic_crisis": solara.SliderFloat(
+        0.0, 1.0, value=0.5, label="Economic Crisis"
+    ),
+    "propaganda": solara.SliderFloat(
+        0.0, 1.0, value=0.2, label="Propaganda"
+    ),
+}
+
+space = make_space_component(agent_portrayal)
+plot = make_plot_component(
+    {
+        "Neutrals": "gray",
+        "Moderates": "orange",
+        "Radicals": "red",
+    }
 )
+
+
+@solara.component
+def App():
+    SolaraViz(
+        IdeologyModel,
+        components=[space, plot],
+        model_params=model_params,
+        name="Ideology Diffusion Model",
+    )
