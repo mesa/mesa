@@ -6,7 +6,6 @@ backends, supporting various space types and visualization components.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -156,15 +155,15 @@ class SpaceRenderer:
             # Map coordinates for Network spaces
             loc = arguments["loc"].astype(float)
             pos_dict = self.space_drawer.pos
-            
+
             # Extract node IDs from location data
             # For network, both x and y contain the node ID, use the first column
             node_ids = loc[:, 0].astype(int)
-            
+
             # Map node IDs to their 2D positions using dictionary lookup
             mapped_positions = []
             missing_nodes = []
-            
+
             for node_id in node_ids:
                 if node_id in pos_dict:
                     mapped_positions.append(pos_dict[node_id])
@@ -173,7 +172,7 @@ class SpaceRenderer:
                     missing_nodes.append(node_id)
                     # Use origin as default position
                     mapped_positions.append([0.0, 0.0])
-            
+
             if missing_nodes:
                 warnings.warn(
                     f"Nodes {missing_nodes} not found in position mapping. "
@@ -182,7 +181,7 @@ class SpaceRenderer:
                     UserWarning,
                     stacklevel=2,
                 )
-            
+
             if mapped_positions:
                 mapped_arguments["loc"] = np.array(mapped_positions)
             else:
