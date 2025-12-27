@@ -54,9 +54,9 @@ class IndividualAgent(CellAgent):
         # Government repression can either intimidate or provoke backlash
         if self.model.government_repression:
             if self.random.random() < self.resistance_to_change:
-                pressure += 1 # Backlash effect
+                pressure += 1 
             else:
-                pressure -= 1 # Intimidation effect
+                pressure -= 1 
 
         # Ensure ideology remains within 0 (Neutral) and 2 (Radical)
         new_ideology = self.political_ideology + pressure
