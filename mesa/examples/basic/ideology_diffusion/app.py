@@ -1,10 +1,11 @@
 import solara
+from model import IdeologyModel
+
 from mesa.experimental.solara_viz import (
     SolaraViz,
-    make_space_component,
     make_plot_component,
+    make_space_component,
 )
-from model import IdeologyModel
 
 
 def agent_portrayal(agent):
@@ -22,12 +23,8 @@ def agent_portrayal(agent):
 
 model_params = {
     "N": solara.SliderInt(10, 300, value=120, label="Population"),
-    "economic_crisis": solara.SliderFloat(
-        0.0, 1.0, value=0.5, label="Economic Crisis"
-    ),
-    "propaganda": solara.SliderFloat(
-        0.0, 1.0, value=0.2, label="Propaganda"
-    ),
+    "economic_crisis": solara.SliderFloat(0.0, 1.0, value=0.5, label="Economic Crisis"),
+    "propaganda": solara.SliderFloat(0.0, 1.0, value=0.2, label="Propaganda"),
 }
 
 space = make_space_component(agent_portrayal)

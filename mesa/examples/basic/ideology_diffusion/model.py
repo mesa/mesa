@@ -1,8 +1,9 @@
+from agents import Person
+
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
 from mesa.time import RandomActivation
-from mesa.datacollection import DataCollector
-from agents import Person
 
 
 class IdeologyModel(Model):
