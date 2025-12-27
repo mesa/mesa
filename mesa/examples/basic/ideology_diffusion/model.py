@@ -8,7 +8,7 @@ from agents import Person
 class IdeologyModel(Model):
     def __init__(
         self,
-        N=120,
+        n=120,
         width=15,
         height=15,
         economic_crisis=0.5,
@@ -23,7 +23,7 @@ class IdeologyModel(Model):
         self.economic_crisis = economic_crisis
         self.propaganda = propaganda
 
-        for i in range(N):
+        for _ in range(n):
             agent = Person(self)
             self.schedule.add(agent)
 
