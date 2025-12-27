@@ -36,6 +36,8 @@ class Model:
     Attributes:
         running: A boolean indicating if the model should continue running.
         steps: the number of times `model.step()` has been called.
+        time: the current simulation time. Automatically increments by 1.0
+              with each step unless controlled by a discrete event simulator.
         random: a seeded python.random number generator.
         rng : a seeded numpy.random.Generator
 
