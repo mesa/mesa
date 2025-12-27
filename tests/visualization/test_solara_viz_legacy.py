@@ -20,7 +20,7 @@ def test_legacy_dict_portrayal_support():
         def __init__(self):
             super().__init__()
             self.grid = MultiGrid(10, 10, True)
-            # CodeRabbit Rec: Add agent to validate portrayal logic
+
             agent = mesa.Agent(self)
             self.grid.place_agent(agent, (5, 5))
 
@@ -29,7 +29,6 @@ def test_legacy_dict_portrayal_support():
     def agent_portrayal(_):
         return {"marker": "o", "color": "gray"}
 
-    # CodeRabbit Rec: Wrap components in tuples (component, page_index)
     solara.render(
         SolaraViz(model, components=[(make_mpl_space_component(agent_portrayal), 0)])
     )
