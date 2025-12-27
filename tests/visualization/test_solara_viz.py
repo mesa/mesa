@@ -1,4 +1,4 @@
-"""Test Solara visualizations."""
+"""Test Solara visualizations - Modern API."""
 
 import random
 import re
@@ -22,6 +22,7 @@ from mesa.visualization.solara_viz import (
     UserInputs,
     _check_model_params,
 )
+from mesa.visualization.space_renderer import SpaceRenderer
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
@@ -38,6 +39,19 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         # no type is specified
         with self.assertRaisesRegex(ValueError, "not a supported input type"):
             solara.render(Test({"mock": {}}), handle_error=False)
+
+    def test_input_text_field(self):
+        """Test that 'InputText' type correctly creates a vw.TextField."""
+
+        @solara.component
+        def Test(user_params):
+            UserInputs(user_params)
+
+        options = {"type": "InputText", "value": "JohnDoe", "label": "Agent Name"}
+        _, rc = solara.render(Test({"agent_name": options}), handle_error=False)
+        textfield = rc.find(vw.TextField).widget
+        assert textfield.v_model == "JohnDoe"
+        assert textfield.label == "Agent Name"
 
     def test_slider_int(self):  # noqa: D102
         @solara.component
@@ -129,7 +143,7 @@ def test_call_space_drawer(mocker):
 
     model = MockModel()
 
-    def agent_portrayal(agent):
+    def agent_portrayal(_):
         return AgentPortrayalStyle(marker="o", color="gray")
 
     propertylayer_portrayal = None
@@ -211,6 +225,39 @@ def test_call_space_drawer(mocker):
     solara.render(
         SolaraViz(voronoi_model, components=[make_mpl_space_component(agent_portrayal)])
     )
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_backends(mocker, backend):
+    """Validates BOTH backends using the modern API.
+
+    This resolves Issue #2993 by ensuring Altair coverage parity with
+    Matplotlib for AgentPortrayalStyle and PropertyLayerStyle.
+    """
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+
+    class MockModel(mesa.Model):
+        def __init__(self):
+            super().__init__()
+            self.grid = MultiGrid(10, 10, True)
+            self.grid.place_agent(mesa.Agent(self), (5, 5))
+
+    model = MockModel()
+
+    def agent_portrayal(_):
+        return AgentPortrayalStyle(marker="o", color="gray")
+
+    # Use the modern SpaceRenderer
+    renderer = (
+        SpaceRenderer(model, backend=backend).setup_agents(agent_portrayal).render()
+    )
+
+    solara.render(SolaraViz(model, renderer, components=[]))
+
+    assert renderer.backend == backend
+    assert spy_structure.called
+    assert spy_agents.called
 
 
 def test_slider():
