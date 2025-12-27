@@ -6,7 +6,6 @@ backends, supporting various space types and visualization components.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -155,21 +154,39 @@ class SpaceRenderer:
         elif isinstance(self.space, Network):
             # Map coordinates for Network spaces
             loc = arguments["loc"].astype(float)
-            pos = np.asarray(list(self.space_drawer.pos.values()))
-            # For network only both x and y contains the correct coordinates
-            # use one of them
-            x = loc[:, 0]
-            if x is None:
-                x = loc[:, 1]
+            pos_dict = self.space_drawer.pos
 
-            # Ensure x is an integer index for the position mapping
-            x = x.astype(int)
+            # Extract node IDs from location data
+            # For network, both x and y contain the node ID, use the first column
+            node_ids = loc[:, 0].astype(int)
 
-            # FIXME: Find better way to handle this case
-            # x updates before pos can, therefore gives us index error that
-            # needs to be ignored.
-            with contextlib.suppress(IndexError):
-                mapped_arguments["loc"] = pos[x]
+            # Map node IDs to their 2D positions using dictionary lookup
+            mapped_positions = []
+            missing_nodes = []
+
+            for node_id in node_ids:
+                if node_id in pos_dict:
+                    mapped_positions.append(pos_dict[node_id])
+                else:
+                    # Node position not found in layout
+                    missing_nodes.append(node_id)
+                    # Use origin as default position
+                    mapped_positions.append([0.0, 0.0])
+
+            if missing_nodes:
+                warnings.warn(
+                    f"Nodes {missing_nodes} not found in position mapping. "
+                    f"Using default positions at origin. This may indicate the network layout "
+                    f"needs to be updated or regenerated.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+            if mapped_positions:
+                mapped_arguments["loc"] = np.array(mapped_positions)
+            else:
+                # Handle empty array case - preserve 2D shape
+                mapped_arguments["loc"] = np.array(mapped_positions).reshape(0, 2)
 
         return mapped_arguments
 
