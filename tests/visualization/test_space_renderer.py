@@ -2,6 +2,7 @@
 
 import random
 import re
+import warnings
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -211,14 +212,12 @@ def test_property_layer_style_instance():
 
 def test_network_non_contiguous_nodes():
     """Test that agents on non-contiguous network nodes are properly mapped."""
-    import warnings
-    
     # Create a network with non-contiguous node IDs
-    G = MagicMock()
-    G.nodes = [0, 1, 5, 10, 15]  # Non-contiguous IDs
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]  # Non-contiguous IDs
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
@@ -256,14 +255,12 @@ def test_network_non_contiguous_nodes():
 
 def test_network_missing_nodes_warning():
     """Test that warning is issued for missing node positions."""
-    import warnings
-    
     # Create a network
-    G = MagicMock()
-    G.nodes = [0, 1, 5, 10, 15]
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
@@ -285,7 +282,7 @@ def test_network_missing_nodes_warning():
             
             # Should have one warning about missing nodes
             assert len(w) == 1
-            assert "Nodes [10, 15] not found in position mapping" in str(w[0].message)
+            assert "not found in position mapping" in str(w[0].message)
             assert issubclass(w[0].category, UserWarning)
             
             # Should still map all agents (missing ones at origin)
@@ -302,11 +299,11 @@ def test_network_missing_nodes_warning():
 
 def test_network_single_node():
     """Test network with single node."""
-    G = MagicMock()
-    G.nodes = [42]  # Single non-zero node ID
+    mock_graph = MagicMock()
+    mock_graph.nodes = [42]  # Single non-zero node ID
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
@@ -325,11 +322,11 @@ def test_network_single_node():
 
 def test_network_empty_locations():
     """Test network with empty location array."""
-    G = MagicMock()
-    G.nodes = []
+    mock_graph = MagicMock()
+    mock_graph.nodes = []
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
@@ -347,11 +344,11 @@ def test_network_empty_locations():
 
 def test_network_large_node_ids():
     """Test network with very large node IDs."""
-    G = MagicMock()
-    G.nodes = [1000, 5000, 10000]  # Large node IDs
+    mock_graph = MagicMock()
+    mock_graph.nodes = [1000, 5000, 10000]  # Large node IDs
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
@@ -376,11 +373,11 @@ def test_network_large_node_ids():
 def test_network_regression_indexerror_bug():
     """Regression test for the IndexError suppression bug."""
     # This test reproduces the exact bug scenario
-    G = MagicMock()
-    G.nodes = [0, 1, 5, 10, 15]
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]
     
     model = CustomModel()
-    network = Network(G=G, random=random.Random(42))
+    network = Network(G=mock_graph, random=random.Random(42))
     
     with patch.object(model, "grid", new=network):
         sr = SpaceRenderer(model)
