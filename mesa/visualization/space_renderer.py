@@ -183,7 +183,11 @@ class SpaceRenderer:
                     stacklevel=2,
                 )
             
-            mapped_arguments["loc"] = np.array(mapped_positions)
+            if mapped_positions:
+                mapped_arguments["loc"] = np.array(mapped_positions)
+            else:
+                # Handle empty array case - preserve 2D shape
+                mapped_arguments["loc"] = np.array(mapped_positions).reshape(0, 2)
 
         return mapped_arguments
 
