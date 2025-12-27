@@ -150,11 +150,12 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
-        if self._try_random:
-            while True:
+        if self._try_random and any(cell.is_empty for cell in self.all_cells):
+            for _ in range(self.width * self.height):
                 cell = self.all_cells.select_random_cell()
                 if cell.is_empty:
                     return cell
+            return super().select_random_empty_cell()
         else:
             return super().select_random_empty_cell()
 
