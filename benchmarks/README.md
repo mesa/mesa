@@ -70,7 +70,7 @@ The output will show:
   - 🔴 Slower performance (>3% regression)
   - 🔵 Insignificant change (within ±3%)
 
-> Some care is required in the interpretation since it only shows percentage changes and not the absolute changes. The init times in general are tiny so slower performance here is not necissarily as much of an issue.
+> Some care is required in the interpretation since it only shows percentage changes and not the absolute changes. The init times in general are tiny so slower performance here is not necessarily as much of an issue.
 
 
 ## Example Workflow

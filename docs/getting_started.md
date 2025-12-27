@@ -41,7 +41,7 @@ To further explore Mesa and its features, we have the following resources availa
 ### Migration guide
 - [Mesa 3.0 Migration guide](migration_guide): If you're upgrading from an earlier version of Mesa, this guide will help you navigate the changes in Mesa 3.0.
 
-### Source Ccode and development
+### Source Code and development
 - [Mesa GitHub repository](https://github.com/mesa/mesa): Access the full source code of Mesa, contribute to its development, or report issues.
 - [Mesa release notes](https://github.com/mesa/mesa/releases): View the detailed changelog of Mesa, including all past releases and their features.
 
