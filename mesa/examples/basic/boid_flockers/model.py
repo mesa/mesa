@@ -56,8 +56,6 @@ class BoidFlockers(Model):
         # Set up the spatial world
         self.world = World(self, x=(0, width), y=(0, height), torus=True)
 
-        print(f"Number of agents in world before creation: {len(list(self.world.agents))}")
-
         # Create and place the Boid agents
         positions = self.rng.random(size=(population_size, 2)) * [width, height]
         directions = self.rng.uniform(-1, 1, size=(population_size, 2))
@@ -74,8 +72,6 @@ class BoidFlockers(Model):
             vision=vision,
             separation=separation,
         )
-
-        print(f"Number of agents in world after creation: {len(list(self.world.agents))}")
 
         # For tracking statistics
         self.average_heading = None
