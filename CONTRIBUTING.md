@@ -178,7 +178,7 @@ All roles are expected to:
 Mesa grows through good ideas and contributions. We're all volunteers working together to make Mesa better. Don't hesitate to reach out to any maintainer to discuss your interests and potential growth within the project!
 
 ## Mesa examples structure and policy
-Mesa maintains a curated set of core examples within the main repository, complemented by a separate [mesa-examples](https://github.com/projectmesa/mesa-examples) repository for community contributions. This two-tier structure balances maintainability with community creativity.
+Mesa maintains a curated set of core examples within the main repository, complemented by a separate [mesa-examples](https://github.com/mesa/mesa-examples) repository for community contributions. This two-tier structure balances maintainability with community creativity.
 
 ### Core examples (in `mesa/examples`)
 Core examples in the main Mesa repository are classic, well-known agent-based models that demonstrate Mesa's capabilities and serve as learning resources. They are organized into two categories:
@@ -194,7 +194,7 @@ Core examples are:
 - Some are used in performance benchmarking
 
 ### Community examples (in mesa-examples)
-The [mesa-examples](https://github.com/projectmesa/mesa-examples) repository serves as a gallery for user-contributed models and creative applications of Mesa. We welcome diverse contributions here with more relaxed maintenance requirements. Examples in this repository should include:
+The [mesa-examples](https://github.com/mesa/mesa-examples) repository serves as a gallery for user-contributed models and creative applications of Mesa. We welcome diverse contributions here with more relaxed maintenance requirements. Examples in this repository should include:
 - A clear README explaining the model
 - Requirements or environment files for reproducibility
 - Working code compatible with at least one Mesa major version
