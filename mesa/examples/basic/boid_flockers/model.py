@@ -2,7 +2,7 @@
 Boids Flocking Model
 ===================
 A Mesa implementation of Craig Reynolds's Boids flocker model.
-Uses numpy arrays to represent vectors.
+Uses the experimental World system for spatial operations.
 """
 
 import os
@@ -15,7 +15,7 @@ import numpy as np
 
 from mesa import Model
 from mesa.examples.basic.boid_flockers.agents import Boid
-from mesa.experimental.continuous_space import ContinuousSpace
+from mesa.experimental.world import World
 
 
 class BoidFlockers(Model):
@@ -49,25 +49,22 @@ class BoidFlockers(Model):
             seed: Random seed for reproducibility (default: None)
         """
         super().__init__(seed=seed)
-        self.agent_angles = np.zeros(
-            population_size
-        )  # holds the angle representing the direction of all agents at a given step
 
-        # Set up the space
-        self.space = ContinuousSpace(
-            [[0, width], [0, height]],
-            torus=True,
-            random=self.random,
-            n_agents=population_size,
-        )
+        # Holds the angle representing the direction of all agents at a given step
+        self.agent_angles = np.zeros(population_size)
+
+        # Set up the spatial world
+        self.world = World(self, x=(0, width), y=(0, height), torus=True)
+
+        print(f"Number of agents in world before creation: {len(list(self.world.agents))}")
 
         # Create and place the Boid agents
-        positions = self.rng.random(size=(population_size, 2)) * self.space.size
+        positions = self.rng.random(size=(population_size, 2)) * [width, height]
         directions = self.rng.uniform(-1, 1, size=(population_size, 2))
+
         Boid.create_agents(
             self,
             population_size,
-            self.space,
             position=positions,
             direction=directions,
             cohere=cohere,
@@ -78,12 +75,14 @@ class BoidFlockers(Model):
             separation=separation,
         )
 
+        print(f"Number of agents in world after creation: {len(list(self.world.agents))}")
+
         # For tracking statistics
         self.average_heading = None
         self.update_average_heading()
 
-    # vectorizing the calculation of angles for all agents
     def calculate_angles(self):
+        """Vectorized calculation of angles for all agents."""
         d1 = np.array([agent.direction[0] for agent in self.agents])
         d2 = np.array([agent.direction[1] for agent in self.agents])
         self.agent_angles = np.degrees(np.arctan2(d1, d2))
