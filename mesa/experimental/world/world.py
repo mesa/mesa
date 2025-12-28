@@ -337,19 +337,21 @@ class World:
         else:
             all_agents = agents
 
-        # Filter out the center agent and agents without positions
-        candidates = [
-            a
-            for a in all_agents
-            if a is not agent and hasattr(a, "position") and a.position is not None
-        ]
+        # Filter out the center agent - assume all have positions (duck typing)
+        # This is much faster than hasattr checks
+        candidates = [a for a in all_agents if a is not agent]
 
         if not candidates:
             return []
 
+        # Pre-allocate numpy array for positions (faster than list comprehension + conversion)
+        n_candidates = len(candidates)
+        positions = np.empty((n_candidates, self.coords.dimensions), dtype=float)
+        for i, a in enumerate(candidates):
+            positions[i] = a.position
+
         # Vectorized distance calculation
         center_pos = agent.position
-        positions = np.array([a.position for a in candidates])
 
         if self.coords.torus:
             # Vectorized torus distance calculation
@@ -382,7 +384,12 @@ class World:
         if not agents:
             return np.array([]).reshape(0, self.coords.dimensions)
 
-        positions = np.array([a.position for a in agents])
+        # Pre-allocate array for better performance
+        n_agents = len(agents)
+        positions = np.empty((n_agents, self.coords.dimensions), dtype=float)
+        for i, a in enumerate(agents):
+            positions[i] = a.position
+
         deltas = positions - center_pos
 
         if self.coords.torus:
