@@ -53,7 +53,9 @@ class Boid(Agent):
         self.speed = speed
         self.direction = np.asarray(direction, dtype=float)
         # Normalize initial direction
-        self.direction /= np.linalg.norm(self.direction)
+        norm = np.linalg.norm(self.direction)
+        if norm > 0:
+            self.direction /= norm
 
         self.vision = vision
         self.separation = separation
@@ -65,7 +67,7 @@ class Boid(Agent):
 
     def step(self):
         """Get the Boid's neighbors, compute the new vector, and move accordingly."""
-        # Get neighbors within vision radius using world
+        # Get neighbors within vision radius using world (vectorized)
         neighbors = self.world.get_neighbors_in_radius(self, radius=self.vision)
         self.neighbors = neighbors
 
@@ -74,20 +76,8 @@ class Boid(Agent):
             self.world.move_by(self, self.direction * self.speed)
             return
 
-        # Calculate vectors to neighbors (cohesion component)
-        neighbor_positions = np.array([n.position for n in neighbors])
-        deltas = neighbor_positions - self.position
-
-        # Handle torus wrapping for deltas
-        if self.world.coords.torus:
-            for i in range(self.world.coords.dimensions):
-                size = self.world.coords._sizes[i]
-                deltas[:, i] = np.where(
-                    deltas[:, i] > size / 2, deltas[:, i] - size, deltas[:, i]
-                )
-                deltas[:, i] = np.where(
-                    deltas[:, i] < -size / 2, deltas[:, i] + size, deltas[:, i]
-                )
+        # Calculate vectors to neighbors using vectorized method
+        deltas = self.world.calculate_difference_vectors(self.position, neighbors)
 
         # Calculate distances for separation
         distances = np.linalg.norm(deltas, axis=1)
@@ -96,15 +86,13 @@ class Boid(Agent):
         cohere_vector = deltas.sum(axis=0) * self.cohere_factor
 
         # Separation: avoid crowding neighbors
-        close_neighbors = distances < self.separation
-        if close_neighbors.any():
-            separation_vector = (
-                -deltas[close_neighbors].sum(axis=0) * self.separate_factor
-            )
+        close_mask = distances < self.separation
+        if close_mask.any():
+            separation_vector = -deltas[close_mask].sum(axis=0) * self.separate_factor
         else:
             separation_vector = np.zeros(self.world.coords.dimensions)
 
-        # Alignment: match direction of neighbors
+        # Alignment: match direction of neighbors (vectorized)
         neighbor_directions = np.array([n.direction for n in neighbors])
         match_vector = neighbor_directions.sum(axis=0) * self.match_factor
 
