@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from mesa import Agent
+if TYPE_CHECKING:
+    from mesa.agent import Agent
 
 
 class CoordinateSystem:
@@ -214,36 +215,13 @@ class World:
                 f"'{type(self).__name__}' object has no attribute '{name}'"
             )
 
-    def _set_model(self, model) -> None:
-        """Set the model reference for this world (internal use).
-
-        Args:
-            model: The model instance
-
-        Notes:
-            This is called automatically when a model creates a world.
-            Users typically don't need to call this directly.
-        """
-        self._model = model
-        # If no RNG was provided, use the model's RNG
-        if self._rng is None and hasattr(model, "rng"):
-            self._rng = model.rng
-
     def random_position(self) -> np.ndarray:
         """Generate a random position within the world.
 
         Returns:
             Random position within coordinate bounds
-
-        Raises:
-            ValueError: If world doesn't have an RNG set
         """
-        if self._rng is None:
-            raise ValueError(
-                "World does not have a random number generator. "
-                "Pass rng= when creating the World, or use coords.random_position(rng) directly."
-            )
-        return self.coords.random_position(self._rng)
+        return self.coords.random_position(self._model.rng)
 
     def distance(
         self,
@@ -266,10 +244,8 @@ class World:
             # Calculate distance considering wrapping
             delta = np.abs(p1 - p2)
             # For each dimension, take the shorter path (direct or wrapped)
-            for i in range(self.coords.dimensions):
-                size = self.coords._sizes[i]
-                if delta[i] > size / 2:
-                    delta[i] = size - delta[i]
+            half_sizes = self.coords._sizes / 2
+            delta = np.where(delta > half_sizes, self.coords._sizes - delta, delta)
             return float(np.linalg.norm(delta))
         else:
             return float(np.linalg.norm(p1 - p2))
@@ -294,12 +270,10 @@ class World:
         if self.coords.torus:
             # Calculate direction considering wrapping
             delta = p2 - p1
-            for i in range(self.coords.dimensions):
-                size = self.coords._sizes[i]
-                if delta[i] > size / 2:
-                    delta[i] -= size
-                elif delta[i] < -size / 2:
-                    delta[i] += size
+            half_sizes = self.coords._sizes / 2
+            # Adjust for wrapping
+            delta = np.where(delta > half_sizes, delta - self.coords._sizes, delta)
+            delta = np.where(delta < -half_sizes, delta + self.coords._sizes, delta)
         else:
             delta = p2 - p1
 
@@ -347,6 +321,8 @@ class World:
     ) -> list[Agent]:
         """Get all agents within a radius of the given agent.
 
+        This is a vectorized implementation for performance.
+
         Args:
             agent: Center agent
             radius: Search radius
@@ -356,22 +332,66 @@ class World:
             List of agents within radius (excluding the center agent)
         """
         if agents is None:
-            agents = list(agent.model.agents)
+            # Get all agents from the model
+            all_agents = list(self._model.agents)
+        else:
+            all_agents = agents
 
+        # Filter out the center agent and agents without positions
+        candidates = [
+            a
+            for a in all_agents
+            if a is not agent and hasattr(a, "position") and a.position is not None
+        ]
+
+        if not candidates:
+            return []
+
+        # Vectorized distance calculation
         center_pos = agent.position
-        neighbors = []
+        positions = np.array([a.position for a in candidates])
 
-        for other in agents:
-            if other is agent:
-                continue
-            if not hasattr(other, "position") or other.position is None:
-                continue
+        if self.coords.torus:
+            # Vectorized torus distance calculation
+            deltas = np.abs(positions - center_pos)
+            half_sizes = self.coords._sizes / 2
+            deltas = np.where(deltas > half_sizes, self.coords._sizes - deltas, deltas)
+            distances = np.linalg.norm(deltas, axis=1)
+        else:
+            # Regular Euclidean distance
+            distances = np.linalg.norm(positions - center_pos, axis=1)
 
-            dist = self.distance(center_pos, other.position)
-            if dist <= radius:
-                neighbors.append(other)
+        # Filter by radius
+        mask = distances <= radius
+        return [candidates[i] for i in np.where(mask)[0]]
 
-        return neighbors
+    def calculate_difference_vectors(
+        self,
+        center_pos: np.ndarray,
+        agents: list[Agent],
+    ) -> np.ndarray:
+        """Calculate difference vectors from center to all agents (vectorized).
+
+        Args:
+            center_pos: Center position
+            agents: List of agents
+
+        Returns:
+            Array of difference vectors, shape (n_agents, n_dimensions)
+        """
+        if not agents:
+            return np.array([]).reshape(0, self.coords.dimensions)
+
+        positions = np.array([a.position for a in agents])
+        deltas = positions - center_pos
+
+        if self.coords.torus:
+            # Vectorized torus wrapping for deltas
+            half_sizes = self.coords._sizes / 2
+            deltas = np.where(deltas > half_sizes, deltas - self.coords._sizes, deltas)
+            deltas = np.where(deltas < -half_sizes, deltas + self.coords._sizes, deltas)
+
+        return deltas
 
     def _extract_position(
         self,
