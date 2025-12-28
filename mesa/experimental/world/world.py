@@ -127,29 +127,30 @@ class World:
 
     def __init__(
         self,
+        model,
         coords: CoordinateSystem | None = None,
         bounds: list[tuple[float, float]] | None = None,
         torus: bool = False,
-        rng=None,
         **kwargs: tuple[float, float],
     ):
         """Initialize a spatial world.
 
         Args:
+            model: The Mesa model this world belongs to
             coords: Pre-configured coordinate system
             bounds: List of (min, max) tuples for each dimension (if coords not provided)
             torus: Whether coordinates wrap around at boundaries (if coords not provided)
             **kwargs: Alternative bound specification (x=(min, max), y=(min, max), etc.)
 
         Examples:
-            # Using CoordinateSystem
-            world = World(coords=CoordinateSystem(x=(0, 100), y=(0, 100)))
-
             # Direct specification
-            world = World(x=(0, 100), y=(0, 100), torus=False)
+            world = World(model, x=(0, 100), y=(0, 100), torus=False)
 
             # With bounds list
-            world = World(bounds=[(0, 100), (0, 100)], torus=True)
+            world = World(model, bounds=[(0, 100), (0, 100)], torus=True)
+
+            # Using CoordinateSystem
+            world = World(model, coords=CoordinateSystem(x=(0, 100), y=(0, 100)))
         """
         if coords is not None:
             if bounds is not None or kwargs:
@@ -158,10 +159,11 @@ class World:
         else:
             self.coords = CoordinateSystem(bounds=bounds, torus=torus, **kwargs)
 
-        self._rng = rng  # Set by model when world is created
-
         # Storage for spatial layers (for future extension)
         self._layers: dict[str, Any] = {}
+
+        # Store model reference
+        self._model = model
 
     def add_layer(self, name: str, layer: Any) -> None:
         """Add a spatial layer to the world.
@@ -212,9 +214,35 @@ class World:
                 f"'{type(self).__name__}' object has no attribute '{name}'"
             )
 
-    def random_position(self):
+    def _set_model(self, model) -> None:
+        """Set the model reference for this world (internal use).
+
+        Args:
+            model: The model instance
+
+        Notes:
+            This is called automatically when a model creates a world.
+            Users typically don't need to call this directly.
+        """
+        self._model = model
+        # If no RNG was provided, use the model's RNG
+        if self._rng is None and hasattr(model, "rng"):
+            self._rng = model.rng
+
+    def random_position(self) -> np.ndarray:
+        """Generate a random position within the world.
+
+        Returns:
+            Random position within coordinate bounds
+
+        Raises:
+            ValueError: If world doesn't have an RNG set
+        """
         if self._rng is None:
-            raise ValueError("World not associated with a model")
+            raise ValueError(
+                "World does not have a random number generator. "
+                "Pass rng= when creating the World, or use coords.random_position(rng) directly."
+            )
         return self.coords.random_position(self._rng)
 
     def distance(
@@ -362,3 +390,12 @@ class World:
                 raise ValueError(f"Agent {pos_or_agent} has no position")
             return np.asarray(pos_or_agent.position)
         return np.asarray(pos_or_agent)
+
+    @property
+    def agents(self):
+        """Return agents that have positions in this world."""
+        return (
+            agent
+            for agent in self._model.agents
+            if hasattr(agent, "position") and agent.position is not None
+        )
