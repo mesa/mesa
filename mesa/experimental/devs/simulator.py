@@ -162,10 +162,10 @@ class Simulator:
         Args:
             time_delta (float| int): The time delta. The simulator is run from the current time to the current time
                                      plus the time delta
-        
+
         Raises:
             Exception if simulator.setup() has not yet been called
-            
+
         """
         if self.model is None:
             raise RuntimeError(
