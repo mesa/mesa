@@ -4,6 +4,7 @@ import copy
 import pickle
 import random
 import re
+import signal
 
 import networkx as nx
 import numpy as np
@@ -1098,17 +1099,15 @@ def test_infinite_loop_on_full_grid():
     """Test that select_random_empty_cell does not hang on a full grid."""
     # 1. Create a small 2x2 model
     model = Model()
-    grid = OrthogonalMooreGrid((2, 2))
+    grid = OrthogonalMooreGrid((2, 2), random=model.random)
 
     # 2. Fill the grid completely
-    print("Filling grid...")
     for cell in grid.all_cells:
-        agent = Agent(model)
-        cell.add_agent(agent)
+        agent = CellAgent(model)
+        agent.cell = cell
 
     # 3. Verify grid is full
     assert len(grid.empties) == 0
-    print("Grid is full.")
 
     # 4. Attempt to select a random empty cell
     # Set an alarm to kill the test if it hangs
@@ -1118,11 +1117,9 @@ def test_infinite_loop_on_full_grid():
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(2)  # Set 2 second timeout
 
-    print("Attempting to select random empty cell...")
     try:
-        grid.select_random_empty_cell()
-    except IndexError:
-        print("Success! Caught expected IndexError (grid is full).")
+        with pytest.raises(IndexError):
+            grid.select_random_empty_cell()
     except TimeoutError:
         print("FAILURE: The function hung in an infinite loop.")
         exit(1)
