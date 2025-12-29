@@ -142,6 +142,14 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
+        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
+        # FIXME:: note however that the old results don't apply because in this implementation
+        # FIXME:: because empties list needs to be rebuild each time
+        # This method is based on Agents.jl's random_empty() implementation. See
+        # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
+        # https://github.com/mesa/mesa/issues/1052 and
+        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
+        # is the break-even comparison with the time taken in the else branching point.
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
