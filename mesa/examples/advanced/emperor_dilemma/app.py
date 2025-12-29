@@ -1,3 +1,5 @@
+from model import EmperorModel
+
 from mesa.experimental.devs.simulator import ABMSimulator
 from mesa.visualization import (
     CommandConsole,
@@ -6,13 +8,12 @@ from mesa.visualization import (
     SpaceRenderer,
     make_plot_component,
 )
-from model import EmperorModel
 
-
-COLOR_COMPLY_ENFORCE = "#0C0707" 
+COLOR_COMPLY_ENFORCE = "#0C0707"
 COLOR_COMPLY_QUIET = "aqua"
-COLOR_DEVIATE_ENFORCE = "black"   
+COLOR_DEVIATE_ENFORCE = "black"
 COLOR_DEVIATE_QUIET = "lightgray"
+
 
 def emperor_portrayal(agent):
     if agent is None:
@@ -29,7 +30,7 @@ def emperor_portrayal(agent):
     Compliance: 1 (True), -1 (False)
     Enforcement: 1 (Enforce Norm), -1 (Enforce Deviance), 0 (None)
     """
-    
+
     if agent.compliance == 1:
         if agent.enforcement == 1:
             portrayal["color"] = COLOR_COMPLY_ENFORCE
@@ -44,24 +45,27 @@ def emperor_portrayal(agent):
 
     return portrayal
 
+
 def post_process_lines(ax):
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.9))
     ax.set_ylabel("Rate")
+
 
 lineplot_component = make_plot_component(
     {
         "Compliance": "tab:green",
         "Enforcement": "tab:red",
-        "False Enforcement": "tab:blue"
+        "False Enforcement": "tab:blue",
     },
     post_process=post_process_lines,
 )
+
 
 def post_process_space(ax):
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.get_figure().set_size_inches(10, 10) 
+    ax.get_figure().set_size_inches(10, 10)
 
 
 model_params = {
@@ -87,11 +91,7 @@ simulator = ABMSimulator()
 
 # 2. Create the Model
 model = EmperorModel(
-    simulator=simulator,
-    fraction_true_believers=0.05, 
-    k=0.125,
-    width=25,
-    height=25
+    simulator=simulator, fraction_true_believers=0.05, k=0.125, width=25, height=25
 )
 
 
@@ -112,4 +112,4 @@ page = SolaraViz(
     name="The Emperor's Dilemma",
     simulator=simulator,
 )
-page # noqa
+page  # noqa
