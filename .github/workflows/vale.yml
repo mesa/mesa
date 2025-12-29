@@ -38,7 +38,7 @@ jobs:
       - name: Run Vale
         uses: errata-ai/vale-action@v2.1.1
         with:
-          files: '["*.md", "docs/"]'
+          files: all
           vale_flags: "--minAlertLevel=warning"
           fail_on_error: false
           filter_mode: nofilter
