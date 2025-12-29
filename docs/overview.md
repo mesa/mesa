@@ -314,6 +314,8 @@ Property Layer Visualization <tutorials/7_visualization_propertylayer_visualizat
 Custom Visualization Components <tutorials/8_visualization_custom>
 Parameter Sweeps <tutorials/9_batch_run>
 Comparing Scenarios <tutorials/10_comparing_scenarios>
+Discrete Event Simulation <tutorials/11_discrete_event_simulation>
+Hybrid ABM-DEVS Models <tutorials/12_hybrid_abm_devs>
 Best Practices <best-practices>
 
 
