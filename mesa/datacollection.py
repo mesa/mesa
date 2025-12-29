@@ -281,7 +281,7 @@ class DataCollector:
 
         def get_reports(agent):
             _prefix = (agent.model.steps, agent.unique_id)
-            reports = tuple(rep(agent) for rep in rep_funcs)
+            reports = tuple(deepcopy(rep(agent)) for rep in rep_funcs)
             return _prefix + reports
 
         agent_records = map(get_reports, model.agents)
@@ -293,7 +293,7 @@ class DataCollector:
 
         def get_reports(agent):
             _prefix = (agent.model.steps, agent.unique_id)
-            reports = tuple(rep(agent) for rep in rep_funcs)
+            reports = tuple(deepcopy(rep(agent)) for rep in rep_funcs)
             return _prefix + reports
 
         agent_types = model.agent_types
