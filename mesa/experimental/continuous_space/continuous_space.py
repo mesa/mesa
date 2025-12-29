@@ -148,7 +148,7 @@ class ContinuousSpace:
         self._index_to_agent.pop(index, None)
         del self.active_agents[index]
 
-        # Shift all subsequent agents down by 1
+        # Shift all subsequent agents up by 1
         for agent in self.active_agents[index::]:
             old_index = self._agent_to_index[agent]
             self._agent_to_index[agent] = old_index - 1
