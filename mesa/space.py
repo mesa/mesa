@@ -21,8 +21,7 @@ Classes
 * NetworkGrid: a network where each node contains zero or more agents.
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import collections
@@ -640,12 +639,17 @@ class PropertyLayer:
                 f"Width and height must be positive integers, got {width} and {height}."
             )
         # Check if the dtype is suitable for the data
-        if not isinstance(default_value, dtype):
-            warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype.__name__}.",
-                UserWarning,
-                stacklevel=2,
-            )
+        try:
+            if dtype(default_value) != default_value:
+                warnings.warn(
+                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except (ValueError, TypeError) as e:
+            raise TypeError(
+                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
+            ) from e
 
         self.data = np.full((width, height), default_value, dtype=dtype)
 

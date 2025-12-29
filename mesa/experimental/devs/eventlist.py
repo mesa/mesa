@@ -23,7 +23,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Callable
 from enum import IntEnum
-from heapq import heapify, heappop, heappush
+from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
 from typing import Any
 from weakref import WeakMethod, ref
@@ -147,7 +147,7 @@ class EventList:
         """
         heappush(self._events, event)
 
-    def peak_ahead(self, n: int = 1) -> list[SimulationEvent]:
+    def peek_ahead(self, n: int = 1) -> list[SimulationEvent]:
         """Look at the first n non-canceled event in the event list.
 
         Args:
@@ -168,13 +168,9 @@ class EventList:
         if self.is_empty():
             raise IndexError("event list is empty")
 
-        peek: list[SimulationEvent] = []
-        for event in self._events:
-            if not event.CANCELED:
-                peek.append(event)
-            if len(peek) >= n:
-                return peek
-        return peek
+        # Filter out canceled events and get n smallest in correct chronological order
+        valid_events = [e for e in self._events if not e.CANCELED]
+        return nsmallest(n, valid_events)
 
     def pop_event(self) -> SimulationEvent:
         """Pop the first element from the event list."""
@@ -214,7 +210,7 @@ class EventList:
         """
         # we cannot simply remove items from _eventlist because this breaks
         # heap structure invariant. So, we use a form of lazy deletion.
-        # SimEvents have a CANCELED flag that we set to True, while popping and peak_ahead
+        # SimEvents have a CANCELED flag that we set to True, while popping and peek_ahead
         # silently ignore canceled events
         event.cancel()
 

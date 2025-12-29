@@ -168,7 +168,7 @@ def test_batch_run():  # noqa: D103
         },
     ]
 
-    result = mesa.batch_run(MockModel, {}, number_processes=2, iterations=1)
+    result = mesa.batch_run(MockModel, {}, number_processes=2, rng=[None])
     assert result == [
         {
             "RunId": 0,
@@ -303,7 +303,7 @@ def test_batch_run_no_agent_reporters():  # noqa: D103
 
 
 def test_batch_run_single_core():  # noqa: D103
-    mesa.batch_run(MockModel, {}, number_processes=1, iterations=6)
+    mesa.batch_run(MockModel, {}, number_processes=1, rng=[None] * 6)
 
 
 def test_batch_run_unhashable_param():  # noqa: D103
@@ -313,7 +313,7 @@ def test_batch_run_unhashable_param():  # noqa: D103
             "n_agents": 2,
             "variable_model_param": [{"key": "value"}],
         },
-        iterations=2,
+        rng=[None, None],
     )
     template = {
         "Step": 1000,
@@ -354,3 +354,9 @@ def test_batch_run_unhashable_param():  # noqa: D103
             **template,
         },
     ]
+
+
+def test_iterations_deprecation_warning():
+    """Test that using iterations parameter raises DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="iterations.*deprecated.*rng"):
+        mesa.batch_run(MockModel, {}, number_processes=1, iterations=1)

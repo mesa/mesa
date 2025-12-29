@@ -5,7 +5,6 @@ features are provided to allow early access and feedback from the Mesa community
 their APIs may change between releases without following semantic versioning.
 
 Current experimental modules:
-    cell_space: Alternative API for discrete spaces with cell-centric functionality
     devs: Discrete event simulation system for scheduling events at arbitrary times
     mesa_signals: Reactive programming capabilities for tracking state changes
 

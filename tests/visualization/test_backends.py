@@ -1,5 +1,6 @@
 """Test the backends of the visualization package."""
 
+import random
 import types
 from unittest.mock import MagicMock
 
@@ -128,7 +129,7 @@ def test_matplotlib_backend_draw_propertylayer():
     mb.initialize_canvas()
 
     # set up space and layer
-    space = OrthogonalMooreGrid([2, 2])
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
     layer = PropertyLayer("test", [2, 2], default_value=0.0)
     space.add_property_layer(layer)
 
@@ -262,7 +263,7 @@ def test_altair_backend_draw_propertylayer():
     ab = AltairBackend(space_drawer=MagicMock())
 
     # set up space and layer
-    space = OrthogonalMooreGrid([2, 2])
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
     layer = PropertyLayer("test", [2, 2], default_value=0.0)
     space.add_property_layer(layer)
 
