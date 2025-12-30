@@ -3,8 +3,7 @@
 Core Objects: Model
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import random
@@ -37,6 +36,8 @@ class Model:
     Attributes:
         running: A boolean indicating if the model should continue running.
         steps: the number of times `model.step()` has been called.
+        time: the current simulation time. Automatically increments by 1.0
+              with each step unless controlled by a discrete event simulator.
         random: a seeded python.random number generator.
         rng : a seeded numpy.random.Generator
 
@@ -53,7 +54,6 @@ class Model:
         *args: Any,
         seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
-        step_duration: float = 1.0,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -67,7 +67,6 @@ class Model:
             rng : Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
                   `numpy.random.default_rng` to instantiate a `Generator`.
-            step_duration: How much time advances each step (default 1.0)
             kwargs: keyword arguments to pass onto super
 
         Notes:
@@ -78,7 +77,6 @@ class Model:
         self.running: bool = True
         self.steps: int = 0
         self.time: float = 0.0
-        self._step_duration: float = step_duration
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -127,7 +125,7 @@ class Model:
         self.steps += 1
         # Only auto-increment time if no simulator is controlling it
         if self._simulator is None:
-            self.time += self._step_duration
+            self.time += 1
 
         _mesa_logger.info(
             f"calling model.step for step {self.steps} at time {self.time}"
