@@ -63,8 +63,28 @@ class Agent:
 
         self.model: Model = model
         self.unique_id: int = next(self._ids[model])
-        self.pos: Position | None = None
+        self.pos: Position | None = None  # Keep for backwards compatibility
+        self._position: np.ndarray | None = None  # New unified position
+        self._discrete_spaces: list = []  # Spaces to notify on position change
         self.model.register_agent(self)
+
+    @property
+    def position(self) -> np.ndarray | None:
+        """Unified position across all spaces."""
+        return self._position
+
+    @position.setter
+    def position(self, value: np.ndarray | None) -> None:
+        """Set position and notify all discrete spaces."""
+        if value is not None:
+            value = np.asarray(value)
+
+        old_position = self._position
+        self._position = value
+
+        # Notify discrete spaces of position change
+        for space in self._discrete_spaces:
+            space._on_agent_position_changed(self, old_position, value)
 
     def remove(self) -> None:
         """Remove and delete the agent from the model.
