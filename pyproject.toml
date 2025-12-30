@@ -94,9 +94,19 @@ repository = "https://github.com/mesa/mesa"
 ignore-words-list = ["ist", "hart", "nD"]
 
 [tool.coverage.run]
-source = ["mesa"]
+source = ["."]
+source_pkgs = ["mesa"]
+relative_files = true
 branch = true
-omit = ["tests/*"]
+
+[tool.coverage.paths]
+_site-packages-to-flat-layout-mapping = [
+  'mesa',
+  '*/mesa',
+  '*/lib/pypy*/site-packages/mesa',
+  '*/lib/python*/site-packages/mesa',
+  '*/Lib/site-packages/mesa',
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]

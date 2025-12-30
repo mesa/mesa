@@ -148,11 +148,15 @@ class ContinuousSpace:
         self._index_to_agent.pop(index, None)
         del self.active_agents[index]
 
-        # we update all indices
+        # Shift all subsequent agents up by 1
         for agent in self.active_agents[index::]:
             old_index = self._agent_to_index[agent]
             self._agent_to_index[agent] = old_index - 1
             self._index_to_agent[old_index - 1] = agent
+
+        # Clean up the stale entry from the last shifted agent
+        if len(self.active_agents) > index:
+            self._index_to_agent.pop(len(self.active_agents), None)
 
         # we move all data below the removed agent one row up
         self._agent_positions[index : self._n_agents - 1] = self._agent_positions[
