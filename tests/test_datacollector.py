@@ -488,5 +488,41 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
             dc_function.collect(self.model)
 
 
+def test_mutable_data_independence():
+    """Test that mutable agent data is deep-copied, preventing historical records from changing."""
+
+    class MutableAgent(Agent):
+        """Agent with mutable list attribute."""
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.data = []
+
+    class MutableModel(Model):
+        """Model that modifies agent data after collection."""
+
+        def __init__(self):
+            super().__init__()
+            self.agent = MutableAgent(self)
+            self.datacollector = DataCollector(agent_reporters={"Data": "data"})
+
+        def step(self):
+            self.datacollector.collect(self)
+            self.agent.data.append(self.steps)  # Modify after collection
+
+    model = MutableModel()
+
+    model.step()
+    model.step()
+    model.step()
+
+    df = model.datacollector.get_agent_vars_dataframe()
+
+    # Each step should preserve its historical state
+    assert df.loc[(1, 1), "Data"] == []
+    assert df.loc[(2, 1), "Data"] == [1]
+    assert df.loc[(3, 1), "Data"] == [1, 2]
+
+
 if __name__ == "__main__":
     unittest.main()
