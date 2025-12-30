@@ -171,8 +171,8 @@ class Simulator:
             end_time = self.model.time + time_delta
         except AttributeError as e:
             raise RuntimeError(
-                        "Simulator not set up. Call simulator.setup(model) first."
-                    ) from e
+                "Simulator not set up. Call simulator.setup(model) first."
+            ) from e
         else:
             self.run_until(end_time)
 
