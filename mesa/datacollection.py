@@ -215,7 +215,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                return getattr(agent, attribute_name, None)
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
+                    raise AttributeError(
+                        f"Agent {agent.unique_id} of type {type(agent).__name__} "
+                        f"has no attribute '{attribute_name}' (reporter: '{name}')"
+                    ) from e
 
             reporter = attr_reporter
 
@@ -251,7 +257,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                return getattr(agent, attribute_name, None)
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
+                    raise AttributeError(
+                        f"Agent {agent.unique_id} of type {type(agent).__name__} "
+                        f"has no attribute '{attribute_name}' (reporter: '{name}')"
+                    ) from e
 
             reporter = attr_reporter
 

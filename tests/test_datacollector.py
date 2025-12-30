@@ -405,6 +405,80 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         with self.assertRaises(Exception):
             dc_attribute.collect(self.model)
 
+    def test_agent_missing_attribute_error(self):
+        """Test that DataCollector raises AttributeError for missing agent attributes.
+
+        This tests the fix for GitHub issue: DataCollector silently skips reporters
+        for non-existent attributes. Now it should raise an informative error.
+        """
+        model = Model()
+        agent = Agent(model)
+        agent.wealth = 100
+        agent.status = "active"
+        # Note: agent does NOT have 'health' attribute
+
+        # Create DataCollector with reporter for missing attribute
+        dc = DataCollector(
+            agent_reporters={
+                "wealth": "wealth",  # Exists
+                "health": "health",  # Does NOT exist
+                "status": "status",  # Exists
+            }
+        )
+
+        # Should raise AttributeError when trying to collect
+        with self.assertRaises(AttributeError) as cm:
+            dc.collect(model)
+
+        # Check error message is informative
+        error_msg = str(cm.exception)
+        self.assertIn("health", error_msg)
+        self.assertIn("Agent", error_msg)
+
+    def test_agent_valid_attributes_still_work(self):
+        """Test that valid agent attribute reporters still work correctly."""
+        model = Model()
+        agent = Agent(model)
+        agent.wealth = 100
+        agent.status = "active"
+
+        # Create DataCollector with only valid reporters
+        dc = DataCollector(agent_reporters={"wealth": "wealth", "status": "status"})
+
+        # Should work without errors
+        dc.collect(model)
+
+        # Verify data was collected
+        self.assertIn(0, dc._agent_records)
+        records = dc._agent_records[0]
+        self.assertEqual(len(records), 1)
+
+        _step, _agent_id, wealth, status = records[0]
+        self.assertEqual(wealth, 100)
+        self.assertEqual(status, "active")
+
+    def test_lambda_reporters_still_work(self):
+        """Test that lambda and callable reporters still work correctly."""
+        model = Model()
+        agent = Agent(model)
+        agent.wealth = 100
+
+        # Create DataCollector with callable reporters
+        dc = DataCollector(
+            agent_reporters={
+                "wealth": lambda a: a.wealth,
+                "doubled": lambda a: a.wealth * 2,
+            }
+        )
+
+        # Should work without errors
+        dc.collect(model)
+
+        # Verify data was collected correctly
+        _step, _agent_id, wealth, doubled = dc._agent_records[0][0]
+        self.assertEqual(wealth, 100)
+        self.assertEqual(doubled, 200)
+
     def test_function_error(self):
         """Test error when function list is not callable."""
         dc_function = DataCollector(
