@@ -215,13 +215,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                # Validate that the attribute exists on the agent
-                if not hasattr(agent, attribute_name):
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
                     raise AttributeError(
                         f"Agent {agent.unique_id} of type {type(agent).__name__} "
                         f"has no attribute '{attribute_name}' (reporter: '{name}')"
-                    )
-                return getattr(agent, attribute_name)
+                    ) from e
 
             reporter = attr_reporter
 
@@ -257,13 +257,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                # Validate that the attribute exists on the agent
-                if not hasattr(agent, attribute_name):
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
                     raise AttributeError(
                         f"Agent {agent.unique_id} of type {type(agent).__name__} "
                         f"has no attribute '{attribute_name}' (reporter: '{name}')"
-                    )
-                return getattr(agent, attribute_name)
+                    ) from e
 
             reporter = attr_reporter
 
