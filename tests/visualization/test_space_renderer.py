@@ -207,3 +207,214 @@ def test_property_layer_style_instance():
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style
+
+
+def test_network_non_contiguous_nodes():
+    """Test network visualization with non-contiguous node IDs."""
+    # Create a network with non-contiguous node IDs
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {
+            0: np.array([0.1, 0.2]),
+            1: np.array([0.3, 0.4]),
+            5: np.array([0.5, 0.6]),
+            10: np.array([0.7, 0.8]),
+            15: np.array([0.9, 1.0]),
+        }
+
+        # Create arguments with agent positions at non-contiguous nodes
+        args = {"loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)}
+
+        # Map coordinates
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            # Should not have any warnings since all nodes are present
+            assert len(w) == 0
+
+            # All agents should be mapped correctly
+            assert mapped["loc"].shape == (5, 2)
+            expected_positions = np.array([
+                [0.1, 0.2],  # Node 0
+                [0.3, 0.4],  # Node 1
+                [0.5, 0.6],  # Node 5
+                [0.7, 0.8],  # Node 10
+                [0.9, 1.0],  # Node 15
+            ])
+            np.testing.assert_array_equal(mapped["loc"], expected_positions)
+
+
+def test_network_missing_nodes_warning():
+    """Test that warning is issued for missing node positions."""
+    # Create a network
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        # Position dictionary missing some nodes
+        sr.space_drawer.pos = {
+            0: np.array([0.1, 0.2]),
+            1: np.array([0.3, 0.4]),
+            5: np.array([0.5, 0.6]),
+            # Missing nodes 10 and 15
+        }
+
+        # Create arguments with agent positions including missing nodes
+        args = {"loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)}
+
+        # Map coordinates and capture warnings
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            # Should have one warning about missing nodes
+            assert len(w) == 1
+            assert "not found in position mapping" in str(w[0].message)
+            assert issubclass(w[0].category, UserWarning)
+
+            # Should still map all agents (missing ones at origin)
+            assert mapped["loc"].shape == (5, 2)
+            expected_positions = np.array([
+                [0.1, 0.2],  # Node 0
+                [0.3, 0.4],  # Node 1
+                [0.5, 0.6],  # Node 5
+                [0.0, 0.0],  # Node 10 (missing, default to origin)
+                [0.0, 0.0],  # Node 15 (missing, default to origin)
+            ])
+            np.testing.assert_array_equal(mapped["loc"], expected_positions)
+
+
+def test_network_single_node():
+    """Test network with single node."""
+    mock_graph = MagicMock()
+    mock_graph.nodes = [42]  # Single non-zero node ID
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {42: np.array([1.0, 2.0])}
+
+        args = {"loc": np.array([[42, 42]], dtype=float)}
+
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            assert len(w) == 0
+            assert mapped["loc"].shape == (1, 2)
+            np.testing.assert_array_equal(mapped["loc"], [[1.0, 2.0]])
+
+
+def test_network_empty_locations():
+    """Test network with empty location array."""
+    mock_graph = MagicMock()
+    mock_graph.nodes = []
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {}
+
+        args = {"loc": np.array([], dtype=float).reshape(0, 2)}
+
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            assert len(w) == 0
+            assert mapped["loc"].shape == (0, 2)
+
+
+def test_network_large_node_ids():
+    """Test network with very large node IDs."""
+    mock_graph = MagicMock()
+    mock_graph.nodes = [1000, 5000, 10000]  # Large node IDs
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {
+            1000: np.array([1.0, 1.0]),
+            5000: np.array([2.0, 2.0]),
+            10000: np.array([3.0, 3.0]),
+        }
+
+        args = {"loc": np.array([[1000, 1000], [5000, 5000], [10000, 10000]], dtype=float)}
+
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            assert len(w) == 0
+            assert mapped["loc"].shape == (3, 2)
+            expected = np.array([[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
+            np.testing.assert_array_equal(mapped["loc"], expected)
+
+
+def test_network_regression_indexerror_bug():
+    """Regression test for the IndexError suppression bug."""
+    # This test reproduces the exact bug scenario
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {
+            0: np.array([0.1, 0.2]),
+            1: np.array([0.3, 0.4]),
+            5: np.array([0.5, 0.6]),
+            10: np.array([0.7, 0.8]),
+            15: np.array([0.9, 1.0]),
+        }
+
+        # This would have caused IndexError in the old code
+        args = {"loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)}
+
+        # Before fix: this would return None or raise suppressed IndexError
+        # After fix: this should return proper mapping
+        mapped = sr._map_coordinates(args)
+
+        # Verify all agents are mapped (no silent failures)
+        assert mapped["loc"] is not None
+        assert mapped["loc"].shape == (5, 2)
+        assert not np.any(np.isnan(mapped["loc"]))  # No NaN values
+
+        # Verify specific positions
+        expected = np.array([
+            [0.1, 0.2],  # Node 0
+            [0.3, 0.4],  # Node 1
+            [0.5, 0.6],  # Node 5
+            [0.7, 0.8],  # Node 10
+            [0.9, 1.0],  # Node 15
+        ])
+        np.testing.assert_array_equal(mapped["loc"], expected)
