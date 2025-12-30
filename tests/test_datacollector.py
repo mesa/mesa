@@ -641,6 +641,8 @@ class TestMethodReporterValidation(unittest.TestCase):
 
         # Validation call + actual collect call = at least 1
         self.assertGreaterEqual(model.call_count, 1)
+
+
 def test_mutable_data_independence():
     """Test that mutable agent data is deep-copied, preventing historical records from changing."""
 
