@@ -2,6 +2,7 @@
 
 import random
 import re
+import warnings
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -232,8 +233,6 @@ def test_network_non_contiguous_nodes():
         args = {"loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)}
 
         # Map coordinates
-        import warnings
-
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             mapped = sr._map_coordinates(args)
@@ -276,8 +275,6 @@ def test_network_missing_nodes_warning():
         args = {"loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)}
 
         # Map coordinates and capture warnings
-        import warnings
-
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             mapped = sr._map_coordinates(args)
@@ -313,8 +310,6 @@ def test_network_single_node():
 
         args = {"loc": np.array([[42, 42]], dtype=float)}
 
-        import warnings
-
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             mapped = sr._map_coordinates(args)
@@ -337,8 +332,6 @@ def test_network_empty_locations():
         sr.space_drawer.pos = {}
 
         args = {"loc": np.array([], dtype=float).reshape(0, 2)}
-
-        import warnings
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -365,8 +358,6 @@ def test_network_large_node_ids():
         }
 
         args = {"loc": np.array([[1000, 1000], [5000, 5000], [10000, 10000]], dtype=float)}
-
-        import warnings
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
