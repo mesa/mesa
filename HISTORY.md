@@ -1,6 +1,147 @@
 ---
 title: Release History
 ---
+# 3.4.0 (2025-12-24)
+## Highlights
+The Mesa 3.4.0 feature release introduces universal time tracking, improves batch run reproducibility, and strengthens our deprecation policy. This release also requires Python 3.12+ and includes numerous bug fixes and quality-of-life improvements.
+
+### Universal simulation time with `model.time`
+Mesa now provides a single source of truth for simulation time through the `model.time` attribute (#2903). Previously, time was fragmented across different components - simple models used `model.steps` as a proxy, while discrete event simulations stored time in `simulator.time`. This created complexity for features needing consistent time access.
+
+Now all models have a `model.time` attribute that:
+- Automatically increments with each step (by 1.0)
+- Works seamlessly with discrete event simulators
+- Provides a consistent interface for data collection, visualization, and user code
+
+```python
+# Basic usage - time auto-increments
+model = Model()
+model.step()
+print(model.time)  # 1.0
+
+# With discrete event simulation
+simulator = DEVSimulator()
+simulator.setup(model)
+simulator.schedule_event_absolute(some_function, 2.5)
+simulator.run_until(3.0)
+print(model.time)  # 3.0
+```
+
+The old `simulator.time` still works but emits a deprecation warning.
+
+### Improved batch run reproducibility
+The `batch_run` function has been updated to provide explicit control over random seeds across replications (#2841). Previously, using `iterations` with a fixed seed caused all iterations to use the same seed, producing identical results instead of independent replications.
+
+The new `rng` parameter accepts either a single seed value or an iterable of seed values, giving you complete control over reproducibility:
+
+```python
+rng = np.random.default_rng(42)
+seed_values = rng.integers(0, sys.maxsize, size=(5,))
+
+results = mesa.batch_run(
+    MoneyModel,
+    parameters=params,
+    rng=seed_values.tolist(),  # Each iteration uses a different seed
+)
+```
+
+The old `iterations` parameter is now deprecated and will be removed in Mesa 4.0. See the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#batch-run) for details on updating your code.
+
+### Strengthened deprecation policy
+Mesa now has a formal [deprecation policy](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md#deprecation-policy) that ensures users have adequate time to migrate while allowing Mesa to evolve (#2900). A related change is that all deprecation warnings now use `FutureWarning` instead of `DeprecationWarning` (#2905), making them visible by default since `DeprecationWarning` is hidden for imported modules.
+
+The policy guarantees:
+- New features must be available for at least one minor release before deprecating old ones
+- Documentation, migration guides, and examples must be updated before active deprecation
+- Breaking changes only occur in major version releases
+- Experimental features have more flexibility but still communicate changes
+
+### Organization name change
+Mesa has migrated from the `projectmesa` to `mesa` organization on GitHub (#2880), (#2887), thanks to Daniel Langemann ([@dlangemann](https://github.com/dlangemann)) who generously transferred the `mesa` name to us. Our repositories are now accessible at `github.com/mesa/mesa` instead of `github.com/projectmesa/mesa`, signaling authority and maturity in a way that better reflects Mesa's position as *the* agent-based modeling framework in Python. GitHub automatically redirects old links, so existing URLs and git remotes continue to work seamlessly.
+
+### Python 3.12+ required
+Mesa 3.4.0 drops support for Python 3.11 and now requires Python 3.12 or higher (#2842). This allows Mesa to use modern Python type parameter syntax and prepares the codebase for future Python features. Python 3.14 is now also fully tested in CI.
+
+### Other improvements
+This release includes significant enhancements to the visualization system, including support for `AgentPortrayalStyle` in Altair components, improved property layer styling, and better error handling. The experimental cell space module has been removed in favor of the stable `mesa.discrete_space` module (#2969).
+
+Numerous bugs were fixed, including issues with scalar color handling in matplotlib, empty cell collection indexing, and cell capacity handling. The test suite was reorganized to mirror the source module structure and now treats warnings as errors to prevent accumulation.
+
+We welcome 10 new contributors to the Mesa project in this release! Thank you to everyone who contributed bug fixes, documentation improvements, and feature enhancements.
+
+## What's Changed
+### ⏳ Deprecations
+* Replace DeprecationWarnings with FutureWarnings by @EwoutH in #2905
+* Fix: Auto-increment seed across batch_run iterations by @EwoutH in #2841
+### 🎉 New features added
+* Add `model.time` as universal source of truth for simulation time by @EwoutH in #2903
+### 🛠 Enhancements made
+* Refactor SpaceRenderer API to separate setup and draw methods by @Sahil-Chhoker in #2893
+* Validate HexGrid torus dimensions by @ShreyasN707 in #2951
+* Allow PropertyLayerStyle instance in draw_propertylayer by @ShreyasN707 in #2936
+* Support AgentPortrayalStyle in Altair visualization components by @EwoutH in #2985
+### 🐛 Bugs fixed
+* Update visualization tabs to be compatible with ipyvuetify 3.0 by @EwoutH in #2919
+* Use pandas type checking for numeric dtype detection in Altair backend by @EwoutH in #2917
+* Fix for Model.reset_rng by @quaquel in #2946
+* Fix scalar color handling in legacy `matplotlib` backend. by @falloficarus22 in #2959
+* Fix: IndexError in select_random_agent when cell collection is empty by @Nithurshen in #2983
+* Fix: Handle capacity=None in Cell.is_full property by @Nithin9585 in #2981
+* Fix/cell capacity zero by @ahmednabiled in #2990
+* Fix SolaraViz multipage rendering when renderer is absent by @falloficarus22 in #2966
+### 🔍 Examples updated
+* examples: Add Activation Order and Grid Type selectors to EpsteinCivilViolence by @Nithurshen in #2955
+### 📜 Documentation improvements
+* Docs: Link to online example model demo in a few places by @EwoutH in #2882
+* Update overview.md by @quaquel in #2883
+* docs: Changed colab notebook url for tutorial 3 - agentset by @aten2005 in #2890
+* Add AI/LLM use guidelines to Code of Conduct by @EwoutH in #2898
+* docs: Add deprecation policy to contributor guide by @EwoutH in #2900
+* [Docs] Fix typos and inconsistent comments in tutorials by @Mannan-15 in #2948
+* Remove capacity constraint on cells from tutorial by @quaquel in #2964
+* Fix Navigation Issue by @codebreaker32 in #2938
+### 🔧 Maintenance
+* Drop Python 3.11, require Python 3.12+ and update to modern type parameter syntax by @EwoutH in #2842
+* Pin Readthedocs build to Python 3.13 by @EwoutH in #2899
+* tests: Resolved "Missing Random Number Generator" warnings by @ShreyasN707 in #2911
+* tests: Update agent portrayals to use AgentPortrayalStyle by @Tejasv-Singh in #2909
+* Add Python 3.14 support to workflows and metadata by @EwoutH in #2843
+* Fix dtype/default_value mismatches in PropertyLayer tests to resolve UserWarnings by @ShreyasN707 in #2913
+* Replace deprecated np.bmat with np.block in Voronoi Delaunay triangulation by @EwoutH in #2915
+* Speed up CI by installing only Playwright chromium-headless-shell by @EwoutH in #2916
+* Add deprecation category to release notes by @EwoutH in #2914
+* test: Update simulator.time deprecation test to expect FutureWarning by @EwoutH in #2922
+* tests: Migrate PropertyLayer portrayals from `dict` to `PropertyLayerStyle` by @Tejasv-Singh in #2920
+* Fix matplotlib figure memory leak warning in tests by @EwoutH in #2924
+* Update organization name from `projectmesa` to `mesa` by @EwoutH in #2880
+* Update dict-based agent portrayals to use `AgentPortrayalStyle` in tests by @falloficarus22 in #2934
+* Remove experimental cell_space module and update references by @EwoutH in #2969
+* Fix PropertyLayer default value type mismatch warnings by @falloficarus22 in #2963
+* test: Replace deprecated `iterations` with `rng` in batch_run tests by @EwoutH in #2984
+* End of year cleanup by @EwoutH in #2971
+* Reorganize tests to mirror source module structure by @EwoutH in #2994
+* SolaraViz: move hooks before early return in ComponentsView by @EwoutH in #2925
+* Fix reproducibility warnings by adding explicit random parameters by @codebreaker32 in #2978
+* ci: treat warnings as errors to prevent accumulation by @EwoutH in #2926
+* Reject negative time_delta in schedule_event_relative by @Nithin9585 in #2999
+* CI: Add job that runs tests with pip pre-release dependencies by @EwoutH in #1852
+* CI: Split off separate coverage job by @EwoutH in #3005
+* Model: remove unreleased `step_duration` parameter by @EwoutH in #3007
+
+## New Contributors
+* @GlyphicGuy made their first contribution in #2892
+* @aten2005 made their first contribution in #2890
+* @Tejasv-Singh made their first contribution in #2908
+* @ShreyasN707 made their first contribution in #2911
+* @Mannan-15 made their first contribution in #2948
+* @falloficarus22 made their first contribution in #2959
+* @codebreaker32 made their first contribution in #2938
+* @Nithurshen made their first contribution in #2955
+* @Nithin9585 made their first contribution in #2981
+* @ahmednabiled made their first contribution in #2990
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.3.1...v3.4.0
+
 # 3.3.1 (2025-11-07)
 ## Highlights
 Mesa 3.3.1 is a maintenance release focused on bug fixes and documentation improvements following the major 3.3.0 visualization update.
