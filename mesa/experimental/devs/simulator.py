@@ -163,10 +163,18 @@ class Simulator:
             time_delta (float| int): The time delta. The simulator is run from the current time to the current time
                                      plus the time delta
 
+        Raises:
+            Exception if simulator.setup() has not yet been called
+
         """
-        # fixme, raise initialization error or something like it if model.setup has not been called
-        end_time = self.model.time + time_delta
-        self.run_until(end_time)
+        try:
+            end_time = self.model.time + time_delta
+        except AttributeError as e:
+            raise RuntimeError(
+                "Simulator not set up. Call simulator.setup(model) first."
+            ) from e
+        else:
+            self.run_until(end_time)
 
     def schedule_event_now(
         self,
@@ -250,6 +258,13 @@ class Simulator:
             SimulationEvent: the simulation event that is scheduled
 
         """
+        if time_delta < 0:
+            raise ValueError(
+                f"Cannot schedule event in the past: time_delta ({time_delta}) "
+                f"would result in event time ({self.model.time + time_delta}) "
+                f"before current time ({self.model.time})"
+            )
+
         event = SimulationEvent(
             self.model.time + time_delta,
             function,
