@@ -1,5 +1,6 @@
 from mesa.discrete_space import FixedAgent
 
+
 class EmperorAgent(FixedAgent):
     """An agent in the Emperor's Dilemma model.
 
@@ -19,10 +20,9 @@ class EmperorAgent(FixedAgent):
         self.private_belief = private_belief
         self.conviction = conviction
         self.k = k
-        
+
         self.compliance = self.private_belief
-        self.enforcement = 0 
-        
+        self.enforcement = 0
 
     def step(self):
         """Executes one step of the agent.
@@ -40,19 +40,25 @@ class EmperorAgent(FixedAgent):
             # 2. Calculate Social Pressure (Eq 1)
             sum_enforcement = sum(n.enforcement for n in neighbors)
             pressure = (-self.private_belief / num_neighbors) * sum_enforcement
-            
+
             if pressure > self.conviction:
-                self.compliance = -self.private_belief 
+                self.compliance = -self.private_belief
             else:
                 self.compliance = self.private_belief
 
             # 3. Enforcement Decision (Eq 2 & 3)
-            deviant_neighbors = sum(1 for n in neighbors if n.compliance != self.private_belief)
+            deviant_neighbors = sum(
+                1 for n in neighbors if n.compliance != self.private_belief
+            )
             w_i = deviant_neighbors / num_neighbors
 
-            if (self.compliance != self.private_belief) and (pressure > (self.conviction + self.k)):
+            if (self.compliance != self.private_belief) and (
+                pressure > (self.conviction + self.k)
+            ):
                 self.enforcement = -self.private_belief
-            elif (self.compliance == self.private_belief) and ((self.conviction * w_i) > self.k):
+            elif (self.compliance == self.private_belief) and (
+                (self.conviction * w_i) > self.k
+            ):
                 self.enforcement = self.private_belief
             else:
                 self.enforcement = 0
