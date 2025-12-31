@@ -4,14 +4,24 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Literal
 
-import cairosvg
 import numpy as np
 from PIL import Image, ImageDraw
 
-from mesa.visualization.icons import get_icon_svg
+try:
+    from reportlab.graphics import renderPM
+    from svglib.svglib import svg2rlg
+
+    SVG_SUPPORT = True
+except ImportError:
+    SVG_SUPPORT = False
+
+from mesa.visualization.icons import get_icon_png, get_icon_svg
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -22,6 +32,10 @@ class IconCache:
 
     Stores pre-rendered icons as data URLs or numpy arrays to avoid
     redundant rendering operations.
+
+    For bundled icons, pre-rendered PNGs are used (no dependencies required).
+    For custom SVG icons, svglib+reportlab can be used (optional, pip-installable).
+    Falls back to colored circles if icons cannot be loaded.
     """
 
     def __init__(self, backend: Literal["matplotlib", "altair"] = "matplotlib"):
@@ -60,18 +74,25 @@ class IconCache:
             Icon data (data URL for altair, numpy array for matplotlib),
             or None if icon cannot be created
         """
+        if icon_name is None:
+            return None
+
         cached = self.get(icon_name, size)
         if cached is not None:
             return cached
 
         raster = self._rasterize_icon(icon_name, size)
         if raster is not None:
-            key = (icon_name, size)
-            self._cache[key] = raster
+            self._cache[(icon_name, size)] = raster
         return raster
 
     def _rasterize_icon(self, icon_name: str, size: int) -> str | np.ndarray | None:
         """Rasterize icon to appropriate format for backend.
+
+        Tries in order:
+        1. Load pre-rendered PNG (for bundled icons, no dependencies)
+        2. Convert SVG to PNG using svglib+reportlab (for custom SVGs, optional)
+        3. Fall back to colored circle marker
 
         Args:
             icon_name: Name of the icon to rasterize
@@ -81,82 +102,76 @@ class IconCache:
             Rasterized icon (data URL for altair, numpy array for matplotlib),
             or None if icon cannot be rasterized
         """
+        # Strategy 1: Try to load pre-rendered PNG
         try:
-            # Try to load and rasterize actual SVG icons
-            # Get the SVG text from the icons module
-            svg_text = get_icon_svg(icon_name)
+            png_bytes = get_icon_png(icon_name, size)
+            if png_bytes:
+                img = Image.open(BytesIO(png_bytes))
+                if img.size != (size, size):
+                    img = img.resize((size, size), Image.Resampling.LANCZOS)
+                    buffer = io.BytesIO()
+                    img.save(buffer, format="PNG")
+                    png_bytes = buffer.getvalue()
+                return self.from_png_bytes(png_bytes, self.backend)
+        except (FileNotFoundError, ValueError, OSError):
+            pass  # Try next strategy
 
-            # Icon-specific colors
-            icon_colors = {
-                "smiley": "#FFD700",  # Gold
-                "sad_face": "#28B4E7",  # Royal Blue
-                "neutral_face": "#BCB3B3",  # Gray
-            }
+        # Strategy 2: Try to convert SVG to PNG
+        if SVG_SUPPORT:
+            try:
+                svg_text = get_icon_svg(icon_name)
+                drawing = svg2rlg(BytesIO(svg_text.encode("utf-8")))
 
-            # Use icon-specific color or default
-            fill_color = icon_colors.get(icon_name, "#FFD700")
+                if not drawing:
+                    raise ValueError(f"Could not parse SVG: {icon_name}")
 
-            # Replace currentColor with the chosen color
-            svg_text = svg_text.replace("currentColor", fill_color)
-            svg_text = svg_text.replace('stroke="Black"', f'stroke="{fill_color}"')
+                scale = min(size / drawing.width, size / drawing.height)
+                drawing.width = size
+                drawing.height = size
+                drawing.scale(scale, scale)
 
-            # Make strokes thicker and more visible
-            # Replace stroke-width="1" with a thicker value based on size
-            stroke_scale = max(2, size // 16)  # Scale stroke width with icon size
-            svg_text = svg_text.replace(
-                'stroke-width="1"', f'stroke-width="{stroke_scale}"'
-            )
+                png_bytes = renderPM.drawToString(drawing, fmt="PNG")
+                return self.from_png_bytes(png_bytes, self.backend)
+            except (FileNotFoundError, ValueError) as e:
+                logger.debug(
+                    f"SVG conversion failed for {icon_name}: {e}. Trying fallback."
+                )
+            except Exception as e:
+                logger.warning(f"Unexpected error converting SVG {icon_name}: {e}")
 
-            # Optionally add a light background fill to the face circle
-            # Replace fill="none" in the face circle with a semi-transparent fill
-            svg_text = svg_text.replace(
-                'fill="none" stroke=', f'fill="{fill_color}" fill-opacity="0.2" stroke='
-            )
+        # Strategy 3: Fallback to colored circles
+        return self._create_fallback_circle(icon_name, size)
 
-            # Convert SVG to PNG using cairosvg
-            png_bytes = cairosvg.svg2png(
-                bytestring=svg_text.encode("utf-8"),
-                output_width=size,
-                output_height=size,
-            )
+    def _create_fallback_circle(self, icon_name: str, size: int) -> str | np.ndarray:
+        """Create a colored circle fallback when icon cannot be loaded.
 
-            # Convert to appropriate format for backend
-            if self.backend == "altair":
-                b64 = base64.b64encode(png_bytes).decode("utf-8")
-                return f"data:image/png;base64,{b64}"
-            elif self.backend == "matplotlib":
-                img = Image.open(BytesIO(png_bytes)).convert("RGBA")
-                return np.asarray(img)
+        Args:
+            icon_name: Icon name (used to choose color)
+            size: Size in pixels
 
-        except (ImportError, FileNotFoundError, Exception):
-            # Fallback to colored circles if cairosvg not available or icon not found
-            img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
-            draw = ImageDraw.Draw(img)
+        Returns:
+            Fallback circle in appropriate format for backend
+        """
+        img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(img)
 
-            # Draw a simple colored circle based on icon name
-            color_map = {
-                "smiley": (255, 200, 0, 255),  # Yellow
-                "sad_face": (100, 100, 255, 255),  # Blue
-                "neutral_face": (150, 150, 150, 255),  # Gray
-                "default": (100, 150, 255, 255),  # Blue
-            }
-            fallback_color = color_map.get(icon_name, color_map["default"])
+        color_map = {
+            "smiley": (255, 215, 0, 255),
+            "sad_face": (100, 149, 237, 255),
+            "neutral_face": (169, 169, 169, 255),
+        }
+        color = color_map.get(icon_name, (100, 150, 255, 255))
 
-            # Draw circle
-            margin = size // 8
-            draw.ellipse(
-                [margin, margin, size - margin, size - margin],
-                fill=fallback_color,
-                outline=None,
-            )
+        margin = size // 8
+        draw.ellipse(
+            [margin, margin, size - margin, size - margin],
+            fill=color,
+            outline=None,
+        )
 
-            # Convert to appropriate format for backend
-            if self.backend == "altair":
-                return self._to_data_url(img)
-            elif self.backend == "matplotlib":
-                return self._to_numpy(img)
-
-            return None
+        if self.backend == "altair":
+            return self._to_data_url(img)
+        return self._to_numpy(img)
 
     def _to_data_url(self, img: Image.Image) -> str:
         """Convert PIL Image to data URL for Altair.
@@ -200,8 +215,7 @@ class IconCache:
             return f"data:image/png;base64,{b64}"
         elif backend == "matplotlib":
             img = Image.open(BytesIO(png_bytes)).convert("RGBA")
-            arr = np.asarray(img)
-            return arr
+            return np.asarray(img)
         raise ValueError(f"Unsupported backend: {backend}")
 
     def clear(self):

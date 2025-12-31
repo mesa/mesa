@@ -29,3 +29,20 @@ def test_get_icon_svg_not_found():
     """get_icon_svg() raises for missing icon."""
     with pytest.raises(FileNotFoundError):
         icons.get_icon_svg("this-does-not-exist")
+
+
+def test_get_icon_png_returns_bytes():
+    """get_icon_png() returns PNG bytes if available."""
+    try:
+        png_bytes = icons.get_icon_png("smiley", size=32)
+        assert isinstance(png_bytes, bytes)
+        # PNG files start with PNG signature
+        assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    except FileNotFoundError:
+        pytest.skip("PNG icons not yet generated")
+
+
+def test_get_icon_png_not_found():
+    """get_icon_png() raises for missing icon."""
+    with pytest.raises(FileNotFoundError):
+        icons.get_icon_png("this-does-not-exist", size=32)

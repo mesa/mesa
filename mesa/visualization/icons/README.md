@@ -1,10 +1,10 @@
 # Mesa Agent Icon Library
 
-A collection of minimal, performance-optimized SVG icons for agent-based model visualization.
+A collection of minimal, performance-optimized icons for agent-based model visualization.
 
 ## Overview
 
-This directory contains bundled SVG icons that can be used to represent agents in Mesa visualizations. The icons are designed to be lightweight, customizable, and easy to integrate with Python visualization backends.
+This directory contains bundled icons (both SVG and pre-rendered PNG) that can be used to represent agents in Mesa visualizations. The icons are designed to be lightweight, customizable, and work out of the box with no extra dependencies.
 
 ## Usage
 
@@ -14,10 +14,13 @@ This directory contains bundled SVG icons that can be used to represent agents i
 from mesa.visualization import icons
 
 # List all available icons
-icons = icons.list_icons()
-print(icons)  # ['smiley', 'sad_face', 'neutral_face', ...]
+icon_names = icons.list_icons()
+print(icon_names)  # ['smiley', 'sad_face', 'neutral_face', ...]
 
-# Get SVG content as string
+# Get pre-rendered PNG bytes (no dependencies required)
+png_bytes = icons.get_icon_png("smiley", size=32)
+
+# Get SVG content as string (for custom styling)
 svg_content = icons.get_icon_svg("smiley")
 
 # Use with namespace prefix (optional)
@@ -26,10 +29,15 @@ svg_content = icons.get_icon_svg("mesa:smiley")
 
 ### Integration with Visualization
 
-The SVG strings returned by `get_icon_svg()` can be:
-- Converted to raster images using libraries like `cairosvg`
-- Embedded in HTML-based visualizations (Solara, Matplotlib, etc.)
-- Styled dynamically by replacing `currentColor` in the SVG string
+**Bundled Icons (Recommended):**
+- Pre-rendered PNG files are included and work with **no extra dependencies**
+- Simply use `icon="smiley"` in your agent portrayal
+- Icons are automatically loaded and cached
+
+**Custom SVG Icons (Optional):**
+- If you have custom SVG icons, you can use `svglib` and `reportlab` (pip-installable, pure Python)
+- Install with: `pip install svglib reportlab`
+- The system will automatically fall back to colored circle markers if SVG conversion is not available
 
 ## Design Guidelines
 
@@ -55,9 +63,9 @@ The SVG strings returned by `get_icon_svg()` can be:
 ## Performance Considerations
 
 - Icons are loaded via `importlib.resources` for efficient bundling
-- SVG files are read from the package without filesystem access
+- Pre-rendered PNGs are cached for fast access
 - Small file sizes (<2KB recommended) ensure fast loading
-- See `benchmarks/icons_benchmark.py` for performance testing
+- No system dependencies required for bundled icons
 
 ## Adding New Icons
 

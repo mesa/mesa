@@ -95,6 +95,7 @@ packages = ["mesa"]
 [tool.hatch.build]
 include = [
   "mesa/visualization/icons/*.svg",
+  "mesa/visualization/icons/*.png",
 ]
 
 [tool.hatch.version]
