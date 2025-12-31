@@ -1,3 +1,5 @@
+from model import EmperorModel
+
 from mesa.experimental.devs.simulator import DEVSimulator
 from mesa.visualization import (
     Slider,
@@ -6,13 +8,13 @@ from mesa.visualization import (
     make_plot_component,
 )
 from mesa.visualization.components.portrayal_components import AgentPortrayalStyle
-from model import EmperorModel
 
 # Colors matching Figure 2
-COLOR_COMPLY_QUIET = "#F0F8FF"    # AliceBlue
-COLOR_DEVIATE_QUIET = "lightgray" # Light Gray
+COLOR_COMPLY_QUIET = "#F0F8FF"  # AliceBlue
+COLOR_DEVIATE_QUIET = "lightgray"  # Light Gray
 COLOR_COMPLY_ENFORCE = "dimgray"  # Dark Gray
-COLOR_DEVIATE_ENFORCE = "black"   # Black
+COLOR_DEVIATE_ENFORCE = "black"  # Black
+
 
 def emperor_portrayal(agent):
     if agent is None:
@@ -37,18 +39,21 @@ def emperor_portrayal(agent):
 
     return portrayal
 
+
 def post_process_lines(ax):
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.9))
     ax.set_ylabel("Rate")
+
 
 lineplot_component = make_plot_component(
     {
         "Compliance": "tab:green",
         "Enforcement": "tab:red",
-        "False Enforcement": "tab:blue"
+        "False Enforcement": "tab:blue",
     },
     post_process=post_process_lines,
 )
+
 
 def post_process_space(ax):
     ax.set_aspect("equal")
@@ -57,6 +62,7 @@ def post_process_space(ax):
     ax.set_xlim(-0.5, 24.5)
     ax.set_ylim(-0.5, 24.5)
     ax.get_figure().set_size_inches(8, 8)
+
 
 model_params = {
     "seed": {
@@ -80,11 +86,7 @@ simulator = DEVSimulator()
 
 simulator = DEVSimulator()
 model = EmperorModel(
-    simulator=simulator,
-    fraction_true_believers=0.05,
-    k=0.125,
-    width=40,
-    height=25
+    simulator=simulator, fraction_true_believers=0.05, k=0.125, width=40, height=25
 )
 
 
@@ -94,7 +96,6 @@ renderer = SpaceRenderer(
 ).setup_agents(emperor_portrayal)
 renderer.post_process = post_process_space
 renderer.draw_agents()
-
 
 
 page = SolaraViz(
