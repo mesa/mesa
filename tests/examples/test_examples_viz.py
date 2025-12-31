@@ -54,7 +54,7 @@ def run_model_test(
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").first.screenshot()
+            initial_graph = page_session.locator("img").screenshot()
 
         # Run the model for specified number of steps
         for _ in range(steps):
