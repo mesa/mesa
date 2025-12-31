@@ -85,7 +85,10 @@ def test_backend_selection():
         ),
         (Network(G=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
         (NetworkGrid(g=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
-        (ContinuousSpace(x_max=2, y_max=2, torus=False, random=random.Random(42)), ContinuousSpaceDrawer),
+        (
+            ContinuousSpace(x_max=2, y_max=2, torus=False, random=random.Random(42)),
+            ContinuousSpaceDrawer,
+        ),
         (
             VoronoiGrid([[0, 0], [1, 1]], random=random.Random(42)),
             VoronoiSpaceDrawer,
