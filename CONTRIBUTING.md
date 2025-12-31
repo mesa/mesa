@@ -177,6 +177,42 @@ All roles are expected to:
 
 Mesa grows through good ideas and contributions. We're all volunteers working together to make Mesa better. Don't hesitate to reach out to any maintainer to discuss your interests and potential growth within the project!
 
+## Mesa examples structure and policy
+Mesa maintains a curated set of core examples within the main repository, complemented by a separate [mesa-examples](https://github.com/mesa/mesa-examples) repository for community contributions. This two-tier structure balances maintainability with community creativity.
+
+### Core examples (in `mesa/examples`)
+Core examples in the main Mesa repository are classic, well-known agent-based models that demonstrate Mesa's capabilities and serve as learning resources. They are organized into two categories:
+
+- **Basic Examples** use only stable Mesa features and are ideal starting points for beginners.
+- **Advanced Examples** are more complex models that may use experimental features to demonstrate advanced concepts.
+
+Core examples are:
+- Tested in CI, including batch runs and visualizations
+- Maintained to high code quality standards
+- Updated to work with each Mesa release
+- Documented and included in ReadTheDocs
+- Some are used in performance benchmarking
+
+### Community examples (in mesa-examples)
+The [mesa-examples](https://github.com/mesa/mesa-examples) repository serves as a gallery for user-contributed models and creative applications of Mesa. We welcome diverse contributions here with more relaxed maintenance requirements. Examples in this repository should include:
+- A clear README explaining the model
+- Requirements or environment files for reproducibility
+- Working code compatible with at least one Mesa major version
+
+We accept contributions liberally to this repository to showcase the breadth of Mesa applications, even if we cannot actively maintain all examples long-term.
+
+### Contributing examples
+When contributing a new example, consider:
+- **For core examples**: Propose additions through a GitHub discussion first. Core examples should be:
+  - widely-recognized canonical models
+  - demonstrate specific Mesa features effectively (that are not already sufficiently demonstrated by other models)
+- **For community examples**: Open a PR directly to mesa-examples with your model, README, and environment file.
+- **Improving existing examples**: PRs to update or enhance any example are always welcome in either repository.
+
+This structure allows us to maintain a stable, high-quality set of learning resources while encouraging community creativity and diverse applications of Mesa.
+
+Historical context and further motivation can be found in discussion [#2330](https://github.com/mesa/mesa/discussions/2330) and PR [#2349](https://github.com/mesa/mesa/pull/2349).
+
 ## Maintainers' notes
 Some notes useful for Mesa maintainers.
 

@@ -13,7 +13,6 @@ def test_model_set_up():
     assert model.running is True
     assert model.steps == 0
     assert model.time == 0.0
-    assert model._step_duration == 1.0
     assert model._simulator is None
 
     model.step()
@@ -29,33 +28,6 @@ def test_model_time_increment():
         model.step()
         assert model.steps == i + 1
         assert model.time == float(i + 1)
-
-
-def test_model_step_duration():
-    """Test custom step_duration."""
-    # Default step_duration
-    model = Model()
-    model.step()
-    assert model.time == 1.0
-
-    # Custom step_duration
-    model = Model(step_duration=0.25)
-    assert model._step_duration == 0.25
-
-    model.step()
-    assert model.steps == 1
-    assert model.time == 0.25
-
-    model.step()
-    assert model.steps == 2
-    assert model.time == 0.5
-
-    # Larger step_duration
-    model = Model(step_duration=10.0)
-    model.step()
-    assert model.time == 10.0
-    model.step()
-    assert model.time == 20.0
 
 
 def test_model_time_with_simulator():

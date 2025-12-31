@@ -487,7 +487,7 @@ def test_networkgrid():
 
     pickle.loads(pickle.dumps(grid))  # noqa: S301
 
-    cell = Cell(10)  # n = 10, so 10 + 1
+    cell = Cell(10, random=random.Random(42))  # n = 10, so 10 + 1
     grid.add_cell(cell)
     grid.add_connection(cell, grid._cells[0])
     assert cell in grid._cells[0].neighborhood
@@ -497,7 +497,7 @@ def test_networkgrid():
     assert cell not in grid._cells[0].neighborhood
     assert grid._cells[0] not in cell.neighborhood
 
-    cell = Cell(10)  # n = 10, so 10 + 1
+    cell = Cell(10, random=random.Random(42))  # n = 10, so 10 + 1
     grid.add_cell(cell)
     grid.add_connection(cell, grid._cells[0])
     grid.remove_cell(cell)  # this also removes all connections
@@ -1092,3 +1092,21 @@ def test_select_random_agent_empty_safe():
         empty_collection.select_random_agent()
     assert empty_collection.select_random_agent(default=None) is None
     assert empty_collection.select_random_agent(default="Empty") == "Empty"
+
+
+def test_infinite_loop_on_full_grid():
+    """Test that select_random_empty_cell does not hang on a full grid."""
+    # 1. Create a small 2x2 model
+    model = Model()
+    grid = OrthogonalMooreGrid((2, 2), random=model.random)
+
+    # 2. Fill the grid completely
+    for cell in grid.all_cells:
+        agent = CellAgent(model)
+        agent.cell = cell
+
+    # 3. Verify grid is full
+    assert len(grid.empties) == 0
+
+    with pytest.raises(IndexError):
+        grid.select_random_empty_cell()

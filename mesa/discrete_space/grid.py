@@ -141,7 +141,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             raise ValueError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
-        # FIXME:: currently just a simple boolean to control behavior
+        # Use a heuristic: try random sampling first for performance (O(1))
         # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
         # FIXME:: note however that the old results don't apply because in this implementation
         # FIXME:: because empties list needs to be rebuild each time
@@ -151,12 +151,14 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
         if self._try_random:
-            while True:
+            # Limit attempts to avoid infinite loops on full grids
+            for _ in range(50):
                 cell = self.all_cells.select_random_cell()
                 if cell.is_empty:
                     return cell
-        else:
-            return super().select_random_empty_cell()
+
+        # Fallback to the robust parent method (O(N)) if random sampling fails
+        return super().select_random_empty_cell()
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate

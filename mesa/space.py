@@ -21,8 +21,7 @@ Classes
 * NetworkGrid: a network where each node contains zero or more agents.
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import collections

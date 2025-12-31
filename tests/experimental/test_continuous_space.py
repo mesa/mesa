@@ -430,3 +430,63 @@ def test_get_neighbor_methos():  # noqa: D103
     agents, distances = agent.get_nearest_neighbors(k=2)
     assert len(agents) == 2
     assert np.allclose(distances, [0.2, 0.2])
+
+
+def test_agent_removal_no_ghost_entries():
+    """Test that removing an agent doesn't leave ghost entries in _index_to_agent.
+
+    This test verifies the fix for the "Ghost Agent" bug where removing an agent
+    from ContinuousSpace would leave stale entries in the internal _index_to_agent
+    dictionary. The bug occurred because when agents were shifted to fill the gap
+    left by a removed agent, the old index entry of the last shifted agent was not
+    deleted.
+
+    Regression test for GitHub issue #3029.
+    """
+    model = Model(seed=42)
+    dimensions = np.asarray([[0, 10], [0, 10]])
+
+    # Test 1: Remove middle agent
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+    agents = []
+    for i in range(3):
+        agent = ContinuousSpaceAgent(space, model)
+        agent.position = [float(i), float(i)]
+        agents.append(agent)
+
+    space._remove_agent(agents[1])
+    assert len(space.active_agents) == 2
+    assert len(space._index_to_agent) == 2
+    assert len(space._agent_to_index) == 2
+
+    for idx, agent in enumerate(space.active_agents):
+        assert space._agent_to_index[agent] == idx
+        assert space._index_to_agent[idx] == agent
+
+    # Test 2: Remove last agent
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(3)]
+    for i, agent in enumerate(agents):
+        agent.position = [float(i), float(i)]
+
+    space._remove_agent(agents[2])
+    assert len(space.active_agents) == 2
+    assert len(space._index_to_agent) == 2
+
+    # Test 3: Sequential removals
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(5)]
+    for i, agent in enumerate(agents):
+        agent.position = [float(i), float(i)]
+
+    space._remove_agent(agents[2])
+    assert len(space.active_agents) == 4
+    assert len(space._index_to_agent) == 4
+
+    space._remove_agent(agents[0])
+    assert len(space.active_agents) == 3
+    assert len(space._index_to_agent) == 3
+
+    for idx, agent in enumerate(space.active_agents):
+        assert space._agent_to_index[agent] == idx
+        assert space._index_to_agent[idx] == agent

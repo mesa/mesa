@@ -10,7 +10,9 @@ class ConwaysGameOfLife(Model):
         """Create a new playing area of (width, height) cells."""
         super().__init__(seed=seed)
         # Use a simple grid, where edges wrap around.
-        self.grid = OrthogonalMooreGrid((width, height), capacity=1, torus=True)
+        self.grid = OrthogonalMooreGrid(
+            (width, height), capacity=1, random=self.random, torus=True
+        )
 
         # Place a cell at each location, with some initialized to
         # ALIVE and some to DEAD.
