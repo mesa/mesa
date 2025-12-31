@@ -1092,3 +1092,21 @@ def test_select_random_agent_empty_safe():
         empty_collection.select_random_agent()
     assert empty_collection.select_random_agent(default=None) is None
     assert empty_collection.select_random_agent(default="Empty") == "Empty"
+
+
+def test_infinite_loop_on_full_grid():
+    """Test that select_random_empty_cell does not hang on a full grid."""
+    # 1. Create a small 2x2 model
+    model = Model()
+    grid = OrthogonalMooreGrid((2, 2), random=model.random)
+
+    # 2. Fill the grid completely
+    for cell in grid.all_cells:
+        agent = CellAgent(model)
+        agent.cell = cell
+
+    # 3. Verify grid is full
+    assert len(grid.empties) == 0
+
+    with pytest.raises(IndexError):
+        grid.select_random_empty_cell()
