@@ -90,7 +90,12 @@ def test_devs_simulator():
     assert len(simulator.event_list) == 0
     assert simulator.model is None
 
-    # run without setup
+    # run_for without setup
+    simulator = DEVSimulator()
+    with pytest.raises(RuntimeError, match="Simulator not set up"):
+        simulator.run_for(1.0)
+
+    # run_until without setup
     simulator = DEVSimulator()
     with pytest.raises(Exception):
         simulator.run_until(10)
@@ -127,10 +132,15 @@ def test_abm_simulator():
     assert model.steps == 3
     assert model.time == 3.0
 
-    # run without setup
+    # run_until without setup
     simulator = ABMSimulator()
     with pytest.raises(Exception):
         simulator.run_until(10)
+
+    # run_for without setup
+    simulator = ABMSimulator()
+    with pytest.raises(RuntimeError, match="Simulator not set up"):
+        simulator.run_for(3)
 
 
 def test_simulator_time_deprecation():
