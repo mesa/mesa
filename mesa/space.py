@@ -821,6 +821,7 @@ class _PropertyGrid(_Grid):
         self.properties = {}
 
         # Initialize an empty mask as a boolean NumPy array
+        # True = cell is empty, False = cell is occupied
         self._empty_mask = np.ones((self.width, self.height), dtype=bool)
 
         # Handle both single PropertyLayer instance and list of PropertyLayer instances
