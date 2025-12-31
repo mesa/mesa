@@ -107,4 +107,4 @@ page = SolaraViz(
     simulator=simulator,
 )
 
-page
+page #noqa
