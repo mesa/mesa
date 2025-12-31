@@ -488,6 +488,161 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
             dc_function.collect(self.model)
 
 
+class TestMethodReporterValidation(unittest.TestCase):
+    """Tests for method reporter validation fix.
+
+    These tests verify that the fix for method reporter validation in
+    DataCollector._validate_model_reporter() works correctly.
+
+    The fix changes:
+        BEFORE: if not callable(reporter) and not isinstance(reporter, types.LambdaType):
+                    pass
+
+        AFTER:  if callable(reporter) and not isinstance(reporter, types.LambdaType):
+                    try:
+                        reporter()
+                    except Exception as e:
+                        raise RuntimeError(...)
+    """
+
+    def test_broken_method_reporter_raises_runtime_error(self):
+        """Test that a broken method reporter raises RuntimeError with clear message.
+
+        ORIGINAL BUG: The condition `not callable(reporter)` is False for methods,
+        so method reporters were never validated. Broken methods would only fail
+        during collect(), with an unclear error message.
+
+        FIX: Changed to `callable(reporter)` so methods ARE validated.
+        """
+
+        class BrokenModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.datacollector = DataCollector(
+                    model_reporters={"Broken": self.broken_method}
+                )
+
+            def broken_method(self):
+                # This method has a bug - references non-existent attribute
+                return self.nonexistent_attr
+
+        model = BrokenModel()
+
+        # Before fix: This would raise AttributeError without context
+        # After fix: This raises RuntimeError with reporter name
+        with self.assertRaises(RuntimeError) as context:
+            model.datacollector.collect(model)
+
+        # Verify error message contains the reporter name for easy debugging
+        self.assertIn("Broken", str(context.exception))
+        self.assertIn("failed validation", str(context.exception))
+
+    def test_working_method_reporter_succeeds(self):
+        """Test that working method reporters continue to work correctly.
+
+        This ensures the fix doesn't break valid use cases.
+        """
+
+        class WorkingModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.value = 42
+                self.datacollector = DataCollector(
+                    model_reporters={"Value": self.get_value}
+                )
+
+            def get_value(self):
+                return self.value
+
+        model = WorkingModel()
+        model.datacollector.collect(model)
+
+        data = model.datacollector.get_model_vars_dataframe()
+        self.assertEqual(data["Value"][0], 42)
+
+    def test_method_reporter_exception_is_wrapped(self):
+        """Test that exceptions from method reporters are wrapped in RuntimeError.
+
+        This provides better error messages for debugging.
+        """
+
+        class ExceptionModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.datacollector = DataCollector(
+                    model_reporters={"Raises": self.raising_method}
+                )
+
+            def raising_method(self):
+                raise ValueError("Something went wrong in the reporter")
+
+        model = ExceptionModel()
+
+        with self.assertRaises(RuntimeError) as context:
+            model.datacollector.collect(model)
+
+        # Error message should contain both reporter name and original error
+        error_msg = str(context.exception)
+        self.assertIn("Raises", error_msg)
+        self.assertIn("Something went wrong", error_msg)
+
+    def test_mixed_lambda_and_method_reporters(self):
+        """Test that lambdas and method reporters work together correctly.
+
+        Validates that the fix doesn't interfere with lambda reporter handling.
+        """
+
+        class MixedModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.value = 10
+                self.datacollector = DataCollector(
+                    model_reporters={
+                        "Lambda": lambda m: m.value,
+                        "Method": self.double_value,
+                    }
+                )
+
+            def double_value(self):
+                return self.value * 2
+
+        model = MixedModel()
+        model.datacollector.collect(model)
+
+        data = model.datacollector.get_model_vars_dataframe()
+        self.assertEqual(data["Lambda"][0], 10)
+        self.assertEqual(data["Method"][0], 20)
+
+    def test_method_reporter_called_without_args(self):
+        """Test that method reporters are called without arguments.
+
+        Bound methods (self.method) already have 'self' bound, so they should
+        be called with reporter() not reporter(model).
+
+        This matches how collect() calls them at line 341:
+            self.model_vars[var].append(deepcopy(reporter()))
+        """
+
+        class ArgCheckModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.call_count = 0
+                self.datacollector = DataCollector(
+                    model_reporters={"CallCount": self.count_calls}
+                )
+
+            def count_calls(self):
+                # This method takes no args besides self (which is already bound)
+                self.call_count += 1
+                return self.call_count
+
+        model = ArgCheckModel()
+        model.datacollector.collect(model)
+
+        # Validation call + actual collect call = at least 1
+        self.assertGreaterEqual(model.call_count, 1)
+
+
 def test_mutable_data_independence():
     """Test that mutable agent data is deep-copied, preventing historical records from changing."""
 
