@@ -187,8 +187,19 @@ class SpaceRenderer:
         icon_sizes = []
 
         for p in portrayals:
-            icon_name = p.get("icon")
-            size = int(p.get("icon_size", p.get("size", self.space_drawer.s_default)))
+            if isinstance(p, dict):
+                icon_name = p.get("icon")
+                size = int(
+                    p.get("icon_size", p.get("size", self.space_drawer.s_default))
+                )
+            else:
+                # It's an AgentPortrayalStyle object
+                icon_name = getattr(p, "icon", None)
+                size = int(
+                    getattr(
+                        p, "icon_size", getattr(p, "size", self.space_drawer.s_default)
+                    )
+                )
             raster = (
                 self._icon_cache.get_or_create(icon_name, size) if icon_name else None
             )

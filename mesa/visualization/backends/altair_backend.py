@@ -264,7 +264,7 @@ class AltairBackend(AbstractRenderer):
         fill_colors = []
         stroke_colors = []
         for i in range(len(df)):
-            filled = df["is_filled"][i]
+            filled = df["is_filled"].iloc[i]
             main_color = df["original_color"][i]
             stroke_spec = (
                 df["original_stroke"][i]
