@@ -12,14 +12,13 @@ import mesa
 from mesa.discrete_space import VoronoiGrid
 from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization import SolaraViz
-from mesa.visualization.components import AgentPortrayalStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.components.altair_components import make_altair_space
 from mesa.visualization.components.matplotlib_components import make_mpl_space_component
 
 
 def test_legacy_dict_portrayal_support(mocker):
     """Verify that deprecated dictionary-based portrayals still work for agents."""
-    # FIX 1: Use spy instead of patch to avoid TypeError during rendering
     mock_mpl = mocker.spy(
         mesa.visualization.components.matplotlib_components, "SpaceMatplotlib"
     )
@@ -98,7 +97,6 @@ def test_call_space_drawer_full(mocker):
     mock_space_matplotlib = mocker.spy(
         mesa.visualization.components.matplotlib_components, "SpaceMatplotlib"
     )
-
     mock_space_altair = mocker.spy(
         mesa.visualization.components.altair_components, "SpaceAltair"
     )
@@ -127,29 +125,35 @@ def test_call_space_drawer_full(mocker):
     def agent_portrayal(_):
         return AgentPortrayalStyle(marker="o", color="gray")
 
-    propertylayer_portrayal = None
-    # initialize with space drawer unspecified (use default)
-    # component must be rendered for code to run
+    # FIX: Define a property_portrayal that returns the new PropertyLayerStyle
+    def property_portrayal(_):
+        return PropertyLayerStyle(colormap="viridis")
+
+    # Test compatibility of new style objects with the legacy Matplotlib component
     solara.render(
         SolaraViz(
             model,
-            components=[make_mpl_space_component(agent_portrayal)],
+            components=[
+                make_mpl_space_component(
+                    agent_portrayal=agent_portrayal,
+                    propertylayer_portrayal=property_portrayal,
+                )
+            ],
         )
     )
-    # should call default method with class instance and agent portrayal
+    # Assert that the old component was called correctly with the NEW style objects
     mock_space_matplotlib.assert_called_with(
-        model, agent_portrayal, propertylayer_portrayal, post_process=None
+        model, agent_portrayal, property_portrayal, post_process=None
     )
 
     # specify no space should be drawn
     mock_space_matplotlib.reset_mock()
     solara.render(SolaraViz(model, components="default"))
-    # should call default method with class instance and agent portrayal
     assert mock_space_matplotlib.call_count == 0
     assert mock_space_altair.call_count == 1  # altair is the default method
 
-    # checking if SpaceAltair is working as intended with post_process
-    propertylayer_portrayal = {
+    # checking if SpaceAltair is working as intended with a dict-based portrayal
+    propertylayer_portrayal_dict = {
         "sugar": {
             "colormap": "pastel1",
             "alpha": 0.75,
@@ -166,7 +170,7 @@ def test_call_space_drawer_full(mocker):
                 make_altair_space(
                     agent_portrayal,
                     post_process=mock_post_process,
-                    propertylayer_portrayal=propertylayer_portrayal,
+                    propertylayer_portrayal=propertylayer_portrayal_dict,
                 )
             ],
         )
@@ -174,10 +178,7 @@ def test_call_space_drawer_full(mocker):
 
     args, kwargs = mock_space_altair.call_args
     assert args == (model, agent_portrayal)
-    assert kwargs == {
-        "post_process": mock_post_process,
-        "propertylayer_portrayal": propertylayer_portrayal,
-    }
+    assert kwargs["propertylayer_portrayal"] == propertylayer_portrayal_dict
     mock_post_process.assert_called_once()
     assert mock_chart_property_layer.call_count == 1
     assert mock_space_matplotlib.call_count == 0

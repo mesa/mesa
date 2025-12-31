@@ -54,7 +54,7 @@ def run_model_test(
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = page_session.locator("img").first.screenshot()
 
         # Run the model for specified number of steps
         for _ in range(steps):
@@ -72,12 +72,12 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").screenshot()
+        changed_space = page_session.locator("img").first.screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").screenshot()
+            changed_graph = page_session.locator("img").last.screenshot()
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()

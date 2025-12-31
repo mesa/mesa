@@ -107,11 +107,7 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
 
 @pytest.mark.parametrize("backend", ["matplotlib", "altair"])
 def test_solara_viz_backends(mocker, backend):
-    """Validates BOTH backends using the modern API.
-
-    This resolves Issue #2993 by ensuring Altair coverage parity with
-    Matplotlib for AgentPortrayalStyle and PropertyLayerStyle.
-    """
+    """Validates BOTH backends using the modern API."""
     spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
     spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
     spy_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
@@ -132,7 +128,6 @@ def test_solara_viz_backends(mocker, backend):
     def property_portrayal(_):
         return PropertyLayerStyle(colormap="viridis")
 
-    # Use the modern SpaceRenderer
     renderer = (
         SpaceRenderer(model, backend=backend)
         .setup_agents(agent_portrayal)
@@ -142,16 +137,13 @@ def test_solara_viz_backends(mocker, backend):
 
     solara.render(SolaraViz(model, renderer, components=[]))
 
-    # General assertions
     assert renderer.backend == backend
 
-    # Add specific backend checks as requested
     if backend == "matplotlib":
         assert isinstance(renderer.backend_renderer, MatplotlibBackend)
     elif backend == "altair":
         assert isinstance(renderer.backend_renderer, AltairBackend)
 
-    # Add robust assertions as requested
     spy_structure.assert_called_with(renderer)
     spy_agents.assert_called_with(renderer)
     spy_properties.assert_called_with(renderer)
