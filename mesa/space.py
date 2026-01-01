@@ -821,6 +821,7 @@ class _PropertyGrid(_Grid):
         self.properties = {}
 
         # Initialize an empty mask as a boolean NumPy array
+        # True = cell is empty, False = cell is occupied
         self._empty_mask = np.ones((self.width, self.height), dtype=bool)
 
         # Handle both single PropertyLayer instance and list of PropertyLayer instances
@@ -1042,7 +1043,7 @@ class MultiGrid(_PropertyGrid):
             agent.pos = pos
             if self._empties_built:
                 self._empties.discard(pos)
-                self._empty_mask[agent.pos] = True
+            self._empty_mask[pos] = False
 
     def remove_agent(self, agent: Agent) -> None:
         """Remove the agent from the given location and set its pos attribute to None."""
@@ -1051,7 +1052,8 @@ class MultiGrid(_PropertyGrid):
         self._grid[x][y].remove(agent)
         if self._empties_built and self.is_cell_empty(pos):
             self._empties.add(pos)
-            self._empty_mask[agent.pos] = False
+        if self.is_cell_empty(pos):
+            self._empty_mask[pos] = True
         agent.pos = None
 
     def iter_neighbors(  # noqa: D102
