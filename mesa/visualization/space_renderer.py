@@ -34,6 +34,8 @@ from mesa.space import (
     _HexGrid,
 )
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.icon_altair_layer import build_altair_agent_chart
+from mesa.visualization.icon_cache import IconCache
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
     HexSpaceDrawer,
@@ -51,19 +53,24 @@ class SpaceRenderer:
     """Renders Mesa spaces using different visualization backends.
 
     Supports multiple space types and backends for flexible visualization
-    of agent-based models.
+    of agent-based models. Includes optional icon rendering support.
     """
 
     def __init__(
         self,
         model: mesa.Model,
         backend: Literal["matplotlib", "altair"] | None = "matplotlib",
+        **kwargs,
     ):
         """Initialize the space renderer.
 
         Args:
             model (mesa.Model): The Mesa model to render.
             backend (Literal["matplotlib", "altair"] | None): The visualization backend to use.
+            **kwargs: Additional keyword arguments:
+            - icon_mode: "off", "auto", or "force" (default: "off")
+            - icon_auto_max_agents: Max agents for auto icon mode (default: 1500)
+            - icon_culling: Enable culling for icons (default: True)
         """
         self.space = getattr(model, "grid", getattr(model, "space", None))
 
@@ -72,19 +79,24 @@ class SpaceRenderer:
         self.space_mesh = None
         self.agent_mesh = None
         self.propertylayer_mesh = None
-
-        self.draw_agent_kwargs = {}
-        self.draw_space_kwargs = {}
-
-        self.agent_portrayal = None
-        self.propertylayer_portrayal = None
-
         self.post_process_func = None
         # Keep track of whether post-processing has been applied
         # to avoid multiple applications on the same axis.
         self._post_process_applied = False
 
         self.backend = backend
+
+        # Store portrayal and kwargs for setup/render workflow
+        self.agent_portrayal = None
+        self.propertylayer_portrayal = None
+        self.draw_agent_kwargs = {}
+        self.draw_space_kwargs = {}
+
+        # Icon rendering configuration
+        self.icon_mode = kwargs.pop("icon_mode", "off")  # "off", "auto", "force"
+        self.icon_auto_max_agents = kwargs.pop("icon_auto_max_agents", 1500)
+        self.icon_culling = kwargs.pop("icon_culling", True)
+        self._icon_cache = IconCache(backend=self.backend)
 
         if backend == "matplotlib":
             self.backend_renderer = MatplotlibBackend(
@@ -156,22 +168,63 @@ class SpaceRenderer:
             # Map coordinates for Network spaces
             loc = arguments["loc"].astype(float)
             pos = np.asarray(list(self.space_drawer.pos.values()))
-            # For network only both x and y contains the correct coordinates
-            # use one of them
-            x = loc[:, 0]
-            if x is None:
-                x = loc[:, 1]
-
-            # Ensure x is an integer index for the position mapping
-            x = x.astype(int)
-
-            # FIXME: Find better way to handle this case
-            # x updates before pos can, therefore gives us index error that
-            # needs to be ignored.
+            x = (
+                loc[:, 0]
+                if loc.size > 0 and loc[:, 0] is not None
+                else (loc[:, 1] if loc.size > 0 else np.array([]))
+            )
+            x = x.astype(int) if x.size > 0 else x
             with contextlib.suppress(IndexError):
-                mapped_arguments["loc"] = pos[x]
+                if x.size > 0:
+                    mapped_arguments["loc"] = pos[x]
 
         return mapped_arguments
+
+    def _maybe_enrich_with_icons(self, arguments):
+        """Enrich arguments with cached icon rasters/URLs if portrayal requests icons."""
+        portrayals = arguments.get("portrayals")
+
+        if portrayals is None or not isinstance(portrayals, (list, np.ndarray)):
+            return arguments
+
+        icon_rasters = []
+        icon_names = []
+        icon_sizes = []
+
+        for p in portrayals:
+            if isinstance(p, dict):
+                icon_name = p.get("icon")
+                size = int(
+                    p.get("icon_size", p.get("size", self.space_drawer.s_default))
+                )
+            else:
+                # It's an AgentPortrayalStyle object
+                icon_name = getattr(p, "icon", None)
+                size = int(
+                    getattr(
+                        p, "icon_size", getattr(p, "size", self.space_drawer.s_default)
+                    )
+                )
+            raster = (
+                self._icon_cache.get_or_create(icon_name, size) if icon_name else None
+            )
+
+            icon_rasters.append(raster)
+            icon_names.append(icon_name)
+            icon_sizes.append(size)
+
+        arguments["icon_names"] = icon_names
+        arguments["icon_sizes"] = icon_sizes
+        arguments["icon_rasters"] = icon_rasters
+
+        # Group icons by name and size for batch rendering
+        groups = {}
+        for idx, (iname, isize) in enumerate(zip(icon_names, icon_sizes)):
+            if iname:
+                groups.setdefault((iname, isize), []).append(idx)
+        arguments["icon_groups"] = groups
+
+        return arguments
 
     def setup_structure(self, **kwargs) -> SpaceRenderer:
         """Setup the space structure without drawing.
@@ -258,7 +311,7 @@ class SpaceRenderer:
         if agent_portrayal is not None:
             warnings.warn(
                 "Passing agent_portrayal to draw_agents() is deprecated. "
-                "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents().",
+                "Use setup_agents(agent_portrayal) before calling draw_agents().",
                 PendingDeprecationWarning,
                 stacklevel=2,
             )
@@ -277,7 +330,30 @@ class SpaceRenderer:
             self.space, self.agent_portrayal, default_size=self.space_drawer.s_default
         )
         arguments = self._map_coordinates(arguments)
+        arguments = self._maybe_enrich_with_icons(arguments)
 
+        # Use icon rendering for Altair if conditions are met
+        if (
+            self.backend == "altair"
+            and self.icon_mode != "off"
+            and "icon_rasters" in arguments
+            and any(r is not None for r in arguments.get("icon_rasters", []))
+        ):
+            n_agents = len(arguments.get("size", []))
+            if self.icon_mode == "force" or n_agents <= self.icon_auto_max_agents:
+                self.agent_mesh = build_altair_agent_chart(
+                    arguments=arguments,
+                    space_drawer=self.space_drawer,
+                    chart_width=self.draw_agent_kwargs.get("chart_width", 450),
+                    chart_height=self.draw_agent_kwargs.get("chart_height", 350),
+                    title=self.draw_agent_kwargs.get("title", ""),
+                    xlabel=self.draw_agent_kwargs.get("xlabel", ""),
+                    ylabel=self.draw_agent_kwargs.get("ylabel", ""),
+                    enable_culling=self.icon_culling,
+                )
+                return self.agent_mesh
+
+        # Fall back to standard backend rendering
         self.agent_mesh = self.backend_renderer.draw_agents(
             arguments, **self.draw_agent_kwargs
         )
