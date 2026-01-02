@@ -297,7 +297,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
 
         with self.assertRaises(ValueError) as cm:
             data_collector.collect(self.model)
-        
+
         self.assertIn("not recognized as an Agent type", str(cm.exception))
 
     def test_agenttype_reporter_string_attribute(self):
