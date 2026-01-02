@@ -57,9 +57,13 @@ viz = [
   "solara",
   "altair",
 ]
+adaptive = [
+    "scikit-learn",
+    "scipy",
+]
 # Dev and CI stuff
 dev = [
-  "mesa[rec]",
+  "mesa[rec, adaptive]",
   "ruff",
   "pytest",
   "pytest-cov",
