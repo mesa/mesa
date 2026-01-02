@@ -6,7 +6,13 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from mesa.space import ContinuousSpace, NetworkGrid, PropertyLayer, SingleGrid
+from mesa.space import (
+    ContinuousSpace,
+    MultiGrid,
+    NetworkGrid,
+    PropertyLayer,
+    SingleGrid,
+)
 from tests.discrete_space.test_grid import MockAgent
 
 TEST_AGENTS = [(-20, -20), (-20, -20.05), (65, 18)]
@@ -1024,6 +1030,36 @@ class TestMultipleNetworkGrid(unittest.TestCase):  # noqa: D101
             self.agents[1],
             self.agents[2],
         ]
+
+
+class TestMultiGridEmptyMask(unittest.TestCase):  # noqa: D101
+    def test_empty_mask_update(self):  # noqa: D102
+        grid = MultiGrid(10, 10, False)
+        agent = MockAgent(0)
+
+        self.assertTrue(grid._empty_mask[5, 5])
+
+        grid.place_agent(agent, (5, 5))
+        self.assertFalse(grid._empty_mask[5, 5])
+        self.assertNotIn((5, 5), grid.select_cells(only_empty=True))
+
+        grid.remove_agent(agent)
+        self.assertTrue(grid._empty_mask[5, 5])
+
+    def test_empty_mask_multiple_agents(self):  # noqa: D102
+        grid = MultiGrid(10, 10, False)
+        agent1 = MockAgent(0)
+        agent2 = MockAgent(1)
+
+        grid.place_agent(agent1, (5, 5))
+        grid.place_agent(agent2, (5, 5))
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent1)
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent2)
+        self.assertTrue(grid._empty_mask[5, 5])
 
 
 if __name__ == "__main__":

@@ -165,9 +165,16 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        # Type 2: Method of class/instance
-        if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-            pass
+        # Type 2: Method of class/instance (bound methods are callable)
+        if callable(reporter) and not isinstance(reporter, types.LambdaType):
+            try:
+                reporter()  # Call without args for bound methods
+            except Exception as e:
+                raise RuntimeError(
+                    f"Method reporter '{name}' failed validation: {e!s}"
+                ) from e
+        # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
+        #     pass
 
         # Type 3: Model attribute (string)
         if isinstance(reporter, str):
@@ -176,7 +183,7 @@ class DataCollector:
                     raise AttributeError(
                         f"Model reporter '{name}' references non-existent attribute '{reporter}'\n"
                     )
-                getattr(model, reporter)  # 验证属性是否可访问
+                getattr(model, reporter)  # verify attribute is accessible
             except AttributeError as e:
                 raise AttributeError(
                     f"Model reporter '{name}' attribute validation failed: {e!s}\n"
