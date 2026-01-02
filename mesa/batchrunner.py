@@ -265,14 +265,18 @@ def _collect_data(
         else:
             # Step not found in _collection_steps, try fallback with bounds check
             try:
-                model_data = {param: values[step] for param, values in dc.model_vars.items()}
+                model_data = {
+                    param: values[step] for param, values in dc.model_vars.items()
+                }
             except IndexError:
                 # If index out of range, skip this step
                 model_data = {}
     else:
         # Legacy DataCollector without _collection_steps - use index-based access
         try:
-            model_data = {param: values[step] for param, values in dc.model_vars.items()}
+            model_data = {
+                param: values[step] for param, values in dc.model_vars.items()
+            }
         except IndexError:
             model_data = {}
 

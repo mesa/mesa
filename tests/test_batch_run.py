@@ -364,6 +364,7 @@ def test_iterations_deprecation_warning():
 
 class TimeDilationModel(Model):
     """Model that collects data multiple times per step to test BatchRunner alignment."""
+
     def __init__(self, *args, **kwargs):
         """Initialize the model."""
         self.schedule = None
@@ -391,7 +392,7 @@ def test_batch_run_time_dilation():
         rng=[None],  # Use rng instead of iterations to avoid deprecation warning
         max_steps=5,
         data_collection_period=1,
-        display_progress=False
+        display_progress=False,
     )
 
     # We expect to find data for 'Step 5'
@@ -400,15 +401,17 @@ def test_batch_run_time_dilation():
     reported_step = last_result["Step"]
     actual_step_data = last_result["RealStep"]
 
-    assert reported_step == actual_step_data, \
+    assert reported_step == actual_step_data, (
         f"BatchRunner returned data from Step {actual_step_data} when asked for Step {reported_step}"
+    )
 
 
 def test_batch_run_legacy_datacollector():
     """Test batch_run with DataCollector missing _collection_steps (backwards compatibility)."""
-    
+
     class LegacyModel(Model):
         """Model simulating old DataCollector without _collection_steps."""
+
         def __init__(self, *args, **kwargs):
             self.schedule = None
             super().__init__()
@@ -417,11 +420,11 @@ def test_batch_run_legacy_datacollector():
             )
             # Remove _collection_steps to simulate old DataCollector
             delattr(self.datacollector, "_collection_steps")
-        
+
         def step(self):
             super().step()
             self.datacollector.collect(self)
-    
+
     results = mesa.batch_run(
         LegacyModel,
         parameters={},
@@ -429,9 +432,9 @@ def test_batch_run_legacy_datacollector():
         rng=[None],
         max_steps=3,
         data_collection_period=1,
-        display_progress=False
+        display_progress=False,
     )
-    
+
     # Should fallback to index-based access
     assert len(results) > 0
     assert "Value" in results[0]
@@ -439,9 +442,10 @@ def test_batch_run_legacy_datacollector():
 
 def test_batch_run_missing_step():
     """Test batch_run when requested step not found in _collection_steps."""
-    
+
     class SparseModel(Model):
         """Model that skips some collections to test edge cases."""
+
         def __init__(self, *args, **kwargs):
             self.schedule = None
             super().__init__()
@@ -450,13 +454,13 @@ def test_batch_run_missing_step():
             )
             # Collect initial state
             self.datacollector.collect(self)
-        
+
         def step(self):
             super().step()
             # Collect on steps 2, 4, 6 to create gaps
             if self.steps in [2, 4, 6]:
                 self.datacollector.collect(self)
-    
+
     # Request data for a step that wasn't collected (step 5)
     # The fallback should handle this gracefully
     results = mesa.batch_run(
@@ -466,8 +470,8 @@ def test_batch_run_missing_step():
         rng=[None],
         max_steps=6,
         data_collection_period=1,
-        display_progress=False
+        display_progress=False,
     )
-    
+
     # Should handle sparse collection - may have fewer results
     assert len(results) >= 0
