@@ -1,7 +1,9 @@
 """Test the DataCollector."""
 
 import unittest
+
 import pandas as pd
+
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 
@@ -212,25 +214,25 @@ class TestDataCollector(unittest.TestCase):
 
         with self.assertRaises(Exception):
             data_collector.add_table_row("Final_Values", {"final_value": 10})
-    
+
     def test_table_ignore_missing(self):
         """Test table collection with ignore_missing=True."""
         data_collector = self.model.datacollector
-        #Final_Values has ["agent_id", "final_value"]
+        # Final_Values has ["agent_id", "final_value"]
 
         # test inserting a missing column 'final_value'
         row = {"agent_id": 999}
         data_collector.add_table_row("Final_Values", row, ignore_missing=True)
 
         table_df = data_collector.get_table_dataframe("Final_Values")
-        #The last row should have 999 and None
+        # The last row should have 999 and None
         last_row = table_df.iloc[-1]
         self.assertEqual(last_row["agent_id"], 999)
-        #Check for None (NaN in pandas for numeric columns, or None/NaN for object)
-        #Since 'final_value' was populated with ints, pandas might have cast it to float or object.
-        #Safe check
+        # Check for None (NaN in pandas for numeric columns, or None/NaN for object)
+        # Since 'final_value' was populated with ints, pandas might have cast it to float or object.
+        # Safe check
         self.assertTrue(pd.isna(last_row["final_value"]))
-        
+
     def test_exports(self):
         """Test DataFrame exports."""
         data_collector = self.model.datacollector
