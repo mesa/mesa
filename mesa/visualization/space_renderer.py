@@ -67,6 +67,10 @@ class SpaceRenderer:
         Args:
             model (mesa.Model): The Mesa model to render.
             backend (Literal["matplotlib", "altair"] | None): The visualization backend to use.
+            **kwargs: Additional keyword arguments:
+            - icon_mode: "off", "auto", or "force" (default: "off")
+            - icon_auto_max_agents: Max agents for auto icon mode (default: 1500)
+            - icon_culling: Enable culling for icons (default: True)
         """
         self.space = getattr(model, "grid", getattr(model, "space", None))
 
