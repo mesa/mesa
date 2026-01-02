@@ -2,8 +2,6 @@
 
 import unittest
 
-import pandas as pd
-
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 
@@ -294,12 +292,12 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
 
         class NotAnAgent:
             pass
-        
+
         data_collector._new_agenttype_reporter(NotAnAgent, "foo", lambda a: 1)
 
         with self.assertRaises(ValueError) as cm:
             data_collector.collect(self.model)
-        
+
         self.assertIn("not recognized as an Agent type", str(cm.exception))
 
     def test_agenttype_reporter_string_attribute(self):
