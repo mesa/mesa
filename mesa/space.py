@@ -1399,7 +1399,11 @@ class ContinuousSpace:
         agent.pos = None
 
     def get_neighbors(
-        self, pos: FloatCoordinate, radius: float, include_center: bool = True
+        self,
+        pos: FloatCoordinate,
+        radius: float,
+        include_center: bool = True,
+        agent: Agent | None = None,
     ) -> list[Agent]:
         """Get all agents within a certain radius.
 
@@ -1410,12 +1414,18 @@ class ContinuousSpace:
                             coordinates. i.e. if you are searching for the
                             neighbors of a given agent, True will include that
                             agent in the results.
+            agent: Optional reference to the agent whose neighbors are being queried.
+                   When provided, this agent will be excluded from results if
+                   include_center=False, regardless of position. This allows proper
+                   neighbor detection even when multiple agents occupy the same location.
 
         Notes:
-            If 1 or more agents are located on pos, include_center=False will remove all these agents
-            from the results. So, if you really want to get the neighbors of a given agent,
-            you should set include_center=True, and then filter the list of agents to remove
-            the given agent (i.e., self when calling it from an agent).
+            When agent parameter is provided and include_center=False, only that specific
+            agent is excluded from results, not all agents at the same position.
+
+            Legacy behavior (agent=None): If 1 or more agents are located on pos,
+            include_center=False will remove all these agents from the results.
+            For accurate neighbor detection, it's recommended to pass the agent parameter.
 
         """
         if self._agent_points is None:
@@ -1427,9 +1437,20 @@ class ContinuousSpace:
         dists = deltas[:, 0] ** 2 + deltas[:, 1] ** 2
 
         (idxs,) = np.where(dists <= radius**2)
-        neighbors = [
-            self._index_to_agent[x] for x in idxs if include_center or dists[x] > 0
-        ]
+
+        # Filter neighbors based on agent identity if provided, otherwise use distance
+        if agent is not None:
+            # Proper filtering by object identity
+            neighbors = [
+                self._index_to_agent[x]
+                for x in idxs
+                if include_center or self._index_to_agent[x] is not agent
+            ]
+        else:
+            # Legacy behavior: filter by distance (has the "ghost agents" issue)
+            neighbors = [
+                self._index_to_agent[x] for x in idxs if include_center or dists[x] > 0
+            ]
         return neighbors
 
     def get_heading(

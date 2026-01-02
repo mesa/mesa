@@ -191,6 +191,80 @@ class TestSpaceNonToroidal(unittest.TestCase):
             with self.assertRaises(Exception):
                 self.space.move_agent(a, pos)
 
+    def test_overlapping_agents_detected_with_agent_parameter(self):
+        """Agents at same position should be detected when agent parameter is provided."""
+        agent_a = MockAgent(10)
+        agent_b = MockAgent(11)
+
+        # Place both agents at the exact same position
+        pos = (10.0, 10.0)
+        self.space.place_agent(agent_a, pos)
+        self.space.place_agent(agent_b, pos)
+
+        # Using the agent parameter, Agent B should be found
+        neighbors = self.space.get_neighbors(
+            pos, radius=10.0, include_center=False, agent=agent_a
+        )
+
+        assert len(neighbors) == 1, "Should find exactly 1 neighbor (Agent B)"
+        assert neighbors[0] is agent_b, "Should find Agent B specifically"
+
+    def test_overlapping_agents_legacy_behavior(self):
+        """Without agent parameter, legacy distance-based filtering applies."""
+        agent_a = MockAgent(12)
+        agent_b = MockAgent(13)
+
+        pos = (10.0, 10.0)
+        self.space.place_agent(agent_a, pos)
+        self.space.place_agent(agent_b, pos)
+
+        # Legacy behavior: filters out all agents at distance 0
+        neighbors = self.space.get_neighbors(pos, radius=10.0, include_center=False)
+
+        assert len(neighbors) == 0, "Legacy behavior should filter all at distance 0"
+
+    def test_multiple_overlapping_agents(self):
+        """Multiple agents at same position should all be detected except the querying agent."""
+        agent_a = MockAgent(14)
+        agent_b = MockAgent(15)
+        agent_c = MockAgent(16)
+
+        pos = (20.0, 5.0)
+        self.space.place_agent(agent_a, pos)
+        self.space.place_agent(agent_b, pos)
+        self.space.place_agent(agent_c, pos)
+
+        neighbors = self.space.get_neighbors(
+            pos, radius=10.0, include_center=False, agent=agent_a
+        )
+
+        assert len(neighbors) == 2, "Should find 2 neighbors (B and C)"
+        assert agent_a not in neighbors, "Should not include querying agent"
+        assert agent_b in neighbors
+        assert agent_c in neighbors
+
+    def test_partial_overlap_scenario(self):
+        """Mix of overlapping and nearby agents should all be detected correctly."""
+        agent_a = MockAgent(17)
+        agent_b = MockAgent(18)  # Same position as A
+        agent_c = MockAgent(19)  # Nearby
+
+        pos_a = (30.0, 5.0)
+        pos_c = (30.1, 5.0)
+
+        self.space.place_agent(agent_a, pos_a)
+        self.space.place_agent(agent_b, pos_a)
+        self.space.place_agent(agent_c, pos_c)
+
+        neighbors = self.space.get_neighbors(
+            pos_a, radius=10.0, include_center=False, agent=agent_a
+        )
+
+        assert len(neighbors) == 2, "Should find both overlapping and nearby agent"
+        assert agent_b in neighbors, "Should find overlapping agent"
+        assert agent_c in neighbors, "Should find nearby agent"
+        assert agent_a not in neighbors, "Should not include self"
+
 
 class TestSpaceAgentMapping(unittest.TestCase):
     """Testing a continuous space for agent mapping during removal."""
