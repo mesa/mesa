@@ -8,6 +8,7 @@ functionality:
 - Computable: Class for properties that automatically update based on other observables
 - HasObservables: Mixin class that enables an object to contain and manage observables
 - All: Helper class for subscribing to all signals from an observable
+- SignalType: Enum defining the types of signals that can be emitted
 
 The module implements a robust reactive system where changes to observable properties
 automatically trigger updates to dependent computed values and notify subscribed
@@ -23,11 +24,46 @@ import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Callable
+from enum import Enum
 from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import AttributeDict, create_weakref
 
-__all__ = ["All", "Computable", "HasObservables", "Observable"]
+__all__ = ["All", "Computable", "HasObservables", "Observable", "SignalType"]
+
+
+class SignalType(str, Enum):
+    """Enumeration of signal types that observables can emit.
+
+    This enum provides type-safe signal type definitions with IDE autocomplete support.
+    Inherits from str for backward compatibility with existing string-based code.
+
+    Attributes:
+        CHANGE: Emitted when an observable's value changes.
+
+    Examples:
+        >>> from mesa.experimental.mesa_signals import Observable, HasObservables, SignalType
+        >>> class MyModel(HasObservables):
+        ...     value = Observable()
+        ...     def __init__(self):
+        ...         super().__init__()
+        ...         self._value = 0
+        >>> model = MyModel()
+        >>> model.observe("value", SignalType.CHANGE, lambda s: print(s.new))
+        >>> model.value = 10
+        10
+
+    Note:
+        String-based signal types are still supported for backward compatibility:
+        >>> model.observe("value", "change", handler)  # Still works
+    """
+
+    CHANGE = "change"
+
+    def __str__(self):
+        """Return the string value of the signal type."""
+        return self.value
+
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
@@ -44,14 +80,7 @@ class BaseObservable(ABC):
         super().__init__()
         self.public_name: str
         self.private_name: str
-
-        # fixme can we make this an inner class enum?
-        #  or some SignalTypes helper class?
-        #  its even more complicated. Ideally you can define
-        #  signal_types throughout the class hierarchy and they are just
-        #  combined together.
-        #  while we also want to  make sure that any signal being emitted is valid for that class
-        self.signal_types: set = set()
+        self.signal_types: set[SignalType | str] = set()
         self.fallback_value = fallback_value
 
     def __get__(self, instance: HasObservables, owner):
@@ -81,7 +110,7 @@ class BaseObservable(ABC):
             self.public_name,
             getattr(instance, self.private_name, self.fallback_value),
             value,
-            "change",
+            SignalType.CHANGE,
         )
 
     def __str__(self):
@@ -95,8 +124,8 @@ class Observable(BaseObservable):
         """Initialize an Observable."""
         super().__init__(fallback_value=fallback_value)
 
-        self.signal_types: set = {
-            "change",
+        self.signal_types: set[SignalType | str] = {
+            SignalType.CHANGE,
         }
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
@@ -137,9 +166,8 @@ class Computable(BaseObservable):
         """Initialize a Computable."""
         super().__init__()
 
-        # fixme have 2 signal: change and is_dirty?
-        self.signal_types: set = {
-            "change",
+        self.signal_types: set[SignalType | str] = {
+            SignalType.CHANGE,
         }
 
     def __get__(self, instance, owner):  # noqa: D105
