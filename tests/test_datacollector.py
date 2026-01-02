@@ -2,6 +2,8 @@
 
 import unittest
 
+import pandas as pd
+
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 
@@ -212,6 +214,21 @@ class TestDataCollector(unittest.TestCase):
 
         with self.assertRaises(Exception):
             data_collector.add_table_row("Final_Values", {"final_value": 10})
+
+    def test_table_ignore_missing(self):
+        """Test table collection with ignore_missing=True."""
+        data_collector = self.model.datacollector
+        # ["agent_id", "final_value"]
+
+        row = {"agent_id": 999}
+        data_collector.add_table_row("Final_Values", row, ignore_missing=True)
+
+        table_df = data_collector.get_table_dataframe("Final_Values")
+        # the last row should have 999 and None
+        last_row = table_df.iloc[-1]
+        self.assertEqual(last_row["agent_id"], 999)
+
+        self.assertTrue(pd.isna(last_row["final_value"]))
 
     def test_exports(self):
         """Test DataFrame exports."""
