@@ -115,6 +115,7 @@ class DataCollector:
         self.agenttype_reporters = {}
 
         self.model_vars = {}
+        self._collection_steps = []
         self._agent_records = {}
         self._agenttype_records = {}
         self.tables = {}
@@ -303,7 +304,7 @@ class DataCollector:
         python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
-            _prefix = (agent.model.steps, agent.unique_id)
+            _prefix = (agent.model.time, agent.unique_id)
             reports = []
             for rep in rep_funcs:
                 value = rep(agent)
@@ -324,7 +325,7 @@ class DataCollector:
         python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
-            _prefix = (agent.model.steps, agent.unique_id)
+            _prefix = (agent.model.time, agent.unique_id)
             reports = []
             for rep in rep_funcs:
                 value = rep(agent)
@@ -355,6 +356,8 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
+            if hasattr(self, "_collection_steps"):
+                self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
@@ -379,13 +382,13 @@ class DataCollector:
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
-            self._agent_records[model.steps] = list(agent_records)
+            self._agent_records[model.time] = list(agent_records)
 
         if self.agenttype_reporters:
-            self._agenttype_records[model.steps] = {}
+            self._agenttype_records[model.time] = {}
             for agent_type in self.agenttype_reporters:
                 agenttype_records = self._record_agenttype(model, agent_type)
-                self._agenttype_records[model.steps][agent_type] = list(
+                self._agenttype_records[model.time][agent_type] = list(
                     agenttype_records
                 )
 
