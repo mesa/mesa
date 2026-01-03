@@ -4,10 +4,15 @@ This module provides functionality to render Mesa model spaces with different
 backends, supporting various space types and visualization components.
 """
 
+from __future__ import annotations
+
 import contextlib
 import warnings
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from mesa.visualization.components import PropertyLayerStyle
 
 import altair as alt
 import numpy as np
@@ -63,9 +68,16 @@ class SpaceRenderer:
         self.space = getattr(model, "grid", getattr(model, "space", None))
 
         self.space_drawer = self._get_space_drawer()
+
         self.space_mesh = None
         self.agent_mesh = None
         self.propertylayer_mesh = None
+
+        self.draw_agent_kwargs = {}
+        self.draw_space_kwargs = {}
+
+        self.agent_portrayal = None
+        self.propertylayer_portrayal = None
 
         self.post_process_func = None
         # Keep track of whether post-processing has been applied
@@ -161,54 +173,123 @@ class SpaceRenderer:
 
         return mapped_arguments
 
+    def setup_structure(self, **kwargs) -> SpaceRenderer:
+        """Setup the space structure without drawing.
+
+        Args:
+            **kwargs: Additional keyword arguments for the setup function.
+            Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+
+        Returns:
+            SpaceRenderer: The current instance for method chaining.
+        """
+        self.draw_space_kwargs = kwargs
+        self.space_mesh = None
+
+        return self
+
+    def setup_agents(self, agent_portrayal: Callable, **kwargs) -> SpaceRenderer:
+        """Setup agents on the space without drawing.
+
+        Args:
+            agent_portrayal (Callable): Function that takes an agent and returns AgentPortrayalStyle.
+            **kwargs: Additional keyword arguments for the setup function.
+            Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+
+        Returns:
+            SpaceRenderer: The current instance for method chaining.
+        """
+        self.agent_portrayal = agent_portrayal
+        self.draw_agent_kwargs = kwargs
+        self.agent_mesh = None
+
+        return self
+
+    def setup_propertylayer(
+        self, propertylayer_portrayal: Callable | dict | PropertyLayerStyle
+    ) -> SpaceRenderer:
+        """Setup property layers on the space without drawing.
+
+        Args:
+            propertylayer_portrayal (Callable | dict | PropertyLayerStyle): A PropertyLayerStyle,
+                a function that produces a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
+
+        Returns:
+            SpaceRenderer: The current instance for method chaining.
+        """
+        self.propertylayer_portrayal = propertylayer_portrayal
+        self.propertylayer_mesh = None
+
+        return self
+
     def draw_structure(self, **kwargs):
         """Draw the space structure.
 
         Args:
-            **kwargs: Additional keyword arguments for the drawing function.
-            Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+            **kwargs: (Deprecated) Additional keyword arguments for drawing.
+                    Use setup_structure() instead.
 
         Returns:
             The visual representation of the space structure.
         """
-        # Store space_kwargs for internal use
-        self.space_kwargs = kwargs
+        if kwargs:
+            warnings.warn(
+                "Passing kwargs to draw_structure() is deprecated. "
+                "Use setup_structure(**kwargs) before calling draw_structure().",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            self.draw_space_kwargs.update(kwargs)
 
-        self.space_mesh = self.backend_renderer.draw_structure(**self.space_kwargs)
+        self.space_mesh = self.backend_renderer.draw_structure(**self.draw_space_kwargs)
         return self.space_mesh
 
-    def draw_agents(self, agent_portrayal: Callable, **kwargs):
+    def draw_agents(self, agent_portrayal=None, **kwargs):
         """Draw agents on the space.
 
         Args:
-            agent_portrayal (Callable): Function that takes an agent and returns AgentPortrayalStyle.
-            **kwargs: Additional keyword arguments for the drawing function.
-            Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+            agent_portrayal: (Deprecated) Function that takes an agent and returns AgentPortrayalStyle.
+                            Use setup_agents() instead.
+            **kwargs: (Deprecated) Additional keyword arguments for drawing.
 
         Returns:
             The visual representation of the agents.
         """
-        # Store data for internal use
-        self.agent_portrayal = agent_portrayal
-        self.agent_kwargs = kwargs
+        if agent_portrayal is not None:
+            warnings.warn(
+                "Passing agent_portrayal to draw_agents() is deprecated. "
+                "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents().",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            self.agent_portrayal = agent_portrayal
+        if kwargs:
+            warnings.warn(
+                "Passing kwargs to draw_agents() is deprecated. "
+                "Use setup_agents(**kwargs) before calling draw_agents().",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            self.draw_agent_kwargs.update(kwargs)
 
         # Prepare data for agent plotting
         arguments = self.backend_renderer.collect_agent_data(
-            self.space, agent_portrayal, default_size=self.space_drawer.s_default
+            self.space, self.agent_portrayal, default_size=self.space_drawer.s_default
         )
         arguments = self._map_coordinates(arguments)
 
         self.agent_mesh = self.backend_renderer.draw_agents(
-            arguments, **self.agent_kwargs
+            arguments, **self.draw_agent_kwargs
         )
         return self.agent_mesh
 
-    def draw_propertylayer(self, propertylayer_portrayal: Callable | dict):
+    def draw_propertylayer(self, propertylayer_portrayal=None):
         """Draw property layers on the space.
 
         Args:
-            propertylayer_portrayal (Callable | dict): Function that returns PropertyLayerStyle
-                or dict with portrayal parameters.
+            propertylayer_portrayal: (Deprecated) A PropertyLayerStyle, a function that produces
+            a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
+            Use setup_propertylayer() instead.
 
         Returns:
             The visual representation of the property layers.
@@ -216,6 +297,15 @@ class SpaceRenderer:
         Raises:
             Exception: If no property layers are found on the space.
         """
+        if propertylayer_portrayal is not None:
+            warnings.warn(
+                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated. "
+                "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer().",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            self.propertylayer_portrayal = propertylayer_portrayal
+
         # Import here to avoid circular imports
         from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
 
@@ -240,7 +330,7 @@ class SpaceRenderer:
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                     ),
-                    DeprecationWarning,
+                    FutureWarning,
                     stacklevel=2,
                 )
 
@@ -267,10 +357,15 @@ class SpaceRenderer:
             property_layers = self.space._mesa_property_layers
 
         # Convert portrayal to callable if needed
-        if isinstance(propertylayer_portrayal, dict):
-            self.propertylayer_portrayal = _dict_to_callable(propertylayer_portrayal)
-        else:
-            self.propertylayer_portrayal = propertylayer_portrayal
+        if isinstance(self.propertylayer_portrayal, dict):
+            self.propertylayer_portrayal = _dict_to_callable(
+                self.propertylayer_portrayal
+            )
+        elif isinstance(self.propertylayer_portrayal, PropertyLayerStyle):
+            # Capture the style instance to avoid circular reference
+            style = self.propertylayer_portrayal
+            self.propertylayer_portrayal = lambda _: style
+        # else: already a callable, use as-is
 
         number_of_propertylayers = sum(
             [1 for layer in property_layers if layer != "empty"]
@@ -283,41 +378,34 @@ class SpaceRenderer:
         )
         return self.propertylayer_mesh
 
-    def render(
-        self,
-        agent_portrayal: Callable | None = None,
-        propertylayer_portrayal: Callable | dict | None = None,
-        post_process: Callable | None = None,
-        **kwargs,
-    ):
+    def render(self, agent_portrayal=None, propertylayer_portrayal=None, **kwargs):
         """Render the complete space with structure, agents, and property layers.
 
-        It is an all-in-one method that draws everything required therefore eliminates
-        the need of calling each method separately, but has a drawback, if want to pass
-        kwargs to customize the drawing, they have to be broken into
-        space_kwargs and agent_kwargs.
-
         Args:
-            agent_portrayal (Callable | None): Function that returns AgentPortrayalStyle.
-                If None, agents won't be drawn.
-            propertylayer_portrayal (Callable | dict | None): Function that returns
-                PropertyLayerStyle or dict with portrayal parameters. If None,
-                property layers won't be drawn.
-            post_process (Callable | None): Function to apply post-processing to the canvas.
-            **kwargs: Additional keyword arguments for drawing functions.
-                * ``space_kwargs`` (dict): Arguments for ``draw_structure()``.
-                * ``agent_kwargs`` (dict): Arguments for ``draw_agents()``.
+            agent_portrayal: (Deprecated) Function for agent portrayal. Use setup_agents() instead.
+            propertylayer_portrayal: (Deprecated) Function for property layer portrayal. Use setup_propertylayer() instead.
+            **kwargs: (Deprecated) Additional keyword arguments.
         """
-        space_kwargs = kwargs.pop("space_kwargs", {})
-        agent_kwargs = kwargs.pop("agent_kwargs", {})
-        if self.space_mesh is None:
-            self.draw_structure(**space_kwargs)
-        if self.agent_mesh is None and agent_portrayal is not None:
-            self.draw_agents(agent_portrayal, **agent_kwargs)
-        if self.propertylayer_mesh is None and propertylayer_portrayal is not None:
-            self.draw_propertylayer(propertylayer_portrayal)
+        if agent_portrayal is not None or propertylayer_portrayal is not None or kwargs:
+            warnings.warn(
+                "Passing parameters to render() is deprecated. "
+                "Use setup_structure(), setup_agents(), and setup_propertylayer() before calling render().",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            if agent_portrayal is not None:
+                self.agent_portrayal = agent_portrayal
+            if propertylayer_portrayal is not None:
+                self.propertylayer_portrayal = propertylayer_portrayal
+            self.draw_space_kwargs.update(kwargs)
 
-        self.post_process_func = post_process
+        if self.space_mesh is None:
+            self.draw_structure()
+        if self.agent_mesh is None and self.agent_portrayal is not None:
+            self.draw_agents()
+        if self.propertylayer_mesh is None and self.propertylayer_portrayal is not None:
+            self.draw_propertylayer()
+
         return self
 
     @property
@@ -339,13 +427,11 @@ class SpaceRenderer:
             prop_base, prop_cbar = self.propertylayer_mesh or (None, None)
 
             if self.space_mesh:
-                structure = self.draw_structure(**self.space_kwargs)
+                structure = self.draw_structure()
             if self.agent_mesh:
-                agents = self.draw_agents(self.agent_portrayal, **self.agent_kwargs)
+                agents = self.draw_agents()
             if self.propertylayer_mesh:
-                prop_base, prop_cbar = self.draw_propertylayer(
-                    self.propertylayer_portrayal
-                )
+                prop_base, prop_cbar = self.draw_propertylayer()
 
             spatial_charts_list = [
                 chart for chart in [structure, prop_base, agents] if chart

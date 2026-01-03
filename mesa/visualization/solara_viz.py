@@ -269,19 +269,12 @@ def SpaceRendererComponent(
         for artist in itertools.chain.from_iterable(all_artists):
             artist.remove()
 
-        # Draw the space structure if specified
         if renderer.space_mesh:
-            renderer.draw_structure(**renderer.space_kwargs)
-
-        # Draw agents if specified
+            renderer.draw_structure()
         if renderer.agent_mesh:
-            renderer.draw_agents(
-                agent_portrayal=renderer.agent_portrayal, **renderer.agent_kwargs
-            )
-
-        # Draw property layers if specified
+            renderer.draw_agents()
         if renderer.propertylayer_mesh:
-            renderer.draw_propertylayer(renderer.propertylayer_portrayal)
+            renderer.draw_propertylayer()
 
         # Update the fig every time frame
         if dependencies:
@@ -306,15 +299,11 @@ def SpaceRendererComponent(
         propertylayer = renderer.propertylayer_mesh or None
 
         if renderer.space_mesh:
-            structure = renderer.draw_structure(**renderer.space_kwargs)
+            structure = renderer.draw_structure()
         if renderer.agent_mesh:
-            agents = renderer.draw_agents(
-                renderer.agent_portrayal, **renderer.agent_kwargs
-            )
+            agents = renderer.draw_agents()
         if renderer.propertylayer_mesh:
-            propertylayer = renderer.draw_propertylayer(
-                renderer.propertylayer_portrayal
-            )
+            propertylayer = renderer.draw_propertylayer()
 
         spatial_charts_list = [
             chart for chart in [structure, propertylayer, agents] if chart
@@ -372,8 +361,9 @@ def ComponentsView(
         components: List of (components, page) to display
         model: Model instance to pass to each component
     """
-    if not components:
-        return
+    # State for current tab and layouts
+    current_tab_index, set_current_tab_index = solara.use_state(0)
+    layouts, set_layouts = solara.use_state({})
 
     # Backward's compatibility, page = 0 if not passed.
     for i, comp in enumerate(components):
@@ -395,12 +385,11 @@ def ComponentsView(
 
     sorted_page_indices = all_indices
 
-    # State for current tab and layouts
-    current_tab_index, set_current_tab_index = solara.use_state(0)
-    layouts, set_layouts = solara.use_state({})
-
     # Keep layouts in sync with pages
     def sync_layouts():
+        if not components:  # Handle empty case inside the effect
+            return
+
         current_keys = set(pages.keys())
         layout_keys = set(layouts.keys())
 
@@ -418,15 +407,21 @@ def ComponentsView(
 
     solara.use_effect(sync_layouts, list(pages.keys()))
 
+    # Allow early return (which is now safe because all hooks have been called)
+    if not components:
+        return
+
     # Tab Navigation
     with solara.v.Tabs(v_model=current_tab_index, on_v_model=set_current_tab_index):
         for index in sorted_page_indices:
             solara.v.Tab(children=[f"Page {index}"])
 
-    with solara.v.TabsItems(v_model=current_tab_index):
-        for _, page_id in enumerate(sorted_page_indices):
-            with solara.v.TabItem():
-                if page_id == current_tab_index:
+    with solara.v.Window(v_model=current_tab_index):
+        for i, page_id in enumerate(sorted_page_indices):
+            with solara.v.WindowItem():
+                # Use tab index 'i' instead of 'page_id' because solara.v.Window
+                # Tracks active tabs using 0-based indexing, which may differ from page IDs.
+                if i == current_tab_index:
                     page_components = pages[page_id]
                     page_layout = layouts.get(page_id)
 

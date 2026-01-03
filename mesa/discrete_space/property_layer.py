@@ -67,7 +67,8 @@ class PropertyLayer:
             dtype (data-type, optional): The desired data-type for the grid's elements. Default is float.
 
         Notes:
-            A UserWarning is raised if the default_value is not of a type compatible with dtype.
+            An exception is raised if the default_value is not of a type compatible with dtype.
+            A UserWarning is raised if the conversion would results in a loss of precision.
             The dtype parameter can accept both Python data types (like bool, int or float) and NumPy data types
             (like np.int64 or np.float64).
         """
@@ -75,12 +76,17 @@ class PropertyLayer:
         self.dimensions = dimensions
 
         # Check if the dtype is suitable for the data
-        if not isinstance(default_value, dtype):
-            warnings.warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype.__name__}.",
-                UserWarning,
-                stacklevel=2,
-            )
+        try:
+            if dtype(default_value) != default_value:
+                warnings.warn(
+                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except (ValueError, TypeError) as e:
+            raise TypeError(
+                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
+            ) from e
 
         # fixme why not initialize with empty?
         self._mesa_data = np.full(self.dimensions, default_value, dtype=dtype)

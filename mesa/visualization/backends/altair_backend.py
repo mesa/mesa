@@ -113,7 +113,7 @@ class AltairBackend(AbstractRenderer):
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                     ),
-                    DeprecationWarning,
+                    FutureWarning,
                     stacklevel=2,
                 )
                 dict_data = portray_input.copy()
@@ -272,8 +272,8 @@ class AltairBackend(AbstractRenderer):
         vmin = kwargs.pop("vmin", None)
         vmax = kwargs.pop("vmax", None)
 
-        color_is_numeric = np.issubdtype(df["original_color"].dtype, np.number)
-
+        color_is_numeric = pd.api.types.is_numeric_dtype(df["original_color"])
+        
         # Build tooltip list for interactivity
         tooltip_list = ["x", "y", "original_color", "size"]
         if tooltip_fields:

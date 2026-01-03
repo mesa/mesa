@@ -110,7 +110,7 @@ def collect_agent_data(
                     "For more information, refer to the migration guide: "
                     "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                 ),
-                DeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
             dict_data = portray_input.copy()
@@ -149,7 +149,9 @@ def collect_agent_data(
         else:
             aps = portray_input
             # default to agent's color if not provided
-            if aps.edgecolors is None:
+            if aps.edgecolors is None and not isinstance(
+                aps.color, int | float | np.number
+            ):
                 aps.edgecolors = aps.color
             # get position if not specified
             if aps.x is None and aps.y is None:
@@ -307,7 +309,7 @@ def draw_property_layers(
                     "For more information, refer to the migration guide: "
                     "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                 ),
-                DeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
 

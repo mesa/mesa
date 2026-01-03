@@ -16,7 +16,7 @@ In this simulation n agents are created, who have two attributes (1) power and (
 
 In MetaAgents current configuration, agents being part of multiple meta-agents is not supported.
 
-If you would like to see an example of explicit meta-agent formation see the [warehouse model in the Mesa example's repository](https://github.com/projectmesa/mesa-examples/tree/main/examples/warehouse)
+If you would like to see an example of explicit meta-agent formation see the [warehouse model in the Mesa example's repository](https://github.com/mesa/mesa-examples/tree/main/examples/warehouse)
 
 
 ## Installation

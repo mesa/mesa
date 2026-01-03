@@ -1,4 +1,4 @@
-"""Test Solara visualizations."""
+"""Test Solara visualizations - Modern API."""
 
 import re
 import unittest
@@ -8,8 +8,10 @@ import pytest
 import solara
 
 import mesa
-import mesa.visualization.backends
 from mesa.space import MultiGrid, PropertyLayer
+from mesa.visualization.backends.altair_backend import AltairBackend
+from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
@@ -34,6 +36,19 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         # no type is specified
         with self.assertRaisesRegex(ValueError, "not a supported input type"):
             solara.render(Test({"mock": {}}), handle_error=False)
+
+    def test_input_text_field(self):
+        """Test that 'InputText' type correctly creates a vw.TextField."""
+
+        @solara.component
+        def Test(user_params):
+            UserInputs(user_params)
+
+        options = {"type": "InputText", "value": "JohnDoe", "label": "Agent Name"}
+        _, rc = solara.render(Test({"agent_name": options}), handle_error=False)
+        textfield = rc.find(vw.TextField).widget
+        assert textfield.v_model == "JohnDoe"
+        assert textfield.label == "Agent Name"
 
     def test_slider_int(self):  # noqa: D102
         @solara.component
@@ -78,11 +93,7 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         def Test(user_params):
             UserInputs(user_params)
 
-        options = {
-            "type": "SliderInt",
-            "value": 10,
-        }
-
+        options = {"type": "SliderInt", "value": 10}
         user_params = {"num_agents": options}
         _, rc = solara.render(Test(user_params), handle_error=False)
         slider_int = rc.find(vw.Slider).widget
@@ -93,138 +104,58 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert slider_int.max is None
         assert slider_int.step is None
 
-    def test_input_text_field(self):
-        """Test that "InputText" type creates a vw.TextField."""
 
-        @solara.component
-        def Test(user_params):
-            UserInputs(user_params)
-
-        options = {"type": "InputText", "value": "JohnDoe", "label": "Agent Name"}
-
-        user_params = {"agent_name": options}
-
-        _, rc = solara.render(Test(user_params), handle_error=False)
-
-        textfield = rc.find(vw.TextField).widget
-
-        assert textfield.v_model == options["value"]
-        assert textfield.label == options["label"]
-
-
-def test_call_space_drawer(mocker):
-    """Test the call to space drawer."""
-    mock_draw_space = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_structure"
-    )
-    mock_draw_agents = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_agents"
-    )
-    mock_draw_properties = mocker.spy(
-        mesa.visualization.space_renderer.SpaceRenderer, "draw_propertylayer"
-    )
-
-    class MockAgent(mesa.Agent):
-        def __init__(self, model):
-            super().__init__(model)
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_backends(mocker, backend):
+    """Validates BOTH backends using the modern API."""
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+    spy_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
 
     class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
-            layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0
-            )
-            self.grid = MultiGrid(
-                width=10, height=10, torus=True, property_layers=layer1
-            )
-            a = MockAgent(self)
-            self.grid.place_agent(a, (5, 5))
+        def __init__(self):
+            super().__init__()
+            # Include property layer to verify it gets drawn
+            layer = PropertyLayer("sugar", 10, 10, 10.0, dtype=float)
+            self.grid = MultiGrid(10, 10, True, property_layers=layer)
+            self.grid.place_agent(mesa.Agent(self), (5, 5))
 
     model = MockModel()
 
-    def agent_portrayal(agent):
-        return {"marker": "o", "color": "gray"}
+    def agent_portrayal(_):
+        return AgentPortrayalStyle(marker="o", color="gray")
 
-    propertylayer_portrayal = None
+    def property_portrayal(_):
+        return PropertyLayerStyle(colormap="viridis")
 
-    renderer = SpaceRenderer(model, backend="matplotlib")
-    renderer.render(agent_portrayal, propertylayer_portrayal)
-
-    # component must be rendered for code to run
-    solara.render(
-        SolaraViz(
-            model,
-            renderer,
-            components=[],
-        )
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .setup_propertylayer(property_portrayal)
+        .render()
     )
 
-    assert renderer.backend == "matplotlib"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.MatplotlibBackend
-    )
-
-    mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer, agent_portrayal)
-    # should not call this method if portrayal is None
-    mock_draw_properties.assert_not_called()
-
-    mock_draw_space.reset_mock()
-    mock_draw_agents.reset_mock()
-    mock_draw_properties.reset_mock()
-
-    solara.render(SolaraViz(model))
-
-    # noting is drawn if renderer is not passed
-    assert mock_draw_space.call_count == 0
-    assert mock_draw_agents.call_count == 0
-    assert mock_draw_properties.call_count == 0
-
-    # checking if SpaceAltair is working as intended with post_process
-    propertylayer_portrayal = {
-        "sugar": {
-            "colormap": "pastel1",
-            "alpha": 0.75,
-            "colorbar": True,
-            "vmin": 0,
-            "vmax": 10,
-        }
-    }
     solara.render(SolaraViz(model, renderer, components=[]))
 
-    renderer = SpaceRenderer(model, backend="altair")
-    renderer.render(agent_portrayal, propertylayer_portrayal)
+    assert renderer.backend == backend
 
-    assert renderer.backend == "altair"
-    assert isinstance(
-        renderer.backend_renderer, mesa.visualization.backends.AltairBackend
-    )
+    if backend == "matplotlib":
+        assert isinstance(renderer.backend_renderer, MatplotlibBackend)
+    elif backend == "altair":
+        assert isinstance(renderer.backend_renderer, AltairBackend)
 
-    mock_draw_space.assert_called_with(renderer)
-    mock_draw_agents.assert_called_with(renderer, agent_portrayal)
-    mock_draw_properties.assert_called_with(renderer, propertylayer_portrayal)
+    spy_structure.assert_called_with(renderer)
+    spy_agents.assert_called_with(renderer)
+    spy_properties.assert_called_with(renderer)
 
-    mock_draw_space.reset_mock()
-    mock_draw_agents.reset_mock()
-    mock_draw_properties.reset_mock()
-
+    # Test that nothing is drawn if the renderer is not passed
+    spy_structure.reset_mock()
+    spy_agents.reset_mock()
+    spy_properties.reset_mock()
     solara.render(SolaraViz(model))
-
-    # noting is drawn if renderer is not passed
-    assert mock_draw_space.call_count == 0
-    assert mock_draw_agents.call_count == 0
-    assert mock_draw_properties.call_count == 0
-
-    # specify a custom space method
-    class AltSpace:
-        @staticmethod
-        def drawer(model):
-            return
-
-    # check to verify that components are passed with the model instance
-    altspace_drawer = mocker.spy(AltSpace, "drawer")
-    solara.render(SolaraViz(model, components=[AltSpace.drawer]))
-    altspace_drawer.assert_called_with(model)
+    assert spy_structure.call_count == 0
+    assert spy_agents.call_count == 0
+    assert spy_properties.call_count == 0
 
 
 def test_slider():

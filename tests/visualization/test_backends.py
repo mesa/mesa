@@ -1,5 +1,6 @@
 """Test the backends of the visualization package."""
 
+import random
 import types
 from unittest.mock import MagicMock
 
@@ -67,11 +68,13 @@ def test_matplotlib_backend_collects_agent_data():
     data = mb.collect_agent_data(DummySpace(), agent_portrayal_style)
     assert "loc" in data and data["loc"].shape[0] == 1
 
-    # Test with dict-based portrayal
+    # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
         return {"size": 5, "color": "red", "marker": "o"}
 
-    data = mb.collect_agent_data(DummySpace(), agent_portrayal_dict)
+    with pytest.warns(FutureWarning):
+        data = mb.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
     assert "loc" in data and data["loc"].shape[0] == 1
 
 
@@ -126,7 +129,7 @@ def test_matplotlib_backend_draw_propertylayer():
     mb.initialize_canvas()
 
     # set up space and layer
-    space = OrthogonalMooreGrid([2, 2])
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
     layer = PropertyLayer("test", [2, 2], default_value=0.0)
     space.add_property_layer(layer)
 
@@ -203,11 +206,13 @@ def test_altair_backend_collects_agent_data():
     data = ab.collect_agent_data(DummySpace(), agent_portrayal_style)
     assert "loc" in data and data["loc"].shape[0] == 1
 
-    # Test with dict-based portrayal
+    # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
         return {"size": 5, "color": "red", "marker": "o"}
 
-    data = ab.collect_agent_data(DummySpace(), agent_portrayal_dict)
+    with pytest.warns(FutureWarning):
+        data = ab.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
     assert "loc" in data and data["loc"].shape[0] == 1
 
 
@@ -258,7 +263,7 @@ def test_altair_backend_draw_propertylayer():
     ab = AltairBackend(space_drawer=MagicMock())
 
     # set up space and layer
-    space = OrthogonalMooreGrid([2, 2])
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
     layer = PropertyLayer("test", [2, 2], default_value=0.0)
     space.add_property_layer(layer)
 

@@ -1,8 +1,0 @@
-[run]
-source = mesa
-branch = True
-
-[report]
-omit =
-    tests/*
-    mesa/flat/*

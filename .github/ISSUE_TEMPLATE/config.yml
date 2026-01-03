@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Questions, ideas, showcases and more
-    url: https://github.com/projectmesa/mesa/discussions
+    url: https://github.com/mesa/mesa/discussions
     about: Discuss Mesa, ask questions, share ideas, and showcase your projects
