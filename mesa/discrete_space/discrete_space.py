@@ -20,7 +20,9 @@ from functools import cached_property
 from random import Random
 from typing import TypeVar
 
-from mesa.agent import AgentSet
+import numpy as np
+
+from mesa.agent import Agent, AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
 
@@ -70,8 +72,87 @@ class DiscreteSpace[T: Cell]:
             random = Random()
         self.random = random
         self.cell_klass = cell_klass
+        self._agent_to_cell: dict[Agent, T] = {}  # NEW: Track agent->cell mapping
+        self._agents: set[Agent] = set()  # NEW: Track all agents
 
         self._empties: dict[tuple[int, ...], None] = {}
+
+    def add(self, agent: Agent) -> None:
+        """Register agent in this space."""
+        if agent.position is None:
+            raise ValueError("Agent must have position before adding to space")
+
+        # Subscribe to position updates
+        if self not in agent._discrete_spaces:
+            agent._discrete_spaces.append(self)
+
+        # Set initial cell membership
+        cell = self.position_to_cell(agent.position)
+        self._agent_to_cell[agent] = cell
+        cell.add_agent(agent)
+        self._agents.add(agent)
+
+    def remove(self, agent: Agent) -> None:
+        """Remove agent from this space."""
+        # Unsubscribe
+        if self in agent._discrete_spaces:
+            agent._discrete_spaces.remove(self)
+
+        # Remove from cell
+        cell = self._agent_to_cell.get(agent)
+        if cell:
+            cell.remove_agent(agent)
+            del self._agent_to_cell[agent]
+        self._agents.discard(agent)
+
+    def cell(self, agent: Agent) -> T:
+        """Get the cell this agent is in (read-only)."""
+        return self._agent_to_cell.get(agent)
+
+    def move(self, agent: Agent, target: T, align: str = "center") -> None:
+        """Move agent to target cell.
+
+        Args:
+            agent: Agent to move
+            target: Target cell
+            align: "center" | "random" - where to position in cell
+        """
+        # Calculate new position
+        if align == "center":
+            new_position = self.cell_to_position(target)
+        elif align == "random":
+            new_position = self.random_position_in_cell(target)
+        else:
+            raise ValueError(f"Unknown align: {align}")
+
+        # Update position (this triggers _on_agent_position_changed via setter)
+        agent.position = new_position
+
+    def _on_agent_position_changed(
+        self, agent: Agent, old_position: np.ndarray, new_position: np.ndarray
+    ) -> None:
+        """Handle agent position change (called automatically)."""
+        old_cell = self._agent_to_cell.get(agent)
+        new_cell = self.position_to_cell(new_position)
+
+        # Only update if cell actually changed
+        if old_cell != new_cell:
+            if old_cell:
+                old_cell.remove_agent(agent)
+            new_cell.add_agent(agent)
+            self._agent_to_cell[agent] = new_cell
+
+    def position_to_cell(self, position: np.ndarray) -> T:
+        """Convert position to cell (must implement in subclass)."""
+        raise NotImplementedError
+
+    def cell_to_position(self, cell: T) -> np.ndarray:
+        """Get position for cell center (must implement in subclass)."""
+        raise NotImplementedError
+
+    def random_position_in_cell(self, cell: T) -> np.ndarray:
+        """Get random position in cell (must implement in subclass)."""
+        raise NotImplementedError
 
     @property
     def cutoff_empties(self):  # noqa

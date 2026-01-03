@@ -19,6 +19,8 @@ from itertools import product
 from random import Random
 from typing import Any, TypeVar
 
+import numpy as np
+
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
@@ -70,6 +72,23 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         width and height are accessible via properties, higher dimensions can be retrieved via dimensions
 
     """
+
+    def position_to_cell(self, position: np.ndarray) -> T:
+        """Convert position to cell coordinate."""
+        coord = tuple(int(np.floor(p)) for p in position)
+        if self.torus:
+            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+        return self._cells[coord]
+
+    def cell_to_position(self, cell: T) -> np.ndarray:
+        """Return cell center."""
+        return np.array([c + 0.5 for c in cell.coordinate], dtype=float)
+
+    def random_position_in_cell(self, cell: T) -> np.ndarray:
+        """Random position in cell."""
+        coord = np.array(cell.coordinate, dtype=float)
+        offset = np.array([self.random.random() for _ in coord])
+        return coord + offset
 
     @property
     def width(self) -> int:
@@ -278,6 +297,84 @@ class HexGrid(Grid[T]):
     Raises:
         ValueError: If torus=True and either width or height is odd.
     """
+
+    def __init__(
+        self, dimensions, torus=False, capacity=None, random=None, cell_klass=Cell
+    ):
+        """Initialize HexGrid."""
+        super().__init__(dimensions, torus, capacity, random, cell_klass)
+        # Hex size for coordinate conversion (distance between hex centers)
+        self.hex_size = 1.0
+
+    def position_to_cell(self, position: np.ndarray) -> T:
+        """Convert Cartesian position to hex axial coordinates."""
+        x, y = position
+
+        # Convert to axial coordinates (q, r)
+        q = (x * np.sqrt(3) / 3 - y / 3) / self.hex_size
+        r = y * 2 / 3 / self.hex_size
+
+        # Round to nearest hex
+        q_grid, r_grid = self._axial_round(q, r)
+
+        # Convert to offset coordinates for our grid
+        col = q_grid
+        row = r_grid + (q_grid - (q_grid & 1)) // 2
+
+        # Handle torus wrapping
+        if self.torus:
+            row = row % self.dimensions[0]
+            col = col % self.dimensions[1]
+
+        return self._cells.get((row, col))
+
+    def cell_to_position(self, cell: T) -> np.ndarray:
+        """Convert hex cell to Cartesian position (center)."""
+        row, col = cell.coordinate
+
+        # Convert offset to axial
+        q = col
+        r = row - (col - (col & 1)) // 2
+
+        # Convert axial to Cartesian
+        x = self.hex_size * (np.sqrt(3) * q + np.sqrt(3) / 2 * r)
+        y = self.hex_size * (3 / 2 * r)
+
+        return np.array([x, y], dtype=float)
+
+    def random_position_in_cell(self, cell: T) -> np.ndarray:
+        """Random position within hex boundary."""
+        center = self.cell_to_position(cell)
+
+        # Simple approach: random offset within circle inscribed in hex
+        angle = self.random.random() * 2 * np.pi
+        radius = self.random.random() * self.hex_size * 0.5
+
+        offset = np.array([radius * np.cos(angle), radius * np.sin(angle)])
+
+        return center + offset
+
+    def _axial_round(self, q: float, r: float) -> tuple[int, int]:
+        """Round fractional axial coordinates to nearest hex."""
+        s = -q - r  # Third cube coordinate
+
+        # Round all three cube coordinates
+        q_round = round(q)
+        r_round = round(r)
+        s_round = round(s)
+
+        # Find which coordinate changed most
+        q_diff = abs(q_round - q)
+        r_diff = abs(r_round - r)
+        s_diff = abs(s_round - s)
+
+        # Reset the coordinate that changed most to maintain q + r + s = 0
+        if q_diff > r_diff and q_diff > s_diff:
+            q_round = -r_round - s_round
+        elif r_diff > s_diff:
+            r_round = -q_round - s_round
+
+        return int(q_round), int(r_round)
 
     def _connect_cells_2d(self) -> None:
         # fmt: off

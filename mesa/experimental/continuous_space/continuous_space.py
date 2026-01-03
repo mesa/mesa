@@ -104,6 +104,36 @@ class ContinuousSpace:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.active_agents, random=self.random)
 
+    def add(self, agent: Agent) -> None:
+        """Add agent to continuous space."""
+        index = self._add_agent(agent)
+
+        # Sync initial position if set
+        if agent.position is not None:
+            self.agent_positions[index] = agent.position
+
+    def get_agent_position(self, agent: Agent) -> np.ndarray:
+        """Get position - always syncs from agent.position."""
+        index = self._agent_to_index[agent]
+
+        # Simple: always sync from agent.position (the source of truth)
+        if agent.position is not None:
+            self.agent_positions[index] = agent.position
+
+        return self.agent_positions[index]
+
+    def set_agent_position(self, agent: Agent, position: np.ndarray) -> None:
+        """Set position in continuous space and on agent."""
+        if not self.in_bounds(position):
+            if self.torus:
+                position = self.torus_correct(position)
+            else:
+                raise ValueError(f"Position {position} outside bounds")
+
+        index = self._agent_to_index[agent]
+        self.agent_positions[index] = position
+        agent.position = position  # Update agent (notifies discrete spaces)
+
     def _add_agent(self, agent: Agent) -> int:
         """Helper method for adding an agent to the space.
 
@@ -214,11 +244,15 @@ class ContinuousSpace:
         point = np.asanyarray(point)
 
         if agents is None:
+            # Sync all positions from agent.position
+            for i, agent in enumerate(self.active_agents):
+                if agent.position is not None:
+                    self.agent_positions[i] = agent.position
             positions = self.agent_positions
             agents = self.active_agents
         else:
-            positions = self._agent_positions[[self._agent_to_index[a] for a in agents]]
-            agents = np.asarray(agents)
+            # Sync just these agents
+            positions = np.array([agent.position for agent in agents])
 
         if self.torus:
             delta = np.abs(point - positions)

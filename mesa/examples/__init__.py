@@ -1,5 +1,6 @@
 from mesa.examples.advanced.alliance_formation.model import MultiLevelAllianceModel
 from mesa.examples.advanced.epstein_civil_violence.model import EpsteinCivilViolence
+from mesa.examples.advanced.multiple_spaces import MultiSpaceModel
 from mesa.examples.advanced.pd_grid.model import PdGrid
 from mesa.examples.advanced.sugarscape_g1mt.model import SugarscapeG1mt
 from mesa.examples.advanced.wolf_sheep.model import WolfSheep
@@ -15,6 +16,7 @@ __all__ = [
     "ConwaysGameOfLife",
     "EpsteinCivilViolence",
     "MultiLevelAllianceModel",
+    "MultiSpaceModel",
     "PdGrid",
     "Schelling",
     "SugarscapeG1mt",
