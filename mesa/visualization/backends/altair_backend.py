@@ -273,7 +273,7 @@ class AltairBackend(AbstractRenderer):
         vmax = kwargs.pop("vmax", None)
 
         color_is_numeric = pd.api.types.is_numeric_dtype(df["original_color"])
-        
+
         # Build tooltip list for interactivity
         tooltip_list = ["x", "y", "original_color", "size"]
         if tooltip_fields:
