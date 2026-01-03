@@ -27,6 +27,35 @@ class HasCellProtocol(Protocol):
     cell: Cell
 
 
+class CellPosition:
+    """Descriptor for cell position on agents."""
+
+    def __get__(self, obj: Agent, type=None) -> Cell | None:  # noqa: D105
+        try:
+            return getattr(obj, self._private_name)
+        except AttributeError:
+            return None
+
+    def __set__(self, obj: Agent, value: Cell) -> None:  # noqa: D105
+        try:
+            current_cell = getattr(obj, self._private_name)
+        except AttributeError:
+            current_cell = None
+
+        # remove from current cell
+        if current_cell is not None:
+            current_cell.remove_agent(obj)
+
+        setattr(obj, self._private_name, value)
+
+        # add to new cell
+        if value is not None:
+            value.add_agent(obj)
+
+    def __set_name__(self, owner: Agent, name) -> None:  # noqa: D105
+        self._private_name = f"_{name}"
+
+
 class HasCell:
     """Descriptor for cell movement behavior."""
 
@@ -68,6 +97,21 @@ class BasicMovement:
             self.cell = new_cell
         else:
             raise ValueError(f"No cell in direction {direction}")
+
+
+class FixedCellPosition(CellPosition):
+    """Descriptor for agents that are fixed to a cell."""
+
+    def __set__(self, obj: Agent, value: Cell) -> None:  # noqa: D105
+        try:
+            current_cell = getattr(obj, self._private_name)
+        except AttributeError:
+            current_cell = None
+
+        if current_cell is not None:
+            raise ValueError("Cannot move agent in FixedCell")
+        setattr(obj, self._private_name, value)
+        value.add_agent(obj)
 
 
 class FixedCell(HasCell):
