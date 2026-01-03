@@ -1,3 +1,5 @@
+import typing
+
 import mesa
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.advanced.pd_grid.agents import PDAgent
@@ -6,12 +8,21 @@ from mesa.examples.advanced.pd_grid.agents import PDAgent
 class PdGrid(mesa.Model):
     """Model class for iterated, spatial prisoner's dilemma model."""
 
-    activation_regimes = ["Sequential", "Random", "Simultaneous"]
+    activation_regimes: typing.ClassVar[list[str]] = [
+        "Sequential",
+        "Random",
+        "Simultaneous",
+    ]
 
     # This dictionary holds the payoff for this agent,
     # keyed on: (my_move, other_move)
 
-    payoff = {("C", "C"): 1, ("C", "D"): 0, ("D", "C"): 1.6, ("D", "D"): 0}
+    payoff: typing.ClassVar[dict[tuple[str, str], float]] = {
+        ("C", "C"): 1,
+        ("C", "D"): 0,
+        ("D", "C"): 1.6,
+        ("D", "D"): 0,
+    }
 
     def __init__(
         self, width=50, height=50, activation_order="Random", payoffs=None, seed=None

@@ -2,6 +2,7 @@
 
 import random
 import types
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -49,7 +50,7 @@ def test_matplotlib_backend_collects_agent_data():
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
-        agents = [DummyAgent()]
+        agents: ClassVar[list] = [DummyAgent()]
 
     # Test with AgentPortrayalStyle
     def agent_portrayal_style(agent):
@@ -187,7 +188,7 @@ def test_altair_backend_collects_agent_data():
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
-        agents = [DummyAgent()]
+        agents: ClassVar[list] = [DummyAgent()]
 
     # Test with AgentPortrayalStyle
     def agent_portrayal_style(agent):
@@ -225,7 +226,7 @@ def test_altair_backend_collects_agent_data_marker_mapping():
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
-        agents = [DummyAgent()]
+        agents: ClassVar[list] = [DummyAgent()]
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
