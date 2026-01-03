@@ -276,7 +276,6 @@ def SpaceRendererComponent(
             renderer.draw_propertylayer()
 
         viz_dependencies = [update_counter.value]
-
         # Update the fig every time frame
         if dependencies:
             viz_dependencies.extend(dependencies)
