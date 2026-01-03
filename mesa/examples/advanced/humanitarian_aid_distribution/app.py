@@ -1,6 +1,7 @@
-from mesa.visualization import SolaraViz, make_plot_component, SpaceRenderer
-from model import HumanitarianModel
 from agents import Beneficiary, Truck
+from model import HumanitarianModel
+
+from mesa.visualization import SolaraViz, SpaceRenderer, make_plot_component
 from mesa.visualization.components import AgentPortrayalStyle
 
 

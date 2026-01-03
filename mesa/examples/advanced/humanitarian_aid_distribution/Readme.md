@@ -12,7 +12,7 @@ Beneficiaries maintain two dynamic need levels (water and food urgency) that inc
 
 - **Wandering** (Urgency < 40): Normal life, random movement
 - **Opportunistic** (40 ≤ Urgency < 60): Accept help when convenient (search radius: 4 cells)
-- **Seeking** (60 ≤ Urgency < 90): Actively prioritize help-seeking (search radius: 8 cells)  
+- **Seeking** (60 ≤ Urgency < 90): Actively prioritize help-seeking (search radius: 8 cells)
 - **Desperate** (Urgency ≥ 90): Emergency mode, ignore all costs (search radius: infinite)
 
 Agents transition between these states based on homeostatic thresholds. If an agent remains in the desperate state for too long (configurable threshold), they die and are removed from the simulation.
@@ -81,25 +81,25 @@ This will launch a browser-based visualization where you can:
 * **`app.py`**: Sets up the interactive Solara visualization with agent portrayal functions and model parameter controls
 
 ## Relevant Literature:
-    - Balcik, B., Beamon, B. M., & Smilowitz, K. (2008). Last mile 
-      distribution in humanitarian relief. Journal of Intelligent 
+    - Balcik, B., Beamon, B. M., & Smilowitz, K. (2008). Last mile
+      distribution in humanitarian relief. Journal of Intelligent
       Transportation Systems, 12(2), 51-63.
-      
-    - Holguín-Veras, J., et al. (2012). On the appropriate objective 
-      function for post-disaster humanitarian logistics models. 
+
+    - Holguín-Veras, J., et al. (2012). On the appropriate objective
+      function for post-disaster humanitarian logistics models.
       Journal of Operations Management, 31(5), 262-280.
-      
-    - Gralla, E., Goentzel, J., & Fine, C. (2014). Assessing trade-offs 
-      among multiple objectives for humanitarian aid delivery using expert 
+
+    - Gralla, E., Goentzel, J., & Fine, C. (2014). Assessing trade-offs
+      among multiple objectives for humanitarian aid delivery using expert
       preferences. Production and Operations Management, 23(6), 978-989.
 
 ## Other References used:
 [Reference_PDF](https://drive.google.com/file/d/1GEL3gbCl9TCnQ5MOtMaB3LQ32o59oCr_/view?usp=drive_link)
 
-This pdf contains : 
+This pdf contains :
 - Other Relevant papers/resources used for building the model
-- Explanation of the part of the theory implemented from these papers along with snippets from code that follow the theory 
-- Modification (if any) in the theory to implement this code 
+- Explanation of the part of the theory implemented from these papers along with snippets from code that follow the theory
+- Modification (if any) in the theory to implement this code
 
 ## Key Insights
 

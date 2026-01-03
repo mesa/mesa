@@ -1,5 +1,6 @@
-import mesa
 from agents import Beneficiary, Truck
+
+import mesa
 
 
 class HumanitarianModel(mesa.Model):

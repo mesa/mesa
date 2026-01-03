@@ -157,7 +157,7 @@ class Beneficiary(mesa.Agent):
             radius (int, optional): limit search to this distance. None = global.
         """
         trucks = []
-        
+
         if radius is not None:
             neighbors = self.model.grid.get_neighbors(
                 self.pos, moore=True, include_center=False, radius=radius
@@ -165,15 +165,19 @@ class Beneficiary(mesa.Agent):
             trucks = [a for a in neighbors if isinstance(a, Truck)]
         else:
             # Fallback to scanning all agents for global search (radius=None)
-            trucks = [a for a in self.model.agents if isinstance(a, Truck) and a.pos is not None]
+            trucks = [
+                a
+                for a in self.model.agents
+                if isinstance(a, Truck) and a.pos is not None
+            ]
 
         if not trucks:
             return None
-            
+
         # Helper to calculate Manhattan distance
         def get_dist(t):
             return abs(self.pos[0] - t.pos[0]) + abs(self.pos[1] - t.pos[1])
-            
+
         return min(trucks, key=get_dist)
 
 
@@ -273,9 +277,11 @@ class Truck(mesa.Agent):
         # 2. TARGET VALIDATION
         if self.target:
             # Check if target is removed from model OR has no position (Dead)
-            if (not self.target.model) or (self.target.pos is None):
-                self.target = None
-            elif self.target.claimed_by != self:
+            if (
+                (not self.target.model)
+                or (self.target.pos is None)
+                or self.target.claimed_by != self
+            ):
                 self.target = None
 
         # 3. TARGET SELECTION
