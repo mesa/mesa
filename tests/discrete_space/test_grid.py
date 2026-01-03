@@ -428,7 +428,7 @@ class TestHexSingleGridTorus(TestSingleGrid):
 
 class TestIndexing:  # noqa: D101
     # Create a grid where the content of each coordinate is a tuple of its coordinates
-    grid = SingleGrid(3, 5, True)
+    grid = SingleGrid(3, 5, True, random=random.Random(42))
     for _, pos in grid.coord_iter():
         x, y = pos
         grid._grid[x][y] = pos

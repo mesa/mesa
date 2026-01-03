@@ -66,14 +66,29 @@ def test_backend_selection():
             OrthogonalMooreGrid([2, 2], random=random.Random(42)),
             OrthogonalSpaceDrawer,
         ),
-        (SingleGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
-        (MultiGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
+        (
+            SingleGrid(width=2, height=2, torus=False, random=random.Random(42)),
+            OrthogonalSpaceDrawer,
+        ),
+        (
+            MultiGrid(width=2, height=2, torus=False, random=random.Random(42)),
+            OrthogonalSpaceDrawer,
+        ),
         (HexGrid([2, 2], random=random.Random(42)), HexSpaceDrawer),
-        (HexSingleGrid(width=2, height=2, torus=False), HexSpaceDrawer),
-        (HexMultiGrid(width=2, height=2, torus=False), HexSpaceDrawer),
+        (
+            HexSingleGrid(width=2, height=2, torus=False, random=random.Random(42)),
+            HexSpaceDrawer,
+        ),
+        (
+            HexMultiGrid(width=2, height=2, torus=False, random=random.Random(42)),
+            HexSpaceDrawer,
+        ),
         (Network(G=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
-        (NetworkGrid(g=MagicMock()), NetworkSpaceDrawer),
-        (ContinuousSpace(x_max=2, y_max=2, torus=False), ContinuousSpaceDrawer),
+        (NetworkGrid(g=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
+        (
+            ContinuousSpace(x_max=2, y_max=2, torus=False, random=random.Random(42)),
+            ContinuousSpaceDrawer,
+        ),
         (
             VoronoiGrid([[0, 0], [1, 1]], random=random.Random(42)),
             VoronoiSpaceDrawer,
