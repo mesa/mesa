@@ -6,7 +6,6 @@ backends, supporting various space types and visualization components.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -156,7 +155,7 @@ class SpaceRenderer:
             # Map coordinates for Network spaces
             loc = arguments["loc"].astype(float)
             pos = np.asarray(list(self.space_drawer.pos.values()))
-            
+
             # For network only both x and y contains the correct coordinates; use one.
             x = loc[:, 0]
             if x is None:
@@ -165,16 +164,16 @@ class SpaceRenderer:
             # Ensure x is an integer index for the position mapping
             x = x.astype(int)
 
-            # We map valid indices to positions and set invalid ones to NaN. 
+            # We map valid indices to positions and set invalid ones to NaN.
             # This ensures data alignment is preserved.
-            
+
             # 1. Initialize result with NaNs (hidden from plot)
             mapped_locs = np.full((len(x), 2), np.nan)
-            
+
             # 2. Identify valid indices that exist in the current layout
             if len(pos) > 0:
                 valid_mask = (x >= 0) & (x < len(pos))
-                
+
                 # 3. Map only valid agents
                 if np.any(valid_mask):
                     mapped_locs[valid_mask] = pos[x[valid_mask]]
