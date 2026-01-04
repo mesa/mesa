@@ -110,7 +110,9 @@ class Cell:
         self.empty = False
 
         if self.capacity is not None and n >= self.capacity:
-            raise ValueError(f"Cell is full (capacity: {self.capacity})")
+            raise Exception(
+                "ERROR: Cell is full"
+            )  # FIXME we need MESA errors or a proper error
 
         self._agents.append(agent)
 
