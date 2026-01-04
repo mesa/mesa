@@ -110,9 +110,7 @@ class Cell:
         self.empty = False
 
         if self.capacity is not None and n >= self.capacity:
-            raise Exception(
-                "ERROR: Cell is full"
-            )  # FIXME we need MESA errors or a proper error
+            raise ValueError(f"Cell is full (capacity: {self.capacity})")
 
         self._agents.append(agent)
 
@@ -129,14 +127,14 @@ class Cell:
     @property
     def is_empty(self) -> bool:
         """Returns a bool of the contents of a cell."""
-        return len(self.agents) == 0
+        return len(self._agents) == 0
 
     @property
     def is_full(self) -> bool:
         """Returns a bool of the contents of a cell."""
         if self.capacity is None:
             return False
-        return len(self.agents) >= self.capacity
+        return len(self._agents) >= self.capacity
 
     @property
     def agents(self) -> list[CellAgent]:
