@@ -156,8 +156,8 @@ class SpaceRenderer:
             # Map coordinates for Network spaces
             loc = arguments["loc"].astype(float)
             pos = np.asarray(list(self.space_drawer.pos.values()))
-            # For network only both x and y contains the correct coordinates
-            # use one of them
+            
+            # For network only both x and y contains the correct coordinates; use one.
             x = loc[:, 0]
             if x is None:
                 x = loc[:, 1]
@@ -165,11 +165,21 @@ class SpaceRenderer:
             # Ensure x is an integer index for the position mapping
             x = x.astype(int)
 
-            # FIXME: Find better way to handle this case
-            # x updates before pos can, therefore gives us index error that
-            # needs to be ignored.
-            with contextlib.suppress(IndexError):
-                mapped_arguments["loc"] = pos[x]
+            # We map valid indices to positions and set invalid ones to NaN. 
+            # This ensures data alignment is preserved.
+            
+            # 1. Initialize result with NaNs (hidden from plot)
+            mapped_locs = np.full((len(x), 2), np.nan)
+            
+            # 2. Identify valid indices that exist in the current layout
+            if len(pos) > 0:
+                valid_mask = (x >= 0) & (x < len(pos))
+                
+                # 3. Map only valid agents
+                if np.any(valid_mask):
+                    mapped_locs[valid_mask] = pos[x[valid_mask]]
+
+            mapped_arguments["loc"] = mapped_locs
 
         return mapped_arguments
 
