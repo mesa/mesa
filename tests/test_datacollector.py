@@ -303,6 +303,19 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
             )
             self.assertTrue(non_existent_data.empty)
 
+    def test_invalid_agent_type_error(self):
+        """Test that passing a non-Agent class raises ValueError during collection."""
+
+        class NotAnAgent:
+            pass
+
+        dc = DataCollector(agenttype_reporters={NotAnAgent: {"foo": lambda a: 1}})
+
+        with self.assertRaises(ValueError) as cm:
+            dc._record_agenttype(self.model, NotAnAgent)
+
+        self.assertIn("not recognized as an Agent type", str(cm.exception))
+
     def test_agenttype_reporter_string_attribute(self):
         """Test agent-type-specific reporter with string attribute."""
         model = MockModelWithAgentTypes()
