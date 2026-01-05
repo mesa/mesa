@@ -305,12 +305,11 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
 
     def test_invalid_agent_type_error(self):
         """Test that passing a non-Agent class raises ValueError during collection."""
+
         class NotAnAgent:
             pass
 
-        dc = DataCollector(
-            agenttype_reporters={NotAnAgent: {"foo": lambda a: 1}}
-        )
+        dc = DataCollector(agenttype_reporters={NotAnAgent: {"foo": lambda a: 1}})
 
         with self.assertRaises(ValueError) as cm:
             dc.collect(self.model)
