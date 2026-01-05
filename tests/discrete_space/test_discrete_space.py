@@ -638,6 +638,30 @@ def test_cell_is_full_with_finite_capacity():
     assert cell.is_full is True
 
 
+def test_is_empty_no_list_copy():
+    """Verify is_empty checks len() directly without copying the agents list."""
+    model = Model()
+    cell = Cell((0, 0), capacity=None)
+
+    # Add agents and store reference to internal list
+    for _ in range(10):
+        cell.add_agent(CellAgent(model))
+
+    internal_list = cell._agents
+
+    # Calling is_empty should not replace _agents with a copy
+    _ = cell.is_empty
+    assert cell._agents is internal_list
+
+    # Same for is_full
+    _ = cell.is_full
+    assert cell._agents is internal_list
+
+    # But .agents property SHOULD return a copy
+    agents_copy = cell.agents
+    assert agents_copy is not internal_list
+
+
 def test_cell_collection():
     """Test CellCollection."""
     cell1 = Cell((1,), capacity=None, random=random.Random())
