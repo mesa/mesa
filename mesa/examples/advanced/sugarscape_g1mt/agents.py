@@ -239,14 +239,12 @@ class Trader(CellAgent):
 
         # find the highest welfare in welfares
         max_welfare = max(welfares)
-        # get the index of max welfare cells
-        # fixme: rewrite using enumerate and single loop
-        candidate_indices = [
-            i for i in range(len(welfares)) if math.isclose(welfares[i], max_welfare)
+        # Get cells with the highest welfare
+        candidates = [
+            cell
+            for cell, welfare in zip(neighboring_cells, welfares)
+            if math.isclose(welfare, max_welfare)
         ]
-
-        # convert index to positions of those cells
-        candidates = [neighboring_cells[i] for i in candidate_indices]
 
         min_dist = min(get_distance(self.cell, cell) for cell in candidates)
 
