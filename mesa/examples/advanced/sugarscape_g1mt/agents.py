@@ -241,8 +241,8 @@ class Trader(CellAgent):
         max_welfare = max(welfares)
         # Get cells with the highest welfare
         candidates = [
-            neighboring_cells[i]
-            for i, welfare in enumerate(welfares)
+            cell
+            for cell, welfare in zip(neighboring_cells, welfares)
             if math.isclose(welfare, max_welfare)
         ]
 
