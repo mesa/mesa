@@ -293,10 +293,12 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         class NotAnAgent:
             pass
 
-        data_collector._new_agenttype_reporter(NotAnAgent, "foo", lambda a: 1)
+        dc = DataCollector(
+            agenttype_reporters={NotAnAgent: {"foo": lambda a: 1}}
+        )
 
         with self.assertRaises(ValueError) as cm:
-            data_collector.collect(self.model)
+            dc.collect(self.model)
         
         self.assertIn("not recognized as an Agent type", str(cm.exception))
 
