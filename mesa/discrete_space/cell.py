@@ -73,6 +73,7 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self.empty = True
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -124,12 +125,12 @@ class Cell:
 
         """
         self._agents.remove(agent)
-        self.empty = self.is_empty
+        self.empty = len(self._agents) == 0
 
     @property
     def is_empty(self) -> bool:
         """Returns a bool of the contents of a cell."""
-        return len(self._agents) == 0
+        return self.empty
 
     @property
     def is_full(self) -> bool:
