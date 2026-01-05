@@ -43,8 +43,6 @@ from tqdm.auto import tqdm
 
 from mesa.model import Model
 
-
-
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 
 
