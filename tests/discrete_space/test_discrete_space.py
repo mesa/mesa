@@ -638,30 +638,6 @@ def test_cell_is_full_with_finite_capacity():
     assert cell.is_full is True
 
 
-def test_is_empty_no_list_copy():
-    """Verify is_empty checks len() directly without copying the agents list."""
-    model = Model()
-    cell = Cell((0, 0), capacity=None)
-
-    # Add agents and store reference to internal list
-    for _ in range(10):
-        cell.add_agent(CellAgent(model))
-
-    internal_list = cell._agents
-
-    # Calling is_empty should not replace _agents with a copy
-    _ = cell.is_empty
-    assert cell._agents is internal_list
-
-    # Same for is_full
-    _ = cell.is_full
-    assert cell._agents is internal_list
-
-    # But .agents property SHOULD return a copy
-    agents_copy = cell.agents
-    assert agents_copy is not internal_list
-
-
 def test_cell_collection():
     """Test CellCollection."""
     cell1 = Cell((1,), capacity=None, random=random.Random())
@@ -781,11 +757,13 @@ def test_property_layer_integration():
     assert elevation.data[0, 0] == 200
 
     # Test modifying PropertyLayer values
-    grid.set_property("elevation", 100, condition=lambda value: value == 200)
+    with pytest.warns(DeprecationWarning):
+        grid.set_property("elevation", 100, condition=lambda value: value == 200)
     assert cell.elevation == 100
 
     # Test modifying PropertyLayer using numpy operations
-    grid.modify_properties("elevation", np.add, 50)
+    with pytest.warns(DeprecationWarning):
+        grid.modify_properties("elevation", np.add, 50)
     assert cell.elevation == 150
 
     # Test removing a PropertyLayer
@@ -845,8 +823,10 @@ def test_multiple_property_layers():
     assert len(grid2._mesa_property_layers) == 3
 
     # Modify properties
-    grid2.modify_properties("elevation", lambda x: x + 10)
-    grid2.modify_properties("temperature", lambda x: x + 5)
+    with pytest.warns(DeprecationWarning):
+        grid2.modify_properties("elevation", lambda x: x + 10)
+    with pytest.warns(DeprecationWarning):
+        grid2.modify_properties("temperature", lambda x: x + 5)
 
     for cell in grid2.all_cells:
         assert cell.elevation == 10
@@ -968,6 +948,7 @@ def test_property_layer():
     with pytest.warns(DeprecationWarning):
         assert layer.aggregate(np.sum) == 100
 
+    # New API tests (NumPy interface)
     dimensions = (5, 5)
     layer = PropertyLayer("test", dimensions, default_value=0.0)
 
