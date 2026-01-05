@@ -2,6 +2,8 @@
 
 import unittest
 
+import pandas as pd
+
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 
@@ -213,6 +215,21 @@ class TestDataCollector(unittest.TestCase):
         with self.assertRaises(Exception):
             data_collector.add_table_row("Final_Values", {"final_value": 10})
 
+    def test_table_ignore_missing(self):
+        """Test table collection with ignore_missing=True."""
+        data_collector = self.model.datacollector
+        # ["agent_id", "final_value"]
+
+        row = {"agent_id": 999}
+        data_collector.add_table_row("Final_Values", row, ignore_missing=True)
+
+        table_df = data_collector.get_table_dataframe("Final_Values")
+        # the last row should have 999 and None
+        last_row = table_df.iloc[-1]
+        self.assertEqual(last_row["agent_id"], 999)
+
+        self.assertTrue(pd.isna(last_row["final_value"]))
+
     def test_exports(self):
         """Test DataFrame exports."""
         data_collector = self.model.datacollector
@@ -285,6 +302,19 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
                 NonExistentAgent
             )
             self.assertTrue(non_existent_data.empty)
+
+    def test_invalid_agent_type_error(self):
+        """Test that passing a non-Agent class raises ValueError during collection."""
+
+        class NotAnAgent:
+            pass
+
+        dc = DataCollector(agenttype_reporters={NotAnAgent: {"foo": lambda a: 1}})
+
+        with self.assertRaises(ValueError) as cm:
+            dc._record_agenttype(self.model, NotAnAgent)
+
+        self.assertIn("not recognized as an Agent type", str(cm.exception))
 
     def test_agenttype_reporter_string_attribute(self):
         """Test agent-type-specific reporter with string attribute."""
