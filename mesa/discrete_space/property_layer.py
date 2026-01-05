@@ -408,7 +408,7 @@ class HasPropertyLayers:
             else:
                 combined_mask = np.logical_and(combined_mask, masks)
 
-        # Apply the empty mask if only_empty is True      
+        # Apply the empty mask if only_empty is True
         if only_empty:
             combined_mask = np.logical_and(
                 combined_mask, self._mesa_property_layers["empty"]
