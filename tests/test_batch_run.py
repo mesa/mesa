@@ -424,6 +424,7 @@ def test_batch_run_sparse_collection():
     assert all("Value" in row for row in result)
     assert all("Step" in row for row in result)
 
+
 class TimeDilationModel(Model):
     """Model that collects data multiple times per step to test BatchRunner alignment."""
 
