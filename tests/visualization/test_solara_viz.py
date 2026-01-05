@@ -1,6 +1,5 @@
-"""Test Solara visualizations."""
+"""Test Solara visualizations - Modern API."""
 
-import random
 import re
 import unittest
 
@@ -9,12 +8,10 @@ import pytest
 import solara
 
 import mesa
-import mesa.visualization.components.altair_components
-import mesa.visualization.components.matplotlib_components
 from mesa.space import MultiGrid, PropertyLayer
-from mesa.visualization.components import AgentPortrayalStyle
-from mesa.visualization.components.altair_components import make_altair_space
-from mesa.visualization.components.matplotlib_components import make_mpl_space_component
+from mesa.visualization.backends.altair_backend import AltairBackend
+from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
@@ -22,6 +19,7 @@ from mesa.visualization.solara_viz import (
     UserInputs,
     _check_model_params,
 )
+from mesa.visualization.space_renderer import SpaceRenderer
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
@@ -38,6 +36,19 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         # no type is specified
         with self.assertRaisesRegex(ValueError, "not a supported input type"):
             solara.render(Test({"mock": {}}), handle_error=False)
+
+    def test_input_text_field(self):
+        """Test that 'InputText' type correctly creates a vw.TextField."""
+
+        @solara.component
+        def Test(user_params):
+            UserInputs(user_params)
+
+        options = {"type": "InputText", "value": "JohnDoe", "label": "Agent Name"}
+        _, rc = solara.render(Test({"agent_name": options}), handle_error=False)
+        textfield = rc.find(vw.TextField).widget
+        assert textfield.v_model == "JohnDoe"
+        assert textfield.label == "Agent Name"
 
     def test_slider_int(self):  # noqa: D102
         @solara.component
@@ -82,11 +93,7 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         def Test(user_params):
             UserInputs(user_params)
 
-        options = {
-            "type": "SliderInt",
-            "value": 10,
-        }
-
+        options = {"type": "SliderInt", "value": 10}
         user_params = {"num_agents": options}
         _, rc = solara.render(Test(user_params), handle_error=False)
         slider_int = rc.find(vw.Slider).widget
@@ -98,119 +105,57 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert slider_int.step is None
 
 
-def test_call_space_drawer(mocker):
-    """Test the call to space drawer."""
-    mock_space_matplotlib = mocker.spy(
-        mesa.visualization.components.matplotlib_components, "SpaceMatplotlib"
-    )
-
-    mock_space_altair = mocker.spy(
-        mesa.visualization.components.altair_components, "SpaceAltair"
-    )
-    mock_chart_property_layer = mocker.spy(
-        mesa.visualization.components.altair_components, "chart_property_layers"
-    )
-
-    class MockAgent(mesa.Agent):
-        def __init__(self, model):
-            super().__init__(model)
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_backends(mocker, backend):
+    """Validates BOTH backends using the modern API."""
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+    spy_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
 
     class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
-            layer1 = PropertyLayer(
-                name="sugar", width=10, height=10, default_value=10.0, dtype=float
-            )
-            self.grid = MultiGrid(
-                width=10, height=10, torus=True, property_layers=layer1
-            )
-            a = MockAgent(self)
-            self.grid.place_agent(a, (5, 5))
+        def __init__(self):
+            super().__init__()
+            # Include property layer to verify it gets drawn
+            layer = PropertyLayer("sugar", 10, 10, 10.0, dtype=float)
+            self.grid = MultiGrid(10, 10, True, property_layers=layer)
+            self.grid.place_agent(mesa.Agent(self), (5, 5))
 
     model = MockModel()
 
-    def agent_portrayal(agent):
+    def agent_portrayal(_):
         return AgentPortrayalStyle(marker="o", color="gray")
 
-    propertylayer_portrayal = None
-    # initialize with space drawer unspecified (use default)
-    # component must be rendered for code to run
-    solara.render(
-        SolaraViz(
-            model,
-            components=[make_mpl_space_component(agent_portrayal)],
-        )
-    )
-    # should call default method with class instance and agent portrayal
-    mock_space_matplotlib.assert_called_with(
-        model, agent_portrayal, propertylayer_portrayal, post_process=None
+    def property_portrayal(_):
+        return PropertyLayerStyle(colormap="viridis")
+
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(agent_portrayal)
+        .setup_propertylayer(property_portrayal)
+        .render()
     )
 
-    # specify no space should be drawn
-    mock_space_matplotlib.reset_mock()
-    solara.render(SolaraViz(model, components="default"))
-    # should call default method with class instance and agent portrayal
-    assert mock_space_matplotlib.call_count == 0
-    assert mock_space_altair.call_count == 1  # altair is the default method
+    solara.render(SolaraViz(model, renderer, components=[]))
 
-    # checking if SpaceAltair is working as intended with post_process
-    propertylayer_portrayal = {
-        "sugar": {
-            "colormap": "pastel1",
-            "alpha": 0.75,
-            "colorbar": True,
-            "vmin": 0,
-            "vmax": 10,
-        }
-    }
-    mock_post_process = mocker.MagicMock()
-    solara.render(
-        SolaraViz(
-            model,
-            components=[
-                make_altair_space(
-                    agent_portrayal,
-                    post_process=mock_post_process,
-                    propertylayer_portrayal=propertylayer_portrayal,
-                )
-            ],
-        )
-    )
+    assert renderer.backend == backend
 
-    args, kwargs = mock_space_altair.call_args
-    assert args == (model, agent_portrayal)
-    assert kwargs == {
-        "post_process": mock_post_process,
-        "propertylayer_portrayal": propertylayer_portrayal,
-    }
-    mock_post_process.assert_called_once()
-    assert mock_chart_property_layer.call_count == 1
-    assert mock_space_matplotlib.call_count == 0
+    if backend == "matplotlib":
+        assert isinstance(renderer.backend_renderer, MatplotlibBackend)
+    elif backend == "altair":
+        assert isinstance(renderer.backend_renderer, AltairBackend)
 
-    mock_space_altair.reset_mock()
-    mock_space_matplotlib.reset_mock()
-    mock_post_process.reset_mock()
-    mock_chart_property_layer.reset_mock()
+    spy_structure.assert_called_with(renderer)
+    spy_agents.assert_called_with(renderer)
+    spy_properties.assert_called_with(renderer)
 
-    # specify a custom space method
-    class AltSpace:
-        @staticmethod
-        def drawer(model):
-            return
-
-    altspace_drawer = mocker.spy(AltSpace, "drawer")
-    solara.render(SolaraViz(model, components=[AltSpace.drawer]))
-    altspace_drawer.assert_called_with(model)
-
-    # check voronoi space drawer
-    voronoi_model = mesa.Model()
-    voronoi_model.grid = mesa.discrete_space.VoronoiGrid(
-        centroids_coordinates=[(0, 1), (0, 0), (1, 0)],
-        random=random.Random(42),
-    )
-    solara.render(
-        SolaraViz(voronoi_model, components=[make_mpl_space_component(agent_portrayal)])
-    )
+    # Test that nothing is drawn if the renderer is not passed
+    spy_structure.reset_mock()
+    spy_agents.reset_mock()
+    spy_properties.reset_mock()
+    solara.render(SolaraViz(model))
+    assert spy_structure.call_count == 0
+    assert spy_agents.call_count == 0
+    assert spy_properties.call_count == 0
 
 
 def test_slider():
