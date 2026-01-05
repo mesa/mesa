@@ -895,13 +895,15 @@ def test_property_layer():
     elevation = PropertyLayer("elevation", (5, 5), default_value=0.0)
 
     # test set_cells
-    elevation.set_cells(10)
+    with pytest.warns(DeprecationWarning):
+        elevation.set_cells(10)
     assert np.all(elevation.data == 10)
 
-    elevation.set_cells(np.ones((5, 5)))
+    with pytest.warns(DeprecationWarning):
+        elevation.set_cells(np.ones((5, 5)))
     assert np.all(elevation.data == 1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(DeprecationWarning):
         elevation.set_cells(np.ones((6, 6)))
 
     data = np.random.default_rng(42).random((5, 5))
@@ -910,7 +912,8 @@ def test_property_layer():
     def condition(x):
         return x > 0.5
 
-    layer.set_cells(1, condition=condition)
+    with pytest.warns(DeprecationWarning):
+        layer.set_cells(1, condition=condition)
     assert np.all((layer.data == 1) == (data > 0.5))
 
     # modify_cells
@@ -918,24 +921,59 @@ def test_property_layer():
     layer = PropertyLayer.from_data("some_name", data)
 
     layer.data = np.zeros((10, 10))
-    layer.modify_cells(lambda x: x + 2)
+    with pytest.warns(DeprecationWarning):
+        layer.modify_cells(lambda x: x + 2)
     assert np.all(layer.data == 2)
 
     layer.data = np.ones((10, 10))
-    layer.modify_cells(np.multiply, 3)
+    with pytest.warns(DeprecationWarning):
+        layer.modify_cells(np.multiply, 3)
     assert np.all(layer.data[3, 3] == 3)
 
     data = np.random.default_rng(42).random((10, 10))
     layer.data = np.random.default_rng(42).random((10, 10))
-    layer.modify_cells(np.add, value=3, condition=condition)
+    with pytest.warns(DeprecationWarning):
+        layer.modify_cells(np.add, value=3, condition=condition)
     assert np.all((layer.data > 3.5) == (data > 0.5))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(DeprecationWarning):
         layer.modify_cells(np.add)  # Missing value for ufunc
 
     # aggregate
     layer.data = np.ones((10, 10))
-    assert layer.aggregate(np.sum) == 100
+    with pytest.warns(DeprecationWarning):
+        assert layer.aggregate(np.sum) == 100
+
+    dimensions = (5, 5)
+    layer = PropertyLayer("test", dimensions, default_value=0.0)
+
+    # Test indexing __getitem__ and __setitem__
+    layer[0, 0] = 10.0
+    assert layer[0, 0] == 10.0
+    assert layer.data[0, 0] == 10.0
+
+    # Test slicing
+    layer[:, :] = 5.0
+    assert np.all(layer.data == 5.0)
+
+    # Test __array__ conversion
+    assert np.mean(layer) == 5.0
+
+    # Test in-place operators
+    layer += 1.0
+    assert np.all(layer.data == 6.0)
+
+    layer *= 2.0
+    assert np.all(layer.data == 12.0)
+
+    layer /= 2.0
+    assert np.all(layer.data == 6.0)
+
+    layer -= 1.0
+    assert np.all(layer.data == 5.0)
+
+    layer **= 2
+    assert np.all(layer.data == 25.0)
 
 
 def test_property_layer_errors():

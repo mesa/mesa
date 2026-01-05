@@ -36,21 +36,7 @@ class PropertyLayer:
         name: The name of the property layer.
         dimensions: The width of the grid (number of columns).
         data: A NumPy array representing the grid data.
-
     """
-
-    # Fixme
-    #  can't we simplify this a lot
-    #  in essence, this is just a numpy array with a name and fixed dimensions
-    #  all other functionality seems redundant to me?
-
-    @property
-    def data(self):  # noqa: D102
-        return self._mesa_data
-
-    @data.setter
-    def data(self, value):
-        self.set_cells(value)
 
     propertylayer_experimental_warning_given = False
 
@@ -88,26 +74,81 @@ class PropertyLayer:
                 f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
             ) from e
 
-        # fixme why not initialize with empty?
-        self._mesa_data = np.full(self.dimensions, default_value, dtype=dtype)
+        # Public attribute exposing the raw data
+        self.data = np.full(self.dimensions, default_value, dtype=dtype)
 
     @classmethod
     def from_data(cls, name: str, data: np.ndarray):
-        """Create a property layer from a NumPy array.
+        """Create a property layer directly from an existing NumPy array.
 
         Args:
             name: The name of the property layer.
             data: A NumPy array representing the grid data.
-
         """
         layer = cls(
             name,
             data.shape,
-            default_value=data[*[0 for _ in range(len(data.shape))]],
+            default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer.set_cells(data)
+        layer.data = data
         return layer
+
+    # NumPy Array Interface
+
+    def __array__(self, dtype=None):
+        """Allow the layer to be passed directly to NumPy functions."""
+        return np.asarray(self.data, dtype=dtype)
+
+    def __getitem__(self, key):
+        """Allow direct indexing (e.g., layer[0, 0])."""
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        """Allow direct item assignment (e.g., layer[0, 0] = 5)."""
+        self.data[key] = value
+
+    def __iter__(self):
+        """Allow iteration over the data."""
+        return iter(self.data)
+
+    def __len__(self):
+        """Return the length of the data."""
+        return len(self.data)
+
+    # In-place Arithmetic Operations
+
+    def __iadd__(self, other):
+        """In-place addition."""
+        self.data += other
+        return self
+
+    def __isub__(self, other):
+        """In-place subtraction."""
+        self.data -= other
+        return self
+
+    def __imul__(self, other):
+        """In-place multiplication."""
+        self.data *= other
+        return self
+
+    def __itruediv__(self, other):
+        """In-place true division."""
+        self.data /= other
+        return self
+
+    def __ifloordiv__(self, other):
+        """In-place floor division."""
+        self.data //= other
+        return self
+
+    def __ipow__(self, other):
+        """In-place power."""
+        self.data **= other
+        return self
+
+    # Deprecated Methods
 
     def set_cells(self, value, condition: Callable | None = None):
         """Perform a batch update either on the entire grid or conditionally, in-place.
@@ -116,12 +157,17 @@ class PropertyLayer:
             value: The value to be used for the update.
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
+        warnings.warn(
+            "set_cells is deprecated and will be removed in a future version. "
+            "Use direct NumPy indexing on the layer object instead (e.g. layer[:] = value or layer[mask] = value).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if condition is None:
-            np.copyto(self._mesa_data, value)  # In-place update
+            self.data[:] = value
         else:
-            vectorized_condition = np.vectorize(condition)
-            condition_result = vectorized_condition(self._mesa_data)
-            np.copyto(self._mesa_data, value, where=condition_result)
+            mask = condition(self.data)
+            self.data[mask] = value
 
     def modify_cells(
         self,
@@ -131,37 +177,31 @@ class PropertyLayer:
     ):
         """Modify cells using an operation, which can be a lambda function or a NumPy ufunc.
 
-        If a NumPy ufunc is used, an additional value should be provided.
-
         Args:
             operation: A function to apply. Can be a lambda function or a NumPy ufunc.
             value: The value to be used if the operation is a NumPy ufunc. Ignored for lambda functions.
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
-        condition_array = np.ones_like(
-            self._mesa_data, dtype=bool
-        )  # Default condition (all cells)
-        if condition is not None:
-            vectorized_condition = np.vectorize(condition)
-            condition_array = vectorized_condition(self._mesa_data)
+        warnings.warn(
+            "modify_cells is deprecated and will be removed in a future version. "
+            "Use direct NumPy operations on the layer object instead (e.g. layer += 1).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        mask = condition(self.data) if condition is not None else slice(None)
 
-        # Check if the operation is a lambda function or a NumPy ufunc
-        if isinstance(operation, np.ufunc):
-            if ufunc_requires_additional_input(operation):
-                if value is None:
-                    raise ValueError("This ufunc requires an additional input value.")
-                modified_data = operation(self._mesa_data, value)
-            else:
-                modified_data = operation(self._mesa_data)
+        target_data = self.data[mask]
+
+        if isinstance(operation, np.ufunc) and operation.nargs > 1:
+            if value is None:
+                raise ValueError("This ufunc requires an additional input value.")
+            self.data[mask] = operation(target_data, value)
         else:
-            # Vectorize non-ufunc operations
-            vectorized_operation = np.vectorize(operation)
-            modified_data = vectorized_operation(self._mesa_data)
-
-        self._mesa_data = np.where(condition_array, modified_data, self._mesa_data)
+            vectorized_op = np.vectorize(operation)
+            self.data[mask] = vectorized_op(target_data)
 
     def select_cells(self, condition: Callable, return_list=True):
-        """Find cells that meet a specified condition using NumPy's boolean indexing, in-place.
+        """Find cells that meet a specified condition using NumPy's boolean indexing.
 
         Args:
             condition: A callable that returns a boolean array when applied to the data.
@@ -170,15 +210,17 @@ class PropertyLayer:
         Returns:
             A list of (x, y) tuples or a boolean array.
         """
-        # fixme: consider splitting into two separate functions
-        #  select_cells_boolean
-        #  select_cells_index
-
-        condition_array = condition(self._mesa_data)
+        warnings.warn(
+            "select_cells is deprecated and will be removed in a future version. "
+            "Use np.argwhere(condition(layer)) or boolean masks instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        mask = condition(self.data)
         if return_list:
-            return list(zip(*np.where(condition_array)))
+            return list(zip(*np.where(mask)))
         else:
-            return condition_array
+            return mask
 
     def aggregate(self, operation: Callable):
         """Perform an aggregate operation (e.g., sum, mean) on a property across all cells.
@@ -186,18 +228,22 @@ class PropertyLayer:
         Args:
             operation: A function to apply. Can be a lambda function or a NumPy ufunc.
         """
-        return operation(self._mesa_data)
+        warnings.warn(
+            "aggregate is deprecated and will be removed in a future version. "
+            "Use NumPy aggregate functions directly on the layer object (e.g. np.mean(layer)).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return operation(self.data)
 
 
 class HasPropertyLayers:
-    """Mixin-like class to add property layer functionality to Grids.
+    """Mixin class to add property layer functionality to Grids.
 
-    Property layers can be added to a grid using create_property_layer or add_property_layer. Once created, property
-    layers can be accessed as attributes if the name used for the layer is a valid python identifier.
-
+    Property layers can be added to a grid using create_property_layer or add_property_layer.
+    Once created, property layers can be accessed as attributes.
     """
 
-    # fixme is there a way to indicate that a mixin only works with specific classes?
     def __init__(self, *args, **kwargs):
         """Initialize a HasPropertyLayers instance."""
         super().__init__(*args, **kwargs)
@@ -217,8 +263,7 @@ class HasPropertyLayers:
             dtype: The data type of the property layer.
 
         Returns:
-              Property layer instance.
-
+              The created PropertyLayer instance.
         """
         layer = PropertyLayer(
             name, self.dimensions, default_value=default_value, dtype=dtype
@@ -233,8 +278,7 @@ class HasPropertyLayers:
             layer: The property layer to add.
 
         Raises:
-            ValueError: If the dimensions of the layer and the grid are not the same.
-
+            ValueError: If dimensions do not match or if the layer name already exists.
         """
         if layer.dimensions != self.dimensions:
             raise ValueError(
@@ -258,8 +302,7 @@ class HasPropertyLayers:
         """Remove a property layer from the grid.
 
         Args:
-            property_name: the name of the property layer to remove
-            remove_from_cells: whether to remove the property layer from all cells (default: True)
+            property_name: The name of the property layer to remove.
         """
         del self._mesa_property_layers[property_name]
         delattr(self.cell_klass, property_name)
@@ -271,11 +314,17 @@ class HasPropertyLayers:
         """Set the value of a property for all cells in the grid.
 
         Args:
-            property_name: the name of the property to set
-            value: the value to set
-            condition: a function that takes a cell and returns a boolean
+            property_name: The name of the property to set.
+            value: The value to set.
+            condition: A function that takes a cell and returns a boolean.
         """
-        self._mesa_property_layers[property_name].set_cells(value, condition)
+        # Refactored to bypass deprecated set_cells
+        layer = self._mesa_property_layers[property_name]
+        if condition is None:
+            layer.data[:] = value
+        else:
+            mask = np.vectorize(condition)(layer.data)
+            layer.data[mask] = value
 
     def modify_properties(
         self,
@@ -287,14 +336,23 @@ class HasPropertyLayers:
         """Modify the values of a specific property for all cells in the grid.
 
         Args:
-            property_name: the name of the property to modify
-            operation: the operation to perform
-            value: the value to use in the operation
-            condition: a function that takes a cell and returns a boolean (used to filter cells)
+            property_name: The name of the property to modify.
+            operation: The operation to perform.
+            value: The value to use in the operation.
+            condition: A function that takes a cell and returns a boolean.
         """
-        self._mesa_property_layers[property_name].modify_cells(
-            operation, value, condition
-        )
+        # Refactored to bypass deprecated modify_cells
+        layer = self._mesa_property_layers[property_name]
+
+        mask = slice(None) if condition is None else np.vectorize(condition)(layer.data)
+
+        if isinstance(operation, np.ufunc) and operation.nargs > 1:
+            if value is None:
+                raise ValueError("This ufunc requires an additional input value.")
+            layer.data[mask] = operation(layer.data[mask], value)
+        else:
+            vectorized_op = np.vectorize(operation)
+            layer.data[mask] = vectorized_op(layer.data[mask])
 
     def get_neighborhood_mask(
         self, coordinate: Coordinate, include_center: bool = True, radius: int = 1
@@ -315,7 +373,6 @@ class HasPropertyLayers:
         )
         mask = np.zeros(self.dimensions, dtype=bool)
 
-        # Convert the neighborhood list to a NumPy array and use advanced indexing
         coords = np.array([c.coordinate for c in neighborhood])
         indices = [coords[:, i] for i in range(coords.shape[1])]
         mask[*indices] = True
@@ -341,12 +398,6 @@ class HasPropertyLayers:
         Returns:
             Union[list[Coordinate], np.ndarray]: Coordinates where conditions are satisfied or the combined mask.
         """
-        # fixme: consider splitting into two separate functions
-        #  select_cells_boolean
-        #  select_cells_index
-        #  also we might want to change the naming to avoid classes with PropertyLayer
-
-        # Initialize the combined mask
         combined_mask = np.ones(self.dimensions, dtype=bool)
 
         # Apply the masks
@@ -357,7 +408,7 @@ class HasPropertyLayers:
             else:
                 combined_mask = np.logical_and(combined_mask, masks)
 
-        # Apply the empty mask if only_empty is True
+        # Apply the empty mask if only_empty is True      
         if only_empty:
             combined_mask = np.logical_and(
                 combined_mask, self._mesa_property_layers["empty"]
@@ -374,8 +425,6 @@ class HasPropertyLayers:
         if extreme_values:
             for property_name, mode in extreme_values.items():
                 prop_values = self._mesa_property_layers[property_name].data
-
-                # Create a masked array using the combined_mask
                 masked_values = np.ma.masked_array(prop_values, mask=~combined_mask)
 
                 if mode == "highest":
@@ -390,7 +439,6 @@ class HasPropertyLayers:
                 extreme_value_mask = prop_values == target_value
                 combined_mask = np.logical_and(combined_mask, extreme_value_mask)
 
-        # Generate output
         if return_list:
             selected_cells = list(zip(*np.where(combined_mask)))
             return selected_cells
@@ -406,24 +454,23 @@ class HasPropertyLayers:
             ) from e
 
     def __setattr__(self, key, value):  # noqa: D105
-        # fixme
-        #  this might be done more elegantly, the main problem is that _mesa_property_layers must already be defined to avoid infinite recursion errors from happening
-        #  also, this protection only works if the attribute is added after the layer, not the other way around
+        # We must carefully check if _mesa_property_layers exists to avoid recursion
         try:
-            layers = self.__dict__["_mesa_property_layers"]
+            layers = self.__dict__.get("_mesa_property_layers")
         except KeyError:
             super().__setattr__(key, value)
+            return
+
+        if layers and key in layers:
+            raise AttributeError(
+                f"'{type(self).__name__}' object already has a property layer with name '{key}'"
+            )
         else:
-            if key in layers:
-                raise AttributeError(
-                    f"'{type(self).__name__}' object already has a property layer with name '{key}'"
-                )
-            else:
-                super().__setattr__(key, value)
+            super().__setattr__(key, value)
 
 
 class PropertyDescriptor:
-    """Descriptor for giving cells attribute like access to values defined in property layers."""
+    """Descriptor for giving cells attribute-like access to values defined in property layers."""
 
     def __init__(self, property_layer: PropertyLayer):  # noqa: D107
         self.layer: PropertyLayer = property_layer
@@ -433,9 +480,3 @@ class PropertyDescriptor:
 
     def __set__(self, instance: Cell, value):  # noqa: D105
         self.layer.data[instance.coordinate] = value
-
-
-def ufunc_requires_additional_input(ufunc):  # noqa: D103
-    # NumPy ufuncs have a 'nargs' attribute indicating the number of input arguments
-    # For binary ufuncs (like np.add), nargs is 2
-    return ufunc.nargs > 1
