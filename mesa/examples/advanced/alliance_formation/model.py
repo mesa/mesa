@@ -62,7 +62,7 @@ class MultiLevelAllianceModel(mesa.Model):
         Returns:
             tuple: Potential utility, new position, and level.
         """
-        (agent_0,) = agents[0]
+        agent_0 = agents[0]
         agent_1 = agents[1]
 
         positions = agents.get("position")
