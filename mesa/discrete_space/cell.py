@@ -75,7 +75,7 @@ class Cell:
         self.random = random
         # We need a place to store the value when NOT using a Grid (e.g. Network).
         # In a Grid, this variable exists but is ignored because the setter is overridden.
-        self._empty = True   
+        self._empty = True
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -133,7 +133,7 @@ class Cell:
     def empty(self) -> bool:
         """Read-only property that returns whether the cell is empty."""
         return len(self._agents) == 0
-    
+
     # This is the method that Grid will OVERRIDE.
     # By default, it just updates the local variable.
     def _set_empty(self, value: bool):

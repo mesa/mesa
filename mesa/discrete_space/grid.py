@@ -120,7 +120,9 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             for coord in coordinates
         }
         self._connect_cells()
-        self.create_property_layer("empty", default_value=True, dtype=bool, read_only=True)
+        self.create_property_layer(
+            "empty", default_value=True, dtype=bool, read_only=True
+        )
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
