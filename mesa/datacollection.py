@@ -37,6 +37,8 @@ import warnings
 from copy import deepcopy
 from functools import partial
 
+from mesa import Agent
+
 with contextlib.suppress(ImportError):
     import pandas as pd
 
@@ -113,6 +115,7 @@ class DataCollector:
         self.agenttype_reporters = {}
 
         self.model_vars = {}
+        self._collection_steps = []
         self._agent_records = {}
         self._agenttype_records = {}
         self.tables = {}
@@ -163,9 +166,16 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        # Type 2: Method of class/instance
-        if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-            pass
+        # Type 2: Method of class/instance (bound methods are callable)
+        if callable(reporter) and not isinstance(reporter, types.LambdaType):
+            try:
+                reporter()  # Call without args for bound methods
+            except Exception as e:
+                raise RuntimeError(
+                    f"Method reporter '{name}' failed validation: {e!s}"
+                ) from e
+        # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
+        #     pass
 
         # Type 3: Model attribute (string)
         if isinstance(reporter, str):
@@ -174,7 +184,7 @@ class DataCollector:
                     raise AttributeError(
                         f"Model reporter '{name}' references non-existent attribute '{reporter}'\n"
                     )
-                getattr(model, reporter)  # 验证属性是否可访问
+                getattr(model, reporter)  # verify attribute is accessible
             except AttributeError as e:
                 raise AttributeError(
                     f"Model reporter '{name}' attribute validation failed: {e!s}\n"
@@ -215,7 +225,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                return getattr(agent, attribute_name, None)
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
+                    raise AttributeError(
+                        f"Agent {agent.unique_id} of type {type(agent).__name__} "
+                        f"has no attribute '{attribute_name}' (reporter: '{name}')"
+                    ) from e
 
             reporter = attr_reporter
 
@@ -251,7 +267,13 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
-                return getattr(agent, attribute_name, None)
+                try:
+                    return getattr(agent, attribute_name)
+                except AttributeError as e:
+                    raise AttributeError(
+                        f"Agent {agent.unique_id} of type {type(agent).__name__} "
+                        f"has no attribute '{attribute_name}' (reporter: '{name}')"
+                    ) from e
 
             reporter = attr_reporter
 
@@ -278,11 +300,20 @@ class DataCollector:
     def _record_agents(self, model):
         """Record agents data in a mapping of functions and agents."""
         rep_funcs = self.agent_reporters.values()
+        # Immutable types that don't need deepcopy
+        python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
-            _prefix = (agent.model.steps, agent.unique_id)
-            reports = tuple(rep(agent) for rep in rep_funcs)
-            return _prefix + reports
+            _prefix = (agent.model.time, agent.unique_id)
+            reports = []
+            for rep in rep_funcs:
+                value = rep(agent)
+                # Only deepcopy mutable types to avoid performance overhead
+                if isinstance(value, python_immutable_types):
+                    reports.append(value)
+                else:
+                    reports.append(deepcopy(value))
+            return _prefix + tuple(reports)
 
         agent_records = map(get_reports, model.agents)
         return agent_records
@@ -290,18 +321,25 @@ class DataCollector:
     def _record_agenttype(self, model, agent_type):
         """Record agent-type data in a mapping of functions and agents."""
         rep_funcs = self.agenttype_reporters[agent_type].values()
+        # Immutable types that don't need deepcopy
+        python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
-            _prefix = (agent.model.steps, agent.unique_id)
-            reports = tuple(rep(agent) for rep in rep_funcs)
-            return _prefix + reports
+            _prefix = (agent.model.time, agent.unique_id)
+            reports = []
+            for rep in rep_funcs:
+                value = rep(agent)
+                # Only deepcopy mutable types to avoid performance overhead
+                if isinstance(value, python_immutable_types):
+                    reports.append(value)
+                else:
+                    reports.append(deepcopy(value))
+            return _prefix + tuple(reports)
 
         agent_types = model.agent_types
         if agent_type in agent_types:
             agents = model.agents_by_type[agent_type]
         else:
-            from mesa import Agent  # noqa: PLC0415
-
             if issubclass(agent_type, Agent):
                 agents = [
                     agent for agent in model.agents if isinstance(agent, agent_type)
@@ -318,6 +356,8 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
+            if hasattr(self, "_collection_steps"):
+                self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
@@ -342,13 +382,13 @@ class DataCollector:
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
-            self._agent_records[model.steps] = list(agent_records)
+            self._agent_records[model.time] = list(agent_records)
 
         if self.agenttype_reporters:
-            self._agenttype_records[model.steps] = {}
+            self._agenttype_records[model.time] = {}
             for agent_type in self.agenttype_reporters:
                 agenttype_records = self._record_agenttype(model, agent_type)
-                self._agenttype_records[model.steps][agent_type] = list(
+                self._agenttype_records[model.time][agent_type] = list(
                     agenttype_records
                 )
 

@@ -638,6 +638,30 @@ def test_cell_is_full_with_finite_capacity():
     assert cell.is_full is True
 
 
+def test_is_empty_no_list_copy():
+    """Verify is_empty checks len() directly without copying the agents list."""
+    model = Model()
+    cell = Cell((0, 0), capacity=None)
+
+    # Add agents and store reference to internal list
+    for _ in range(10):
+        cell.add_agent(CellAgent(model))
+
+    internal_list = cell._agents
+
+    # Calling is_empty should not replace _agents with a copy
+    _ = cell.is_empty
+    assert cell._agents is internal_list
+
+    # Same for is_full
+    _ = cell.is_full
+    assert cell._agents is internal_list
+
+    # But .agents property SHOULD return a copy
+    agents_copy = cell.agents
+    assert agents_copy is not internal_list
+
+
 def test_cell_collection():
     """Test CellCollection."""
     cell1 = Cell((1,), capacity=None, random=random.Random())
@@ -1092,3 +1116,21 @@ def test_select_random_agent_empty_safe():
         empty_collection.select_random_agent()
     assert empty_collection.select_random_agent(default=None) is None
     assert empty_collection.select_random_agent(default="Empty") == "Empty"
+
+
+def test_infinite_loop_on_full_grid():
+    """Test that select_random_empty_cell does not hang on a full grid."""
+    # 1. Create a small 2x2 model
+    model = Model()
+    grid = OrthogonalMooreGrid((2, 2), random=model.random)
+
+    # 2. Fill the grid completely
+    for cell in grid.all_cells:
+        agent = CellAgent(model)
+        agent.cell = cell
+
+    # 3. Verify grid is full
+    assert len(grid.empties) == 0
+
+    with pytest.raises(IndexError):
+        grid.select_random_empty_cell()
