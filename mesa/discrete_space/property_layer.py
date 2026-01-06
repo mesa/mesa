@@ -215,6 +215,7 @@ class HasPropertyLayers:
         Args:
             name: The name of the property layer.
             default_value: The default value of the property layer.
+            read_only: Whether the property layer is read-only.
             dtype: The data type of the property layer.
 
         Returns:
@@ -232,6 +233,7 @@ class HasPropertyLayers:
 
         Args:
             layer: The property layer to add.
+            read_only: Whether the property layer is read-only.
 
         Raises:
             ValueError: If the dimensions of the layer and the grid are not the same.
@@ -459,7 +461,7 @@ class PropertyDescriptor:
 class ReadOnlyPropertyDescriptor(PropertyDescriptor):
     """Descriptor that prevents setting the property value directly."""
 
-    def __set__(self, instance: Cell, value):
+    def __set__(self, instance: Cell, value):     # noqa: D105
         raise AttributeError(
             f"Property '{self.layer.name}' is read-only. "
             "This property is managed automatically by the internal state."
