@@ -111,7 +111,7 @@ class Model[A: Agent]:
         self.step = self._wrapped_step
 
         # setup agent registration data structures
-        self._agents[A, None] = {}  # the hard references to all agents in the model
+        self._agents: dict[A, None] = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
             type[A], AgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
