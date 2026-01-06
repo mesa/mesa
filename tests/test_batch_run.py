@@ -464,9 +464,9 @@ def test_batch_run_time_dilation():
     reported_step = last_result["Step"]
     actual_step_data = last_result["RealStep"]
 
-    assert (
-        reported_step == actual_step_data
-    ), f"BatchRunner returned data from Step {actual_step_data} when asked for Step {reported_step}"
+    assert reported_step == actual_step_data, (
+        f"BatchRunner returned data from Step {actual_step_data} when asked for Step {reported_step}"
+    )
 
 
 def test_batch_run_legacy_datacollector():
