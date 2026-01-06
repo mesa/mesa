@@ -213,7 +213,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         at_most: int | float = float("inf"),
         inplace: bool = False,
         agent_type: type[A] | None = None,
-    ) -> AgentSet:
+    ) -> AgentSet[A]:
         """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
 
         Args:
@@ -284,7 +284,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         key: Callable[[Agent], Any] | str,
         ascending: bool = False,
         inplace: bool = False,
-    ) -> AgentSet:
+    ) -> AgentSet[A]:
         """Sort the agents in the AgentSet based on a specified attribute or custom function.
 
         Args:
