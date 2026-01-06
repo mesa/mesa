@@ -461,7 +461,7 @@ class PropertyDescriptor:
 class ReadOnlyPropertyDescriptor(PropertyDescriptor):
     """Descriptor that prevents setting the property value directly."""
 
-    def __set__(self, instance: Cell, value):     # noqa: D105
+    def __set__(self, instance: Cell, value):  # noqa: D105
         raise AttributeError(
             f"Property '{self.layer.name}' is read-only. "
             "This property is managed automatically by the internal state."
