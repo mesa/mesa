@@ -15,8 +15,8 @@ can represent environmental factors, cell states, or any other grid-wide
 attributes.
 """
 
-import warnings
 import functools
+import warnings
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
 
@@ -44,6 +44,7 @@ def deprecated(reason):
         return wrapper
 
     return decorator
+
 
 class PropertyLayer:
     """A class representing a layer of properties in a two-dimensional grid.
@@ -114,62 +115,8 @@ class PropertyLayer:
         layer.data = data
         return layer
 
-    # NumPy Array Interface
-
-    def __array__(self, dtype=None):
-        """Allow the layer to be passed directly to NumPy functions."""
-        return np.asarray(self.data, dtype=dtype)
-
-    def __getitem__(self, key):
-        """Allow direct indexing (e.g., layer[0, 0])."""
-        return self.data[key]
-
-    def __setitem__(self, key, value):
-        """Allow direct item assignment (e.g., layer[0, 0] = 5)."""
-        self.data[key] = value
-
-    def __iter__(self):
-        """Allow iteration over the data."""
-        return iter(self.data)
-
-    def __len__(self):
-        """Return the length of the data."""
-        return len(self.data)
-
-    # In-place Arithmetic Operations
-
-    def __iadd__(self, other):
-        """In-place addition."""
-        self.data += other
-        return self
-
-    def __isub__(self, other):
-        """In-place subtraction."""
-        self.data -= other
-        return self
-
-    def __imul__(self, other):
-        """In-place multiplication."""
-        self.data *= other
-        return self
-
-    def __itruediv__(self, other):
-        """In-place true division."""
-        self.data /= other
-        return self
-
-    def __ifloordiv__(self, other):
-        """In-place floor division."""
-        self.data //= other
-        return self
-
-    def __ipow__(self, other):
-        """In-place power."""
-        self.data **= other
-        return self
-
     @deprecated(
-        "Use direct NumPy indexing on the layer object instead (e.g. layer[:] = value or layer[mask] = value)."
+        "Use direct NumPy indexing on the layer data field instead (e.g. layer.data[:] = value or layer.data[mask] = value)."
     )
     def set_cells(self, value, condition: Callable | None = None):
         """Perform a batch update either on the entire grid or conditionally, in-place.
@@ -185,7 +132,9 @@ class PropertyLayer:
             condition_result = vectorized_condition(self.data)
             np.copyto(self.data, value, where=condition_result)
 
-    @deprecated("Use direct NumPy operations on the layer object instead (e.g. layer += 1).")
+    @deprecated(
+        "Use direct NumPy operations on the layer data field instead (e.g. layer.data += 1)."
+    )
     def modify_cells(
         self,
         operation: Callable,
@@ -223,7 +172,7 @@ class PropertyLayer:
 
         self.data = np.where(condition_array, modified_data, self.data)
 
-    @deprecated("Use np.argwhere(condition(layer)) or boolean masks instead.")
+    @deprecated("Use np.argwhere(condition(layer.data)) or boolean masks instead.")
     def select_cells(self, condition: Callable, return_list=True):
         """Find cells that meet a specified condition using NumPy's boolean indexing, in-place.
 
@@ -245,7 +194,7 @@ class PropertyLayer:
             return condition_array
 
     @deprecated(
-        "Use NumPy aggregate functions directly on the layer object (e.g. np.mean(layer))."
+        "Use NumPy aggregate functions directly on the layer object (e.g. np.mean(layer.data))."
     )
     def aggregate(self, operation: Callable):
         """Perform an aggregate operation (e.g., sum, mean) on a property across all cells.
@@ -333,7 +282,7 @@ class HasPropertyLayers:
         self.cell_klass._mesa_properties.remove(property_name)
 
     @deprecated(
-        "Use direct NumPy assignment on the property layer instead (e.g. grid.layer_name[:] = value)."
+        "Use direct NumPy assignment on the property layer instead (e.g. grid.layer_name.data[:] = value)."
     )
     def set_property(
         self, property_name: str, value, condition: Callable[[T], bool] | None = None
@@ -347,9 +296,7 @@ class HasPropertyLayers:
         """
         self._mesa_property_layers[property_name].set_cells(value, condition)
 
-    @deprecated(
-        "Use direct NumPy operations on the property layer instead."
-    )
+    @deprecated("Use direct NumPy operations on the property layer data field instead.")
     def modify_properties(
         self,
         property_name: str,

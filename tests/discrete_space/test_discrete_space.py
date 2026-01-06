@@ -638,6 +638,30 @@ def test_cell_is_full_with_finite_capacity():
     assert cell.is_full is True
 
 
+def test_is_empty_no_list_copy():
+    """Verify is_empty checks len() directly without copying the agents list."""
+    model = Model()
+    cell = Cell((0, 0), capacity=None)
+
+    # Add agents and store reference to internal list
+    for _ in range(10):
+        cell.add_agent(CellAgent(model))
+
+    internal_list = cell._agents
+
+    # Calling is_empty should not replace _agents with a copy
+    _ = cell.is_empty
+    assert cell._agents is internal_list
+
+    # Same for is_full
+    _ = cell.is_full
+    assert cell._agents is internal_list
+
+    # But .agents property SHOULD return a copy
+    agents_copy = cell.agents
+    assert agents_copy is not internal_list
+
+
 def test_cell_collection():
     """Test CellCollection."""
     cell1 = Cell((1,), capacity=None, random=random.Random())
@@ -947,38 +971,6 @@ def test_property_layer():
     layer.data = np.ones((10, 10))
     with pytest.warns(DeprecationWarning):
         assert layer.aggregate(np.sum) == 100
-
-    # New API tests (NumPy interface)
-    dimensions = (5, 5)
-    layer = PropertyLayer("test", dimensions, default_value=0.0)
-
-    # Test indexing __getitem__ and __setitem__
-    layer[0, 0] = 10.0
-    assert layer[0, 0] == 10.0
-    assert layer.data[0, 0] == 10.0
-
-    # Test slicing
-    layer[:, :] = 5.0
-    assert np.all(layer.data == 5.0)
-
-    # Test __array__ conversion
-    assert np.mean(layer) == 5.0
-
-    # Test in-place operators
-    layer += 1.0
-    assert np.all(layer.data == 6.0)
-
-    layer *= 2.0
-    assert np.all(layer.data == 12.0)
-
-    layer /= 2.0
-    assert np.all(layer.data == 6.0)
-
-    layer -= 1.0
-    assert np.all(layer.data == 5.0)
-
-    layer **= 2
-    assert np.all(layer.data == 25.0)
 
 
 def test_property_layer_errors():
