@@ -459,7 +459,7 @@ def test_altair_collect_and_draw_integration():
         cell = types.SimpleNamespace(coordinate=(1, 2))
 
     class DummySpace:
-        agents:ClassVar[list] = [DummyAgent(), DummyAgent()]
+        agents: ClassVar[list] = [DummyAgent(), DummyAgent()]
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
