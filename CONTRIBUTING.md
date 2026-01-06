@@ -32,7 +32,7 @@ discuss via [Matrix] OR via [an issue].
 - If implementing a new feature, include some documentation in docs folder.
 - Make sure that your submission works with a few of the examples in the examples repository. If adding a new feature to mesa, please illustrate usage by implementing it in an example.
 - Make sure that your submission passes the [GH Actions build]. See "Testing and Standards below" to be able to run these locally.
-- Make sure that your code is formatted according to [the black] standard (you can do it via [pre-commit]).
+- Make sure that your code is formatted according to [the ruff] standard (you can do it via [pre-commit]).
 - Push your changes to your fork on Github: `git push origin NAME_OF_BRANCH`.
 - [Create a pull request].
 - Describe the change w/ ticket number(s) that the code fixes.
@@ -78,8 +78,8 @@ Start with creating your own models, for fun. Once you have some experience, mov
 :target: https://codecov.io/gh/mesa/mesa
 ```
 
-```{image} https://img.shields.io/badge/code%20style-black-000000.svg
-:target: https://github.com/psf/black
+```{image} https://img.shields.io/badge/code%20style-ruff-000000.svg
+:target: https://github.com/astral-sh/ruff
 ```
 
 As part of our contribution process, we practice continuous integration and use GH Actions to help enforce best practices.
@@ -104,7 +104,7 @@ We test by implementing simple models and through traditional unit tests in the 
 py.test --cov=mesa tests/
 ```
 
-With respect to code standards, we follow [PEP8] and the [Google Style Guide]. We use [ruff format] (a more performant alternative to `black`) as an automated code formatter. You can automatically format your code using [pre-commit], which will prevent `git commit` of unstyled code and will automatically apply black style so you can immediately re-run `git commit`. To set up pre-commit run the following commands:
+With respect to code standards, we follow [PEP8] and the [Google Style Guide]. We use [ruff format] (a more performant alternative to `black`) as an automated code formatter. You can automatically format your code using [pre-commit], which will prevent `git commit` of unstyled code and will automatically apply ruff style so you can immediately re-run `git commit`. To set up pre-commit run the following commands:
 
 ```bash
 pip install pre-commit
@@ -326,7 +326,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [18f's foia]: https://github.com/18F/foia-hub/blob/master/CONTRIBUTING.md
 [18f's midas]: https://github.com/18F/midas/blob/devel/CONTRIBUTING.md
 [an issue]: https://github.com/mesa/mesa/issues
-[black]: https://github.com/psf/black
+[ruff]: https://github.com/astral-sh/ruff
 [clone your repository]: https://help.github.com/articles/cloning-a-repository/
 [create a pull request]: https://help.github.com/articles/creating-a-pull-request/
 [django]: https://github.com/django/django/blob/master/CONTRIBUTING.rst

@@ -28,6 +28,7 @@ put the code inside an ``if __name__ == '__main__':`` code black as shown below:
 
 """
 
+import bisect
 import inspect
 import itertools
 import multiprocessing
@@ -253,7 +254,47 @@ def _collect_data(
         )
     dc = model.datacollector
 
-    model_data = {param: values[step] for param, values in dc.model_vars.items()}
+    # Check if modern DataCollector with _collection_steps exists (handles time dilation)
+    if hasattr(dc, "_collection_steps"):
+        idx = bisect.bisect_right(dc._collection_steps, step) - 1
+        if (
+            idx >= 0
+            and idx < len(dc._collection_steps)
+            and dc._collection_steps[idx] == step
+        ):
+            # Exact match found - use the index directly
+            model_data = {param: values[idx] for param, values in dc.model_vars.items()}
+        else:
+            # Step not found in _collection_steps
+            # Use sparse collection logic: find the nearest collected step
+            if idx >= 0 and idx < len(dc._collection_steps):
+                # Use the most recent collected data before this step
+                model_data = {
+                    param: values[idx] for param, values in dc.model_vars.items()
+                }
+            else:
+                # No data collected yet, use first available
+                try:
+                    model_data = {
+                        param: values[0] for param, values in dc.model_vars.items()
+                    }
+                except IndexError:
+                    model_data = {}
+    else:
+        # Legacy DataCollector without _collection_steps
+        # Use sparse collection logic for models that collect data irregularly
+        available_steps = sorted(dc._agent_records.keys())
+        if step not in available_steps:
+            step = max((s for s in available_steps if s <= step), default=0)
+
+        try:
+            collection_index = available_steps.index(step)
+        except ValueError:
+            collection_index = 0
+
+        model_data = {
+            param: values[collection_index] for param, values in dc.model_vars.items()
+        }
 
     all_agents_data = []
     raw_agent_data = dc._agent_records.get(step, [])
