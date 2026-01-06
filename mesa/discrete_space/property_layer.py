@@ -207,6 +207,7 @@ class HasPropertyLayers:
         self,
         name: str,
         default_value=0.0,
+        read_only: bool = False,
         dtype=float,
     ):
         """Add a property layer to the grid.
@@ -223,10 +224,10 @@ class HasPropertyLayers:
         layer = PropertyLayer(
             name, self.dimensions, default_value=default_value, dtype=dtype
         )
-        self.add_property_layer(layer)
+        self.add_property_layer(layer,read_only=read_only)
         return layer
 
-    def add_property_layer(self, layer: PropertyLayer):
+    def add_property_layer(self, layer: PropertyLayer, read_only: bool = False):
         """Add a predefined property layer to the grid.
 
         Args:
@@ -251,7 +252,17 @@ class HasPropertyLayers:
             )
 
         self._mesa_property_layers[layer.name] = layer
-        setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+
+        if read_only:
+            # the public variable: Use the ReadOnly descriptor
+            setattr(self.cell_klass, layer.name, ReadOnlyPropertyDescriptor(layer))
+            
+            # We overwrite 'Cell._set_{name}' with our dynamic setter.
+            # This ensures that when Cell calls _set_empty, it updates NumPy array.
+            setattr(self.cell_klass, f"_set_{layer.name}", self._make_setter(layer))
+        else:
+            setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+
         self.cell_klass._mesa_properties.add(layer.name)
 
     def remove_property_layer(self, property_name: str):
@@ -295,6 +306,13 @@ class HasPropertyLayers:
         self._mesa_property_layers[property_name].modify_cells(
             operation, value, condition
         )
+
+    # This allows us to create a function that writes to 'layer.data' and attach it to the Cell class.
+    def _make_setter(self, layer: PropertyLayer):
+        """Creates a dynamic setter method that writes to the layer."""
+        def setter(cell_instance, value):
+            layer.data[cell_instance.coordinate] = value
+        return setter
 
     def get_neighborhood_mask(
         self, coordinate: Coordinate, include_center: bool = True, radius: int = 1
@@ -434,6 +452,16 @@ class PropertyDescriptor:
     def __set__(self, instance: Cell, value):  # noqa: D105
         self.layer.data[instance.coordinate] = value
 
+# A read-only descriptor that prevents setting the property value directly
+class ReadOnlyPropertyDescriptor(PropertyDescriptor):
+    """Descriptor that prevents setting the property value directly."""
+
+    def __set__(self, instance: Cell, value):
+        raise AttributeError(
+            f"Property '{self.layer.name}' is read-only. "
+            "This property is managed automatically by the internal state."
+        )
+    
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
     # NumPy ufuncs have a 'nargs' attribute indicating the number of input arguments

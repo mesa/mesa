@@ -73,6 +73,9 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        # We need a place to store the value when NOT using a Grid (e.g. Network).
+        # In a Grid, this variable exists but is ignored because the setter is overridden.
+        self._empty = True   
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -107,7 +110,7 @@ class Cell:
 
         """
         n = len(self._agents)
-        self.empty = False
+        self._set_empty(False)
 
         if self.capacity is not None and n >= self.capacity:
             raise Exception(
@@ -124,7 +127,17 @@ class Cell:
 
         """
         self._agents.remove(agent)
-        self.empty = self.is_empty
+        self._set_empty(self.is_empty)
+
+    @property
+    def empty(self) -> bool:
+        """Read-only property that returns whether the cell is empty."""
+        return len(self._agents) == 0
+    
+    # This is the method that Grid will OVERRIDE.
+    # By default, it just updates the local variable.
+    def _set_empty(self, value: bool):
+        self._empty = value
 
     @property
     def is_empty(self) -> bool:
