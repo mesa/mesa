@@ -566,7 +566,7 @@ class _Grid:
                 if self.is_cell_empty(new_pos):
                     break
         else:
-            new_pos = agent.random.choice(sorted(self.empties))
+            new_pos = agent.random.choice(list(self.empties))
         self.remove_agent(agent)
         self.place_agent(agent, new_pos)
 
