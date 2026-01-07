@@ -26,6 +26,7 @@ from mesa.discrete_space import Cell
 Coordinate = Sequence[int]
 T = TypeVar("T", bound=Cell)
 
+
 class PropertyLayer:
     """A class representing a layer of properties in a two-dimensional grid.
 
@@ -131,12 +132,10 @@ class PropertyLayer:
             mask = condition(self.data)
             target_data = self.data[mask]
 
-        if(isinstance(operation,np.ufunc)):
-            if(ufunc_requires_additional_input(operation)):
+        if isinstance(operation, np.ufunc):
+            if ufunc_requires_additional_input(operation):
                 if value is None:
-                    raise ValueError(
-                        "This ufunc requires an additional input value."
-                    )
+                    raise ValueError("This ufunc requires an additional input value.")
                 self.data[mask] = operation(target_data, value)
             else:
                 self.data[mask] = operation(target_data)
