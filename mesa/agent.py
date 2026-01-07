@@ -144,6 +144,19 @@ class Agent:
         """Return a seeded np.random rng."""
         return self.model.rng
 
+    @property
+    def world(self):
+        """Access the model's world for spatial operations."""
+        return self.model.world
+
+    def distance_to(self, other):
+        """Calculate distance to another agent or position."""
+        return self.world.distance(self, other)
+
+    def direction_to(self, other):
+        """Get direction vector to another agent or position."""
+        return self.world.direction(self, other)
+
 
 class AgentSet(MutableSet, Sequence):
     """A collection class that represents an ordered set of agents within an agent-based model (ABM).
