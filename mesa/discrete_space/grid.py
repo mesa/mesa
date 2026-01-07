@@ -157,8 +157,9 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 if cell.is_empty:
                     return cell
 
-        # Fallback to the robust parent method (O(N)) if random sampling fails
-        return super().select_random_empty_cell()
+        empty_coords = self.select_cells(only_empty=True)
+        random_coord = self.random.choice(empty_coords)
+        return self._cells[random_coord]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
