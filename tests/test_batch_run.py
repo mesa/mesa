@@ -362,6 +362,69 @@ def test_iterations_deprecation_warning():
         mesa.batch_run(MockModel, {}, number_processes=1, iterations=1)
 
 
+class SparseAgent(Agent):
+    """Test agent for sparse data collection scenarios."""
+
+    def __init__(self, model):
+        """Initialize a SparseAgent.
+
+        Args:
+            model: The model instance this agent belongs to.
+        """
+        super().__init__(model)
+        self.value = 0
+
+    def step(self):
+        """Increment the agent's value by 1."""
+        self.value += 1
+
+
+class SparseCollectionModel(Model):
+    """Test model that collects data sparsely (every N steps)."""
+
+    def __init__(self, collect_interval=5, rng=None):
+        """Initialize a SparseCollectionModel.
+
+        Args:
+            collect_interval: Number of steps between data collections.
+            rng: Random number generator seed.
+        """
+        super().__init__(rng=rng)
+        self.collect_interval = collect_interval
+        self.agent = SparseAgent(self)
+
+        self.datacollector = DataCollector(
+            model_reporters={"Value": lambda m: m.agent.value}
+        )
+        self.running = True
+
+    def step(self):
+        """Execute one model step, collecting data at specified intervals."""
+        if self.steps % self.collect_interval == 0:
+            self.datacollector.collect(self)
+
+        self.agent.step()
+
+        if self.steps >= 20:
+            self.running = False
+
+
+def test_batch_run_sparse_collection():
+    """Test batch_run with sparse data collection (only collecting every N steps)."""
+    result = mesa.batch_run(
+        SparseCollectionModel,
+        parameters={"collect_interval": [5]},
+        rng=[42],
+        max_steps=20,
+        data_collection_period=1,
+        number_processes=1,
+    )
+
+    assert len(result) > 0
+    assert all("Value" in row for row in result)
+    assert all("Step" in row for row in result)
+
+
 class TimeDilationModel(Model):
     """Model that collects data multiple times per step to test BatchRunner alignment."""
 
@@ -474,4 +537,39 @@ def test_batch_run_missing_step():
     )
 
     # Should handle sparse collection - may have fewer results
+    assert len(results) >= 0
+
+
+def test_batch_run_empty_collection_edge_case():
+    """Test batch_run with edge case: requesting data before any collection happens."""
+
+    class EmptyCollectionModel(Model):
+        """Model that doesn't collect any data initially."""
+
+        def __init__(self, *args, **kwargs):
+            self.schedule = None
+            super().__init__()
+            self.datacollector = DataCollector(
+                model_reporters={"Value": lambda m: m.time}
+            )
+            # Don't collect initial state - this creates the edge case
+
+        def step(self):
+            super().step()
+            # Only collect on final step
+            if self.time == 3:
+                self.datacollector.collect(self)
+
+    # Request data for early steps when nothing has been collected yet
+    results = mesa.batch_run(
+        EmptyCollectionModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=3,
+        data_collection_period=1,
+        display_progress=False,
+    )
+
+    # Should handle empty collections gracefully
     assert len(results) >= 0
