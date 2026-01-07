@@ -161,7 +161,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
         empty_coords = np.argwhere(self.empty.data)
         random_coord = self.random.choice(empty_coords)
-        return self._cells[random_coord]
+        return self._cells[tuple(random_coord)]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
