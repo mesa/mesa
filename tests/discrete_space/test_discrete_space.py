@@ -4,6 +4,7 @@ import copy
 import pickle
 import random
 import re
+import unittest
 
 import networkx as nx
 import numpy as np
@@ -23,6 +24,29 @@ from mesa.discrete_space import (
     PropertyLayer,
     VoronoiGrid,
 )
+from mesa.errors import CellFullError
+
+
+class MockCellAgent(CellAgent):
+    """Minimalistic agent for testing purposes."""
+
+    def __init__(self, unique_id):
+        """Create a new agent."""
+        self.unique_id = unique_id
+
+
+class TestCell(unittest.TestCase):
+    """Testing the Cell object."""
+
+    def test_add_agent_to_full_cell(self):
+        """Test that adding an agent to a full cell raises a CellFullError."""
+        cell = Cell(coordinate=(0, 0), capacity=1)
+        agent1 = MockCellAgent(1)
+        cell.add_agent(agent1)
+
+        agent2 = MockCellAgent(2)
+        with self.assertRaises(CellFullError):
+            cell.add_agent(agent2)
 
 
 def test_orthogonal_grid_neumann():
