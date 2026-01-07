@@ -15,7 +15,6 @@ can represent environmental factors, cell states, or any other grid-wide
 attributes.
 """
 
-import functools
 import warnings
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
@@ -26,25 +25,6 @@ from mesa.discrete_space import Cell
 
 Coordinate = Sequence[int]
 T = TypeVar("T", bound=Cell)
-
-
-def deprecated(reason):
-    """Decorator to mark functions as deprecated."""
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            warnings.warn(
-                f"{func.__name__} is deprecated and will be removed in a future version. {reason}",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
 
 class PropertyLayer:
     """A class representing a layer of properties in a two-dimensional grid.
@@ -115,9 +95,6 @@ class PropertyLayer:
         layer.data = data
         return layer
 
-    @deprecated(
-        "Use direct NumPy indexing on the layer data field instead (e.g. layer.data[:] = value or layer.data[mask] = value)."
-    )
     def set_cells(self, value, condition: Callable | None = None):
         """Perform a batch update either on the entire grid or conditionally, in-place.
 
@@ -126,15 +103,12 @@ class PropertyLayer:
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
         if condition is None:
-            np.copyto(self.data, value)  # In-place update
+            self.data[:] = value
         else:
             vectorized_condition = np.vectorize(condition)
             condition_result = vectorized_condition(self.data)
-            np.copyto(self.data, value, where=condition_result)
+            self.data[condition_result] = value
 
-    @deprecated(
-        "Use direct NumPy operations on the layer data field instead (e.g. layer.data += 1)."
-    )
     def modify_cells(
         self,
         operation: Callable,
@@ -150,29 +124,26 @@ class PropertyLayer:
             value: The value to be used if the operation is a NumPy ufunc. Ignored for lambda functions.
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
-        condition_array = np.ones_like(
-            self.data, dtype=bool
-        )  # Default condition (all cells)
-        if condition is not None:
-            vectorized_condition = np.vectorize(condition)
-            condition_array = vectorized_condition(self.data)
-
-        # Check if the operation is a lambda function or a NumPy ufunc
-        if isinstance(operation, np.ufunc):
-            if ufunc_requires_additional_input(operation):
-                if value is None:
-                    raise ValueError("This ufunc requires an additional input value.")
-                modified_data = operation(self.data, value)
-            else:
-                modified_data = operation(self.data)
+        if condition is None:
+            mask = slice(None)
+            target_data = self.data
         else:
-            # Vectorize non-ufunc operations
+            mask = condition(self.data)
+            target_data = self.data[mask]
+
+        if(isinstance(operation,np.ufunc)):
+            if(ufunc_requires_additional_input(operation)):
+                if value is None:
+                    raise ValueError(
+                        "This ufunc requires an additional input value."
+                    )
+                self.data[mask] = operation(target_data, value)
+            else:
+                self.data[mask] = operation(target_data)
+        else:
             vectorized_operation = np.vectorize(operation)
-            modified_data = vectorized_operation(self.data)
+            self.data[mask] = vectorized_operation(target_data)
 
-        self.data = np.where(condition_array, modified_data, self.data)
-
-    @deprecated("Use np.argwhere(condition(layer.data)) or boolean masks instead.")
     def select_cells(self, condition: Callable, return_list=True):
         """Find cells that meet a specified condition using NumPy's boolean indexing, in-place.
 
@@ -193,9 +164,6 @@ class PropertyLayer:
         else:
             return condition_array
 
-    @deprecated(
-        "Use NumPy aggregate functions directly on the layer object (e.g. np.mean(layer.data))."
-    )
     def aggregate(self, operation: Callable):
         """Perform an aggregate operation (e.g., sum, mean) on a property across all cells.
 
@@ -281,9 +249,6 @@ class HasPropertyLayers:
         delattr(self.cell_klass, property_name)
         self.cell_klass._mesa_properties.remove(property_name)
 
-    @deprecated(
-        "Use direct NumPy assignment on the property layer instead (e.g. grid.layer_name.data[:] = value)."
-    )
     def set_property(
         self, property_name: str, value, condition: Callable[[T], bool] | None = None
     ):
@@ -296,7 +261,6 @@ class HasPropertyLayers:
         """
         self._mesa_property_layers[property_name].set_cells(value, condition)
 
-    @deprecated("Use direct NumPy operations on the property layer data field instead.")
     def modify_properties(
         self,
         property_name: str,

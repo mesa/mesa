@@ -781,13 +781,11 @@ def test_property_layer_integration():
     assert elevation.data[0, 0] == 200
 
     # Test modifying PropertyLayer values
-    with pytest.warns(DeprecationWarning):
-        grid.set_property("elevation", 100, condition=lambda value: value == 200)
+    grid.set_property("elevation", 100, condition=lambda value: value == 200)
     assert cell.elevation == 100
 
     # Test modifying PropertyLayer using numpy operations
-    with pytest.warns(DeprecationWarning):
-        grid.modify_properties("elevation", np.add, 50)
+    grid.modify_properties("elevation", np.add, 50)
     assert cell.elevation == 150
 
     # Test removing a PropertyLayer
@@ -847,10 +845,8 @@ def test_multiple_property_layers():
     assert len(grid2._mesa_property_layers) == 3
 
     # Modify properties
-    with pytest.warns(DeprecationWarning):
-        grid2.modify_properties("elevation", lambda x: x + 10)
-    with pytest.warns(DeprecationWarning):
-        grid2.modify_properties("temperature", lambda x: x + 5)
+    grid2.modify_properties("elevation", lambda x: x + 10)
+    grid2.modify_properties("temperature", lambda x: x + 5)
 
     for cell in grid2.all_cells:
         assert cell.elevation == 10
@@ -923,15 +919,13 @@ def test_property_layer():
     elevation = PropertyLayer("elevation", (5, 5), default_value=0.0)
 
     # test set_cells
-    with pytest.warns(DeprecationWarning):
-        elevation.set_cells(10)
+    elevation.set_cells(10)
     assert np.all(elevation.data == 10)
 
-    with pytest.warns(DeprecationWarning):
-        elevation.set_cells(np.ones((5, 5)))
+    elevation.set_cells(np.ones((5, 5)))
     assert np.all(elevation.data == 1)
 
-    with pytest.raises(ValueError), pytest.warns(DeprecationWarning):
+    with pytest.raises(ValueError):
         elevation.set_cells(np.ones((6, 6)))
 
     data = np.random.default_rng(42).random((5, 5))
@@ -940,8 +934,7 @@ def test_property_layer():
     def condition(x):
         return x > 0.5
 
-    with pytest.warns(DeprecationWarning):
-        layer.set_cells(1, condition=condition)
+    layer.set_cells(1, condition=condition)
     assert np.all((layer.data == 1) == (data > 0.5))
 
     # modify_cells
@@ -949,28 +942,24 @@ def test_property_layer():
     layer = PropertyLayer.from_data("some_name", data)
 
     layer.data = np.zeros((10, 10))
-    with pytest.warns(DeprecationWarning):
-        layer.modify_cells(lambda x: x + 2)
+    layer.modify_cells(lambda x: x + 2)
     assert np.all(layer.data == 2)
 
     layer.data = np.ones((10, 10))
-    with pytest.warns(DeprecationWarning):
-        layer.modify_cells(np.multiply, 3)
+    layer.modify_cells(np.multiply, 3)
     assert np.all(layer.data[3, 3] == 3)
 
     data = np.random.default_rng(42).random((10, 10))
     layer.data = np.random.default_rng(42).random((10, 10))
-    with pytest.warns(DeprecationWarning):
-        layer.modify_cells(np.add, value=3, condition=condition)
+    layer.modify_cells(np.add, value=3, condition=condition)
     assert np.all((layer.data > 3.5) == (data > 0.5))
 
-    with pytest.raises(ValueError), pytest.warns(DeprecationWarning):
+    with pytest.raises(ValueError):
         layer.modify_cells(np.add)  # Missing value for ufunc
 
     # aggregate
     layer.data = np.ones((10, 10))
-    with pytest.warns(DeprecationWarning):
-        assert layer.aggregate(np.sum) == 100
+    assert layer.aggregate(np.sum) == 100
 
 
 def test_property_layer_errors():
