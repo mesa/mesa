@@ -13,12 +13,13 @@ or Hex for more uniform distances.
 
 from __future__ import annotations
 
-import numpy as np
 import copyreg
 from collections.abc import Sequence
 from itertools import product
 from random import Random
 from typing import Any, TypeVar
+
+import numpy as np
 
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
