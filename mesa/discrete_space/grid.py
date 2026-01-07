@@ -13,6 +13,7 @@ or Hex for more uniform distances.
 
 from __future__ import annotations
 
+import numpy as np
 import copyreg
 from collections.abc import Sequence
 from itertools import product
@@ -157,7 +158,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 if cell.is_empty:
                     return cell
 
-        empty_coords = self.select_cells(only_empty=True)
+        empty_coords = np.argwhere(self.empty.data)
         random_coord = self.random.choice(empty_coords)
         return self._cells[random_coord]
 
