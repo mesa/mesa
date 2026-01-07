@@ -8,8 +8,14 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from mesa.space import ContinuousSpace, NetworkGrid, PropertyLayer, SingleGrid
-from tests.test_grid import MockAgent
+from mesa.space import (
+    ContinuousSpace,
+    MultiGrid,
+    NetworkGrid,
+    PropertyLayer,
+    SingleGrid,
+)
+from tests.discrete_space.test_grid import MockAgent
 
 TEST_AGENTS = [(-20, -20), (-20, -20.05), (65, 18)]
 TEST_AGENTS_GRID = [(1, 1), (10, 0), (10, 10)]
@@ -34,7 +40,8 @@ class TestSpacePerformance(unittest.TestCase):
 
     def setUp(self):
         """Create a test space and populate with Mock Agents."""
-        self.space = ContinuousSpace(10, 10, True, -10, -10)
+        self.rng = stdlib_random.Random(42)
+        self.space = ContinuousSpace(10, 10, True, -10, -10, random=self.rng)
 
     def test_agents_add_many(self):
         """Add many agents."""
@@ -50,7 +57,8 @@ class TestSpaceToroidal(unittest.TestCase):
 
     def setUp(self):
         """Create a test space and populate with Mock Agents."""
-        self.space = ContinuousSpace(70, 20, True, -30, -30)
+        self.rng = stdlib_random.Random(42)
+        self.space = ContinuousSpace(70, 20, True, -30, -30, random=self.rng)
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS):
             a = MockAgent(i)
@@ -129,7 +137,8 @@ class TestSpaceNonToroidal(unittest.TestCase):
 
     def setUp(self):
         """Create a test space and populate with Mock Agents."""
-        self.space = ContinuousSpace(70, 20, False, -30, -30)
+        self.rng = stdlib_random.Random(42)
+        self.space = ContinuousSpace(70, 20, False, -30, -30, random=self.rng)
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS):
             a = MockAgent(i)
@@ -193,7 +202,8 @@ class TestSpaceAgentMapping(unittest.TestCase):
 
     def setUp(self):
         """Create a test space and populate with Mock Agents."""
-        self.space = ContinuousSpace(70, 50, False, -30, -30)
+        self.rng = stdlib_random.Random(42)
+        self.space = ContinuousSpace(70, 50, False, -30, -30, random=self.rng)
         self.agents = []
         for i, pos in enumerate(REMOVAL_TEST_AGENTS):
             a = MockAgent(i)
@@ -405,7 +415,8 @@ class TestPropertyLayer(unittest.TestCase):  # noqa: D101
 
 class TestSingleGrid(unittest.TestCase):  # noqa: D101
     def setUp(self):  # noqa: D102
-        self.space = SingleGrid(50, 50, False)
+        self.rng = stdlib_random.Random(42)
+        self.space = SingleGrid(50, 50, False, random=self.rng)
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS_GRID):
             a = MockAgent(i)
@@ -534,7 +545,8 @@ class TestSingleGrid(unittest.TestCase):  # noqa: D101
 
 class TestSingleGridTorus(unittest.TestCase):  # noqa: D101
     def setUp(self):  # noqa: D102
-        self.space = SingleGrid(50, 50, True)  # Torus is True here
+        self.rng = stdlib_random.Random(42)
+        self.space = SingleGrid(50, 50, True, random=self.rng)  # Torus is True here
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS_GRID):
             a = MockAgent(i)
@@ -596,7 +608,8 @@ class TestSingleGridTorus(unittest.TestCase):  # noqa: D101
 
 class TestSingleGridWithPropertyGrid(unittest.TestCase):  # noqa: D101
     def setUp(self):  # noqa: D102
-        self.grid = SingleGrid(10, 10, False)
+        self.rng = stdlib_random.Random(42)
+        self.grid = SingleGrid(10, 10, False, random=self.rng)
         self.property_layer1 = PropertyLayer("layer1", 10, 10, 0, dtype=int)
         self.property_layer2 = PropertyLayer("layer2", 10, 10, 1.0, dtype=float)
         self.grid.add_property_layer(self.property_layer1)
@@ -836,7 +849,8 @@ class TestSingleNetworkGrid(unittest.TestCase):  # noqa D101
     def setUp(self):
         """Create a test network grid and populate with Mock Agents."""
         G = nx.cycle_graph(TestSingleNetworkGrid.GRAPH_SIZE)  # noqa: N806
-        self.space = NetworkGrid(G)
+        self.rng = stdlib_random.Random(42)
+        self.space = NetworkGrid(G, random=self.rng)
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS_NETWORK_SINGLE):
             a = MockAgent(i)
@@ -953,7 +967,8 @@ class TestMultipleNetworkGrid(unittest.TestCase):  # noqa: D101
     def setUp(self):
         """Create a test network grid and populate with Mock Agents."""
         G = nx.complete_graph(TestMultipleNetworkGrid.GRAPH_SIZE)  # noqa: N806
-        self.space = NetworkGrid(G)
+        self.rng = stdlib_random.Random(42)
+        self.space = NetworkGrid(G, random=self.rng)
         self.agents = []
         for i, pos in enumerate(TEST_AGENTS_NETWORK_MULTIPLE):
             a = MockAgent(i)
@@ -1172,6 +1187,36 @@ class TestSpaceRandomParameter(unittest.TestCase):
         with pytest.warns(UserWarning):
             agentset = space.agents
         assert len(agentset) == 0
+
+
+class TestMultiGridEmptyMask(unittest.TestCase):  # noqa: D101
+    def test_empty_mask_update(self):  # noqa: D102
+        grid = MultiGrid(10, 10, False)
+        agent = MockAgent(0)
+
+        self.assertTrue(grid._empty_mask[5, 5])
+
+        grid.place_agent(agent, (5, 5))
+        self.assertFalse(grid._empty_mask[5, 5])
+        self.assertNotIn((5, 5), grid.select_cells(only_empty=True))
+
+        grid.remove_agent(agent)
+        self.assertTrue(grid._empty_mask[5, 5])
+
+    def test_empty_mask_multiple_agents(self):  # noqa: D102
+        grid = MultiGrid(10, 10, False)
+        agent1 = MockAgent(0)
+        agent2 = MockAgent(1)
+
+        grid.place_agent(agent1, (5, 5))
+        grid.place_agent(agent2, (5, 5))
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent1)
+        self.assertFalse(grid._empty_mask[5, 5])
+
+        grid.remove_agent(agent2)
+        self.assertTrue(grid._empty_mask[5, 5])
 
 
 if __name__ == "__main__":

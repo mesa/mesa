@@ -37,7 +37,8 @@ class TestSingleGrid(unittest.TestCase):
         # The height needs to be even to test the edge case described in PR #1517
         height = 6  # height of grid
         width = 3  # width of grid
-        self.grid = SingleGrid(width, height, self.torus)
+        self.rng = random.Random(42)
+        self.grid = SingleGrid(width, height, self.torus, random=self.rng)
         self.agents = []
         counter = 0
         for x in range(width):
@@ -224,7 +225,8 @@ class TestSingleGridEnforcement(unittest.TestCase):
         """Create a test non-toroidal grid and populate it with Mock Agents."""
         width = 3
         height = 5
-        self.grid = SingleGrid(width, height, True)
+        self.rng = random.Random(42)
+        self.grid = SingleGrid(width, height, True, random=self.rng)
         self.agents = []
         counter = 0
         for x in range(width):
@@ -294,7 +296,8 @@ class TestMultiGrid(unittest.TestCase):
         """Create a test non-toroidal grid and populate it with Mock Agents."""
         width = 3
         height = 5
-        self.grid = MultiGrid(width, height, self.torus)
+        self.rng = random.Random(42)
+        self.grid = MultiGrid(width, height, self.torus, random=self.rng)
         self.agents = []
         counter = 0
         for x in range(width):
@@ -343,7 +346,8 @@ class TestHexSingleGrid(unittest.TestCase):
         """Create a test non-toroidal grid and populate it with Mock Agents."""
         width = 3
         height = 5
-        self.grid = HexSingleGrid(width, height, torus=False)
+        self.rng = random.Random(42)
+        self.grid = HexSingleGrid(width, height, torus=False, random=self.rng)
         self.agents = []
         counter = 0
         for x in range(width):
@@ -391,7 +395,8 @@ class TestHexSingleGridTorus(TestSingleGrid):
         """Create a test non-toroidal grid and populate it with Mock Agents."""
         width = 3
         height = 5
-        self.grid = HexSingleGrid(width, height, torus=True)
+        self.rng = random.Random(42)
+        self.grid = HexSingleGrid(width, height, torus=True, random=self.rng)
         self.agents = []
         counter = 0
         for x in range(width):
@@ -428,7 +433,7 @@ class TestHexSingleGridTorus(TestSingleGrid):
 
 class TestIndexing:  # noqa: D101
     # Create a grid where the content of each coordinate is a tuple of its coordinates
-    grid = SingleGrid(3, 5, True)
+    grid = SingleGrid(3, 5, True, random=random.Random(42))
     for _, pos in grid.coord_iter():
         x, y = pos
         grid._grid[x][y] = pos

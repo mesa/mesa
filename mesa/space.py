@@ -21,8 +21,7 @@ Classes
 * NetworkGrid: a network where each node contains zero or more agents.
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import collections
@@ -98,33 +97,6 @@ before placing the agent again.""",
     return wrapper
 
 
-def _get_rng_for_agentset(
-    agents: list, space_random: Random | None = None
-) -> Random | None:
-    """Get RNG for creating an AgentSet from a space.
-
-    This helper centralizes the logic for obtaining an RNG when creating
-    an AgentSet from a space's agents property. It prefers the space's own
-    RNG if available, otherwise falls back to getting it from the first agent.
-
-    Args:
-        agents: List of agents in the space
-        space_random: The RNG stored on the space (preferred)
-
-    Returns:
-        RNG to use for AgentSet, or None if unavailable
-    """
-    # Prefer space's own RNG if available
-    if space_random is not None:
-        return space_random
-
-    # Fallback: try to get from first agent (legacy behavior for backward compatibility)
-    try:
-        return agents[0].random
-    except (IndexError, AttributeError):
-        return None
-
-
 class _Grid:
     """Base class for a rectangular grid.
 
@@ -154,14 +126,7 @@ class _Grid:
         self.torus = torus
         self.num_cells = height * width
 
-        # Store random number generator
-        if random is None:
-            warnings.warn(
-                "Random number generator not specified, this can make models non-reproducible. "
-                "Please pass a random number generator explicitly.",
-                UserWarning,
-                stacklevel=2,
-            )
+        # Store random number generator (property setter handles warning)
         self.random = random
 
         # Internal list-of-lists which holds the grid cells themselves
@@ -182,6 +147,43 @@ class _Grid:
         # 3.11 and it was verified that they are roughly the same for 3.10. Refer to
         # the code in PR#1565 to check for their stability when a new release gets out.
         self.cutoff_empties = 7.953 * self.num_cells**0.384
+
+    @property
+    def random(self) -> Random | None:
+        """Random number generator for this space.
+
+        If no RNG was provided during initialization, attempts to fall back
+        to the first agent's RNG if agents are available.
+        """
+        if self._random is None:
+            # Try to get RNG from the first agent as a fallback
+            try:
+                for entry in self:
+                    if not entry:
+                        continue
+                    # Handle both single agents and lists of agents
+                    agents_to_check = entry if isinstance(entry, list) else [entry]
+                    for agent in agents_to_check:
+                        if hasattr(agent, "random"):
+                            # Cache the RNG for future use
+                            self._random = agent.random
+                            return self._random
+            except AttributeError:
+                pass
+
+        return self._random
+
+    @random.setter
+    def random(self, value: Random | None) -> None:
+        """Set random number generator with warning if None."""
+        if value is None:
+            warnings.warn(
+                "Random number generator not specified, this can make models non-reproducible. "
+                "Please pass a random number generator explicitly.",
+                UserWarning,
+                stacklevel=3,
+            )
+        self._random = value
 
     @staticmethod
     def default_val() -> None:
@@ -218,8 +220,8 @@ class _Grid:
             for agent in entry:
                 agents.append(agent)
 
-        rng = _get_rng_for_agentset(agents, self.random)
-        return AgentSet(agents, random=rng)
+        # Use the space's RNG (property getter handles fallback if needed)
+        return AgentSet(agents, random=self.random)
 
     @overload
     def __getitem__(
@@ -678,13 +680,6 @@ class PropertyLayer:
             raise ValueError(
                 f"Width and height must be positive integers, got {width} and {height}."
             )
-        # Check if the dtype is suitable for the data
-        if not isinstance(default_value, dtype):
-            warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype.__name__}.",
-                UserWarning,
-                stacklevel=2,
-            )
 
         self.data = np.full((width, height), default_value, dtype=dtype)
 
@@ -857,6 +852,7 @@ class _PropertyGrid(_Grid):
         self.properties = {}
 
         # Initialize an empty mask as a boolean NumPy array
+        # True = cell is empty, False = cell is occupied
         self._empty_mask = np.ones((self.width, self.height), dtype=bool)
 
         # Handle both single PropertyLayer instance and list of PropertyLayer instances
@@ -1078,7 +1074,7 @@ class MultiGrid(_PropertyGrid):
             agent.pos = pos
             if self._empties_built:
                 self._empties.discard(pos)
-                self._empty_mask[agent.pos] = True
+            self._empty_mask[pos] = False
 
     def remove_agent(self, agent: Agent) -> None:
         """Remove the agent from the given location and set its pos attribute to None."""
@@ -1087,7 +1083,8 @@ class MultiGrid(_PropertyGrid):
         self._grid[x][y].remove(agent)
         if self._empties_built and self.is_cell_empty(pos):
             self._empties.add(pos)
-            self._empty_mask[agent.pos] = False
+        if self.is_cell_empty(pos):
+            self._empty_mask[pos] = True
         agent.pos = None
 
     def iter_neighbors(  # noqa: D102
@@ -1362,14 +1359,8 @@ class ContinuousSpace:
         self.size = np.array((self.width, self.height))
         self.torus = torus
 
-        # Store random number generator
-        if random is None:
-            warnings.warn(
-                "Random number generator not specified, this can make models non-reproducible. "
-                "Please pass a random number generator explicitly.",
-                UserWarning,
-                stacklevel=2,
-            )
+        # Store random number generator (inherits random property from future mixin/base)
+        # For now, directly set _random since ContinuousSpace doesn't inherit from _Grid
         self.random = random
 
         self._agent_points: npt.NDArray[FloatCoordinate] | None = None
@@ -1377,11 +1368,34 @@ class ContinuousSpace:
         self._agent_to_index: dict[Agent, int | None] = {}
 
     @property
+    def random(self) -> Random | None:
+        """Random number generator for this space."""
+        return self._random
+
+    @random.setter
+    def random(self, value: Random | None) -> None:
+        """Set random number generator with warning if None."""
+        if value is None:
+            warnings.warn(
+                "Random number generator not specified, this can make models non-reproducible. "
+                "Please pass a random number generator explicitly.",
+                UserWarning,
+                stacklevel=3,
+            )
+        self._random = value
+
+    @property
     def agents(self) -> AgentSet:
         """Return an AgentSet with the agents in the space."""
         agents = list(self._agent_to_index)
 
-        rng = _get_rng_for_agentset(agents, self.random)
+        # Prefer space's own RNG if available, otherwise fall back to first agent's RNG
+        rng = self._random
+        if rng is None and agents:
+            try:
+                rng = agents[0].random
+            except AttributeError:
+                rng = None
         return AgentSet(agents, random=rng)
 
     def _build_agent_cache(self):
@@ -1567,14 +1581,25 @@ class NetworkGrid:
             g.nodes[node_id]["agent"] = self.default_val()
 
         # Store random number generator
-        if random is None:
+        # For now, directly set _random since NetworkGrid doesn't inherit from _Grid
+        self.random = random
+
+    @property
+    def random(self) -> Random | None:
+        """Random number generator for this space."""
+        return self._random
+
+    @random.setter
+    def random(self, value: Random | None) -> None:
+        """Set random number generator with warning if None."""
+        if value is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. "
                 "Please pass a random number generator explicitly.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
-        self.random = random
+        self._random = value
 
     @property
     def agents(self) -> AgentSet:
@@ -1589,7 +1614,13 @@ class NetworkGrid:
             for agent in entry:
                 agents.append(agent)
 
-        rng = _get_rng_for_agentset(agents, self.random)
+        # Prefer space's own RNG if available, otherwise fall back to first agent's RNG
+        rng = self._random
+        if rng is None and agents:
+            try:
+                rng = agents[0].random
+            except AttributeError:
+                rng = None
         return AgentSet(agents, random=rng)
 
     @staticmethod
