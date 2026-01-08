@@ -267,11 +267,15 @@ class TestSpaceAgentMapping(unittest.TestCase):
 
         # Agent should NOT be found at old position
         neighbors_at_old = space.get_neighbors((0, 0), radius=1, include_center=True)
-        assert agent not in neighbors_at_old, "Agent should not be at old position after direct pos assignment"
+        assert agent not in neighbors_at_old, (
+            "Agent should not be at old position after direct pos assignment"
+        )
 
         # Agent SHOULD be found at new position
         neighbors_at_new = space.get_neighbors((50, 50), radius=1, include_center=True)
-        assert agent in neighbors_at_new, "Agent should be at new position after direct pos assignment"
+        assert agent in neighbors_at_new, (
+            "Agent should be at new position after direct pos assignment"
+        )
 
 
 class TestPropertyLayer(unittest.TestCase):  # noqa: D101
