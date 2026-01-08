@@ -1135,6 +1135,7 @@ def test_infinite_loop_on_full_grid():
     with pytest.raises(IndexError):
         grid.select_random_empty_cell()
 
+
 def test_select_random_empty_cell_fallback():
     """Test the vectorized fallback of select_random_empty_cell (when heuristic is skipped)."""
     width = 10
@@ -1159,7 +1160,7 @@ def test_select_random_empty_cell_fallback():
     # Ensure it found the only available empty cell via the fallback path
     assert selected_cell.coordinate == target_empty
     assert selected_cell.is_empty
-    
+
     # Ensure the property layer data was actually correct (the fallback relies on this)
     assert grid.empty.data[5, 5]
     assert not grid.empty.data[0, 0]
