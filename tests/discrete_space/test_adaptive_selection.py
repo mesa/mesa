@@ -1,5 +1,7 @@
 """Tests for adaptive select_random_empty_cell strategy."""
 
+import time
+
 import pytest
 
 from mesa import Model
@@ -11,13 +13,11 @@ def test_adaptive_strategy_sparse_grid():
     """Test that sparse grids use random sampling strategy."""
     model = Model()
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=model.random)
-
     # Fill grid to 30% (below 70% threshold)
     fill_count = int(0.3 * 100)  # 30% of 100 cells
     for i in range(fill_count):
         agent = CellAgent(model)
         grid._cells[(i % 10, i // 10)].add_agent(agent)
-
     # Should use random sampling path (fill_ratio < 0.7)
     selected_cell = grid.select_random_empty_cell()
     assert selected_cell.is_empty
@@ -28,13 +28,11 @@ def test_adaptive_strategy_dense_grid():
     """Test that dense grids use vectorized strategy."""
     model = Model()
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=model.random)
-
     # Fill grid to 80% (above 70% threshold)
     fill_count = int(0.8 * 100)  # 80% of 100 cells
     for i in range(fill_count):
         agent = CellAgent(model)
         grid._cells[(i % 10, i // 10)].add_agent(agent)
-
     # Should use vectorized path (fill_ratio >= 0.7)
     selected_cell = grid.select_random_empty_cell()
     assert selected_cell.is_empty
@@ -45,13 +43,11 @@ def test_adaptive_strategy_threshold_boundary():
     """Test behavior exactly at 70% threshold."""
     model = Model()
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=model.random)
-
     # Fill grid to exactly 70%
     fill_count = int(0.7 * 100)  # 70% of 100 cells
     for i in range(fill_count):
         agent = CellAgent(model)
         grid._cells[(i % 10, i // 10)].add_agent(agent)
-
     # Should use vectorized path (fill_ratio >= 0.7)
     selected_cell = grid.select_random_empty_cell()
     assert selected_cell.is_empty
@@ -61,7 +57,6 @@ def test_adaptive_strategy_with_try_random_disabled():
     """Test that _try_random=False always uses vectorized approach."""
     model = Model()
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=model.random)
-
     # Fill grid to only 10% but disable random sampling
     fill_count = int(0.1 * 100)  # 10% of 100 cells
     for i in range(fill_count):
@@ -79,12 +74,10 @@ def test_improved_error_message():
     """Test that full grids provide clear error messages."""
     model = Model()
     grid = OrthogonalMooreGrid((2, 2), torus=False, random=model.random)
-
     # Fill the grid completely
     for cell in grid.all_cells:
         agent = CellAgent(model)
         cell.add_agent(agent)
-
     # Should raise IndexError with clear message
     with pytest.raises(IndexError, match="No empty cells available in grid"):
         grid.select_random_empty_cell()
@@ -92,8 +85,6 @@ def test_improved_error_message():
 
 def test_performance_benchmark_dense_vs_sparse():
     """Benchmark to verify performance improvement on dense grids."""
-    import time
-
     model = Model()
 
     # Test dense grid (90% full)
