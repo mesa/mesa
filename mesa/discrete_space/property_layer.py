@@ -416,12 +416,9 @@ class PropertyDescriptor:
 
     def __set__(self, instance: Cell, value):  # noqa: D105
         self.layer.data[instance.coordinate] = value
-<<<<<<< HEAD
 
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
     # NumPy ufuncs have a 'nargs' attribute indicating the number of input arguments
     # For binary ufuncs (like np.add), nargs is 2
     return ufunc.nargs > 1
-=======
->>>>>>> 79b3e6e5 ([pre-commit.ci] auto fixes from pre-commit.com hooks)
