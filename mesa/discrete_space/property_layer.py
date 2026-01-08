@@ -39,19 +39,6 @@ class PropertyLayer:
 
     """
 
-    # Fixme
-    #  can't we simplify this a lot
-    #  in essence, this is just a numpy array with a name and fixed dimensions
-    #  all other functionality seems redundant to me?
-
-    @property
-    def data(self):  # noqa: D102
-        return self._mesa_data
-
-    @data.setter
-    def data(self, value):
-        self.set_cells(value)
-
     propertylayer_experimental_warning_given = False
 
     def __init__(
@@ -88,8 +75,8 @@ class PropertyLayer:
                 f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
             ) from e
 
-        # fixme why not initialize with empty?
-        self._mesa_data = np.full(self.dimensions, default_value, dtype=dtype)
+        # Public attribute exposing the raw data
+        self.data = np.full(self.dimensions, default_value, dtype=dtype)
 
     @classmethod
     def from_data(cls, name: str, data: np.ndarray):
@@ -103,10 +90,10 @@ class PropertyLayer:
         layer = cls(
             name,
             data.shape,
-            default_value=data[*[0 for _ in range(len(data.shape))]],
+            default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer.set_cells(data)
+        layer.data = data
         return layer
 
     def set_cells(self, value, condition: Callable | None = None):
@@ -117,11 +104,11 @@ class PropertyLayer:
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
         if condition is None:
-            np.copyto(self._mesa_data, value)  # In-place update
+            self.data[:] = value
         else:
             vectorized_condition = np.vectorize(condition)
-            condition_result = vectorized_condition(self._mesa_data)
-            np.copyto(self._mesa_data, value, where=condition_result)
+            condition_result = vectorized_condition(self.data)
+            self.data[condition_result] = value
 
     def modify_cells(
         self,
@@ -138,27 +125,23 @@ class PropertyLayer:
             value: The value to be used if the operation is a NumPy ufunc. Ignored for lambda functions.
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
-        condition_array = np.ones_like(
-            self._mesa_data, dtype=bool
-        )  # Default condition (all cells)
-        if condition is not None:
-            vectorized_condition = np.vectorize(condition)
-            condition_array = vectorized_condition(self._mesa_data)
+        if condition is None:
+            mask = slice(None)
+            target_data = self.data
+        else:
+            mask = condition(self.data)
+            target_data = self.data[mask]
 
-        # Check if the operation is a lambda function or a NumPy ufunc
         if isinstance(operation, np.ufunc):
             if ufunc_requires_additional_input(operation):
                 if value is None:
                     raise ValueError("This ufunc requires an additional input value.")
-                modified_data = operation(self._mesa_data, value)
+                self.data[mask] = operation(target_data, value)
             else:
-                modified_data = operation(self._mesa_data)
+                self.data[mask] = operation(target_data)
         else:
-            # Vectorize non-ufunc operations
             vectorized_operation = np.vectorize(operation)
-            modified_data = vectorized_operation(self._mesa_data)
-
-        self._mesa_data = np.where(condition_array, modified_data, self._mesa_data)
+            self.data[mask] = vectorized_operation(target_data)
 
     def select_cells(self, condition: Callable, return_list=True):
         """Find cells that meet a specified condition using NumPy's boolean indexing, in-place.
@@ -174,7 +157,7 @@ class PropertyLayer:
         #  select_cells_boolean
         #  select_cells_index
 
-        condition_array = condition(self._mesa_data)
+        condition_array = condition(self.data)
         if return_list:
             return list(zip(*np.where(condition_array)))
         else:
@@ -186,7 +169,7 @@ class PropertyLayer:
         Args:
             operation: A function to apply. Can be a lambda function or a NumPy ufunc.
         """
-        return operation(self._mesa_data)
+        return operation(self.data)
 
 
 class HasPropertyLayers:

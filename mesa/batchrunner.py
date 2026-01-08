@@ -43,8 +43,6 @@ from tqdm.auto import tqdm
 
 from mesa.model import Model
 
-multiprocessing.set_start_method("spawn", force=True)
-
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 
 
@@ -78,6 +76,8 @@ def batch_run(
         batch_run assumes the model has a `datacollector` attribute that has a DataCollector object initialized.
 
     """
+    multiprocessing.set_start_method("spawn", force=True)
+
     if iterations is not None and rng is not None:
         raise ValueError(
             "you cannot use both iterations and rng at the same time. Please only use rng."
