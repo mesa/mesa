@@ -1,0 +1,53 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+          - "**/*.rst"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mesa/*.py"
+
+visualization:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mesa/visualization/**"
+
+space:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mesa/discrete_space/**"
+          - "mesa/space.py"
+
+experimental:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mesa/experimental/**"
+
+examples:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mesa/examples/**"
+
+CI:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pyproject.toml"
+          - "requirements*.txt"
+
+benchmarks:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "benchmarks/**"

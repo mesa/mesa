@@ -1,0 +1,36 @@
+name: Greetings
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue here! We appreciate you taking the time to report this.
+
+            A maintainer will review your issue soon. In the meantime, please make sure you've:
+            - Searched for existing issues that might address your problem
+            - Included all relevant information and steps to reproduce (if applicable)
+
+            Feel free to join our community discussions if you have any questions!
+          pr-message: |
+            🎉 Thanks for opening your first pull request! We're excited to have you contribute to Mesa.
+
+            A maintainer will review your PR soon. Please ensure:
+            - Your code follows our contribution guidelines
+            - All tests pass
+            - You've added tests for new functionality (if applicable)
+
+            Thanks for helping make Mesa better!
