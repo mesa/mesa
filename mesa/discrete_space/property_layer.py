@@ -419,6 +419,6 @@ class PropertyDescriptor:
 
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
-    # NumPy ufuncs have a 'nargs' attribute indicating the number of input arguments
-    # For binary ufuncs (like np.add), nargs is 2
-    return ufunc.nargs > 1
+    # NumPy ufuncs have a 'nin' attribute indicating the number of input arguments
+    # For binary ufuncs (like np.add), nin is 2
+    return ufunc.nin > 1

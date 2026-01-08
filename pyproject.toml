@@ -91,7 +91,7 @@ homepage = "https://github.com/mesa/mesa"
 repository = "https://github.com/mesa/mesa"
 
 [tool.codespell]
-ignore-words-list = ["ist", "hart", "nD"]
+ignore-words-list = ["ist", "hart", "nD", "nin"]
 
 [tool.coverage.run]
 source = ["."]
