@@ -1414,8 +1414,19 @@ class ContinuousSpace:
             the given agent (i.e., self when calling it from an agent).
 
         """
-        if self._agent_points is None:
-            self._build_agent_cache()
+        # Build index mapping if not exists (tracks which agents are in space)
+        if not self._index_to_agent:
+            self._index_to_agent = {}
+            for idx, agent in enumerate(self._agent_to_index):
+                self._agent_to_index[agent] = idx
+                self._index_to_agent[idx] = agent
+
+        # Always rebuild positions from current agent.pos to handle direct assignment
+        # This fixes the "Ghost Agent" bug where cache becomes stale after agent.pos = (x, y)
+        self._agent_points = np.array([agent.pos for agent in self._agent_to_index])
+
+        if len(self._agent_points) == 0:
+            return []
 
         deltas = np.abs(self._agent_points - np.array(pos))
         if self.torus:

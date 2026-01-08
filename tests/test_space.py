@@ -247,6 +247,32 @@ class TestSpaceAgentMapping(unittest.TestCase):
         with self.assertRaises(Exception):
             self.space.remove_agent(agent_to_remove)
 
+    def test_direct_pos_assignment_updates_neighbors(self):
+        """Test that get_neighbors correctly handles direct agent.pos assignment.
+
+        Regression test for issue #3091: ContinuousSpace spatial cache not
+        invalidated on direct agent.pos modification.
+        """
+        # Create a fresh space and agent for this test
+        space = ContinuousSpace(100, 100, False)
+        agent = MockAgent(999)
+        space.place_agent(agent, (0, 0))
+
+        # Prime the cache by calling get_neighbors
+        neighbors = space.get_neighbors((0, 0), radius=1, include_center=True)
+        assert agent in neighbors, "Agent should be found at initial position"
+
+        # Directly modify agent.pos (bypassing space.move_agent)
+        agent.pos = (50, 50)
+
+        # Agent should NOT be found at old position
+        neighbors_at_old = space.get_neighbors((0, 0), radius=1, include_center=True)
+        assert agent not in neighbors_at_old, "Agent should not be at old position after direct pos assignment"
+
+        # Agent SHOULD be found at new position
+        neighbors_at_new = space.get_neighbors((50, 50), radius=1, include_center=True)
+        assert agent in neighbors_at_new, "Agent should be at new position after direct pos assignment"
+
 
 class TestPropertyLayer(unittest.TestCase):  # noqa: D101
     def setUp(self):  # noqa: D102
