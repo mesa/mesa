@@ -416,7 +416,7 @@ class DataCollector:
         """Create a pandas DataFrame from the model variables.
 
         The DataFrame has one column for each model variable, and the index is
-        (implicitly) the model tick.
+        the model step at which data was collected.
         """
         # Check if self.model_reporters dictionary is empty, if so raise warning
         if not self.model_reporters:
@@ -424,7 +424,7 @@ class DataCollector:
                 "No model reporters have been defined in the DataCollector, returning empty DataFrame."
             )
 
-        return pd.DataFrame(self.model_vars)
+        return pd.DataFrame(self.model_vars, index=self._collection_steps)
 
     def get_agent_vars_dataframe(self):
         """Create a pandas DataFrame from the agent variables.
