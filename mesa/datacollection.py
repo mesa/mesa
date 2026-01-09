@@ -19,7 +19,8 @@ Additionally, other objects can write directly to tables by passing in an
 appropriate dictionary object for a table row.
 
 The DataCollector then stores the data it collects in dictionaries:
-    * model_vars maps each reporter to a list of its values
+    * model_vars maps each reporter to a list of its values, indexed by the
+      collection steps stored in _collection_steps.
     * tables maps each table to a dictionary, with each column as a key with a
       list as its value.
     * _agent_records maps each model step to a list of each agent's id
@@ -169,11 +170,15 @@ class DataCollector:
         # Type 2: Method of class/instance (bound methods are callable)
         if callable(reporter) and not isinstance(reporter, types.LambdaType):
             try:
-                reporter()  # Call without args for bound methods
-            except Exception as e:
-                raise RuntimeError(
-                    f"Method reporter '{name}' failed validation: {e!s}"
-                ) from e
+                reporter(model)
+            except TypeError:
+                try:
+                    reporter()
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Method reporter '{name}' failed validation: {e!s}"
+                    ) from e
+
         # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
         #     pass
 
@@ -356,15 +361,14 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
-            if hasattr(self, "_collection_steps"):
-                self._collection_steps.append(model.time)
+            self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
 
             for var, reporter in self.model_reporters.items():
                 # Check if lambda or partial function
-                if isinstance(reporter, types.LambdaType | partial):
+                if isinstance(reporter, (types.LambdaType, partial)):
                     # Use deepcopy to store a copy of the data,
                     # preventing references from being updated across steps.
                     self.model_vars[var].append(deepcopy(reporter(model)))
