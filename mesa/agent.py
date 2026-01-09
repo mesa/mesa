@@ -209,7 +209,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
     def select(
         self,
-        filter_func: Callable[[Agent], bool] | None = None,
+        filter_func: Callable[[A], bool] | None = None,
         at_most: int | float = float("inf"),
         inplace: bool = False,
         agent_type: type[A] | None = None,
