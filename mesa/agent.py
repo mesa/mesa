@@ -281,7 +281,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
     def sort(
         self,
-        key: Callable[[Agent], Any] | str,
+        key: Callable[[A], Any] | str,
         ascending: bool = False,
         inplace: bool = False,
     ) -> AgentSet[A]:
