@@ -235,6 +235,7 @@ def create_space_component(renderer: SpaceRenderer):
 def SpaceRendererComponent(
     model: Model,
     renderer: SpaceRenderer,
+    # FIXME: Manage dependencies properly
     dependencies: list[Any] | None = None,
 ):
     """Render the space of a model using a SpaceRenderer.
