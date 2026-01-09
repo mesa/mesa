@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from mesa.space import Position
 
 
-class Agent[M: Model]:
+class Agent[M: Model](Hashable):
     """Base class for a model agent in Mesa.
 
     Attributes:
@@ -36,7 +36,9 @@ class Agent[M: Model]:
         pos (Position): A reference to the position where this agent is located.
 
     Notes:
-          unique_id is unique relative to a model instance and starts from 1
+        Agents must be hashable to be stored in AgentSets. If you override
+        __eq__(), you must also implement __hash__() to maintain hashability.
+        unique_id is unique relative to a model instance and starts from 1
 
     """
 
@@ -63,6 +65,10 @@ class Agent[M: Model]:
         self.unique_id: int = next(self._ids[model])
         self.pos: Position | None = None
         self.model.register_agent(self)
+
+    def __hash__(self) -> int:
+        """Return the hash of the agent."""
+        return super().__hash__()
 
     def remove(self) -> None:
         """Remove and delete the agent from the model.
