@@ -501,7 +501,13 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             setattr(agent, attr_name, value)
         return self
 
-    def __getitem__(self, item: int | slice) -> A:
+    @overload
+    def __getitem__(self, item: int) -> A: ...
+
+    @overload
+    def __getitem__(self, item: slice) -> list[A]: ...
+
+    def __getitem__(self, item):
         """Retrieve an agent or a slice of agents from the AgentSet.
 
         Args:
