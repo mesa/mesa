@@ -28,7 +28,7 @@ import math
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from numbers import Real
-from typing import Any, cast, overload
+from typing import Any, TypeVar, cast, overload
 from warnings import warn
 
 with contextlib.suppress(ImportError):
@@ -49,7 +49,7 @@ FloatCoordinate = tuple[float, float] | npt.NDArray[float]
 NetworkCoordinate = int
 
 Position = Coordinate | FloatCoordinate | NetworkCoordinate
-
+F = TypeVar("F", bound=Callable[..., Any])
 GridContent = Agent | None
 MultiGridContent = list[Agent]
 
