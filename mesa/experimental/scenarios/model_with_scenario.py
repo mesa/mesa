@@ -19,8 +19,8 @@ class ModelWithScenario(Model):
         self._scenario = scenario
         scenario.model = self
 
-    def __init__(self, *args, scenario:Scenario|None=None, **kwargs):
-        """"Init of ModelWithScenario.
+    def __init__(self, *args, scenario: Scenario | None = None, **kwargs):
+        """ "Init of ModelWithScenario.
 
         Args:
             args: all positional args # fixme we might want to completely disable this because of solara
