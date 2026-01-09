@@ -1134,3 +1134,33 @@ def test_infinite_loop_on_full_grid():
 
     with pytest.raises(IndexError):
         grid.select_random_empty_cell()
+
+
+def test_select_random_empty_cell_fallback():
+    """Test the vectorized fallback of select_random_empty_cell (when heuristic is skipped)."""
+    width = 10
+    height = 10
+    grid = OrthogonalMooreGrid((width, height), torus=False, random=random.Random(42))
+
+    # Fill the grid completely except one specific cell
+    model = Model()
+    target_empty = (5, 5)
+
+    for x in range(width):
+        for y in range(height):
+            if (x, y) != target_empty:
+                agent = CellAgent(model)
+                grid._cells[(x, y)].add_agent(agent)
+
+    # Force the code to skip the heuristic loop and hit the 'np.argwhere' fallback
+    grid._try_random = False
+
+    selected_cell = grid.select_random_empty_cell()
+
+    # Ensure it found the only available empty cell via the fallback path
+    assert selected_cell.coordinate == target_empty
+    assert selected_cell.is_empty
+
+    # Ensure the property layer data was actually correct (the fallback relies on this)
+    assert grid.empty.data[5, 5]
+    assert not grid.empty.data[0, 0]
