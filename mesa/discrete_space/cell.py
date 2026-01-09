@@ -129,14 +129,14 @@ class Cell:
     @property
     def is_empty(self) -> bool:
         """Returns a bool of the contents of a cell."""
-        return len(self.agents) == 0
+        return len(self._agents) == 0
 
     @property
     def is_full(self) -> bool:
         """Returns a bool of the contents of a cell."""
         if self.capacity is None:
             return False
-        return len(self.agents) >= self.capacity
+        return len(self._agents) >= self.capacity
 
     @property
     def agents(self) -> list[CellAgent]:
@@ -208,11 +208,9 @@ class Cell:
 
     def __getstate__(self):
         """Return state of the Cell with connections set to empty."""
-        # fixme, once we shift to 3.11, replace this with super. __getstate__
-        state = (self.__dict__, {k: getattr(self, k) for k in self.__slots__})
-        state[1][
-            "connections"
-        ] = {}  # replace this with empty connections to avoid infinite recursion error in pickle/deepcopy
+        state = super().__getstate__()
+        # Replace connections with empty dict to avoid infinite recursion error in pickle/deepcopy
+        state[1]["connections"] = {}
         return state
 
     def _clear_cache(self):

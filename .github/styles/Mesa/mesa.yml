@@ -1,0 +1,14 @@
+# styles/Mesa/Branding.yml
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: true
+swap:
+  # mesa: Mesa
+  # MESA: MESA
+  # numpy: NumPy
+  # matplotlib: Matplotlib
+  # pytorch: PyTorch
+  # scikit-learn: scikit-learn
+  # dataframe: DataFrame
+  # python: Python

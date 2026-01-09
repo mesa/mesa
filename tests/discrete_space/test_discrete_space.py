@@ -638,6 +638,30 @@ def test_cell_is_full_with_finite_capacity():
     assert cell.is_full is True
 
 
+def test_is_empty_no_list_copy():
+    """Verify is_empty checks len() directly without copying the agents list."""
+    model = Model()
+    cell = Cell((0, 0), capacity=None)
+
+    # Add agents and store reference to internal list
+    for _ in range(10):
+        cell.add_agent(CellAgent(model))
+
+    internal_list = cell._agents
+
+    # Calling is_empty should not replace _agents with a copy
+    _ = cell.is_empty
+    assert cell._agents is internal_list
+
+    # Same for is_full
+    _ = cell.is_full
+    assert cell._agents is internal_list
+
+    # But .agents property SHOULD return a copy
+    agents_copy = cell.agents
+    assert agents_copy is not internal_list
+
+
 def test_cell_collection():
     """Test CellCollection."""
     cell1 = Cell((1,), capacity=None, random=random.Random())
@@ -1110,3 +1134,33 @@ def test_infinite_loop_on_full_grid():
 
     with pytest.raises(IndexError):
         grid.select_random_empty_cell()
+
+
+def test_select_random_empty_cell_fallback():
+    """Test the vectorized fallback of select_random_empty_cell (when heuristic is skipped)."""
+    width = 10
+    height = 10
+    grid = OrthogonalMooreGrid((width, height), torus=False, random=random.Random(42))
+
+    # Fill the grid completely except one specific cell
+    model = Model()
+    target_empty = (5, 5)
+
+    for x in range(width):
+        for y in range(height):
+            if (x, y) != target_empty:
+                agent = CellAgent(model)
+                grid._cells[(x, y)].add_agent(agent)
+
+    # Force the code to skip the heuristic loop and hit the 'np.argwhere' fallback
+    grid._try_random = False
+
+    selected_cell = grid.select_random_empty_cell()
+
+    # Ensure it found the only available empty cell via the fallback path
+    assert selected_cell.coordinate == target_empty
+    assert selected_cell.is_empty
+
+    # Ensure the property layer data was actually correct (the fallback relies on this)
+    assert grid.empty.data[5, 5]
+    assert not grid.empty.data[0, 0]
