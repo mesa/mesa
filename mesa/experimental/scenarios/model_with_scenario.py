@@ -27,7 +27,6 @@ class ModelWithScenario(Model):
             scenario: a scenario instance, optional
             kwargs: all additional keyword args
 
-
         """
         if scenario is None:
             scenario = Scenario(rng=None)
