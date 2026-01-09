@@ -1,5 +1,32 @@
 # Visualization
 
+
+⚠️ **Important note for SolaraViz users**
+
+When using **SolaraViz**, Mesa models must be instantiated **using keyword arguments only**.
+SolaraViz creates model instances internally via keyword-based parameters, and positional arguments are **not supported**.
+
+**Not supported:**
+
+```python
+MyModel(10, 10)
+```
+
+**Supported:**
+
+```python
+MyModel(width=10, height=10)
+```
+
+To avoid errors, it is recommended to define your model constructor with keyword-only arguments, for example:
+
+```python
+class MyModel(Model):
+    def __init__(self, *, width, height, seed=None):
+        ...
+```
+
+
 For detailed tutorials, please refer to:
 
 - [Basic Visualization](../tutorials/4_visualization_basic)
