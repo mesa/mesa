@@ -106,9 +106,8 @@ class FixedAgent(Agent, FixedCell):
         """Remove the agent from the model."""
         super().remove()
 
-        # fixme we leave self._mesa_cell on the original value
-        #  so you cannot hijack remove() to move patches
         self.cell.remove_agent(self)
+        self._mesa_cell = None
 
 
 class Grid2DMovingAgent(CellAgent):
