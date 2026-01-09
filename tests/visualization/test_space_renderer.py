@@ -212,7 +212,7 @@ def test_property_layer_style_instance():
 
 def test_network_non_contiguous_nodes():
     """Test network with non-contiguous node IDs (Issue #3023).
-    
+
     Verifies dictionary lookup correctly maps agents to positions
     regardless of node ID values.
     """
@@ -240,13 +240,15 @@ def test_network_non_contiguous_nodes():
 
         assert mapped["loc"].shape == (5, 2)
         assert not np.any(np.isnan(mapped["loc"]))
-        expected = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8], [0.9, 1.0]])
+        expected = np.array(
+            [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8], [0.9, 1.0]]
+        )
         np.testing.assert_array_equal(mapped["loc"], expected)
 
 
 def test_network_missing_nodes_warning():
     """Test warning when many nodes missing from layout (Issue #3064).
-    
+
     Verifies NaN masking for missing nodes and warning threshold (>10%).
     """
     mock_graph = MagicMock()
@@ -277,7 +279,7 @@ def test_network_missing_nodes_warning():
 
 def test_network_race_condition_graceful():
     """Test graceful handling when layout lags behind simulation.
-    
+
     Combines both fixes: dictionary lookup + NaN masking for resilience.
     """
     mock_graph = MagicMock()
@@ -315,5 +317,3 @@ def test_network_race_condition_graceful():
         # Missing nodes become NaN (hidden, not crashed)
         assert np.all(np.isnan(mapped["loc"][3]))
         assert np.all(np.isnan(mapped["loc"][4]))
-
-

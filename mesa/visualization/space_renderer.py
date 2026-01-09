@@ -158,25 +158,25 @@ class SpaceRenderer:
             # 2. NaN masking for race condition resilience (PR #3065)
             loc = arguments["loc"].astype(float)
             pos_dict = self.space_drawer.pos
-            
+
             # Extract node IDs from location data
             node_ids = loc[:, 0].astype(int)
-            
+
             # Initialize with NaN (missing nodes will be hidden, not plotted)
             mapped_locs = np.full((len(node_ids), 2), np.nan)
-            
+
             missing_nodes = []
-            
+
             # Dictionary lookup: works for any node ID value
             for i, node_id in enumerate(node_ids):
                 if node_id in pos_dict:
                     mapped_locs[i] = pos_dict[node_id]
                 else:
                     missing_nodes.append(node_id)
-            
+
             # Warn only if >10% missing (design issue vs transient race)
             if missing_nodes and len(missing_nodes) > len(pos_dict) / 10:
-                sample = missing_nodes[:min(5, len(missing_nodes))]
+                sample = missing_nodes[: min(5, len(missing_nodes))]
                 warnings.warn(
                     f"Many nodes {sample}{'...' if len(missing_nodes) > 5 else ''} not found "
                     f"in position layout ({len(missing_nodes)}/{len(node_ids)} agents). "
@@ -184,8 +184,10 @@ class SpaceRenderer:
                     UserWarning,
                     stacklevel=2,
                 )
-            
-            mapped_arguments["loc"] = mapped_locs if len(mapped_locs) > 0 else mapped_locs.reshape(0, 2)
+
+            mapped_arguments["loc"] = (
+                mapped_locs if len(mapped_locs) > 0 else mapped_locs.reshape(0, 2)
+            )
 
         return mapped_arguments
 
