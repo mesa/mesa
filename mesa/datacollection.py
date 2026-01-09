@@ -406,7 +406,7 @@ class DataCollector:
                             if False, throw an error if any columns are missing
         """
         if table_name not in self.tables:
-            raise Exception("Table does not exist.")
+            raise KeyError(f"Table '{table_name}' does not exist.")
 
         for column in self.tables[table_name]:
             if column in row:
@@ -414,7 +414,9 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise Exception("Could not insert row with missing column")
+                raise ValueError(
+                    f"Could not insert row with missing column '{column}' in table '{table_name}'"
+                )
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
@@ -422,6 +424,11 @@ class DataCollector:
         The DataFrame has one column for each model variable, and the index is
         the model step at which data was collected.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_model_vars_dataframe"
+            )
+
         # Check if self.model_reporters dictionary is empty, if so raise warning
         if not self.model_reporters:
             raise UserWarning(
@@ -436,6 +443,11 @@ class DataCollector:
         The DataFrame has one column for each variable, with two additional
         columns for tick and agent_id.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_agent_vars_dataframe"
+            )
+
         # Check if self.agent_reporters dictionary is empty, if so raise warning
         if not self.agent_reporters:
             raise UserWarning(
@@ -461,6 +473,11 @@ class DataCollector:
         Args:
             agent_type: The type of agent to get the data for.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_agenttype_vars_dataframe"
+            )
+
         # Check if self.agenttype_reporters dictionary is empty for this agent type, if so return empty DataFrame
         if agent_type not in self.agenttype_reporters:
             warnings.warn(
@@ -490,6 +507,10 @@ class DataCollector:
         Args:
             table_name: The name of the table to convert.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_table_dataframe"
+            )
         if table_name not in self.tables:
-            raise Exception("No such table.")
+            raise KeyError(f"Table '{table_name}' does not exist.")
         return pd.DataFrame(self.tables[table_name])
