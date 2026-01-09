@@ -22,7 +22,6 @@ class Scenario[M: ModelWithScenario](MutableMapping):
         model.running is true.
 
     """
-
     def __init__(self, *, rng: RNGLike | SeedLike | None = None, **kwargs):
         """Initialize a Scenario.
 
