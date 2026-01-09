@@ -276,11 +276,10 @@ def SpaceRendererComponent(
         if renderer.propertylayer_mesh:
             renderer.draw_propertylayer()
 
+        viz_dependencies = [update_counter.value]
         # Update the fig every time frame
         if dependencies:
-            dependencies.append(update_counter.value)
-        else:
-            dependencies = [update_counter.value]
+            viz_dependencies.extend(dependencies)
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
@@ -290,7 +289,7 @@ def SpaceRendererComponent(
             renderer.canvas.get_figure(),
             format="png",
             bbox_inches="tight",
-            dependencies=dependencies,
+            dependencies=viz_dependencies,
         )
         return None
     else:

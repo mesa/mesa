@@ -19,6 +19,8 @@ from itertools import product
 from random import Random
 from typing import Any, TypeVar
 
+import numpy as np
+
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
@@ -157,8 +159,9 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 if cell.is_empty:
                     return cell
 
-        # Fallback to the robust parent method (O(N)) if random sampling fails
-        return super().select_random_empty_cell()
+        empty_coords = np.argwhere(self.empty.data)
+        random_coord = self.random.choice(empty_coords)
+        return self._cells[tuple(random_coord)]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
