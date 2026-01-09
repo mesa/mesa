@@ -49,10 +49,11 @@ FloatCoordinate = tuple[float, float] | npt.NDArray[float]
 NetworkCoordinate = int
 
 Position = Coordinate | FloatCoordinate | NetworkCoordinate
-F = TypeVar("F", bound=Callable[..., Any])
+
 GridContent = Agent | None
 MultiGridContent = list[Agent]
 
+F = TypeVar("F", bound=Callable[..., Any])
 
 def accept_tuple_argument[F: Callable[..., Any]](wrapped_function: F) -> F:
     """Decorator to allow grid methods that take a list of (x, y) coord tuples to also handle a single position.
