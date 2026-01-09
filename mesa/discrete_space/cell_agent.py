@@ -78,12 +78,20 @@ class FixedCell(HasCell):
         return self._mesa_cell
 
     @cell.setter
-    def cell(self, cell: Cell) -> None:
-        if self.cell is not None:
+    def cell(self, cell: Cell | None) -> None:
+        if self.cell is not None and cell is not None:
             raise ValueError("Cannot move agent in FixedCell")
+
+        # remove from current cell
+        if self.cell is not None:
+            self.cell.remove_agent(self)
+
+        # update private attribute
         self._mesa_cell = cell
 
-        cell.add_agent(self)
+        # add to new cell
+        if cell is not None:
+            cell.add_agent(self)
 
 
 class CellAgent(Agent, HasCell, BasicMovement):
@@ -105,10 +113,7 @@ class FixedAgent(Agent, FixedCell):
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
-
-        # fixme we leave self._mesa_cell on the original value
-        #  so you cannot hijack remove() to move patches
-        self.cell.remove_agent(self)
+        self.cell = None
 
 
 class Grid2DMovingAgent(CellAgent):
