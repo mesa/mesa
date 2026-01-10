@@ -23,7 +23,7 @@ class ModelWithScenario(Model):
         """ "Init of ModelWithScenario.
 
         Args:
-            args: all positional args # fixme we might want to completely disable this because of solara
+            args: all positional args
             scenario: a scenario instance, optional
             kwargs: all additional keyword args
 
