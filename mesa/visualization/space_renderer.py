@@ -6,7 +6,6 @@ backends, supporting various space types and visualization components.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -154,22 +153,41 @@ class SpaceRenderer:
 
         elif isinstance(self.space, Network):
             # Map coordinates for Network spaces
+            # Hybrid approach combining:
+            # 1. Dictionary lookup for non-contiguous node IDs (PR #3045)
+            # 2. NaN masking for race condition resilience (PR #3065)
             loc = arguments["loc"].astype(float)
-            pos = np.asarray(list(self.space_drawer.pos.values()))
-            # For network only both x and y contains the correct coordinates
-            # use one of them
-            x = loc[:, 0]
-            if x is None:
-                x = loc[:, 1]
+            pos_dict = self.space_drawer.pos
 
-            # Ensure x is an integer index for the position mapping
-            x = x.astype(int)
+            # Extract node IDs from location data
+            node_ids = loc[:, 0].astype(int)
 
-            # FIXME: Find better way to handle this case
-            # x updates before pos can, therefore gives us index error that
-            # needs to be ignored.
-            with contextlib.suppress(IndexError):
-                mapped_arguments["loc"] = pos[x]
+            # Initialize with NaN (missing nodes will be hidden, not plotted)
+            mapped_locs = np.full((len(node_ids), 2), np.nan)
+
+            missing_nodes = []
+
+            # Dictionary lookup: works for any node ID value
+            for i, node_id in enumerate(node_ids):
+                if node_id in pos_dict:
+                    mapped_locs[i] = pos_dict[node_id]
+                else:
+                    missing_nodes.append(node_id)
+
+            # Warn only if >10% missing (design issue vs transient race)
+            if missing_nodes and len(missing_nodes) > len(pos_dict) / 10:
+                sample = missing_nodes[: min(5, len(missing_nodes))]
+                warnings.warn(
+                    f"Many nodes {sample}{'...' if len(missing_nodes) > 5 else ''} not found "
+                    f"in position layout ({len(missing_nodes)}/{len(node_ids)} agents). "
+                    f"This may indicate the network layout needs to be updated or regenerated.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+            mapped_arguments["loc"] = (
+                mapped_locs if len(mapped_locs) > 0 else mapped_locs.reshape(0, 2)
+            )
 
         return mapped_arguments
 
