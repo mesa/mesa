@@ -336,3 +336,149 @@ def test_backends_handle_errors():
     }
     with pytest.raises(ValueError):
         mb.draw_agents(arguments, edgecolors="blue")
+
+
+def test_altair_backend_tooltip_default():
+    """Test that default tooltip includes only x and y coordinates."""
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    arguments = {
+        "loc": np.array([[1, 2], [3, 4]]),
+        "size": np.array([5, 10]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([1.0, 0.8]),
+        "strokeWidth": np.array([1, 2]),
+        "color": np.array(["red", "blue"]),
+        "filled": np.array([True, True]),
+        "stroke": np.array(["black", "black"]),
+    }
+
+    chart = ab.draw_agents(arguments)
+    assert chart is not None
+    assert hasattr(chart.encoding, "tooltip")
+    tooltip_list = chart.encoding.tooltip
+
+    # Default tooltip should include only x, y
+    assert len(tooltip_list) == 2
+    assert "x" in str(tooltip_list)
+    assert "y" in str(tooltip_list)
+
+
+def test_altair_backend_tooltip_custom_string():
+    """Test tooltip_fields with a single string field."""
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    arguments = {
+        "loc": np.array([[1, 2]]),
+        "size": np.array([5]),
+        "shape": np.array(["circle"]),
+        "opacity": np.array([1.0]),
+        "strokeWidth": np.array([1]),
+        "color": np.array(["red"]),
+        "filled": np.array([True]),
+        "stroke": np.array(["black"]),
+        "agent_id": np.array([1]),
+    }
+    # Pass tooltip_fields as a single string
+    chart = ab.draw_agents(arguments, tooltip_fields="agent_id")
+    assert chart is not None
+    tooltip_list = chart.encoding.tooltip
+    assert len(tooltip_list) == 3
+
+
+def test_altair_backend_tooltip_custom_list():
+    """Test tooltip_fields with a list of fields."""
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    arguments = {
+        "loc": np.array([[1, 2]]),
+        "size": np.array([5]),
+        "shape": np.array(["circle"]),
+        "opacity": np.array([1.0]),
+        "strokeWidth": np.array([1]),
+        "color": np.array(["red"]),
+        "filled": np.array([True]),
+        "stroke": np.array(["black"]),
+        "agent_id": np.array([1]),
+        "wealth": np.array([100]),
+    }
+
+    # Pass tooltip_fields as a list
+    chart = ab.draw_agents(arguments, tooltip_fields=["agent_id", "wealth"])
+    assert chart is not None
+
+    # Check that custom fields were added
+    tooltip_list = chart.encoding.tooltip
+    assert len(tooltip_list) == 4  # Changed from 6 to 4
+    assert "agent_id" in str(tooltip_list)
+    assert "wealth" in str(tooltip_list)
+
+
+def test_altair_backend_kwargs_extraction():
+    """Test that additional kwargs parameters are properly extracted."""
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    arguments = {
+        "loc": np.array([[1, 2]]),
+        "size": np.array([5]),
+        "shape": np.array(["circle"]),
+        "opacity": np.array([1.0]),
+        "strokeWidth": np.array([1]),
+        "color": np.array(["red"]),
+        "filled": np.array([True]),
+        "stroke": np.array(["black"]),
+    }
+
+    # Pass various kwargs
+    chart = ab.draw_agents(
+        arguments,
+        title="Test Title",
+        xlabel="X Axis",
+        ylabel="Y Axis",
+        cmap="plasma",
+        vmin=0,
+        vmax=100,
+        tooltip_fields="agent_id",
+    )
+
+    assert chart is not None
+    assert chart.title == "Test Title"
+
+
+def test_altair_collect_and_draw_integration():
+    """Test the full workflow: collect agent data then draw with custom tooltips."""
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    class DummyAgent:
+        pos = (0, 0)
+        cell = types.SimpleNamespace(coordinate=(1, 2))
+
+    class DummySpace:
+        agents: ClassVar[list] = [DummyAgent(), DummyAgent()]
+
+    def agent_portrayal(agent):
+        return AgentPortrayalStyle(
+            x=agent.cell.coordinate[0],
+            y=agent.cell.coordinate[1],
+            size=10,
+            color="blue",
+            marker="o",
+            zorder=1,
+            alpha=0.9,
+        )
+
+    # Collect agent data
+    data = ab.collect_agent_data(DummySpace(), agent_portrayal)
+    assert "loc" in data and data["loc"].shape[0] == 2
+
+    # Draw with custom tooltip
+    chart = ab.draw_agents(data, tooltip_fields=["agent_id", "wealth"])
+    assert chart is not None
+
+    tooltip_list = chart.encoding.tooltip
+    assert len(tooltip_list) == 4  # Changed from 6

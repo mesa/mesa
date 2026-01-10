@@ -262,14 +262,10 @@ class AltairBackend(AbstractRenderer):
         df["viz_stroke_color"] = stroke_colors
 
         # Extract additional parameters from kwargs
-        # FIXME: Add more parameters to kwargs
         title = kwargs.pop("title", "")
         xlabel = kwargs.pop("xlabel", "")
         ylabel = kwargs.pop("ylabel", "")
-
-        # Tooltip list for interactivity
-        # FIXME: Add more fields to tooltip (preferably from agent_portrayal)
-        tooltip_list = ["x", "y"]
+        tooltip_fields = kwargs.pop("tooltip_fields", None)
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")
@@ -277,6 +273,16 @@ class AltairBackend(AbstractRenderer):
         vmax = kwargs.pop("vmax", None)
 
         color_is_numeric = pd.api.types.is_numeric_dtype(df["original_color"])
+
+        # Build tooltip list for interactivity
+        # Default to coordinates only; users can add meaningful attributes via tooltip_fields
+        tooltip_list = ["x", "y"]
+        if tooltip_fields:
+            if isinstance(tooltip_fields, str):
+                tooltip_list.append(tooltip_fields)
+            elif isinstance(tooltip_fields, list):
+                tooltip_list.extend(tooltip_fields)
+
         if color_is_numeric:
             color_min = vmin if vmin is not None else df["original_color"].min()
             color_max = vmax if vmax is not None else df["original_color"].max()
