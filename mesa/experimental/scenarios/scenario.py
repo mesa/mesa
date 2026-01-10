@@ -44,7 +44,7 @@ class Scenario[M: ModelWithScenario](MutableMapping):
 
     def __setitem__(self, key, value):  # noqa: D105
         if self.model is not None and self.model.running:
-                raise ValueError("Cannot mutate scenario while model is running")
+            raise ValueError("Cannot mutate scenario while model is running")
 
         self.__dict__[key] = value
 
