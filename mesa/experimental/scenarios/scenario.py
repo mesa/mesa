@@ -83,10 +83,3 @@ class Scenario[M: ModelWithScenario](MutableMapping):
             if entry != "__dict__":
                 content[entry] = getattr(self, entry)
         return content
-
-
-if __name__ == "__main__":
-    for _ in range(10):
-        scenario = Scenario(a=1, b=2)
-        print(scenario.scenario_id)
-    print("blaat")

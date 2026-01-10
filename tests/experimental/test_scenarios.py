@@ -6,7 +6,7 @@ from mesa.experimental.scenarios import ModelWithScenario, Scenario
 
 
 def test_scenario():
-    """Test Scenario class."""
+    """Test Scenario and ModelWithScenario class."""
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario.scenario_id == 0
     assert scenario.model is None
@@ -45,3 +45,6 @@ def test_scenario():
 
     with pytest.raises(ValueError):
         scenario.a = 5
+
+    model = ModelWithScenario()
+    assert model.scenario.rng is None
