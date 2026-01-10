@@ -20,13 +20,12 @@ class ModelWithScenario(Model):
         scenario.model = self
 
     def __init__(self, *args, scenario: Scenario | None = None, **kwargs):
-        """ "Init of ModelWithScenario.
+        """Init of ModelWithScenario.
 
         Args:
             args: all positional args
             scenario: a scenario instance, optional
             kwargs: all additional keyword args
-
         """
         if scenario is None:
             scenario = Scenario(rng=None)
