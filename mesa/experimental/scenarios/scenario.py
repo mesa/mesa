@@ -80,7 +80,7 @@ class Scenario[M: ModelWithScenario](MutableMapping):
         """Return a dict representation of the scenario."""
         content = self.__dict__.copy()
         for entry in self.__slots__:
-            if not entry == "__dict__":
+            if entry != "__dict__":
                 content[entry] = getattr(self, entry)
         return content
 
