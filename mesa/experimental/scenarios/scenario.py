@@ -1,7 +1,10 @@
 """Base Scenario class."""
 
+from collections import defaultdict
 from collections.abc import MutableMapping, Sequence
-from typing import TYPE_CHECKING
+from functools import partial
+from itertools import count
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
@@ -23,6 +26,10 @@ class Scenario[M: ModelWithScenario](MutableMapping):
 
     """
 
+    _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
+
+    __slots__ = ("__dict__", "model", "scenario_id")
+
     def __init__(self, *, rng: RNGLike | SeedLike | None = None, **kwargs):
         """Initialize a Scenario.
 
@@ -31,12 +38,14 @@ class Scenario[M: ModelWithScenario](MutableMapping):
             kwargs: all other scenario parameters
 
         """
+        self.model = None
+        self.scenario_id = next(self._ids[self.__class__])
         self.__dict__.update(rng=rng, **kwargs)
-        self.model: M | None = None
 
     def __setitem__(self, key, value):  # noqa: D105
-        if self.model.running:
-            raise ValueError("Cannot mutate scenario while model is running")
+        if self.model is not None and self.model.running:
+                raise ValueError("Cannot mutate scenario while model is running")
+
         self.__dict__[key] = value
 
     def __getitem__(self, key):  # noqa: D105
@@ -50,3 +59,18 @@ class Scenario[M: ModelWithScenario](MutableMapping):
 
     def __len__(self):  # noqa: D105
         return len(self.__dict__)
+
+    def __setattr__(self, key, value):  # noqa: D105
+        if key not in self.__slots__:
+            self.__dict__[key] = value
+        else:
+            super().__setattr__(key, value)
+
+    __delattr__ = dict.__delitem__
+
+
+if __name__ == "__main__":
+    for i in range(10):
+        scenario = Scenario(a=1, b=2)
+        print(scenario.scenario_id)
+    print("blaat")
