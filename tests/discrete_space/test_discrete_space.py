@@ -1218,7 +1218,9 @@ def test_large_radius_with_include_center():
     neighbors_with_center = cells[0].get_neighborhood(radius=1200, include_center=True)
 
     # With include_center=False (default)
-    neighbors_without_center = cells[0].get_neighborhood(radius=1200, include_center=False)
+    neighbors_without_center = cells[0].get_neighborhood(
+        radius=1200, include_center=False
+    )
 
     # Center should add exactly 1 cell
     assert len(neighbors_with_center) == len(neighbors_without_center) + 1
@@ -1240,4 +1242,3 @@ def test_radius_exceeds_reachable_cells():
 
     # Should return all reachable cells (99, since we exclude center by default)
     assert len(neighbors) == 99
-
