@@ -2,7 +2,7 @@
 
 The readable version of the docs is hosted at [mesa.readthedocs.org](http://mesa.readthedocs.org/).
 
-This folder contains the docs that build the docs for the core mesa code on readthdocs.
+This folder contains the docs that build the docs for the core mesa code on readthedocs.
 
 ## How to publish updates to the docs
 
@@ -30,8 +30,8 @@ From this point, you will need to find someone that has access to readthedocs. C
 1. Accept the pull request into main.
 1. Log into readthedocs and launch a new build -- builds take about 10 minutes or so.
 
-### Helpful Sphnix tips
+### Helpful Sphinx tips
 * Build html from docs:
   * `make html`
-* Autogenerate / update sphninx from docstrings (replace your name as the author):
+* Autogenerate / update sphinx from docstrings (replace your name as the author):
   * `sphinx-apidoc -A "Jackie Kazil" -F -o docs mesa/`

@@ -93,3 +93,6 @@ dmypy.json
 # JS dependencies
 mesa/visualization/templates/external/
 mesa/visualization/templates/js/external/
+
+# Vale styles (downloaded via vale sync)
+.github/styles/Google/
