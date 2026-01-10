@@ -66,7 +66,7 @@ class Scenario[M: ModelWithScenario](MutableMapping):
         else:
             super().__setattr__(key, value)
 
-    def __delattr__(self, key): # noqa: D105
+    def __delattr__(self, key):  # noqa: D105
         if key not in self.__slots__:
             self.__delitem__(key)
         else:
