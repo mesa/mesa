@@ -62,15 +62,19 @@ class Scenario[M: ModelWithScenario](MutableMapping):
 
     def __setattr__(self, key, value):  # noqa: D105
         if key not in self.__slots__:
-            self.__dict__[key] = value
+            self.__setitem__(key, value)
         else:
             super().__setattr__(key, value)
 
-    __delattr__ = dict.__delitem__
+    def __delattr__(self, key): # noqa: D105
+        if key not in self.__slots__:
+            self.__delitem__(key)
+        else:
+            super().__delattr__(key)
 
 
 if __name__ == "__main__":
-    for i in range(10):
+    for _ in range(10):
         scenario = Scenario(a=1, b=2)
         print(scenario.scenario_id)
     print("blaat")
