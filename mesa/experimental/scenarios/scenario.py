@@ -19,6 +19,10 @@ if TYPE_CHECKING:
 class Scenario[M: ModelWithScenario](MutableMapping):
     """A Scenario class.
 
+    Attributes:
+        model : the model instance to which this scenario belongs
+        scenario_id : a unique identifier for this scenario, auto-generated, starting from 0
+
     Notes:
         in essence, this is a mutable mapping with
         protection, so it cannot be mutated while
@@ -38,8 +42,8 @@ class Scenario[M: ModelWithScenario](MutableMapping):
             kwargs: all other scenario parameters
 
         """
-        self.model = None
-        self.scenario_id = next(self._ids[self.__class__])
+        self.model: M |None= None
+        self.scenario_id: int = next(self._ids[self.__class__])
         self.__dict__.update(rng=rng, **kwargs)
 
     def __setitem__(self, key, value):  # noqa: D105
