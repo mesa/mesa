@@ -76,6 +76,13 @@ class Scenario[M: ModelWithScenario](MutableMapping):
         else:
             super().__delattr__(key)
 
+    def to_dict(self):
+        """return a dict representation of the scenario."""
+        content = self.__dict__.copy()
+        for entry in self.__slots__:
+            if not entry == "__dict__":
+                content[entry] = getattr(self, entry)
+        return content
 
 if __name__ == "__main__":
     for _ in range(10):
