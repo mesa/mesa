@@ -523,6 +523,33 @@ class TestSingleGrid(unittest.TestCase):  # noqa: D101
         expected_distance_squared = 3**2 + 4**2
         assert self.space._distance_squared(pos1, pos2) == expected_distance_squared
 
+    def test_move_agent_closest_hybrid_small_set(self):
+        """Test hybrid approach uses loop for small position sets (<50)."""
+        agent = self.agents[0]
+        agent.pos = (5, 5)
+        possible_positions = [(5 + i, 5 + j) for i in range(-2, 3) for j in range(-2, 3)]
+
+        self.space.move_agent_to_one_of(agent, possible_positions, selection="closest")
+
+        min_dist = min(self.space._distance_squared(p, (5, 5)) for p in possible_positions)
+        closest_positions = [p for p in possible_positions
+                            if self.space._distance_squared(p, (5, 5)) == min_dist]
+        assert agent.pos in closest_positions
+
+    def test_move_agent_closest_hybrid_large_set(self):
+        """Test hybrid approach uses vectorization for large position sets (>50)."""
+        agent = self.agents[0]
+        agent.pos = (25, 25)
+        possible_positions = [(i % 45, i // 45 + 2) for i in range(80)
+                             if 0 <= (i % 45) < 50 and 0 <= (i // 45 + 2) < 50]
+
+        self.space.move_agent_to_one_of(agent, possible_positions, selection="closest")
+
+        min_dist = min(self.space._distance_squared(p, (25, 25)) for p in possible_positions)
+        closest_positions = [p for p in possible_positions
+                            if self.space._distance_squared(p, (25, 25)) == min_dist]
+        assert agent.pos in closest_positions
+
     def test_iter_cell_list_contents(self):
         """Test neighborhood retrieval."""
         cell_list_1 = list(self.space.iter_cell_list_contents(TEST_AGENTS_GRID[0]))

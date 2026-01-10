@@ -476,23 +476,13 @@ class _Grid:
             if selection == "random":
                 chosen_pos = agent.random.choice(pos)
             elif selection == "closest":
-                current_pos = agent.pos
-                # Find the closest position without sorting all positions
-                # TODO: See if this method can be optimized further
-                closest_pos = []
-                min_distance = float("inf")
-                agent.random.shuffle(pos)
-                for p in pos:
-                    distance = self._distance_squared(p, current_pos)
-                    if distance < min_distance:
-                        min_distance = distance
-                        closest_pos.clear()
-                        closest_pos.append(p)
-                    elif distance == min_distance:
-                        closest_pos.append(p)
-
-                chosen_pos = agent.random.choice(closest_pos)
-
+                # Hybrid approach: use NumPy for large position sets,
+                # traditional loop for small sets to minimize conversion overhead.
+                # Threshold of 50 positions balances conversion cost vs improvement.
+                if len(pos) > 50:
+                    chosen_pos = self._closest_vectorized(agent, pos)
+                else:
+                    chosen_pos = self._closest_loop(agent, pos)
             else:
                 raise ValueError(
                     f"Invalid selection method {selection}. Choose 'random' or 'closest'."
@@ -520,6 +510,74 @@ class _Grid:
             dx = min(dx, self.width - dx)
             dy = min(dy, self.height - dy)
         return dx**2 + dy**2
+
+    def _closest_loop(self, agent: Agent, pos: list[Coordinate]) -> Coordinate:
+        """Find closest position using traditional loop approach.
+
+        Optimal for small position sets (<50 items) where NumPy conversion overhead
+        would exceed the performance benefit.
+
+        Args:
+            agent: The agent to find closest position for.
+            pos: List of candidate positions.
+
+        Returns:
+            The closest position, or one randomly chosen among equidistant positions.
+        """
+        current_pos = agent.pos
+        closest_pos = []
+        min_distance = float("inf")
+        agent.random.shuffle(pos)
+
+        for p in pos:
+            distance = self._distance_squared(p, current_pos)
+            if distance < min_distance:
+                min_distance = distance
+                closest_pos.clear()
+                closest_pos.append(p)
+            elif distance == min_distance:
+                closest_pos.append(p)
+
+        return agent.random.choice(closest_pos)
+
+    def _closest_vectorized(self, agent: Agent, pos: list[Coordinate]) -> Coordinate:
+        """Find closest position using NumPy vectorization.
+
+        Optimal for large position sets (>=50 items) where vectorized operations
+        significantly outperform traditional loops.
+
+        Args:
+            agent: The agent to find closest position for.
+            pos: List of candidate positions.
+
+        Returns:
+            The closest position, or one randomly chosen among equidistant positions.
+        """
+        current_pos = agent.pos
+
+        # Convert positions to NumPy array for vectorized operations
+        pos_array = np.array(pos, dtype=np.float64)
+        curr = np.array(current_pos, dtype=np.float64)
+
+        # Calculate all distances vectorized
+        diffs = pos_array - curr
+        if self.torus:
+            diffs = np.abs(diffs)
+            widths = np.array([self.width, self.height], dtype=np.float64)
+            diffs = np.minimum(diffs, widths - diffs)
+
+        distances = np.sum(diffs**2, axis=1)
+
+        # Find all positions at minimum distance
+        min_distance = np.min(distances)
+        closest_mask = distances == min_distance
+        closest_indices = np.where(closest_mask)[0]
+
+        # Random choice from closest positions
+        chosen_idx = agent.random.randrange(len(closest_indices))
+        chosen_pos = pos_array[closest_indices[chosen_idx]]
+
+        return tuple(chosen_pos.astype(int))
 
     def swap_pos(self, agent_a: Agent, agent_b: Agent) -> None:
         """Swap agents positions."""
