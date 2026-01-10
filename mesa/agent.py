@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from mesa.space import Position
 
 
-class Agent[M: Model](Hashable):
+class Agent[M: Model]:
     """Base class for a model agent in Mesa.
 
     Attributes:
@@ -65,10 +65,6 @@ class Agent[M: Model](Hashable):
         self.unique_id: int = next(self._ids[model])
         self.pos: Position | None = None
         self.model.register_agent(self)
-
-    def __hash__(self) -> int:
-        """Return the hash of the agent."""
-        return super().__hash__()
 
     def remove(self) -> None:
         """Remove and delete the agent from the model.

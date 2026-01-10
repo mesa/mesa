@@ -1,7 +1,6 @@
 """Agent.py related tests."""
 
 import pickle
-from collections.abc import Hashable
 
 import numpy as np
 import pytest
@@ -711,11 +710,6 @@ def test_agentset_groupby():
     assert custom_result[False] == custom_agg(
         [agent.value for agent in agents if not agent.even]
     )
-
-
-def test_agent_is_hashable_abc():
-    """Test that Agent is a subclass of collections.abc.Hashable."""
-    assert issubclass(Agent, Hashable)
 
 
 def test_agent_instance_is_hashable():
