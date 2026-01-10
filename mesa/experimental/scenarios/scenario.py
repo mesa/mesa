@@ -42,7 +42,7 @@ class Scenario[M: ModelWithScenario](MutableMapping):
             kwargs: all other scenario parameters
 
         """
-        self.model: M |None= None
+        self.model: M | None = None
         self.scenario_id: int = next(self._ids[self.__class__])
         self.__dict__.update(rng=rng, **kwargs)
 
