@@ -109,7 +109,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"_mesa_properties": set()},
+            {"_mesa_properties": set(), "__slots__": ()},
         )
 
         # we register the pickle_gridcell helper function

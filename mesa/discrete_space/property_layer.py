@@ -225,10 +225,7 @@ class HasPropertyLayers:
             )
         if layer.name in self._mesa_property_layers:
             raise ValueError(f"Property layer {layer.name} already exists.")
-        if (
-            layer.name in self.cell_klass.__slots__
-            or layer.name in self.cell_klass.__dict__
-        ):
+        if layer.name != "empty" and hasattr(self.cell_klass, layer.name):
             raise ValueError(
                 f"Property layer {layer.name} clashes with existing attribute in {self.cell_klass.__name__}"
             )

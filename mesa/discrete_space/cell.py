@@ -39,13 +39,14 @@ class Cell:
     """
 
     __slots__ = [
-        "__dict__",
         "_agents",
         "capacity",
         "connections",
         "coordinate",
         "properties",
         "random",
+        "_empty",
+        "_neighborhood_cache",
     ]
 
     def __init__(
@@ -73,6 +74,8 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self._empty = True
+        self._neighborhood_cache = None
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -127,6 +130,15 @@ class Cell:
         self.empty = self.is_empty
 
     @property
+    def empty(self) -> bool:
+        """Returns True if the cell is empty."""
+        return self._empty
+
+    @empty.setter
+    def empty(self, value: bool):
+        self._empty = value
+
+    @property
     def is_empty(self) -> bool:
         """Returns a bool of the contents of a cell."""
         return len(self._agents) == 0
@@ -146,7 +158,7 @@ class Cell:
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
 
-    @cached_property
+    @property
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
@@ -155,8 +167,6 @@ class Cell:
         """
         return self.get_neighborhood()
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -173,29 +183,38 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection[Cell](
-            self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
-        )
+        key = ("get_neighborhood", radius, include_center)
+        if self._neighborhood_cache is None:
+            self._neighborhood_cache = {}
+        if key not in self._neighborhood_cache:
+            self._neighborhood_cache[key] = CellCollection[Cell](
+                self._neighborhood(radius=radius, include_center=include_center),
+                random=self.random,
+            )
+        return self._neighborhood_cache[key]
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
-        # if radius == 0:
-        #     return {self: self.agents}
         if radius < 1:
             raise ValueError("radius must be larger than one")
+
+        key = ("_neighborhood", radius, include_center)
+        if self._neighborhood_cache is None:
+            self._neighborhood_cache = {}
+
+        if key in self._neighborhood_cache:
+            return self._neighborhood_cache[key]
+
         if radius == 1:
             neighborhood = {
                 neighbor: neighbor._agents for neighbor in self.connections.values()
             }
             if not include_center:
-                return neighborhood
+                res = neighborhood
             else:
                 neighborhood[self] = self._agents
-                return neighborhood
+                res = neighborhood
         else:
             neighborhood: dict[Cell, list[Agent]] = {}
             for neighbor in self.connections.values():
@@ -204,7 +223,10 @@ class Cell:
                 )
             if not include_center:
                 neighborhood.pop(self, None)
-            return neighborhood
+            res = neighborhood
+
+        self._neighborhood_cache[key] = res
+        return res
 
     def __getstate__(self):
         """Return state of the Cell with connections set to empty."""
@@ -215,12 +237,4 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        try:
-            self.__dict__.pop(
-                "neighborhood"
-            )  # cached properties are stored in __dict__, see functools.cached_property docs
-        except KeyError:
-            pass  # cache is not set
-        else:
-            self.get_neighborhood.cache_clear()
-            self._neighborhood.cache_clear()
+        self._neighborhood_cache = None
