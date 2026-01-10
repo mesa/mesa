@@ -41,7 +41,7 @@ This namespace contains experimental features. These are under development, and 
 ## Scenarios
 
 ```{eval-rst}
-.. automodule:: experimental.scenarios.scenarios
+.. automodule:: experimental.scenarios.scenario
    :members:
 ```
 
