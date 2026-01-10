@@ -1,7 +1,8 @@
 """Tests for mesa.experimental.scenarios."""
+
 import pytest
 
-from mesa.experimental.scenarios import Scenario, ModelWithScenario
+from mesa.experimental.scenarios import ModelWithScenario, Scenario
 
 
 def test_scenario():
@@ -13,10 +14,17 @@ def test_scenario():
     assert scenario["b"] == 2
     assert len(scenario) == 4
 
-    values = {"a":1, "b":2, "c":3, "rng":42}
+    values = {"a": 1, "b": 2, "c": 3, "rng": 42}
     for k, v in scenario.items():
         assert values[k] == v
-    assert scenario.to_dict() == {"a": 1, "b": 2, "c": 3, "rng": 42, "model": None, "scenario_id": 0}
+    assert scenario.to_dict() == {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "rng": 42,
+        "model": None,
+        "scenario_id": 0,
+    }
 
     scenario.c = 4
     assert scenario.c == 4
@@ -26,7 +34,7 @@ def test_scenario():
 
     del scenario.c
     with pytest.raises(AttributeError):
-        _ =  scenario.c
+        _ = scenario.c
 
     scenario = Scenario(**values)
     assert scenario.scenario_id == 1
@@ -37,4 +45,3 @@ def test_scenario():
 
     with pytest.raises(ValueError):
         scenario.a = 5
-        
