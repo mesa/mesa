@@ -3,7 +3,7 @@
 ---
 title: Release History
 ---
-# 3.4.1 (2025-01-09)
+# 3.4.1 (2025-01-10)
 ## Highlights
 Mesa 3.4.1 is a patch release with bug fixes, performance improvements, and documentation enhancements. This release addresses issues affecting data collection, memory management, and grid operations while introducing performance optimizations.
 
@@ -20,6 +20,7 @@ We're excited to welcome 9 new contributors to Mesa in this release! Thank you t
 * Optimize Cell is_empty/is_full by @codebyNJ in #3069
 * Refactor PropertyLayer to implement NumPy interface and deprecate wrappers by @codebreaker32 in #3074
 * Optimise select_random_empty_cell() in grid.py by @codebreaker32 in #3087
+* Add generic type parameters to Agent, AgentSet, and Model by @SiddharthBansal007 in #2885
 ### 🐛 Bugs fixed
 * Fix: peak_ahead returns events in correct chronological order by @Nithin9585 in #3010
 * fix: prevent infinite loop in select_random_empty_cell via heuristic fallback by @DipayanDasgupta in #3014
@@ -33,6 +34,7 @@ We're excited to welcome 9 new contributors to Mesa in this release! Thank you t
 * Fix: Add agenttype_reporters support to batch_run by @BhoomiAgrawal12 in #3095
 * Fix memory leak in ContinuousSpace agent removal by @Nithin9585 in #3031
 * Minor Refactoring in solara_viz by @codebreaker32 in #3059
+* Fix: Correct `FixedAgent` state after removal by @Sonu0305 in #3100
 ### 🔍 Examples updated
 * Resolve FIXME in `sugarscape_g1mt/agents.py` by @Sonu0305 in #3062
 * Update alliance formation mode by @quaquel in #3075
