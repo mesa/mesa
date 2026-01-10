@@ -41,11 +41,11 @@ This namespace contains experimental features. These are under development, and 
 ## Scenarios
 
 ```{eval-rst}
-..automodule::experimental.scenarios.scenarios
+.. automodule::experimental.scenarios.scenarios
    :members:
 ```
 
 ```{eval-rst}
-..automodule::experimental.scenarios.model_with_scenario
+.. automodule::experimental.scenarios.model_with_scenario
    :members:
 ```
