@@ -44,8 +44,7 @@ def unpickle_gridcell(parent, fields):
     cell_klass = type(
         "GridCell",
         (parent,),
-        {"__slots__":(),
-         "_mesa_properties": set()},
+        {"__slots__": (), "_mesa_properties": set()},
     )
     instance = cell_klass(
         (0, 0)
@@ -112,8 +111,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"__slots__":(),
-             "_mesa_properties": set()},
+            {"__slots__": (), "_mesa_properties": set()},
         )
 
         # we register the pickle_gridcell helper function
