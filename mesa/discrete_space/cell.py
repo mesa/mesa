@@ -39,7 +39,6 @@ class Cell:
     """
 
     __slots__ = [
-        "__dict__",
         "_agents",
         "capacity",
         "connections",
@@ -146,7 +145,6 @@ class Cell:
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
 
-    @cached_property
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
@@ -215,12 +213,5 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        try:
-            self.__dict__.pop(
-                "neighborhood"
-            )  # cached properties are stored in __dict__, see functools.cached_property docs
-        except KeyError:
-            pass  # cache is not set
-        else:
-            self.get_neighborhood.cache_clear()
-            self._neighborhood.cache_clear()
+        self.get_neighborhood.cache_clear()
+        self._neighborhood.cache_clear()
