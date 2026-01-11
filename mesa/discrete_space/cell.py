@@ -45,7 +45,7 @@ class Cell:
         "coordinate",
         "properties",
         "random",
-        "empty"
+        "_empty"
     ]
 
     def __init__(
@@ -73,6 +73,15 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+
+    @property
+    def empty(self) -> bool:
+        """Returns True if the cell is empty."""
+        return self._empty
+
+    @empty.setter
+    def empty(self, value: bool):
+        self._empty = value
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -146,6 +155,7 @@ class Cell:
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
 
+    @property
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
