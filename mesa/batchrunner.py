@@ -297,9 +297,20 @@ def _collect_data(
         }
 
     all_agents_data = []
+
+    # Collect agent_reporters data
     raw_agent_data = dc._agent_records.get(step, [])
     for data in raw_agent_data:
         agent_dict = {"AgentID": data[1]}
         agent_dict.update(zip(dc.agent_reporters, data[2:]))
         all_agents_data.append(agent_dict)
+
+    # Collect agenttype_reporters data
+    raw_agenttype_data = dc._agenttype_records.get(step, {})
+    for agent_type, agents_data in raw_agenttype_data.items():
+        for data in agents_data:
+            agent_dict = {"AgentID": data[1]}
+            agent_dict.update(zip(dc.agenttype_reporters[agent_type], data[2:]))
+            all_agents_data.append(agent_dict)
+
     return model_data, all_agents_data
