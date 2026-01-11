@@ -234,7 +234,9 @@ class HasPropertyLayers:
             )
 
         self._mesa_property_layers[layer.name] = layer
-        setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+        setattr(self.cell_klass, layer.name,
+                create_property_accessors(layer.data,docstring=f"accessor for {layer.name}"))
+        # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
 
     def remove_property_layer(self, property_name: str):
@@ -405,17 +407,29 @@ class HasPropertyLayers:
                 super().__setattr__(key, value)
 
 
-class PropertyDescriptor:
-    """Descriptor for giving cells attribute like access to values defined in property layers."""
+def create_property_accessors(data, docstring=None):
+    """Helper function for creating accessor for properties on cells."""
+    def getter(self):
+        return data[self.coordinate]
 
-    def __init__(self, property_layer: PropertyLayer):  # noqa: D107
-        self.layer: PropertyLayer = property_layer
+    def setter(self, value):
+        data[self.coordinate] = value
 
-    def __get__(self, instance: Cell, owner):  # noqa: D105
-        return self.layer.data[instance.coordinate]
+    return property(getter, setter, doc=docstring)
 
-    def __set__(self, instance: Cell, value):  # noqa: D105
-        self.layer.data[instance.coordinate] = value
+
+# class PropertyDescriptor:
+#     """Descriptor for giving cells attribute like access to values defined in property layers."""
+#     pass
+#
+#     def __init__(self, property_layer: PropertyLayer):  # noqa: D107
+#         self.layer: PropertyLayer = property_layer
+#
+#     def __get__(self, instance: Cell, owner):  # noqa: D105
+#         return self.layer.data[instance.coordinate]
+#
+#     def __set__(self, instance: Cell, value):  # noqa: D105
+#         self.layer.data[instance.coordinate] = value
 
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
