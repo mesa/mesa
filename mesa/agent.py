@@ -36,7 +36,9 @@ class Agent[M: Model]:
         pos (Position): A reference to the position where this agent is located.
 
     Notes:
-          unique_id is unique relative to a model instance and starts from 1
+        Agents must be hashable to be stored in AgentSets. If you override
+        __eq__(), you must also implement __hash__() to maintain hashability.
+        unique_id is unique relative to a model instance and starts from 1
 
     """
 
