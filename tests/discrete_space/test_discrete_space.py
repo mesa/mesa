@@ -33,6 +33,10 @@ def test_orthogonal_grid_neumann():
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
 
+    # simple tests to ensure that we only have slots on our cell.
+    with pytest.raises(AttributeError):
+        grid.cell_klass(1).b = 5
+
     assert len(grid._cells) == width * height
 
     # von neumann neighborhood, torus false, top left corner
