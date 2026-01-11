@@ -45,6 +45,7 @@ class Cell:
         "coordinate",
         "properties",
         "random",
+        "empty"
     ]
 
     def __init__(
