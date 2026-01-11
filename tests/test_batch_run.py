@@ -362,6 +362,110 @@ def test_iterations_deprecation_warning():
         mesa.batch_run(MockModel, {}, number_processes=1, iterations=1)
 
 
+def test_batch_run_legacy():
+    """Covers the legacy fallback."""
+
+    class LegacyModel(Model):
+        def __init__(self, *args, **kwargs):
+            self.schedule = None
+            super().__init__()
+            self.datacollector = DataCollector(
+                model_reporters={"Step": lambda m: m.steps},
+                agent_reporters={"Dummy": lambda a: 1},
+            )
+            # FORCE LEGACY: Delete _collection_steps attribute manually
+            delattr(self.datacollector, "_collection_steps")
+
+            # Ensure there is at least one agent
+            MockAgent(self, 1)
+
+        def step(self):
+            super().step()
+            self.datacollector.collect(self)
+
+    # Logic to hit the line:
+    # Max steps = 6 (Indices: 0, 1, 2, 3, 4, 5)
+    # Period = 2
+    # range(0, 6, 2) generates -> [0, 2, 4]
+    # The last model step is 5.
+    # steps[-1] (4) != model.steps-1 (5).
+    # This forces the code to execute: steps.append(5)
+    results = mesa.batch_run(
+        LegacyModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=6,
+        data_collection_period=2,
+        display_progress=False,
+    )
+
+    steps_captured = [r["Step"] for r in results]
+
+    # Expect [1, 2, 4, 5] instead of [0, 2, 4, 5]
+    # Why? Step 0 was not collected. Legacy fallback logic defaults to
+    # the first available step (Step 1) when the requested Step (0) is missing.
+    assert steps_captured == [1, 2, 4, 5]
+    # Ensure last step is present
+    assert 5 in steps_captured
+
+
+def test_batch_run_coverage_cases():
+    """Covers all the cases related to data_collection_period.
+
+    - case -1: Only collect at the end of the run.
+    - case 1: Collect every step.
+    - case _: Collect every N steps (default).
+    """
+    # Cover 'case -1:' (End Only)
+    results_case_end = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=-1,  # Triggers 'case -1:'
+        display_progress=False,
+    )
+
+    # Use set() to deduplicate agent rows
+    captured_steps_end = sorted({r["Step"] for r in results_case_end})
+
+    assert captured_steps_end == [5]
+
+    # Cover 'case 1:' (Every Step)
+    results_case_1 = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=1,  # Triggers 'case 1:'
+        display_progress=False,
+    )
+
+    assert len(results_case_1) > 0
+
+    assert results_case_1[0]["Step"] == 1
+
+    # Cover 'case _:' (Default)
+    results_case_default = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=2,  # Triggers 'case _:'
+        display_progress=False,
+    )
+
+    # Use set() to deduplicate because MockModel returns 3 rows per step (one per agent)
+    captured_steps = sorted({r["Step"] for r in results_case_default})
+
+    # Start at 1, step by 2 -> [1, 3, 5]
+    assert captured_steps == [1, 3, 5]
+
+
 class SparseAgent(Agent):
     """Test agent for sparse data collection scenarios."""
 
