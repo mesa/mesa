@@ -305,3 +305,16 @@ def test_meta_agent_step(setup_agents):
     meta_agent = MetaAgent(model, set(agents))
     meta_agent.step()  # Ensure no errors occur during step
     # Add additional assertions if step behavior is defined in the future
+
+
+def test_find_combinations_without_evaluation_func(setup_agents):
+    """Test find_combinations when evaluation_func is None.
+
+    This tests that the function handles None return from evaluate_combination
+    without raising TypeError from unpacking None.
+    """
+    model, _agents = setup_agents
+    # When evaluation_func is None, evaluate_combination returns None
+    # This should not cause a TypeError from unpacking
+    result = find_combinations(model, model.agents, size=2, evaluation_func=None)
+    assert result == []  # No combinations when no evaluation function

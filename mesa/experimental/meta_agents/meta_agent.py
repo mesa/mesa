@@ -105,11 +105,13 @@ def find_combinations(
     for candidate_group in itertools.chain.from_iterable(
         itertools.combinations(group, size) for size in range(*size_range)
     ):
-        group_set, result = evaluate_combination(
+        evaluation_result = evaluate_combination(
             candidate_group, model, evaluation_func
         )
-        if result:
-            combinations.append((group_set, result))
+        if evaluation_result is not None:
+            group_set, result = evaluation_result
+            if result:
+                combinations.append((group_set, result))
 
     if len(combinations) > 0 and filter_func:
         filtered_combinations = filter_func(combinations)
