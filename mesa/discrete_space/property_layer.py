@@ -18,6 +18,7 @@ attributes.
 import warnings
 from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
+from itertools import chain
 
 import numpy as np
 
@@ -226,8 +227,7 @@ class HasPropertyLayers:
         if layer.name in self._mesa_property_layers:
             raise ValueError(f"Property layer {layer.name} already exists.")
         if (
-            layer.name in self.cell_klass.__slots__
-            or layer.name in self.cell_klass.__dict__
+            layer.name in set(chain.from_iterable(getattr(cls, '__slots__', []) for cls in self.cell_klass.__mro__))
         ):
             raise ValueError(
                 f"Property layer {layer.name} clashes with existing attribute in {self.cell_klass.__name__}"
