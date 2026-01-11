@@ -10,13 +10,21 @@ to attributes, computing derived values, and managing collections that emit sign
 when modified.
 """
 
-from .mesa_signal import All, Computable, Computed, HasObservables, Observable
+from .mesa_signal import (
+    All,
+    Computable,
+    Computed,
+    ContinuousObservable,
+    HasObservables,
+    Observable,
+)
 from .observable_collections import ObservableList
 
 __all__ = [
     "All",
     "Computable",
     "Computed",
+    "ContinuousObservable",
     "HasObservables",
     "Observable",
     "ObservableList",
