@@ -424,6 +424,12 @@ def test_batch_run_sparse_collection():
     assert all("Value" in row for row in result)
     assert all("Step" in row for row in result)
 
+    # Verify no "ghost" steps were created.
+    # Expected steps: 5, 10, 15, 20 (Total 4 rows).
+    assert len(result) == 4, f"Expected 4 rows for sparse collection, got {len(result)}"
+    steps_captured = sorted([row["Step"] for row in result])
+    assert steps_captured == [5, 10, 15, 20]
+
 
 class TimeDilationModel(Model):
     """Model that collects data multiple times per step to test BatchRunner alignment."""
@@ -457,6 +463,10 @@ def test_batch_run_time_dilation():
         data_collection_period=1,
         display_progress=False,
     )
+
+    # Verify ALL sub-step data is captured
+    # 1 Initial + (2 collections per step * 5 steps) = 11 rows total
+    assert len(results) == 11, f"Data Loss! Expected 11 rows, got {len(results)}"
 
     # We expect to find data for 'Step 5'
     # Without the fix, it grabs index 5 (Step 2/3). With fix, it finds correct Step 5.
@@ -536,8 +546,11 @@ def test_batch_run_missing_step():
         display_progress=False,
     )
 
-    # Should handle sparse collection - may have fewer results
-    assert len(results) >= 0
+    # Init(1) + Steps 2,4,6(3) = 4 total rows
+    # Step 5 should NOT be present.
+    assert len(results) == 4, f"Expected 4 rows, got {len(results)}"
+    steps_found = [r["Step"] for r in results]
+    assert 5 not in steps_found, "Ghost data found for Step 5"
 
 
 def test_batch_run_empty_collection_edge_case():
@@ -572,7 +585,9 @@ def test_batch_run_empty_collection_edge_case():
     )
 
     # Should handle empty collections gracefully
-    assert len(results) >= 0
+    # Only one collection occurred at step 3.
+    assert len(results) == 1, f"Expected 1 row, got {len(results)}"
+    assert results[0]["Step"] == 3
 
 
 def test_batch_run_agenttype_reporters():
