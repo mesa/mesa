@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from functools import cache, cached_property
 from random import Random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
@@ -31,10 +31,11 @@ class Cell:
     """The cell represents a position in a discrete space.
 
     Attributes:
-        coordinate (Tuple[int, int]) : the position of the cell in the discrete space
+        coordinate (Tuple[int, int]): the position of the cell in the discrete space
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell
         random (Random): the random number generator
+        properties (dict[str, Any]): arbitrary metadata stored on the cell (e.g., polygon, area)
 
     """
 
@@ -69,9 +70,7 @@ class Cell:
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
         self.capacity: int | None = capacity
-        self.properties: dict[
-            Coordinate, object
-        ] = {}  # fixme still used by voronoi mesh
+        self.properties: dict[str, Any] = {}
         self.random = random
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
@@ -189,12 +188,13 @@ class Cell:
             raise ValueError("radius must be larger than one")
         if radius == 1:
             neighborhood = {
-                neighbor: neighbor._agents for neighbor in self.connections.values()
+                neighbor: list(neighbor._agents)
+                for neighbor in self.connections.values()
             }
             if not include_center:
                 return neighborhood
             else:
-                neighborhood[self] = self._agents
+                neighborhood[self] = list(self._agents)
                 return neighborhood
         else:
             neighborhood: dict[Cell, list[Agent]] = {}

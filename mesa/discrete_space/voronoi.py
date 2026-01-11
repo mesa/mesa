@@ -7,6 +7,7 @@ Features:
 - Automatic neighbor determination
 - Area-based cell capacities
 - Natural regional divisions
+- PropertyLayer support for efficient bulk operations on Voronoi properties
 
 Useful for models requiring irregular but mathematically meaningful spatial
 divisions, like territories, service areas, or natural regions.
@@ -15,11 +16,15 @@ divisions, like territories, service areas, or natural regions.
 from collections.abc import Sequence
 from itertools import combinations
 from random import Random
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+
+if TYPE_CHECKING:
+    pass
 
 
 class Delaunay:
@@ -175,11 +180,23 @@ def round_float(x: float) -> int:  # noqa
 
 
 class VoronoiGrid(DiscreteSpace):
-    """Voronoi meshed GridSpace."""
+    """Voronoi meshed GridSpace.
 
-    triangulation: Delaunay
-    voronoi_coordinates: list
-    regions: list
+    This implementation provides efficient Voronoi tessellation-based spatial
+    organization, with cells positioned around seed points and neighbors
+    determined via Delaunay triangulation.
+
+    Attributes:
+        centroids_coordinates: the initial coordinates of the Voronoi cell centers
+        triangulation: the Delaunay triangulation used to compute Voronoi regions
+        voronoi_coordinates: coordinates of the Voronoi diagram vertices
+        regions: mapping of cell indices to their region definitions
+
+    """
+
+    triangulation: Delaunay | None = None
+    voronoi_coordinates: list | None = None
+    regions: dict | None = None
 
     def __init__(
         self,
@@ -191,16 +208,19 @@ class VoronoiGrid(DiscreteSpace):
     ) -> None:
         """A Voronoi Tessellation Grid.
 
-        Given a set of points, this class creates a grid where a cell is centered in each point,
-        its neighbors are given by Voronoi Tessellation cells neighbors
-        and the capacity by the polygon area.
+        Given a set of points, this class creates a grid where a cell is centered at each point,
+        its neighbors are determined via Voronoi Tessellation, and cell capacity is
+        determined by the polygon area.
 
         Args:
             centroids_coordinates: coordinates of centroids to build the tessellation space
-            capacity (int) : capacity of the cells in the discrete space
-            random (Random): random number generator
+            capacity (float | None): capacity of the cells in the discrete space
+            random (Random | None): random number generator
             cell_klass (type[Cell]): type of cell class
-            capacity_function (Callable): function to compute (int) capacity according to (float) area
+            capacity_function (callable): function to compute (int) capacity according to (float) area
+
+        Raises:
+            ValueError: if centroids_coordinates is not a valid sequence of sequences
 
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
@@ -216,9 +236,19 @@ class VoronoiGrid(DiscreteSpace):
         self.triangulation = None
         self.voronoi_coordinates = None
         self.capacity_function = capacity_function
+        self.polygon_layer = None
+        self.area_layer = None
 
         self._connect_cells()
         self._build_cell_polygons()
+
+    @property
+    def dimensions(self) -> tuple[int]:
+        """Return the dimensions of the Voronoi grid as a 1D tuple with the number of cells.
+
+        This property enables compatibility with HasPropertyLayers interface.
+        """
+        return (len(self._cells),)
 
     def _connect_cells(self) -> None:
         """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
@@ -232,6 +262,7 @@ class VoronoiGrid(DiscreteSpace):
                 self._cells[j].connect(self._cells[i], (j, i))
 
     def _validate_parameters(self) -> None:
+        """Validate input parameters for VoronoiGrid initialization."""
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise ValueError("Capacity must be a number or None.")
         if not isinstance(self.centroids_coordinates, Sequence) or not isinstance(
@@ -244,6 +275,7 @@ class VoronoiGrid(DiscreteSpace):
                 raise ValueError("Centroid coordinates should be a homogeneous array")
 
     def _get_voronoi_regions(self) -> tuple:
+        """Get or compute Voronoi region coordinates and region definitions."""
         if self.voronoi_coordinates is None or self.regions is None:
             (
                 self.voronoi_coordinates,
@@ -253,16 +285,52 @@ class VoronoiGrid(DiscreteSpace):
 
     @staticmethod
     def _compute_polygon_area(polygon: list) -> float:
+        """Compute the area of a polygon using the shoelace formula.
+
+        Args:
+            polygon: list of (x, y) coordinate pairs defining the polygon
+
+        Returns:
+            the area of the polygon
+        """
         polygon = np.array(polygon)
         x = polygon[:, 0]
         y = polygon[:, 1]
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
     def _build_cell_polygons(self):
+        """Build Voronoi cell polygons and store area values.
+
+        Computes polygon coordinates and areas for each Voronoi cell,
+        storing them in cell.properties for access by models and visualization.
+        """
         coordinates, regions = self._get_voronoi_regions()
+
+        # Prepare data for PropertyLayers
+        polygons_data = {}
+        areas_data = {}
+
         for region in regions:
             polygon = [coordinates[i] for i in regions[region]]
-            self._cells[region].properties["polygon"] = polygon
+            polygons_data[region] = polygon
             polygon_area = self._compute_polygon_area(polygon)
-            self._cells[region].properties["area"] = polygon_area
+            areas_data[region] = polygon_area
             self._cells[region].capacity = self.capacity_function(polygon_area)
+
+        # Create PropertyLayers for polygon and area
+        # These can be accessed via cell.polygon and cell.area through descriptors
+        self._setup_property_layers(polygons_data, areas_data)
+
+    def _setup_property_layers(self, polygons_data: dict, areas_data: dict) -> None:
+        """Set up PropertyLayers for polygon and area data.
+
+        Args:
+            polygons_data: dict mapping cell indices to polygon coordinates
+            areas_data: dict mapping cell indices to area values
+        """
+        # Store polygon and area data directly in cell properties
+        for cell_idx, polygon in polygons_data.items():
+            self._cells[cell_idx].properties["polygon"] = polygon
+
+        for cell_idx, area in areas_data.items():
+            self._cells[cell_idx].properties["area"] = area
