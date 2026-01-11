@@ -275,6 +275,9 @@ class OrthogonalVonNeumannGrid(Grid[T]):
 class HexGrid(Grid[T]):
     """A Grid with hexagonal tilling of the space.
 
+    Functions according to even-r rules.
+    See https://www.redblobgames.com/grids/hexagons/#neighbors-offset for more.
+
     Note:
         When torus=True, both width and height must be even.
 
@@ -284,12 +287,12 @@ class HexGrid(Grid[T]):
 
     def _connect_cells_2d(self) -> None:
         # fmt: off
-        even_offsets = [
+        odd_offsets = [
                         (-1, -1), (0, -1),
                     ( -1, 0),        ( 1, 0),
                         ( -1, 1), (0, 1),
                 ]
-        odd_offsets = [
+        even_offsets = [
                         (0, -1), (1, -1),
                     ( -1, 0),       ( 1, 0),
                         ( 0, 1), ( 1, 1),
@@ -298,7 +301,7 @@ class HexGrid(Grid[T]):
 
         for cell in self.all_cells:
             i = cell.coordinate[1]
-            offsets = even_offsets if i % 2 else odd_offsets
+            offsets = even_offsets if i % 2 == 0 else odd_offsets
             self._connect_single_cell_2d(cell, offsets=offsets)
 
     def _connect_cells_nd(self) -> None:
