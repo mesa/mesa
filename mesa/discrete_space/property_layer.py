@@ -422,20 +422,6 @@ def create_property_accessors(layer, docstring=None):
     return property(getter, setter, doc=docstring)
 
 
-# class PropertyDescriptor:
-#     """Descriptor for giving cells attribute like access to values defined in property layers."""
-#     pass
-#
-#     def __init__(self, property_layer: PropertyLayer):
-#         self.layer: PropertyLayer = property_layer
-#
-#     def __get__(self, instance: Cell, owner):
-#         return self.layer.data[instance.coordinate]
-#
-#     def __set__(self, instance: Cell, value):
-#         self.layer.data[instance.coordinate] = value
-
-
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
     # NumPy ufuncs have a 'nin' attribute indicating the number of input arguments
     # For binary ufuncs (like np.add), nin is 2    # codespell:ignore
