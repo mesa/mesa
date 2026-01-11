@@ -945,16 +945,16 @@ def test_property_layer():
     data = np.zeros((10, 10))
     layer = PropertyLayer.from_data("some_name", data)
 
-    layer.data = np.zeros((10, 10))
+    layer.data[:] = np.zeros((10, 10))
     layer.modify_cells(lambda x: x + 2)
     assert np.all(layer.data == 2)
 
-    layer.data = np.ones((10, 10))
+    layer.data[:] = np.ones((10, 10))
     layer.modify_cells(np.multiply, 3)
     assert np.all(layer.data[3, 3] == 3)
 
     data = np.random.default_rng(42).random((10, 10))
-    layer.data = np.random.default_rng(42).random((10, 10))
+    layer.data[:] = np.random.default_rng(42).random((10, 10))
     layer.modify_cells(np.add, value=3, condition=condition)
     assert np.all((layer.data > 3.5) == (data > 0.5))
 
@@ -962,7 +962,7 @@ def test_property_layer():
         layer.modify_cells(np.add)  # Missing value for ufunc
 
     # aggregate
-    layer.data = np.ones((10, 10))
+    layer.data[:] = np.ones((10, 10))
     assert layer.aggregate(np.sum) == 100
 
 
