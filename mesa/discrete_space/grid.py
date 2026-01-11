@@ -24,7 +24,7 @@ import numpy as np
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
-    create_property_accessors
+    create_property_accessors,
     # PropertyDescriptor,
 )
 
@@ -200,8 +200,13 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             self._cells[(0, 0)]
         )  # the __reduce__ function handles this for us nicely
         for layer in self._mesa_property_layers.values():
-            setattr(self.cell_klass, layer.name,
-                    create_property_accessors(layer.data, docstring=f"accessor for {layer.name}"))
+            setattr(
+                self.cell_klass,
+                layer.name,
+                create_property_accessors(
+                    layer.data, docstring=f"accessor for {layer.name}"
+                ),
+            )
             # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
 
 

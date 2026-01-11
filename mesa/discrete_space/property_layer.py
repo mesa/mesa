@@ -234,8 +234,13 @@ class HasPropertyLayers:
             )
 
         self._mesa_property_layers[layer.name] = layer
-        setattr(self.cell_klass, layer.name,
-                create_property_accessors(layer.data,docstring=f"accessor for {layer.name}"))
+        setattr(
+            self.cell_klass,
+            layer.name,
+            create_property_accessors(
+                layer.data, docstring=f"accessor for {layer.name}"
+            ),
+        )
         # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
 
@@ -409,6 +414,7 @@ class HasPropertyLayers:
 
 def create_property_accessors(data, docstring=None):
     """Helper function for creating accessor for properties on cells."""
+
     def getter(self):
         return data[self.coordinate]
 
@@ -422,13 +428,13 @@ def create_property_accessors(data, docstring=None):
 #     """Descriptor for giving cells attribute like access to values defined in property layers."""
 #     pass
 #
-#     def __init__(self, property_layer: PropertyLayer):  # noqa: D107
+#     def __init__(self, property_layer: PropertyLayer):
 #         self.layer: PropertyLayer = property_layer
 #
-#     def __get__(self, instance: Cell, owner):  # noqa: D105
+#     def __get__(self, instance: Cell, owner):
 #         return self.layer.data[instance.coordinate]
 #
-#     def __set__(self, instance: Cell, value):  # noqa: D105
+#     def __set__(self, instance: Cell, value):
 #         self.layer.data[instance.coordinate] = value
 
 
