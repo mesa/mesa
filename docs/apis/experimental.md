@@ -37,3 +37,15 @@ This namespace contains experimental features. These are under development, and 
 .. automodule:: experimental.continuous_space.continuous_space_agents
    :members:
 ```
+
+## Scenarios
+
+```{eval-rst}
+.. automodule:: experimental.scenarios.scenario
+   :members:
+```
+
+```{eval-rst}
+.. automodule:: experimental.scenarios.model_with_scenario
+   :members:
+```
