@@ -42,6 +42,10 @@ class PropertyLayer:
 
     propertylayer_experimental_warning_given = False
 
+    @property
+    def data(self):
+        return self._data
+
     def __init__(
         self, name: str, dimensions: Sequence[int], default_value=0.0, dtype=float
     ):
@@ -77,7 +81,7 @@ class PropertyLayer:
             ) from e
 
         # Public attribute exposing the raw data
-        self.data = np.full(self.dimensions, default_value, dtype=dtype)
+        self._data = np.full(self.dimensions, default_value, dtype=dtype)
 
     @classmethod
     def from_data(cls, name: str, data: np.ndarray):
@@ -94,7 +98,7 @@ class PropertyLayer:
             default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer.data = data
+        layer._data = data.copy() # to avoid side effects
         return layer
 
     def set_cells(self, value, condition: Callable | None = None):
@@ -239,7 +243,7 @@ class HasPropertyLayers:
         setattr(
             self.cell_klass,
             layer.name,
-            create_property_accessors(layer, docstring=f"accessor for {layer.name}"),
+            create_property_accessors(layer._data, docstring=f"accessor for {layer.name}"),
         )
         # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
@@ -416,10 +420,10 @@ def create_property_accessors(layer, docstring=None):
     """Helper function for creating accessor for properties on cells."""
 
     def getter(self):
-        return layer.data[self.coordinate]
+        return layer[self.coordinate]
 
     def setter(self, value):
-        layer.data[self.coordinate] = value
+        layer[self.coordinate] = value
 
     return property(getter, setter, doc=docstring)
 
