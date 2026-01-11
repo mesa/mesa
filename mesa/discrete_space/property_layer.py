@@ -237,9 +237,7 @@ class HasPropertyLayers:
         setattr(
             self.cell_klass,
             layer.name,
-            create_property_accessors(
-                layer, docstring=f"accessor for {layer.name}"
-            ),
+            create_property_accessors(layer, docstring=f"accessor for {layer.name}"),
         )
         # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
