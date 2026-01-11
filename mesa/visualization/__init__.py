@@ -5,6 +5,8 @@
 
 """
 
+from mesa.visualization.icon_altair_layer import build_altair_agent_chart
+from mesa.visualization.icon_cache import IconCache
 from mesa.visualization.mpl_space_drawing import (
     draw_space,
 )
@@ -18,10 +20,12 @@ from .user_param import Slider
 
 __all__ = [
     "CommandConsole",
+    "IconCache",
     "JupyterViz",
     "Slider",
     "SolaraViz",
     "SpaceRenderer",
+    "build_altair_agent_chart",
     "draw_space",
     "make_plot_component",
     "make_space_altair",

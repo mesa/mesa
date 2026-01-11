@@ -33,6 +33,7 @@ class AltairBackend(AbstractRenderer):
 
     This module provides an Altair-based renderer for visualizing Mesa model spaces,
     agents, and property layers with interactive charting capabilities.
+    Includes optional icon rendering support.
     """
 
     def initialize_canvas(self) -> None:
@@ -56,13 +57,15 @@ class AltairBackend(AbstractRenderer):
     ):
         """Collect plotting data for all agents in the space for Altair.
 
+        Adds 'portrayals' list so SpaceRenderer can later enrich with icon data.
+
         Args:
             space: The Mesa space containing agents.
             agent_portrayal: Callable that returns AgentPortrayalStyle for each agent.
             default_size: Default marker size if not specified in portrayal.
 
         Returns:
-            dict: Dictionary containing agent plotting data arrays.
+            dict: Dictionary containing agent plotting data arrays including portrayals.
         """
         # Initialize data collection arrays
         arguments = {
@@ -75,6 +78,7 @@ class AltairBackend(AbstractRenderer):
             "stroke": [],  # Stroke color
             "strokeWidth": [],
             "filled": [],
+            "portrayals": [],  # Store original portrayal objects for icon enrichment
         }
 
         # Import here to avoid circular import issues
@@ -101,8 +105,11 @@ class AltairBackend(AbstractRenderer):
             "4": "triangle-right",
         }
 
+        allowed_extra_keys = {"icon", "icon_size"}  # do not warn about these
+
         for agent in space.agents:
             portray_input = agent_portrayal(agent)
+            arguments["portrayals"].append(portray_input)  # store before mutation
             aps: AgentPortrayalStyle
 
             if isinstance(portray_input, dict):
@@ -134,8 +141,9 @@ class AltairBackend(AbstractRenderer):
                         "linewidths", style_fields.get("linewidths")
                     ),
                 )
-                if dict_data:
-                    ignored_keys = list(dict_data.keys())
+                # Whatever remains are ignored keys; suppress icon/icon_size
+                ignored_keys = [k for k in dict_data if k not in allowed_extra_keys]
+                if ignored_keys:
                     warnings.warn(
                         f"The following keys were ignored from dict portrayal: {', '.join(ignored_keys)}",
                         UserWarning,
@@ -196,7 +204,10 @@ class AltairBackend(AbstractRenderer):
                 arr = np.empty(len(v), dtype=object)
                 arr[:] = v
                 final_data[k] = arr
-            elif k in ["x", "y", "size", "order", "opacity", "strokeWidth"]:
+            elif k == "portrayals":
+                # Keep as object array
+                final_data[k] = np.asarray(v, dtype=object)
+            elif k in ["size", "order", "opacity", "strokeWidth"]:
                 final_data[k] = np.asarray(v, dtype=float)
             else:
                 final_data[k] = np.asarray(v)
@@ -206,14 +217,20 @@ class AltairBackend(AbstractRenderer):
     def draw_agents(
         self, arguments, chart_width: int = 450, chart_height: int = 350, **kwargs
     ):
-        """Draw agents using Altair backend.
+        """Draw agents using Altair backend with optional icon support.
+
+        If 'icon_rasters' (data URLs) present in arguments, build layered chart:
+        - mark_image for icon rows
+        - mark_point for others
 
         Args:
             arguments: Dictionary containing agent data arrays.
             chart_width: Width of the chart.
             chart_height: Height of the chart.
-            **kwargs: Additional keyword arguments for customization.
-            Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+            **kwargs: Additional keyword arguments for customization including:
+                - enable_culling: Filter off-screen agents
+                - title, xlabel, ylabel: Chart labels
+                - cmap, vmin, vmax: Color mapping
 
         Returns:
             alt.Chart: The Altair chart representing the agents, or None if no agents.
@@ -239,13 +256,37 @@ class AltairBackend(AbstractRenderer):
         }
         df = pd.DataFrame(df_data)
 
+        # Add icon URLs if present (SpaceRenderer enrichment)
+        icon_urls = arguments.get("icon_rasters")
+        if icon_urls is not None:
+            df["icon_url"] = pd.Series(icon_urls, dtype="object")
+        else:
+            df["icon_url"] = None
+
+        # Optional culling to remove off-screen agents
+        enable_culling = kwargs.pop("enable_culling", False)
+        xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
+
+        if enable_culling:
+            # Add small margin for partially visible agents
+            margin_x = (xmax - xmin) * 0.05  # 5% margin
+            margin_y = (ymax - ymin) * 0.05
+            df = df[
+                (df["x"] >= xmin - margin_x)
+                & (df["x"] <= xmax + margin_x)
+                & (df["y"] >= ymin - margin_y)
+                & (df["y"] <= ymax + margin_y)
+            ]
+            if len(df) == 0:
+                return None
+
         # To ensure distinct shapes according to agent portrayal
         unique_shape_names_in_data = df["shape"].unique().tolist()
 
         fill_colors = []
         stroke_colors = []
         for i in range(len(df)):
-            filled = df["is_filled"][i]
+            filled = df["is_filled"].iloc[i]
             main_color = df["original_color"][i]
             stroke_spec = (
                 df["original_stroke"][i]
@@ -292,50 +333,89 @@ class AltairBackend(AbstractRenderer):
                 title="Color",
             )
 
-        # Determine space dimensions
-        xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
+        # Split into icon vs non-icon rows
+        has_icons = "icon_url" in df.columns and df["icon_url"].notna().any()
 
-        chart = (
-            alt.Chart(df)
-            .mark_point()
-            .encode(
-                x=alt.X(
-                    "x:Q",
-                    title=xlabel,
-                    scale=alt.Scale(type="linear", domain=[xmin, xmax]),
-                    axis=None,
-                ),
-                y=alt.Y(
-                    "y:Q",
-                    title=ylabel,
-                    scale=alt.Scale(type="linear", domain=[ymin, ymax]),
-                    axis=None,
-                ),
-                size=alt.Size("size:Q", legend=None, scale=alt.Scale(domain=[0, 50])),
-                shape=alt.Shape(
-                    "shape:N",
-                    scale=alt.Scale(
-                        domain=unique_shape_names_in_data,
-                        range=unique_shape_names_in_data,
+        point_layer = None
+        image_layer = None
+
+        if has_icons:
+            df_points = df[df["icon_url"].isna()]
+            df_icons = df[df["icon_url"].notna()]
+        else:
+            df_points = df
+            df_icons = pd.DataFrame(columns=df.columns)
+
+        if len(df_points) > 0:
+            point_layer = (
+                alt.Chart(df_points)
+                .mark_point()
+                .encode(
+                    x=alt.X(
+                        "x:Q",
+                        title=xlabel,
+                        scale=alt.Scale(type="linear", domain=[xmin, xmax]),
+                        axis=None,
                     ),
-                    title="Shape",
-                ),
-                opacity=alt.Opacity(
-                    "opacity:Q",
-                    title="Opacity",
-                    scale=alt.Scale(domain=[0, 1], range=[0, 1]),
-                ),
-                fill=fill_encoding,
-                stroke=alt.Stroke("viz_stroke_color:N", scale=None),
-                strokeWidth=alt.StrokeWidth(
-                    "strokeWidth:Q", scale=alt.Scale(domain=[0, 1])
-                ),
-                tooltip=tooltip_list,
+                    y=alt.Y(
+                        "y:Q",
+                        title=ylabel,
+                        scale=alt.Scale(type="linear", domain=[ymin, ymax]),
+                        axis=None,
+                    ),
+                    size=alt.Size(
+                        "size:Q", legend=None, scale=alt.Scale(domain=[0, 50])
+                    ),
+                    shape=alt.Shape(
+                        "shape:N",
+                        scale=alt.Scale(
+                            domain=unique_shape_names_in_data,
+                            range=unique_shape_names_in_data,
+                        ),
+                        title="Shape",
+                    ),
+                    opacity=alt.Opacity(
+                        "opacity:Q",
+                        title="Opacity",
+                        scale=alt.Scale(domain=[0, 1], range=[0, 1]),
+                    ),
+                    fill=fill_encoding,
+                    stroke=alt.Stroke("viz_stroke_color:N", scale=None),
+                    strokeWidth=alt.StrokeWidth(
+                        "strokeWidth:Q", scale=alt.Scale(domain=[0, 1])
+                    ),
+                    tooltip=tooltip_list,
+                )
+                .properties(title=title, width=chart_width, height=chart_height)
             )
-            .properties(title=title, width=chart_width, height=chart_height)
-        )
 
-        return chart
+        if len(df_icons) > 0:
+            # Note: mark_image does not have native size scaling; we rely on pre-sized data URLs.
+            image_layer = (
+                alt.Chart(df_icons)
+                .mark_image()
+                .encode(
+                    x=alt.X(
+                        "x:Q",
+                        title=xlabel,
+                        scale=alt.Scale(type="linear", domain=[xmin, xmax]),
+                        axis=None,
+                    ),
+                    y=alt.Y(
+                        "y:Q",
+                        title=ylabel,
+                        scale=alt.Scale(type="linear", domain=[ymin, ymax]),
+                        axis=None,
+                    ),
+                    url=alt.Url("icon_url:N"),
+                    tooltip=tooltip_list,
+                )
+                .properties(title=title, width=chart_width, height=chart_height)
+            )
+
+        if point_layer and image_layer:
+            return alt.layer(point_layer, image_layer)
+        return image_layer or point_layer
 
     def draw_propertylayer(
         self,

@@ -110,6 +110,10 @@ _site-packages-to-flat-layout-mapping = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]
+include = [
+  "mesa/visualization/icons/*.svg",
+  "mesa/visualization/icons/*.png",
+]
 
 [tool.hatch.version]
 path = "mesa/__init__.py"
