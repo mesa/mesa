@@ -23,7 +23,7 @@ class MoneyAgent(CellAgent):
 
     def move(self):
         """Move the agent to a random neighboring cell."""
-        self.cell = self.cell.neighborhood.select_random_cell()
+        self.cell = self.cell.get_neighborhood().select_random_cell()
 
     def give_money(self):
         """Give 1 unit of wealth to a random agent in the same cell."""
