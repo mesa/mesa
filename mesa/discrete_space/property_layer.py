@@ -238,7 +238,7 @@ class HasPropertyLayers:
             self.cell_klass,
             layer.name,
             create_property_accessors(
-                layer.data, docstring=f"accessor for {layer.name}"
+                layer, docstring=f"accessor for {layer.name}"
             ),
         )
         # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
@@ -412,14 +412,14 @@ class HasPropertyLayers:
                 super().__setattr__(key, value)
 
 
-def create_property_accessors(data, docstring=None):
+def create_property_accessors(layer, docstring=None):
     """Helper function for creating accessor for properties on cells."""
 
     def getter(self):
-        return data[self.coordinate]
+        return layer.data[self.coordinate]
 
     def setter(self, value):
-        data[self.coordinate] = value
+        layer.data[self.coordinate] = value
 
     return property(getter, setter, doc=docstring)
 
