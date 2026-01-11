@@ -133,6 +133,7 @@ class AltairBackend(AbstractRenderer):
                     linewidths=dict_data.pop(
                         "linewidths", style_fields.get("linewidths")
                     ),
+                    filled=dict_data.pop("filled", style_fields.get("filled")),
                 )
                 if dict_data:
                     ignored_keys = list(dict_data.keys())
@@ -185,9 +186,9 @@ class AltairBackend(AbstractRenderer):
                 else style_fields.get("linewidths")
             )
 
-            # FIXME: Make filled user-controllable
-            filled_value = True
-            arguments["filled"].append(filled_value)
+            arguments["filled"].append(
+                aps.filled if aps.filled is not None else style_fields.get("filled")
+            )
 
         final_data = {}
         for k, v in arguments.items():
