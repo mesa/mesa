@@ -118,10 +118,10 @@ class SugarscapeG1mt(mesa.Model):
         and then randomly activates traders
         """
         # step Resource agents
-        self.grid.sugar.data = np.minimum(
+        self.grid.sugar.data[:] = np.minimum(
             self.grid.sugar.data + 1, self.sugar_distribution
         )
-        self.grid.spice.data = np.minimum(
+        self.grid.spice.data[:] = np.minimum(
             self.grid.spice.data + 1, self.spice_distribution
         )
 
@@ -173,3 +173,9 @@ class SugarscapeG1mt(mesa.Model):
     def run_model(self, step_count=1000):
         for _ in range(step_count):
             self.step()
+
+
+if __name__ == "__main__":
+    model = SugarscapeG1mt(seed=42)
+    for _ in range(100):
+        model.step()
