@@ -98,7 +98,7 @@ class PropertyLayer:
             default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer._data = data.copy() # to avoid side effects
+        layer._data = data.copy()  # to avoid side effects
         return layer
 
     def set_cells(self, value, condition: Callable | None = None):
@@ -243,7 +243,9 @@ class HasPropertyLayers:
         setattr(
             self.cell_klass,
             layer.name,
-            create_property_accessors(layer._data, docstring=f"accessor for {layer.name}"),
+            create_property_accessors(
+                layer._data, docstring=f"accessor for {layer.name}"
+            ),
         )
         # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
