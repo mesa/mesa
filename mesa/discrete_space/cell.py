@@ -14,7 +14,7 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache, cached_property
+from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
