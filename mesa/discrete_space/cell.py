@@ -40,12 +40,12 @@ class Cell:
 
     __slots__ = [
         "_agents",
+        "_empty",
         "capacity",
         "connections",
         "coordinate",
         "properties",
         "random",
-        "_empty"
     ]
 
     def __init__(
