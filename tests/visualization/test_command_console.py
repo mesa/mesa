@@ -1,6 +1,6 @@
 """Tests for the command_console module."""
 
-import pytest
+import sys
 
 from mesa.visualization.command_console import (
     CaptureOutput,
@@ -48,7 +48,9 @@ class TestConsoleEntry:
 
     def test_console_entry_repr(self):
         """Test ConsoleEntry __repr__ method."""
-        entry = ConsoleEntry(command="test", output="result", is_error=False, is_continuation=True)
+        entry = ConsoleEntry(
+            command="test", output="result", is_error=False, is_continuation=True
+        )
         repr_str = repr(entry)
         assert "ConsoleEntry" in repr_str
         assert "test" in repr_str
@@ -68,8 +70,6 @@ class TestCaptureOutput:
 
     def test_capture_stderr(self):
         """Test capturing standard error."""
-        import sys
-
         with CaptureOutput() as capture:
             print("Error message", file=sys.stderr)
         output, error = capture.get_output()
@@ -78,8 +78,6 @@ class TestCaptureOutput:
 
     def test_capture_both_stdout_stderr(self):
         """Test capturing both stdout and stderr."""
-        import sys
-
         with CaptureOutput() as capture:
             print("Normal output")
             print("Error output", file=sys.stderr)
@@ -98,8 +96,6 @@ class TestCaptureOutput:
 
     def test_capture_restores_streams(self):
         """Test that original stdout/stderr are restored after context."""
-        import sys
-
         original_stdout = sys.stdout
         original_stderr = sys.stderr
 
@@ -122,14 +118,14 @@ class TestInteractiveConsole:
         """Test console initializes with provided locals dict."""
         locals_dict = {"x": 10, "y": 20}
         console = InteractiveConsole(locals_dict)
-        more, (output, error) = console.push("x + y")
+        more, (output, _error) = console.push("x + y")
         assert more is False
         assert "30" in output or output == ""  # Result may be returned
 
     def test_console_push_simple_expression(self):
         """Test pushing a simple expression."""
         console = InteractiveConsole()
-        more, (output, error) = console.push("2 + 2")
+        more, (_output, _error) = console.push("2 + 2")
         assert more is False
 
     def test_console_push_multiline_starts(self):
