@@ -1191,7 +1191,7 @@ def test_pickling_cell():
     """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
 
-    unpickled_cell = pickle.loads(pickle.dumps(cell)) # noqa: S301
+    unpickled_cell = pickle.loads(pickle.dumps(cell))  # noqa: S301
 
     assert cell.coordinate == unpickled_cell.coordinate
     assert cell.capacity == unpickled_cell.capacity
