@@ -43,7 +43,8 @@ def unpickle_gridcell(parent, fields):
     cell_klass = type(
         "GridCell",
         (parent,),
-        {"_mesa_properties": set()},
+        {"_mesa_properties": set(),
+         "__slots__": ()},
     )
     instance = cell_klass(
         (0, 0)
@@ -52,8 +53,7 @@ def unpickle_gridcell(parent, fields):
     # __gestate__ returns a tuple with dict and slots, but slots contains the dict so we can just use the
     # second item only
     for k, v in fields[1].items():
-        if k != "__dict__":
-            setattr(instance, k, v)
+        setattr(instance, k, v)
 
     return instance
 
@@ -109,7 +109,8 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"_mesa_properties": set()},
+            {"_mesa_properties": set(),
+             "__slots__": ()},
         )
 
         # we register the pickle_gridcell helper function

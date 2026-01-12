@@ -33,6 +33,11 @@ def test_orthogonal_grid_neumann():
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
 
+    with pytest.raises(AttributeError):
+        cell = grid.cell_klass(1)
+        cell.a = 5 # because of __slots__ this should not be possible
+
+
     assert len(grid._cells) == width * height
 
     # von neumann neighborhood, torus false, top left corner
@@ -1181,3 +1186,12 @@ def test_fixed_agent_removal_state():
 
     assert agent not in cell1.agents
     assert agent.cell is None
+
+
+def test_pickling_cell():
+    cell = Cell((1,), capacity=1, random=random.Random(42))
+
+    unpickled_cell = pickle.loads(pickle.dumps(cell))
+
+    assert cell.coordinate == unpickled_cell.coordinate
+    assert cell.capacity == unpickled_cell.capacity
