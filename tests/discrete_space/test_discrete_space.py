@@ -1181,3 +1181,64 @@ def test_fixed_agent_removal_state():
 
     assert agent not in cell1.agents
     assert agent.cell is None
+
+
+def test_large_radius_neighborhood():
+    """Test that get_neighborhood works with large radius values without RecursionError.
+
+    This is a regression test for issue #3105:
+    Cell.get_neighborhood() crashes with RecursionError for large radius values.
+
+    The fix replaces recursive traversal with iterative BFS.
+    """
+    # Create a linear chain of 2000 cells (e.g., a highway, pipeline, or network path)
+    cells = [Cell((i,), random=random.Random(42)) for i in range(2000)]
+
+    # Connect them in a chain
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # This should NOT raise RecursionError (previously crashed at radius > 1000)
+    neighbors = cells[0].get_neighborhood(radius=1500)
+
+    # Verify we got the expected number of neighbors
+    assert len(neighbors) == 1500
+
+
+def test_large_radius_with_include_center():
+    """Test include_center parameter with large radius values."""
+    cells = [Cell((i,), random=random.Random(42)) for i in range(1500)]
+
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # With include_center=True
+    neighbors_with_center = cells[0].get_neighborhood(radius=1200, include_center=True)
+
+    # With include_center=False (default)
+    neighbors_without_center = cells[0].get_neighborhood(
+        radius=1200, include_center=False
+    )
+
+    # Center should add exactly 1 cell
+    assert len(neighbors_with_center) == len(neighbors_without_center) + 1
+    assert cells[0] in neighbors_with_center
+    assert cells[0] not in neighbors_without_center
+
+
+def test_radius_exceeds_reachable_cells():
+    """Test that radius larger than reachable cells doesn't crash."""
+    # Create a small chain of 100 cells
+    cells = [Cell((i,), random=random.Random(42)) for i in range(100)]
+
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # Request radius much larger than chain length - should not crash
+    neighbors = cells[0].get_neighborhood(radius=5000)
+
+    # Should return all reachable cells (99, since we exclude center by default)
+    assert len(neighbors) == 99
