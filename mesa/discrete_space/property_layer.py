@@ -42,16 +42,15 @@ class PropertyLayer:
     propertylayer_experimental_warning_given = False
 
     @property
-    def data(self): #noqa: D102
+    def data(self):  # noqa: D102
         return self._data
 
     @data.setter
-    def data(self, value): #noqa: D102
+    def data(self, value):
         # FIXME, in mesa 4, we simply should not allow a setter, forcing people
         #    to allways use data[:]
         #    this holds even if we drop PropertyLayers in favour of raw numpy arrays.
         self._data[:] = value
-
 
     def __init__(
         self, name: str, dimensions: Sequence[int], default_value=0.0, dtype=float
