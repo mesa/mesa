@@ -47,7 +47,10 @@ class PropertyLayer:
 
     @data.setter
     def data(self, value): #noqa: D102
-        self._data = value
+        # FIXME, in mesa 4, we simply should not allow a setter, forcing people
+        #    to allways use data[:]
+        #    this holds even if we drop PropertyLayers in favour of raw numpy arrays.
+        self._data[:] = value
 
 
     def __init__(
