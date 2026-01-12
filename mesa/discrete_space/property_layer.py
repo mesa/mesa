@@ -41,6 +41,15 @@ class PropertyLayer:
 
     propertylayer_experimental_warning_given = False
 
+    @property
+    def data(self): #noqa: D102
+        return self._data
+
+    @data.setter
+    def data(self, value): #noqa: D102
+        self._data = value
+
+
     def __init__(
         self, name: str, dimensions: Sequence[int], default_value=0.0, dtype=float
     ):
@@ -76,7 +85,7 @@ class PropertyLayer:
             ) from e
 
         # Public attribute exposing the raw data
-        self.data = np.full(self.dimensions, default_value, dtype=dtype)
+        self._data = np.full(self.dimensions, default_value, dtype=dtype)
 
     @classmethod
     def from_data(cls, name: str, data: np.ndarray):
@@ -234,7 +243,13 @@ class HasPropertyLayers:
             )
 
         self._mesa_property_layers[layer.name] = layer
-        setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+        setattr(
+            self.cell_klass,
+            layer.name,
+            create_property_accessors(
+                layer._data, docstring=f"accessor for {layer.name}"
+            ),
+        )
         self.cell_klass._mesa_properties.add(layer.name)
 
     def remove_property_layer(self, property_name: str):
@@ -405,17 +420,16 @@ class HasPropertyLayers:
                 super().__setattr__(key, value)
 
 
-class PropertyDescriptor:
-    """Descriptor for giving cells attribute like access to values defined in property layers."""
+def create_property_accessors(layer, docstring=None):
+    """Helper function for creating accessor for properties on cells."""
 
-    def __init__(self, property_layer: PropertyLayer):  # noqa: D107
-        self.layer: PropertyLayer = property_layer
+    def getter(self):
+        return layer[self.coordinate]
 
-    def __get__(self, instance: Cell, owner):  # noqa: D105
-        return self.layer.data[instance.coordinate]
+    def setter(self, value):
+        layer[self.coordinate] = value
 
-    def __set__(self, instance: Cell, value):  # noqa: D105
-        self.layer.data[instance.coordinate] = value
+    return property(getter, setter, doc=docstring)
 
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103
