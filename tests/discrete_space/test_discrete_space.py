@@ -35,7 +35,8 @@ def test_orthogonal_grid_neumann():
 
     with pytest.raises(AttributeError):
         cell = grid.cell_klass(1)
-        cell.a = 5  # because of __slots__ this should not be possible
+        cell.a = 5 # because of __slots__ this should not be possible
+
 
     assert len(grid._cells) == width * height
 
@@ -1194,8 +1195,8 @@ def test_pickling_cell():
 
     assert cell.coordinate == unpickled_cell.coordinate
     assert cell.capacity == unpickled_cell.capacity
-
-
+    
+    
 def test_large_radius_neighborhood():
     """Test that get_neighborhood works with large radius values without RecursionError.
 
