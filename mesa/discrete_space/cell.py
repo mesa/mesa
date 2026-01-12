@@ -183,28 +183,54 @@ class Cell:
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
-        # if radius == 0:
-        #     return {self: self.agents}
+        """Return cells within given radius using iterative BFS.
+
+        Note: This implementation uses iterative breadth-first search instead
+        of recursion to avoid RecursionError on large radius values.
+        """
         if radius < 1:
             raise ValueError("radius must be larger than one")
+
+        # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:
             neighborhood = {
                 neighbor: neighbor._agents for neighbor in self.connections.values()
             }
-            if not include_center:
-                return neighborhood
-            else:
+            if include_center:
                 neighborhood[self] = self._agents
-                return neighborhood
-        else:
-            neighborhood: dict[Cell, list[Agent]] = {}
-            for neighbor in self.connections.values():
-                neighborhood.update(
-                    neighbor._neighborhood(radius - 1, include_center=True)
-                )
-            if not include_center:
-                neighborhood.pop(self, None)
             return neighborhood
+
+        # Use iterative BFS for radius > 1 to avoid RecursionError
+        visited: set[Cell] = {self}
+        current_layer: list[Cell] = list(self.connections.values())
+        neighborhood: dict[Cell, list[Agent]] = {}
+
+        # Add immediate neighbors (radius=1)
+        for neighbor in current_layer:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                neighborhood[neighbor] = neighbor._agents
+
+        # Expand outward for remaining radius levels
+        for _ in range(radius - 1):
+            next_layer: list[Cell] = []
+            for cell in current_layer:
+                for neighbor in cell.connections.values():
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        next_layer.append(neighbor)
+                        neighborhood[neighbor] = neighbor._agents
+            current_layer = next_layer
+            if not current_layer:
+                break  # No more cells to explore
+
+        # Handle center inclusion
+        if include_center:
+            neighborhood[self] = self._agents
+        else:
+            neighborhood.pop(self, None)
+
+        return neighborhood
 
     def __getstate__(self):
         """Return state of the Cell with connections set to empty."""

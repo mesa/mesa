@@ -202,15 +202,27 @@ def _model_run_func(
     run_id, iteration, kwargs = run
 
     model = model_cls(**kwargs)
-    while model.running and model.steps <= max_steps:
+    while model.running and model.steps < max_steps:
         model.step()
 
     data = []
 
-    steps = list(range(0, model.steps, data_collection_period))
-    if not steps or steps[-1] != model.steps - 1:
-        steps.append(model.steps - 1)
-
+    # Use the DataCollector's actual history to capture ALL data (including sub-steps)
+    try:
+        recorded_steps = model.datacollector._collection_steps
+    except AttributeError:
+        # Fallback for legacy models without _collection_steps
+        steps = list(range(0, model.steps, data_collection_period))
+        if not steps or steps[-1] != model.steps - 1:
+            steps.append(model.steps - 1)
+    else:
+        match data_collection_period:
+            case -1:
+                steps = [recorded_steps[-1]] if recorded_steps else []
+            case 1:
+                steps = recorded_steps
+            case _:
+                steps = recorded_steps[::data_collection_period]
     for step in steps:
         model_data, all_agents_data = _collect_data(model, step)
 
