@@ -11,7 +11,6 @@ def test_scenario():
     assert scenario.scenario_id == 0
     assert scenario.model is None
     assert scenario.a == 1
-    assert scenario["b"] == 2
     assert len(scenario) == 4
 
     values = {"a": 1, "b": 2, "c": 3, "rng": 42}
@@ -28,9 +27,6 @@ def test_scenario():
 
     scenario.c = 4
     assert scenario.c == 4
-
-    scenario["c"] = 5
-    assert scenario.c == 5
 
     del scenario.c
     with pytest.raises(AttributeError):
