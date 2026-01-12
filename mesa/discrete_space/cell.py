@@ -49,7 +49,7 @@ class Cell:
     ]
 
     @property
-    def empty(self) -> bool: # noqa: D102
+    def empty(self) -> bool:  # noqa: D102
         return self._empty
 
     @empty.setter
