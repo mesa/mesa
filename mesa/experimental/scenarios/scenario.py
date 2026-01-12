@@ -27,6 +27,14 @@ class Scenario[M: ModelWithScenario]:
         all additional parameters are stored as attributes of the scenario and
         are thus available via property access.
 
+    It is recommended to add a property to your agents to make scenario access
+    easy inside your agent. For example:
+
+    ::
+        @property
+        def scenario(self):
+            return self.model.scenario
+
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
