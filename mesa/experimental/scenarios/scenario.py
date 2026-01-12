@@ -53,10 +53,19 @@ class Scenario[M: ModelWithScenario]:
         self.__dict__.update(rng=rng, **kwargs)
 
     def __iter__(self):  # noqa: D105
-        return iter(self.__dict__)
+        return iter(self.__dict__.items())
 
     def __len__(self):  # noqa: D105
         return len(self.__dict__)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        try:
+            if self.model.running:
+                raise ValueError("Cannot change scenario parameters during model run.")
+        except AttributeError:
+            # happens when we do self.model = None in init
+            pass
+        super().__setattr__(name, value)
 
     def to_dict(self):
         """Return a dict representation of the scenario."""

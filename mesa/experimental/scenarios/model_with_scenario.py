@@ -29,5 +29,5 @@ class ModelWithScenario(Model):
         """
         if scenario is None:
             scenario = Scenario(rng=None)
-        super().__init__(*args, rng=scenario["rng"], **kwargs)
+        super().__init__(*args, rng=scenario.rng, **kwargs)
         self.scenario = scenario

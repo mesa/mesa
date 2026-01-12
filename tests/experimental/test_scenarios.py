@@ -14,7 +14,7 @@ def test_scenario():
     assert len(scenario) == 4
 
     values = {"a": 1, "b": 2, "c": 3, "rng": 42}
-    for k, v in scenario.items():
+    for k, v in scenario:
         assert values[k] == v
     assert scenario.to_dict() == {
         "a": 1,
