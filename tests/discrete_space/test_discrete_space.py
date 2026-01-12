@@ -1164,3 +1164,20 @@ def test_select_random_empty_cell_fallback():
     # Ensure the property layer data was actually correct (the fallback relies on this)
     assert grid.empty.data[5, 5]
     assert not grid.empty.data[0, 0]
+
+
+def test_fixed_agent_removal_state():
+    """Test that a FixedAgent's cell is None after removal."""
+    model = Model()
+    cell1 = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell1
+
+    assert agent in cell1.agents
+    assert agent.cell == cell1
+
+    # Remove the agent
+    agent.remove()
+
+    assert agent not in cell1.agents
+    assert agent.cell is None
