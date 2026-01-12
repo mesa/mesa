@@ -69,8 +69,8 @@ class Scenario[M: ModelWithScenario]:
 
     def to_dict(self):
         """Return a dict representation of the scenario."""
-        data = self.__dict__.copy()
-        for entry in self.__slots__:
-            if entry != "__dict__":
-                data[entry] = getattr(self, entry)
-        return data
+        return {
+            **self.__dict__,
+            'model': self.model,
+            'scenario_id': self.scenario_id
+        }
