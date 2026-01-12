@@ -219,13 +219,10 @@ def _model_run_func(
         match data_collection_period:
             case -1:
                 steps = [recorded_steps[-1]] if recorded_steps else []
-
             case 1:
                 steps = recorded_steps
-
             case _:
                 steps = recorded_steps[::data_collection_period]
-
     for step in steps:
         model_data, all_agents_data = _collect_data(model, step)
 
