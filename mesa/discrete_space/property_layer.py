@@ -44,7 +44,7 @@ class PropertyLayer:
 
     @property
     def data(self):
-        """ "Accessor for the data of the property layer."""
+        """Accessor for the data of the property layer."""
         return self._data
 
     def __init__(
