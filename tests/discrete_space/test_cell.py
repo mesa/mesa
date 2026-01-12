@@ -127,7 +127,7 @@ class TestCell:
         cell3 = Cell(coordinate=(1, 0), random=rng)
         cell1.connect(cell2)
         cell1.connect(cell3)
-        
+
         neighborhood = cell1.neighborhood
         assert cell2 in neighborhood
         assert cell3 in neighborhood
@@ -140,12 +140,12 @@ class TestCell:
         cell3 = Cell(coordinate=(0, 2), random=rng)
         cell1.connect(cell2)
         cell2.connect(cell3)
-        
+
         # Radius 1 should only include direct neighbors
         neighborhood1 = cell1.get_neighborhood(radius=1)
         assert cell2 in neighborhood1
         assert cell3 not in neighborhood1
-        
+
         # Radius 2 should include neighbors of neighbors
         neighborhood2 = cell1.get_neighborhood(radius=2)
         assert cell2 in neighborhood2
@@ -157,10 +157,10 @@ class TestCell:
         cell1 = Cell(coordinate=(0, 0), random=rng)
         cell2 = Cell(coordinate=(0, 1), random=rng)
         cell1.connect(cell2)
-        
+
         neighborhood_without_center = cell1.get_neighborhood(include_center=False)
         assert cell1 not in neighborhood_without_center
-        
+
         neighborhood_with_center = cell1.get_neighborhood(include_center=True)
         assert cell1 in neighborhood_with_center
 
@@ -175,7 +175,7 @@ class TestCell:
         cell1 = Cell(coordinate=(0, 0))
         cell2 = Cell(coordinate=(0, 1))
         cell1.connect(cell2)
-        
+
         state = cell1.__getstate__()
         # Connections should be empty in state to avoid infinite recursion
         assert state[1]["connections"] == {}
@@ -186,9 +186,9 @@ class TestCell:
         cell1 = Cell(coordinate=(0, 0), random=rng)
         cell2 = Cell(coordinate=(0, 1), random=rng)
         cell1.connect(cell2)
-        
+
         # Access neighborhood to populate cache
         _ = cell1.neighborhood
-        
+
         # Clear cache should not raise
         cell1._clear_cache()

@@ -45,7 +45,7 @@ class TestCellCollection:
         """Test CellCollection warns when no random is provided."""
         cells = [Cell(coordinate=(i, 0)) for i in range(3)]
         with pytest.warns(UserWarning, match="Random number generator not specified"):
-            collection = CellCollection(cells)
+            CellCollection(cells)
 
     def test_collection_iteration(self):
         """Test iterating over CellCollection."""
@@ -64,7 +64,7 @@ class TestCellCollection:
         model = Model()
         agent = CellAgent(model)
         cell.add_agent(agent)
-        
+
         collection = CellCollection([cell], random=rng)
         assert agent in collection[cell]
 
@@ -103,7 +103,7 @@ class TestCellCollection:
         agent2 = CellAgent(model)
         cell1.add_agent(agent1)
         cell2.add_agent(agent2)
-        
+
         collection = CellCollection([cell1, cell2], random=rng)
         agents = list(collection.agents)
         assert len(agents) == 2
@@ -115,7 +115,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(3)]
         collection = CellCollection(cells, random=rng)
-        
+
         selected = collection.select_random_cell()
         assert selected in cells
 
@@ -126,7 +126,7 @@ class TestCellCollection:
         model = Model()
         agent = CellAgent(model)
         cell.add_agent(agent)
-        
+
         collection = CellCollection([cell], random=rng)
         selected = collection.select_random_agent()
         assert selected is agent
@@ -136,7 +136,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cell = Cell(coordinate=(0, 0), random=rng)
         collection = CellCollection([cell], random=rng)
-        
+
         with pytest.raises(LookupError, match="Cannot select random agent from empty"):
             collection.select_random_agent()
 
@@ -145,7 +145,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cell = Cell(coordinate=(0, 0), random=rng)
         collection = CellCollection([cell], random=rng)
-        
+
         result = collection.select_random_agent(default=None)
         assert result is None
 
@@ -154,7 +154,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(3)]
         collection = CellCollection(cells, random=rng)
-        
+
         selected = collection.select()
         assert selected is collection
 
@@ -163,7 +163,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(5)]
         collection = CellCollection(cells, random=rng)
-        
+
         # Filter for cells with even x coordinate
         selected = collection.select(filter_func=lambda c: c.coordinate[0] % 2 == 0)
         assert len(selected) == 3  # 0, 2, 4
@@ -173,7 +173,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(10)]
         collection = CellCollection(cells, random=rng)
-        
+
         selected = collection.select(at_most=3)
         assert len(selected) == 3
 
@@ -182,7 +182,7 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(10)]
         collection = CellCollection(cells, random=rng)
-        
+
         selected = collection.select(at_most=0.5)
         assert len(selected) == 5
 
@@ -191,10 +191,9 @@ class TestCellCollection:
         rng = random.Random(42)
         cells = [Cell(coordinate=(i, 0), random=rng) for i in range(10)]
         collection = CellCollection(cells, random=rng)
-        
+
         # Filter for even coordinates, but limit to 2
         selected = collection.select(
-            filter_func=lambda c: c.coordinate[0] % 2 == 0,
-            at_most=2
+            filter_func=lambda c: c.coordinate[0] % 2 == 0, at_most=2
         )
         assert len(selected) == 2

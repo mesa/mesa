@@ -4,12 +4,9 @@ import pytest
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_agent import (
-    BasicMovement,
     CellAgent,
     FixedAgent,
-    FixedCell,
     Grid2DMovingAgent,
-    HasCell,
 )
 from mesa.model import Model
 
@@ -38,10 +35,10 @@ class TestHasCell:
         agent = CellAgent(model)
         cell1 = Cell(coordinate=(0, 0))
         cell2 = Cell(coordinate=(1, 0))
-        
+
         agent.cell = cell1
         assert agent in cell1._agents
-        
+
         agent.cell = cell2
         assert agent not in cell1._agents
         assert agent in cell2._agents
@@ -75,7 +72,7 @@ class TestBasicMovement:
         cell1 = Cell(coordinate=(0, 0))
         cell2 = Cell(coordinate=(0, 1))
         cell1.connect(cell2, key=(0, 1))
-        
+
         agent.cell = cell1
         agent.move_relative((0, 1))
         assert agent.cell is cell2
@@ -86,7 +83,7 @@ class TestBasicMovement:
         agent = CellAgent(model)
         cell = Cell(coordinate=(0, 0))
         agent.cell = cell
-        
+
         with pytest.raises(ValueError, match="No cell in direction"):
             agent.move_relative((1, 0))
 
@@ -110,7 +107,7 @@ class TestFixedCell:
         cell1 = Cell(coordinate=(0, 0))
         cell2 = Cell(coordinate=(1, 0))
         agent.cell = cell1
-        
+
         with pytest.raises(ValueError, match="Cannot move agent"):
             agent.cell = cell2
 
@@ -130,7 +127,7 @@ class TestCellAgent:
         agent = CellAgent(model)
         cell = Cell(coordinate=(0, 0))
         agent.cell = cell
-        
+
         agent.remove()
         assert agent not in cell._agents
         assert agent.cell is None
@@ -151,7 +148,7 @@ class TestFixedAgent:
         agent = FixedAgent(model)
         cell = Cell(coordinate=(0, 0))
         agent.cell = cell
-        
+
         agent.remove()
         assert agent not in cell._agents
 
@@ -184,7 +181,7 @@ class TestGrid2DMovingAgent:
         cell1 = Cell(coordinate=(1, 1))
         cell2 = Cell(coordinate=(0, 1))  # north of cell1
         cell1.connect(cell2, key=(-1, 0))
-        
+
         agent.cell = cell1
         agent.move("north")
         assert agent.cell is cell2
@@ -196,7 +193,7 @@ class TestGrid2DMovingAgent:
         cell1 = Cell(coordinate=(1, 1))
         cell2 = Cell(coordinate=(0, 1))
         cell1.connect(cell2, key=(-1, 0))
-        
+
         agent.cell = cell1
         agent.move("NORTH")
         assert agent.cell is cell2
@@ -207,7 +204,7 @@ class TestGrid2DMovingAgent:
         agent = Grid2DMovingAgent(model)
         cell = Cell(coordinate=(0, 0))
         agent.cell = cell
-        
+
         with pytest.raises(ValueError, match="Invalid direction"):
             agent.move("invalid_direction")
 
@@ -220,7 +217,7 @@ class TestGrid2DMovingAgent:
         cell3 = Cell(coordinate=(0, 0))
         cell1.connect(cell2, key=(-1, 0))
         cell2.connect(cell3, key=(-1, 0))
-        
+
         agent.cell = cell1
         agent.move("north", distance=2)
         assert agent.cell is cell3
