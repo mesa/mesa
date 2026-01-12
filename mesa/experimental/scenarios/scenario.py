@@ -69,8 +69,4 @@ class Scenario[M: ModelWithScenario]:
 
     def to_dict(self):
         """Return a dict representation of the scenario."""
-        return {
-            **self.__dict__,
-            'model': self.model,
-            'scenario_id': self.scenario_id
-        }
+        return {**self.__dict__, "model": self.model, "scenario_id": self.scenario_id}
