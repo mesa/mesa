@@ -58,7 +58,7 @@ class Scenario[M: ModelWithScenario]:
     def __len__(self):  # noqa: D105
         return len(self.__dict__)
 
-    def __setattr__(self, name: str, value: object) -> None: #noqa: D105
+    def __setattr__(self, name: str, value: object) -> None:  # noqa: D105
         try:
             if self.model.running:
                 raise ValueError("Cannot change scenario parameters during model run.")
