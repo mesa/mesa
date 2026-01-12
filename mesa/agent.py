@@ -36,8 +36,9 @@ class Agent[M: Model]:
         pos (Position): A reference to the position where this agent is located.
 
     Notes:
-        Agents must be hashable to be stored in AgentSets. If you override
-        __eq__(), you must also implement __hash__() to maintain hashability.
+        Agents must be hashable to be used in an AgentSet.
+        In Python 3, defining `__eq__` without `__hash__` makes an object unhashable,
+        which will break AgentSet usage.
         unique_id is unique relative to a model instance and starts from 1
 
     """
