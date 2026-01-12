@@ -1,7 +1,7 @@
 """Base Scenario class."""
 
 from collections import defaultdict
-from collections.abc import MutableMapping, Sequence
+from collections.abc import Sequence
 from functools import partial
 from itertools import count
 from typing import TYPE_CHECKING, ClassVar
@@ -28,8 +28,9 @@ class Scenario[M: ModelWithScenario]:
         are thus available via property access.
 
     """
+
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
-    __slots__ = ("model", "scenario_id", "__dict__")
+    __slots__ = ("__dict__", "model", "scenario_id")
 
     def __init__(self, *, rng: RNGLike | SeedLike | None = None, **kwargs):
         """Initialize a Scenario.
