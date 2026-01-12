@@ -242,7 +242,6 @@ class HasPropertyLayers:
 
         Args:
             property_name: the name of the property layer to remove
-            remove_from_cells: whether to remove the property layer from all cells (default: True)
         """
         del self._mesa_property_layers[property_name]
         delattr(self.cell_klass, property_name)
