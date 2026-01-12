@@ -1188,6 +1188,7 @@ def test_fixed_agent_removal_state():
 
 
 def test_pickling_cell():
+    """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
 
     unpickled_cell = pickle.loads(pickle.dumps(cell))
