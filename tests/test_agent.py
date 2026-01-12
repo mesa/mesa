@@ -153,6 +153,29 @@ def test_agentset_initialization_w_random():
     assert agentset.random == model.random
 
 
+def test_agentset_type_validation():
+    """Test that AgentSet validates items are Agent instances."""
+    model = Model()
+    
+    # Test with all invalid items
+    with pytest.raises(TypeError, match="All items in AgentSet must be Agent instances"):
+        AgentSet([1, 2, 3, "not_an_agent", {"dict": "object"}], random=model.random)
+    
+    # Test with mixed valid and invalid items
+    agents = [AgentTest(model) for _ in range(3)]
+    with pytest.raises(TypeError, match="All items in AgentSet must be Agent instances"):
+        AgentSet(agents + [1, "invalid", None], random=model.random)
+    
+    # Test that error message includes count of invalid items
+    with pytest.raises(TypeError, match="Found 2 invalid item"):
+        AgentSet([AgentTest(model), 1, "invalid"], random=model.random)
+    
+    # Test that valid Agent instances work as before (no exception)
+    valid_agents = [AgentTest(model) for _ in range(5)]
+    agentset = AgentSet(valid_agents, random=model.random)
+    assert len(agentset) == 5
+
+
 def test_agentset_serialization():
     """Test pickleability of agentset."""
     model = Model()

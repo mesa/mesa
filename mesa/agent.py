@@ -178,8 +178,22 @@ class AgentSet(MutableSet, Sequence):
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
             random (Random | np.random.Generator | None): the random number generator
+
+        Raises:
+            TypeError: If any item in agents is not an Agent instance.
         """
-        self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
+        # Convert to list to validate items before creating WeakKeyDictionary
+        agents_list = list(agents)
+        
+        # Validate all items are Agent instances
+        invalid_items = [a for a in agents_list if not isinstance(a, Agent)]
+        if invalid_items:
+            raise TypeError(
+                f"All items in AgentSet must be Agent instances. "
+                f"Found {len(invalid_items)} invalid item(s): {invalid_items[:5]}"
+            )
+        
+        self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents_list))
         if (len(self._agents) == 0) and random is None:
             warnings.warn(
                 "No Agents specified in creation of AgentSet and no random number generator specified. "
