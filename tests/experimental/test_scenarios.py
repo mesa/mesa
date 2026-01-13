@@ -3,7 +3,6 @@
 import numpy as np
 import pytest
 
-
 from mesa import Model
 from mesa.experimental.scenarios import Scenario
 

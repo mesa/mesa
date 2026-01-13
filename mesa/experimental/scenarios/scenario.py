@@ -38,7 +38,7 @@ class Scenario[M: ModelWithScenario]:
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
-    __slots__ = ("__dict__", "model", "_scenario_id")
+    __slots__ = ("__dict__", "_scenario_id", "model")
 
     @classmethod
     def _reset_counter(cls):
@@ -54,7 +54,11 @@ class Scenario[M: ModelWithScenario]:
 
         """
         self.model: M | None = None
-        self._scenario_id: int = next(self._ids[self.__class__]) if "_scenario_id" not in kwargs else kwargs.pop("_scenario_id")
+        self._scenario_id: int = (
+            next(self._ids[self.__class__])
+            if "_scenario_id" not in kwargs
+            else kwargs.pop("_scenario_id")
+        )
         self.__dict__.update(rng=rng, **kwargs)
 
     def __iter__(self):  # noqa: D105
