@@ -52,7 +52,9 @@ def test_scenario():
     model = Model(scenario=scenario)
     # Should work without error
     assert model.rng is not None
-    assert model.rng is gen  # fixme we might want to spawn a generator (in essence a copy)
+    assert (
+        model.rng is gen
+    )  # fixme we might want to spawn a generator (in essence a copy)
 
 
 def test_scenario_serialization():

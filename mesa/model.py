@@ -98,7 +98,7 @@ class Model[A: Agent]:
         # check if `scenario` is provided
         # and if so, whether rng is the same or not
         if scenario is not None:
-            if rng is not None and (scenario.rng!=rng):
+            if rng is not None and (scenario.rng != rng):
                 raise ValueError("rng and scenario.rng must be the same")
             else:
                 rng = scenario.rng
