@@ -3,7 +3,8 @@
 import numpy as np
 import pytest
 
-from mesa.experimental.scenarios import ModelWithScenario, Scenario
+from mesa import Model
+from mesa.experimental.scenarios import Scenario
 
 
 def test_scenario():
@@ -36,21 +37,22 @@ def test_scenario():
     scenario = Scenario(**values)
     assert scenario._scenario_id == 1
 
-    model = ModelWithScenario(scenario=scenario)
+    model = Model(scenario=scenario)
     model.running = True
     assert model.scenario.model is model
 
     with pytest.raises(ValueError):
         scenario.a = 5
 
-    model = ModelWithScenario()
-    assert model.scenario.rng is None
+    model = Model()
+    assert model.scenario.rng is model._seed
 
     gen = np.random.default_rng(42)
     scenario = Scenario(rng=gen)
-    model = ModelWithScenario(scenario=scenario)
+    model = Model(scenario=scenario)
     # Should work without error
     assert model.rng is not None
+    assert model.rng is gen  # fixme we might want to spawn a generator (in essence a copy)
 
 
 def test_scenario_serialization():

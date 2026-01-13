@@ -17,6 +17,7 @@ import numpy as np
 
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
+from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
@@ -48,12 +49,24 @@ class Model[A: Agent]:
 
     """
 
+    @property
+    def scenario(self) -> Scenario:
+        """Return scenario instance."""
+        return self._scenario
+
+    @scenario.setter
+    def scenario(self, scenario: Scenario) -> None:
+        """Set scenario instance."""
+        self._scenario = scenario
+        scenario.model = self
+
     @method_logger(__name__)
     def __init__(
         self,
         *args: Any,
         seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
+        scenario: Scenario | None = None,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -67,6 +80,7 @@ class Model[A: Agent]:
             rng : Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
                   `numpy.random.default_rng` to instantiate a `Generator`.
+            scenario : the scenario specifying the computational experiment to run
             kwargs: keyword arguments to pass onto super
 
         Notes:
@@ -80,6 +94,14 @@ class Model[A: Agent]:
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
+
+        # check if `scenario` is provided
+        # and if so, whether rng is the same or not
+        if scenario is not None:
+            if rng is not None and (scenario.rng!=rng):
+                raise ValueError("rng and scenario.rng must be the same")
+            else:
+                rng = scenario.rng
 
         if (seed is not None) and (rng is not None):
             raise ValueError("you have to pass either rng or seed, not both")
@@ -105,6 +127,12 @@ class Model[A: Agent]:
                 rng = self.random.randint(0, sys.maxsize)
                 self.rng: np.random.Generator = np.random.default_rng(rng)
             self._rng = self.rng.bit_generator.state
+
+        # now that we have figured out the seed value for rng
+        # we can set create a scenario with this if needed
+        if scenario is None:
+            scenario = Scenario(rng=seed)
+        self.scenario = scenario
 
         # Wrap the user-defined step method
         self._user_step = self.step
