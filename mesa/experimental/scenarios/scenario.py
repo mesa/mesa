@@ -42,8 +42,8 @@ class Scenario[M: ModelWithScenario]:
 
     @classmethod
     def _reset_counter(cls):
-        """Reset the scenario counter."""
-        cls._ids = defaultdict(partial(count, 0))
+        """Reset the scenario counter for this class"""
+        cls._ids[cls] = count(0)
 
     def __init__(self, *, rng: RNGLike | SeedLike | None = None, **kwargs):
         """Initialize a Scenario.
