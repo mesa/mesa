@@ -38,7 +38,7 @@ class Scenario[M: ModelWithScenario]:
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
-    __slots__ = ("__dict__", "model", "scenario_id")
+    __slots__ = ("__dict__", "model", "_scenario_id")
 
     def __init__(self, *, rng: RNGLike | SeedLike | None = None, **kwargs):
         """Initialize a Scenario.
@@ -49,7 +49,7 @@ class Scenario[M: ModelWithScenario]:
 
         """
         self.model: M | None = None
-        self.scenario_id: int = next(self._ids[self.__class__])
+        self._scenario_id: int = next(self._ids[self.__class__]) if "_scenario_id" not in kwargs else kwargs.pop("_scenario_id")
         self.__dict__.update(rng=rng, **kwargs)
 
     def __iter__(self):  # noqa: D105
@@ -69,4 +69,4 @@ class Scenario[M: ModelWithScenario]:
 
     def to_dict(self):
         """Return a dict representation of the scenario."""
-        return {**self.__dict__, "model": self.model, "scenario_id": self.scenario_id}
+        return {**self.__dict__, "model": self.model, "_scenario_id": self._scenario_id}

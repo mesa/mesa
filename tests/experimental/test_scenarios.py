@@ -2,13 +2,15 @@
 
 import pytest
 
+import numpy as np
+
 from mesa.experimental.scenarios import ModelWithScenario, Scenario
 
 
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
     scenario = Scenario(a=1, b=2, c=3, rng=42)
-    assert scenario.scenario_id == 0
+    assert scenario._scenario_id == 0
     assert scenario.model is None
     assert scenario.a == 1
     assert len(scenario) == 4
@@ -22,7 +24,7 @@ def test_scenario():
         "c": 3,
         "rng": 42,
         "model": None,
-        "scenario_id": 0,
+        "_scenario_id": 0,
     }
 
     scenario.c = 4
@@ -33,7 +35,7 @@ def test_scenario():
         _ = scenario.c
 
     scenario = Scenario(**values)
-    assert scenario.scenario_id == 1
+    assert scenario._scenario_id == 1
 
     model = ModelWithScenario(scenario=scenario)
     model.running = True
@@ -44,3 +46,29 @@ def test_scenario():
 
     model = ModelWithScenario()
     assert model.scenario.rng is None
+
+    gen = np.random.default_rng(42)
+    scenario = Scenario(rng=gen)
+    model = ModelWithScenario(scenario=scenario)
+    # Should work without error
+    assert model.rng is not None
+
+
+def test_scenario_serialization():
+    """Test that scenarios can be pickled/unpickled."""
+    import pickle
+
+    scenario = Scenario(a=1, rng=42)
+
+    pickled = pickle.dumps(scenario)
+    unpickled = pickle.loads(pickled)
+    assert unpickled.a == scenario.a
+    assert unpickled._scenario_id == scenario._scenario_id
+
+    scenario = Scenario(a=1, rng=np.random.default_rng(42))
+
+    pickled = pickle.dumps(scenario)
+    unpickled = pickle.loads(pickled)
+    assert unpickled.a == scenario.a
+    assert unpickled._scenario_id == scenario._scenario_id
+
