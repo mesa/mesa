@@ -1,0 +1,44 @@
+# Vale Prose Linter GitHub Actions Workflow
+name: Vale Prose Linter
+
+on:
+  pull_request:
+    paths:
+      - '**.md'
+      - '**.rst'
+      - '**.txt'
+      - 'docs/**'
+      - '.vale.ini'
+      - '.github/styles/**'
+
+  push:
+    branches:
+      - main
+    paths:
+      - '**.md'
+      - '**.rst'
+      - '**.txt'
+      - 'docs/**'
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vale:
+    name: Run Vale
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run Vale
+        uses: errata-ai/vale-action@v2.1.1
+        with:
+          files: all
+          vale_flags: "--minAlertLevel=warning"
+          fail_on_error: false
+          filter_mode: nofilter

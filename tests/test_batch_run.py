@@ -362,6 +362,179 @@ def test_iterations_deprecation_warning():
         mesa.batch_run(MockModel, {}, number_processes=1, iterations=1)
 
 
+def test_batch_run_legacy():
+    """Covers the legacy fallback."""
+
+    class LegacyModel(Model):
+        def __init__(self, *args, **kwargs):
+            self.schedule = None
+            super().__init__()
+            self.datacollector = DataCollector(
+                model_reporters={"Step": lambda m: m.steps},
+                agent_reporters={"Dummy": lambda a: 1},
+            )
+            # FORCE LEGACY: Delete _collection_steps attribute manually
+            delattr(self.datacollector, "_collection_steps")
+
+            # Ensure there is at least one agent
+            MockAgent(self, 1)
+
+        def step(self):
+            super().step()
+            self.datacollector.collect(self)
+
+    # Logic to hit the line:
+    # Max steps = 6 (Indices: 0, 1, 2, 3, 4, 5)
+    # Period = 2
+    # range(0, 6, 2) generates -> [0, 2, 4]
+    # The last model step is 5.
+    # steps[-1] (4) != model.steps-1 (5).
+    # This forces the code to execute: steps.append(5)
+    results = mesa.batch_run(
+        LegacyModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=6,
+        data_collection_period=2,
+        display_progress=False,
+    )
+
+    steps_captured = [r["Step"] for r in results]
+
+    # Expect [1, 2, 4, 5] instead of [0, 2, 4, 5]
+    # Why? Step 0 was not collected. Legacy fallback logic defaults to
+    # the first available step (Step 1) when the requested Step (0) is missing.
+    assert steps_captured == [1, 2, 4, 5]
+    # Ensure last step is present
+    assert 5 in steps_captured
+
+
+def test_batch_run_coverage_cases():
+    """Covers all the cases related to data_collection_period.
+
+    - case -1: Only collect at the end of the run.
+    - case 1: Collect every step.
+    - case _: Collect every N steps (default).
+    """
+    # Cover 'case -1:' (End Only)
+    results_case_end = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=-1,  # Triggers 'case -1:'
+        display_progress=False,
+    )
+
+    # Use set() to deduplicate agent rows
+    captured_steps_end = sorted({r["Step"] for r in results_case_end})
+
+    assert captured_steps_end == [5]
+
+    # Cover 'case 1:' (Every Step)
+    results_case_1 = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=1,  # Triggers 'case 1:'
+        display_progress=False,
+    )
+
+    assert len(results_case_1) > 0
+
+    assert results_case_1[0]["Step"] == 1
+
+    # Cover 'case _:' (Default)
+    results_case_default = mesa.batch_run(
+        MockModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=2,  # Triggers 'case _:'
+        display_progress=False,
+    )
+
+    # Use set() to deduplicate because MockModel returns 3 rows per step (one per agent)
+    captured_steps = sorted({r["Step"] for r in results_case_default})
+
+    # Start at 1, step by 2 -> [1, 3, 5]
+    assert captured_steps == [1, 3, 5]
+
+
+class SparseAgent(Agent):
+    """Test agent for sparse data collection scenarios."""
+
+    def __init__(self, model):
+        """Initialize a SparseAgent.
+
+        Args:
+            model: The model instance this agent belongs to.
+        """
+        super().__init__(model)
+        self.value = 0
+
+    def step(self):
+        """Increment the agent's value by 1."""
+        self.value += 1
+
+
+class SparseCollectionModel(Model):
+    """Test model that collects data sparsely (every N steps)."""
+
+    def __init__(self, collect_interval=5, rng=None):
+        """Initialize a SparseCollectionModel.
+
+        Args:
+            collect_interval: Number of steps between data collections.
+            rng: Random number generator seed.
+        """
+        super().__init__(rng=rng)
+        self.collect_interval = collect_interval
+        self.agent = SparseAgent(self)
+
+        self.datacollector = DataCollector(
+            model_reporters={"Value": lambda m: m.agent.value}
+        )
+        self.running = True
+
+    def step(self):
+        """Execute one model step, collecting data at specified intervals."""
+        if self.steps % self.collect_interval == 0:
+            self.datacollector.collect(self)
+
+        self.agent.step()
+
+        if self.steps >= 20:
+            self.running = False
+
+
+def test_batch_run_sparse_collection():
+    """Test batch_run with sparse data collection (only collecting every N steps)."""
+    result = mesa.batch_run(
+        SparseCollectionModel,
+        parameters={"collect_interval": [5]},
+        rng=[42],
+        max_steps=20,
+        data_collection_period=1,
+        number_processes=1,
+    )
+
+    assert len(result) > 0
+    assert all("Value" in row for row in result)
+    assert all("Step" in row for row in result)
+
+    # Verify no "ghost" steps were created.
+    # Expected steps: 5, 10, 15, 20 (Total 4 rows).
+    assert len(result) == 4, f"Expected 4 rows for sparse collection, got {len(result)}"
+    steps_captured = sorted([row["Step"] for row in result])
+    assert steps_captured == [5, 10, 15, 20]
+
+
 class TimeDilationModel(Model):
     """Model that collects data multiple times per step to test BatchRunner alignment."""
 
@@ -394,6 +567,10 @@ def test_batch_run_time_dilation():
         data_collection_period=1,
         display_progress=False,
     )
+
+    # Verify ALL sub-step data is captured
+    # 1 Initial + (2 collections per step * 5 steps) = 11 rows total
+    assert len(results) == 11, f"Data Loss! Expected 11 rows, got {len(results)}"
 
     # We expect to find data for 'Step 5'
     # Without the fix, it grabs index 5 (Step 2/3). With fix, it finds correct Step 5.
@@ -473,5 +650,160 @@ def test_batch_run_missing_step():
         display_progress=False,
     )
 
-    # Should handle sparse collection - may have fewer results
-    assert len(results) >= 0
+    # Init(1) + Steps 2,4,6(3) = 4 total rows
+    # Step 5 should NOT be present.
+    assert len(results) == 4, f"Expected 4 rows, got {len(results)}"
+    steps_found = [r["Step"] for r in results]
+    assert 5 not in steps_found, "Ghost data found for Step 5"
+
+
+def test_batch_run_empty_collection_edge_case():
+    """Test batch_run with edge case: requesting data before any collection happens."""
+
+    class EmptyCollectionModel(Model):
+        """Model that doesn't collect any data initially."""
+
+        def __init__(self, *args, **kwargs):
+            self.schedule = None
+            super().__init__()
+            self.datacollector = DataCollector(
+                model_reporters={"Value": lambda m: m.time}
+            )
+            # Don't collect initial state - this creates the edge case
+
+        def step(self):
+            super().step()
+            # Only collect on final step
+            if self.time == 3:
+                self.datacollector.collect(self)
+
+    # Request data for early steps when nothing has been collected yet
+    results = mesa.batch_run(
+        EmptyCollectionModel,
+        parameters={},
+        number_processes=1,
+        rng=[None],
+        max_steps=3,
+        data_collection_period=1,
+        display_progress=False,
+    )
+
+    # Should handle empty collections gracefully
+    # Only one collection occurred at step 3.
+    assert len(results) == 1, f"Expected 1 row, got {len(results)}"
+    assert results[0]["Step"] == 3
+
+
+def test_batch_run_agenttype_reporters():
+    """Test batch_run with agenttype_reporters to ensure agent type data is collected."""
+
+    class TypedAgent(Agent):
+        """Agent with a value attribute for testing."""
+
+        def __init__(self, model, agent_value):
+            super().__init__(model)
+            self.agent_value = agent_value
+
+        def step(self):
+            self.agent_value += 1
+
+    class AgenttypeModel(Model):
+        """Model with agenttype_reporters."""
+
+        def __init__(self, n_agents=5, seed=None):
+            super().__init__(seed=seed)
+            self.n_agents = n_agents
+            self.datacollector = DataCollector(
+                model_reporters={"total_agents": lambda m: len(m.agents)},
+                agenttype_reporters={TypedAgent: {"value": "agent_value"}},
+            )
+            for i in range(n_agents):
+                TypedAgent(self, agent_value=i)
+
+        def step(self):
+            self.agents.do("step")
+            self.datacollector.collect(self)
+
+    results = mesa.batch_run(
+        AgenttypeModel,
+        parameters={"n_agents": [3, 5]},
+        number_processes=1,
+        rng=[None],
+        max_steps=10,
+        data_collection_period=-1,
+        display_progress=False,
+    )
+
+    # Verify results structure
+    assert len(results) > 0, "No results returned from batch_run"
+
+    # Check that we have data from agenttype_reporters
+    result_keys = results[0].keys()
+    assert "value" in result_keys, "agenttype_reporters data not collected"
+    assert "AgentID" in result_keys, "AgentID not in results"
+    assert "total_agents" in result_keys, "model_reporters data not collected"
+
+    # Verify we have the right number of rows (one per agent per run)
+    # 2 parameter combinations * 1 iteration * (3 + 5) agents = 8 rows
+    assert len(results) == 8, f"Expected 8 rows, got {len(results)}"
+
+    for result in results:
+        assert "value" in result, "Missing 'value' field in result"
+        assert result["value"] >= 0, "Invalid agent value"
+
+
+def test_batch_run_agenttype_and_agent_reporters():
+    """Test batch_run with both agent_reporters and agenttype_reporters."""
+
+    class MixedAgent(Agent):
+        """Agent for testing mixed reporters."""
+
+        def __init__(self, model, wealth):
+            super().__init__(model)
+            self.wealth = wealth
+            self.steps = 0
+
+        def step(self):
+            self.wealth += 1
+            self.steps += 1
+
+    class MixedReportersModel(Model):
+        """Model with both agent_reporters and agenttype_reporters."""
+
+        def __init__(self, n_agents=3, seed=None):
+            super().__init__(seed=seed)
+            self.n_agents = n_agents
+            self.datacollector = DataCollector(
+                model_reporters={"agent_count": lambda m: len(m.agents)},
+                agent_reporters={"wealth": "wealth"},
+                agenttype_reporters={MixedAgent: {"type_steps": "steps"}},
+            )
+            for i in range(n_agents):
+                MixedAgent(self, wealth=i * 10)
+
+        def step(self):
+            self.agents.do("step")
+            self.datacollector.collect(self)
+
+    results = mesa.batch_run(
+        MixedReportersModel,
+        parameters={"n_agents": [2]},
+        number_processes=1,
+        rng=[None],
+        max_steps=5,
+        data_collection_period=-1,
+        display_progress=False,
+    )
+
+    # When both reporters are used, we should have data from both
+    # Each agent appears twice: once for agent_reporters, once for agenttype_reporters
+    # 1 param combo * 1 iteration * 2 agents * 2 (agent + agenttype) = 4 rows
+    assert len(results) == 4, f"Expected 4 rows, got {len(results)}"
+
+    wealth_count = sum(1 for r in results if "wealth" in r and r["wealth"] is not None)
+    type_steps_count = sum(
+        1 for r in results if "type_steps" in r and r["type_steps"] is not None
+    )
+
+    assert wealth_count > 0, "agent_reporters data not collected"
+    assert type_steps_count > 0, "agenttype_reporters data not collected"

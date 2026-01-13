@@ -1,6 +1,72 @@
+<!-- vale off -->
+
 ---
 title: Release History
 ---
+# 3.4.1 (2025-01-10)
+## Highlights
+Mesa 3.4.1 is a patch release with bug fixes, performance improvements, and documentation enhancements. This release addresses issues affecting data collection, memory management, and grid operations while introducing performance optimizations.
+
+This release resolves several bugs affecting simulation accuracy: fixed multiple `batch_run` and `DataCollector` issues including `agenttype_reporters` support (#3095), sparse data collection (#2988), and proper handling of multiple `collect()` calls per step (#3058); resolved `MultiGrid._empty_mask` not updating correctly (#3019) and infinite loops in `select_random_empty_cell()` (#3014); fixed a memory leak in `ContinuousSpace` agent removal (#3031); corrected `EventList.peek_ahead()` chronological ordering (#3010); and ensured `FixedAgent` state consistency after removal (#3100).
+
+Several optimizations improve Mesa's performance: `PropertyLayer` was refactored to implement the NumPy interface directly, enabling standard NumPy syntax (#3074); `select_random_empty_cell()` now uses vectorized NumPy operations instead of slow O(N) Python iteration (#3087); and `Cell.is_empty`/`is_full` checks were optimized to remove unnecessary O(n) copies (#3069).
+
+The documentation received several improvements including version warnings for visualization tutorials (#2949), updated contribution guidelines (#3028), and implementation of Vale for consistent documentation style (#3022). The entire `mesa.space` module is now marked as maintenance-only (#3082), with users encouraged to use `mesa.discrete_space` for new projects. Generic type parameters were added to `Agent`, `AgentSet`, and `Model` classes to improve static type checking (#2885).
+
+We're excited to welcome 9 new contributors to Mesa in this release! Thank you to everyone who contributed bug fixes, performance improvements, and documentation enhancements.
+
+## What's Changed
+### 🛠 Enhancements made
+* Optimize Cell is_empty/is_full by @codebyNJ in #3069
+* Refactor PropertyLayer to implement NumPy interface and deprecate wrappers by @codebreaker32 in #3074
+* Optimise select_random_empty_cell() in grid.py by @codebreaker32 in #3087
+* Add generic type parameters to Agent, AgentSet, and Model by @SiddharthBansal007 in #2885
+### 🐛 Bugs fixed
+* Fix: peak_ahead returns events in correct chronological order by @Nithin9585 in #3010
+* fix: prevent infinite loop in select_random_empty_cell via heuristic fallback by @DipayanDasgupta in #3014
+* Fix: datacollector missing attribute error by @codebyNJ in #3041
+* Fix: Add deepcopy to agent reporters to prevent mutable reference lea… by @Nithin9585 in #3038
+* Add initialization check in Simulator.run_for() by @codebreaker32 in #3036
+* Fix: Method Reporter Validation in DataCollector by @vedantvakharia in #3002
+* Fix MultiGrid._empty_mask not updated correctly by @Nithin9585 in #3019
+* Fix: Correct data retrieval in batch_run when DataCollector.collect() called multiple times per step by @Nithin9585 in #3058
+* Fix: IndexError in batch_run with sparse data collection by @Nithin9585 in #2988
+* Fix: Add agenttype_reporters support to batch_run by @BhoomiAgrawal12 in #3095
+* Fix memory leak in ContinuousSpace agent removal by @Nithin9585 in #3031
+* Minor Refactoring in solara_viz by @codebreaker32 in #3059
+* Fix: Correct `FixedAgent` state after removal by @Sonu0305 in #3100
+### 🔍 Examples updated
+* Resolve FIXME in `sugarscape_g1mt/agents.py` by @Sonu0305 in #3062
+* Update alliance formation mode by @quaquel in #3075
+### 📜 Documentation improvements
+* document Model.time in Model API by @Gee307 in #3020
+* docs: Add example structure and policy to contributing guide by @EwoutH in #3028
+* Changed broken documentation link in docs/tutorials/1_adding_space.ipynb by @ShashwatAwate in #2973
+* Updated CONTRIBUTING.md to replace old black documentation with new ruff format. by @falloficarus22 in #3071
+* docs: Add Mesa 3.3+ version warnings to visualization tutorials by @Srinath0916 in #2949
+* Implementation of Vale by @vedantvakharia in #3022
+* Mark whole `mesa.space` module maintenance-only by @quaquel in #3082
+### 🔧 Maintenance
+* CI: Restore coverage collection after test reorganization by @falloficarus22 in #3006
+* Fix flaky Playwright test in `test_examples_viz.py` by @vedantvakharia in #3039
+* tests: consolidate Solara viz tests and restore Altair coverage #2993 by @DipayanDasgupta in #3011
+* test: add coverage for ignore_missing=True in DataCollector by @disgruntled-penguin in #3054
+* test: ensure DataCollector raises ValueError when collecting data for… by @disgruntled-penguin in #3053
+* Lint: Enable RUF012 and annotate mutable class attributes with ClassVar by @falloficarus22 in #3033
+
+## New Contributors
+* @Gee307 made their first contribution in #3020
+* @DipayanDasgupta made their first contribution in #3014
+* @ShashwatAwate made their first contribution in #2973
+* @vedantvakharia made their first contribution in #3039
+* @codebyNJ made their first contribution in #3041
+* @disgruntled-penguin made their first contribution in #3054
+* @Sonu0305 made their first contribution in #3062
+* @Srinath0916 made their first contribution in #2949
+* @BhoomiAgrawal12 made their first contribution in #3095
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.0...v3.4.1
+
 # 3.4.0 (2025-12-24)
 ## Highlights
 The Mesa 3.4.0 feature release introduces universal time tracking, improves batch run reproducibility, and strengthens our deprecation policy. This release also requires Python 3.12+ and includes numerous bug fixes and quality-of-life improvements.
@@ -185,9 +251,9 @@ We're excited to welcome six new contributors to the Mesa project in this releas
 
 The major highlight of release 3.3.0 is the introduction of a new and improved visualization module. This effort was @Sahil-Chhoker's Google Summer of Code project . The new module is backwards compatible and continues to use Solara. It has several new and improved features to include:
 - `AgentPortrayalStyle`: a more user-friendly way to specify agent portrayal
-- `PropertyLayerStyle`:  Makes propertlayer and agent portrayal consistent.
+- `PropertyLayerStyle`:  Makes property_layer and agent portrayal consistent.
 - `SpaceRender`: a new component for drawing spaces, agents and property layers with extensive customization
-- Improved support for Altair and Maplotlib
+- Improved support for Altair and Matplotlib
 - Multipage support (e.g., users can display simulation  on one page and charts of the model on another)
 - Updated tutorials for visualization
 
@@ -205,7 +271,7 @@ In addition, there were many other improvements to mesa, from bug fixes to impro
 * Allow image markers to plot agents by @Holzhauer in https://github.com/mesa/mesa/pull/2799
 * Renderer null check fix in solaraviz by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2809
 * Add Altair plotting functionality by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2810
-* Fix: Grid not showing in altair if both draw_structure and draw_agnets are called. by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2817
+* Fix: Grid not showing in altair if both draw_structure and draw_agents are called. by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2817
 * Allowing color mapping to integers in AgentPortrayalStyle by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2818
 * Added multipage functionality by @Sahil-Chhoker in https://github.com/mesa/mesa/pull/2827
 ### 🐛 Bugs fixed
@@ -555,7 +621,7 @@ A small bugfix release that fixes two bugs.
 **Full Changelog**: https://github.com/mesa/mesa/compare/v3.0.2...v3.0.3
 
 # 3.0.2 (2024-11-11)
-## Highlighst
+## Highlights
 Mesa 3.0.2 is a small follow-up patch release, in which we fixed a lot of small bugs in the example models their visualisation, and improved their testing.
 
 ## What's Changed
@@ -565,7 +631,7 @@ Mesa 3.0.2 is a small follow-up patch release, in which we fixed a lot of small 
 * examples: Add required components keyword by @EwoutH in https://github.com/mesa/mesa/pull/2485
 * examples: Fix boid_flockers viz by @EwoutH in https://github.com/mesa/mesa/pull/2492
 * examples: Fix schelling viz by @EwoutH in https://github.com/mesa/mesa/pull/2490
-* example: Add input sliders to Sugerscape viz by @EwoutH in https://github.com/mesa/mesa/pull/2487
+* example: Add input sliders to Sugarscape viz by @EwoutH in https://github.com/mesa/mesa/pull/2487
 * examples/gol: Add initial fraction alive, add sliders to viz by @EwoutH in https://github.com/mesa/mesa/pull/2489
 ### 🔧 Maintenance
 * test app init of examples by @Corvince in https://github.com/mesa/mesa/pull/2491
@@ -738,7 +804,7 @@ We would love to hear what you think about Mesa 3.0! [Say hello here](https://gi
 ## Highlights
 We're releasing the Mesa 3.0 Release Candidate, ready for final testing before we release Mesa 3.0 later this week!
 
-In this last 3.0 pre-release, the visualisation has been thoroughly updated, with a brand new API. Visualizing the experimental Cell Space, including PropertyLayers and hexogonal grids, is now also supported.
+In this last 3.0 pre-release, the visualisation has been thoroughly updated, with a brand new API. Visualizing the experimental Cell Space, including PropertyLayers and hexagonal grids, is now also supported.
 
 We're still working very active on the visualisation, so we have marked that experimental for Mesa 3.0. We will stabilize SolaraViz in Mesa 3.1.
 
@@ -798,7 +864,7 @@ The rarely used `mesa startproject` cookiecutter feature was removed. We updated
 * update_tutorial environment by @tpike3 in https://github.com/mesa/mesa/pull/2411
 ### 🐛 Bugs fixed
 * Fix for mistaken removal of _draw_grid by @quaquel in https://github.com/mesa/mesa/pull/2398
-* fixes weakref bug in shuffe_do by @quaquel in https://github.com/mesa/mesa/pull/2399
+* fixes weakref bug in shuffle_do by @quaquel in https://github.com/mesa/mesa/pull/2399
 ### 🔍 Examples updated
 * refactor: Simplify Schelling code by @rht in https://github.com/mesa/mesa/pull/2353
 * Move examples into mesa by @Corvince in https://github.com/mesa/mesa/pull/2387
@@ -812,7 +878,7 @@ The rarely used `mesa startproject` cookiecutter feature was removed. We updated
 * Update into_tutorial by @tpike3 in https://github.com/mesa/mesa/pull/2372
 * Update Schelling Readme.md by @quaquel in https://github.com/mesa/mesa/pull/2406
 * Update Conway example by @quaquel in https://github.com/mesa/mesa/pull/2403
-* Boltzman readme by @quaquel in https://github.com/mesa/mesa/pull/2405
+* Boltzmann readme by @quaquel in https://github.com/mesa/mesa/pull/2405
 * Update Readme.md of Boid flockers by @quaquel in https://github.com/mesa/mesa/pull/2404
 * add advanced examples to rtd by @quaquel in https://github.com/mesa/mesa/pull/2413
 * Tutorial Improvements by @tpike3 in https://github.com/mesa/mesa/pull/2415
@@ -988,7 +1054,7 @@ Mesa 3.0.0a4 contains two major breaking changes:
     - An initial example model was updated in [mesa-examples#195](https://github.com/mesa/mesa-examples/pull/195), and more examples will be updated in [mesa-examples#195](https://github.com/mesa/mesa-examples/pull/193).
     - The old SolaraViz API is still available at `mesa.experimental`, but might be removed in future releases.
 
-Furthermore, the AgentSet has a new `agg` method to quickly get an aggerate value (for example `min_energy = model.agents.agg("energy", min)`) ([#2266](https://github.com/mesa/mesa/pull/2266)), The Model `get_agents_of_type` function is replaced by directly exposing the `agents_by_type` property (which can be accessed as a dict) ([#2267](https://github.com/mesa/mesa/pull/2267), [mesa-examples#190](https://github.com/mesa/mesa-examples/pull/190)) and the AgentSet get() methods can now handle missing values by replacing it with a default value ([#2279](https://github.com/mesa/mesa/pull/2279)).
+Furthermore, the AgentSet has a new `agg` method to quickly get an aggregate value (for example `min_energy = model.agents.agg("energy", min)`) ([#2266](https://github.com/mesa/mesa/pull/2266)), The Model `get_agents_of_type` function is replaced by directly exposing the `agents_by_type` property (which can be accessed as a dict) ([#2267](https://github.com/mesa/mesa/pull/2267), [mesa-examples#190](https://github.com/mesa/mesa-examples/pull/190)) and the AgentSet get() methods can now handle missing values by replacing it with a default value ([#2279](https://github.com/mesa/mesa/pull/2279)).
 
 Finally, it fixes a bug in which the Grid's `move_agent_to_one_of` method with `selection="closest"` selected a location deterministically, instead of randomly ([#2118](https://github.com/mesa/mesa/pull/2118)).
 
@@ -1321,7 +1387,7 @@ We highly recommend updating to 2.2.1 if you're using 2.2.0.
 ### 🧪 Experimental features
 * jupyter_viz: Implement multiline plot by @rht in https://github.com/mesa/mesa/pull/1941
 ### 🛠 Enhancements made
-* make mesa runable without some dependencies by @Corvince in https://github.com/mesa/mesa/pull/1950
+* make mesa runnable without some dependencies by @Corvince in https://github.com/mesa/mesa/pull/1950
 * Improve performance of AgentSet and iter_cell_list_contents by @Corvince in https://github.com/mesa/mesa/pull/1964
 ### 🐛 Bugs fixed
 * Bugfix in agentset to handle addition and removal correctly by @quaquel in https://github.com/mesa/mesa/pull/1960
@@ -2170,7 +2236,7 @@ visualization server.
 -   fix double multiply of iterations in singleprocess #1310
 
 -   pre-commit: fix required python version, correct example commit
-    messa... #1302
+    message... #1302
 
 -   fix: Make bank_reserves batch_run example work #1293
 
@@ -2948,3 +3014,5 @@ batch runner; and a front-end visualization using HTML 5 and JavaScript.
 
 -   A conversation
 -   Birth
+
+<!-- vale on -->
