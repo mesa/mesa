@@ -3,12 +3,15 @@
 import numpy as np
 import pytest
 
+
 from mesa import Model
 from mesa.experimental.scenarios import Scenario
 
 
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
+    Scenario._reset_counter()
+
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario._scenario_id == 0
     assert scenario.model is None
