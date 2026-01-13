@@ -66,13 +66,13 @@ def test_scenario_serialization():
     scenario = Scenario(a=1, rng=42)
 
     pickled = pickle.dumps(scenario)
-    unpickled = pickle.loads(pickled) # noqa: S301
+    unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
 
     scenario = Scenario(a=1, rng=np.random.default_rng(42))
 
     pickled = pickle.dumps(scenario)
-    unpickled = pickle.loads(pickled) # noqa: S301
+    unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
