@@ -1,5 +1,7 @@
 """Tests for mesa.experimental.scenarios."""
 
+import pickle
+
 import numpy as np
 import pytest
 
@@ -61,18 +63,16 @@ def test_scenario():
 
 def test_scenario_serialization():
     """Test that scenarios can be pickled/unpickled."""
-    import pickle
-
     scenario = Scenario(a=1, rng=42)
 
     pickled = pickle.dumps(scenario)
-    unpickled = pickle.loads(pickled)
+    unpickled = pickle.loads(pickled) # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
 
     scenario = Scenario(a=1, rng=np.random.default_rng(42))
 
     pickled = pickle.dumps(scenario)
-    unpickled = pickle.loads(pickled)
+    unpickled = pickle.loads(pickled) # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
