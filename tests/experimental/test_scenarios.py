@@ -1,8 +1,7 @@
 """Tests for mesa.experimental.scenarios."""
 
-import pytest
-
 import numpy as np
+import pytest
 
 from mesa.experimental.scenarios import ModelWithScenario, Scenario
 
@@ -71,4 +70,3 @@ def test_scenario_serialization():
     unpickled = pickle.loads(pickled)
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
-
