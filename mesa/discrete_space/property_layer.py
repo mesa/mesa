@@ -93,7 +93,7 @@ class PropertyLayer:
             default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer.data = data
+        layer.data = data.copy()
         return layer
 
     def set_cells(self, value, condition: Callable | None = None):

@@ -962,6 +962,18 @@ def test_property_layer():
     assert layer.aggregate(np.sum) == 100
 
 
+def test_property_layer_from_data():
+    """Test PropertyLayer.from_data factory method."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+
+    data = np.random.default_rng(12456).random((5, 5))
+    grid.add_property_layer(PropertyLayer.from_data("elevation", data))
+
+    # using from_data should not have side effects
+    grid._cells[(2, 2)].elevation = 2
+    assert data[2, 2] != grid._cells[(2, 2)].elevation
+
+
 def test_property_layer_errors():
     """Test error handling for PropertyLayers."""
     dimensions = 5, 5
