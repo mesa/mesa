@@ -25,7 +25,6 @@ from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
     create_property_accessors,
-    # PropertyDescriptor,
 )
 
 T = TypeVar("T", bound=Cell)
@@ -54,8 +53,7 @@ def unpickle_gridcell(parent, fields):
     # __gestate__ returns a tuple with dict and slots, but slots contains the dict so we can just use the
     # second item only
     for k, v in fields[1].items():
-        if k != "__dict__":
-            setattr(instance, k, v)
+        setattr(instance, k, v)
 
     return instance
 
@@ -208,7 +206,6 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                     layer.data, docstring=f"accessor for {layer.name}"
                 ),
             )
-            # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
 
 
 class OrthogonalMooreGrid(Grid[T]):

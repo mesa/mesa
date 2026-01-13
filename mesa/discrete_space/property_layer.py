@@ -47,6 +47,13 @@ class PropertyLayer:
         """Accessor for the data of the property layer."""
         return self._data
 
+    @data.setter
+    def data(self, value):
+        # FIXME, in mesa 4, we simply should not allow a setter, forcing people
+        #    to always use data[:]
+        #    this holds even if we drop PropertyLayers in favour of raw numpy arrays.
+        self._data[:] = value
+
     def __init__(
         self, name: str, dimensions: Sequence[int], default_value=0.0, dtype=float
     ):
@@ -248,7 +255,6 @@ class HasPropertyLayers:
                 layer._data, docstring=f"accessor for {layer.name}"
             ),
         )
-        # setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
         self.cell_klass._mesa_properties.add(layer.name)
 
     def remove_property_layer(self, property_name: str):
@@ -256,7 +262,6 @@ class HasPropertyLayers:
 
         Args:
             property_name: the name of the property layer to remove
-            remove_from_cells: whether to remove the property layer from all cells (default: True)
         """
         del self._mesa_property_layers[property_name]
         delattr(self.cell_klass, property_name)

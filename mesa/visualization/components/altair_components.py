@@ -250,10 +250,9 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
 
     Args:
         space: the ContinuousSpace instance
-        propertylayer_portrayal:Dictionary of PropertyLayer portrayal specifications
+        propertylayer_portrayal: Dictionary of PropertyLayer portrayal specifications
         chart_width: width of the agent chart to maintain consistency with the property charts
         chart_height: height of the agent chart to maintain consistency with the property charts
-        agent_chart: the agent chart to layer with the property layers on the grid
     Returns:
         Altair Chart
     """
