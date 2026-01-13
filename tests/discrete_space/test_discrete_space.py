@@ -33,6 +33,10 @@ def test_orthogonal_grid_neumann():
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
 
+    with pytest.raises(AttributeError):
+        cell = grid.cell_klass(1)
+        cell.a = 5  # because of __slots__ this should not be possible
+
     assert len(grid._cells) == width * height
 
     # von neumann neighborhood, torus false, top left corner
@@ -962,6 +966,18 @@ def test_property_layer():
     assert layer.aggregate(np.sum) == 100
 
 
+def test_property_layer_from_data():
+    """Test PropertyLayer.from_data factory method."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+
+    data = np.random.default_rng(12456).random((5, 5))
+    grid.add_property_layer(PropertyLayer.from_data("elevation", data))
+
+    # using from_data should not have side effects
+    grid._cells[(2, 2)].elevation = 2
+    assert data[2, 2] != grid._cells[(2, 2)].elevation
+
+
 def test_property_layer_errors():
     """Test error handling for PropertyLayers."""
     dimensions = 5, 5
@@ -1181,6 +1197,16 @@ def test_fixed_agent_removal_state():
 
     assert agent not in cell1.agents
     assert agent.cell is None
+
+
+def test_pickling_cell():
+    """Test pickling of a Cell."""
+    cell = Cell((1,), capacity=1, random=random.Random(42))
+
+    unpickled_cell = pickle.loads(pickle.dumps(cell))  # noqa: S301
+
+    assert cell.coordinate == unpickled_cell.coordinate
+    assert cell.capacity == unpickled_cell.capacity
 
 
 def test_large_radius_neighborhood():
