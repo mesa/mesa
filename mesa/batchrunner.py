@@ -43,8 +43,6 @@ from tqdm.auto import tqdm
 
 from mesa.model import Model
 
-multiprocessing.set_start_method("spawn", force=True)
-
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 
 
@@ -78,6 +76,8 @@ def batch_run(
         batch_run assumes the model has a `datacollector` attribute that has a DataCollector object initialized.
 
     """
+    multiprocessing.set_start_method("spawn", force=True)
+
     if iterations is not None and rng is not None:
         raise ValueError(
             "you cannot use both iterations and rng at the same time. Please only use rng."
@@ -202,15 +202,27 @@ def _model_run_func(
     run_id, iteration, kwargs = run
 
     model = model_cls(**kwargs)
-    while model.running and model.steps <= max_steps:
+    while model.running and model.steps < max_steps:
         model.step()
 
     data = []
 
-    steps = list(range(0, model.steps, data_collection_period))
-    if not steps or steps[-1] != model.steps - 1:
-        steps.append(model.steps - 1)
-
+    # Use the DataCollector's actual history to capture ALL data (including sub-steps)
+    try:
+        recorded_steps = model.datacollector._collection_steps
+    except AttributeError:
+        # Fallback for legacy models without _collection_steps
+        steps = list(range(0, model.steps, data_collection_period))
+        if not steps or steps[-1] != model.steps - 1:
+            steps.append(model.steps - 1)
+    else:
+        match data_collection_period:
+            case -1:
+                steps = [recorded_steps[-1]] if recorded_steps else []
+            case 1:
+                steps = recorded_steps
+            case _:
+                steps = recorded_steps[::data_collection_period]
     for step in steps:
         model_data, all_agents_data = _collect_data(model, step)
 
@@ -297,9 +309,20 @@ def _collect_data(
         }
 
     all_agents_data = []
+
+    # Collect agent_reporters data
     raw_agent_data = dc._agent_records.get(step, [])
     for data in raw_agent_data:
         agent_dict = {"AgentID": data[1]}
         agent_dict.update(zip(dc.agent_reporters, data[2:]))
         all_agents_data.append(agent_dict)
+
+    # Collect agenttype_reporters data
+    raw_agenttype_data = dc._agenttype_records.get(step, {})
+    for agent_type, agents_data in raw_agenttype_data.items():
+        for data in agents_data:
+            agent_dict = {"AgentID": data[1]}
+            agent_dict.update(zip(dc.agenttype_reporters[agent_type], data[2:]))
+            all_agents_data.append(agent_dict)
+
     return model_data, all_agents_data
