@@ -187,7 +187,7 @@ Core examples in the main Mesa repository are classic, well-known agent-based mo
 - **Advanced Examples** are more complex models that may use experimental features to demonstrate advanced concepts.
 
 Core examples are:
-- Tested in CI, including batch runs and visualizations
+- Tested in CI, including visualizations
 - Maintained to high code quality standards
 - Updated to work with each Mesa release
 - Documented and included in ReadTheDocs
