@@ -33,6 +33,12 @@ class ListSignalType(str, Enum):
     Includes all list-specific signals (INSERT, APPEND, REMOVE, REPLACE) plus
     the base CHANGE signal inherited from the observable protocol.
 
+    Note on Design:
+        This enum does NOT extend SignalType because Python Enums cannot be extended
+        once they have members defined. Instead, we include CHANGE as a member here
+        to maintain compatibility. The string inheritance provides value equality:
+        ListSignalType.CHANGE == SignalType.CHANGE == "change" (all True).
+
     Attributes:
         CHANGE: Emitted when the list itself is replaced/assigned.
         INSERT: Emitted when an item is inserted into the list.
@@ -55,8 +61,7 @@ class ListSignalType(str, Enum):
     Note:
         String-based signal types are still supported for backward compatibility:
         >>> model.observe("items", "insert", handler)  # Still works
-        Also compatible with SignalType.CHANGE since ListSignalType inherits the same
-        string values.
+        Also compatible with SignalType.CHANGE since both equal "change" as strings.
     """
 
     CHANGE = "change"
@@ -76,13 +81,8 @@ class ObservableList(BaseObservable):
     def __init__(self):
         """Initialize the ObservableList."""
         super().__init__()
-        self.signal_types: set = {
-            ListSignalType.REMOVE,
-            ListSignalType.REPLACE,
-            ListSignalType.CHANGE,
-            ListSignalType.INSERT,
-            ListSignalType.APPEND,
-        }
+        # Use all members of ListSignalType enum
+        self.signal_types: set = set(ListSignalType)
         self.fallback_value = []
 
     def __set__(self, instance: "HasObservables", value: Iterable):
