@@ -1,10 +1,11 @@
 """Base Scenario class."""
+
 import sys
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, ClassVar, Iterable
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -82,7 +83,9 @@ class Scenario[M: Model]:
         return {**self.__dict__, "model": self.model, "_scenario_id": self._scenario_id}
 
 
-def scenarios_from_dataframe(experiments:pd.DataFrame, rng:int|Iterable[SeedLike]) -> list[Scenario]:
+def scenarios_from_dataframe(
+    experiments: pd.DataFrame, rng: int | Iterable[SeedLike]
+) -> list[Scenario]:
     """Turn a dataframe into a list of scenarios.
 
     Args:
@@ -95,7 +98,6 @@ def scenarios_from_dataframe(experiments:pd.DataFrame, rng:int|Iterable[SeedLike
     If rng is an integer, numpy will be used to generate that many seed values.
 
     """
-
     if not isinstance(rng, Iterable):
         rng = np.random.default_rng(42).integers(0, high=sys.maxsize, size=(rng,))
 
@@ -107,7 +109,9 @@ def scenarios_from_dataframe(experiments:pd.DataFrame, rng:int|Iterable[SeedLike
     return scenarios
 
 
-def scenarios_from_numpy(experiments:np.ndarray, parameter_names:list[str], rng:int|Iterable[SeedLike]) -> list[Scenario]:
+def scenarios_from_numpy(
+    experiments: np.ndarray, parameter_names: list[str], rng: int | Iterable[SeedLike]
+) -> list[Scenario]:
     """Turn a numpy array into a list of scenarios.
 
     Args:
@@ -121,7 +125,11 @@ def scenarios_from_numpy(experiments:np.ndarray, parameter_names:list[str], rng:
     If rng is an integer, numpy will be used to generate that many seed values.
 
     """
-    if len(parameter_names)!=experiments.shape[1]:
-        raise ValueError("The number of parameter names does not match the number of columns in the numpy array.")
+    if len(parameter_names) != experiments.shape[1]:
+        raise ValueError(
+            "The number of parameter names does not match the number of columns in the numpy array."
+        )
 
-    return scenarios_from_dataframe(pd.DataFrame(experiments,columns=parameter_names), rng)
+    return scenarios_from_dataframe(
+        pd.DataFrame(experiments, columns=parameter_names), rng
+    )
