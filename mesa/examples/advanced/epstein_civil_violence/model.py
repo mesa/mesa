@@ -126,7 +126,7 @@ class EpsteinCivilViolence(mesa.Model):
         self._update_counts()
         self.datacollector.collect(self)
 
-        if self.steps > self.max_iters:
+        if self.time > self.max_iters:
             self.running = False
 
     def _update_counts(self):
