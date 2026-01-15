@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from mesa.experimental.mesa_signals import SignalType, ListSignalType
+    from mesa.experimental.mesa_signals import ListSignalType, SignalType
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +32,7 @@ class Message:
     old: Any
     new: Any
     owner: Any
-    signal_type: SignalType|ListSignalType
+    signal_type: SignalType | ListSignalType
     additional_kwargs: dict
 
 

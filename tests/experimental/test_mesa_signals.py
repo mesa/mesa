@@ -10,8 +10,9 @@ from mesa.experimental.mesa_signals import (
     Computable,
     Computed,
     HasObservables,
+    ListSignalType,
     Observable,
-    ObservableList, ListSignalType,
+    ObservableList,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 

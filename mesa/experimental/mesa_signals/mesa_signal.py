@@ -394,7 +394,9 @@ class HasObservables:
             for signal_type in signal_types:
                 self.subscribers[name][signal_type].append(ref)
 
-    def unobserve(self, name: str | All, signal_type: str | SignalType | All, handler: Callable):
+    def unobserve(
+        self, name: str | All, signal_type: str | SignalType | All, handler: Callable
+    ):
         """Unsubscribe to the Observable <name> for signal_type.
 
         Args:
