@@ -32,7 +32,7 @@ discuss via [Matrix] OR via [an issue].
 - If implementing a new feature, include some documentation in docs folder.
 - Make sure that your submission works with a few of the examples in the examples repository. If adding a new feature to mesa, please illustrate usage by implementing it in an example.
 - Make sure that your submission passes the [GH Actions build]. See "Testing and Standards below" to be able to run these locally.
-- Make sure that your code is formatted according to [the black] standard (you can do it via [pre-commit]).
+- Make sure that your code is formatted according to [the ruff] standard (you can do it via [pre-commit]).
 - Push your changes to your fork on Github: `git push origin NAME_OF_BRANCH`.
 - [Create a pull request].
 - Describe the change w/ ticket number(s) that the code fixes.
@@ -78,8 +78,8 @@ Start with creating your own models, for fun. Once you have some experience, mov
 :target: https://codecov.io/gh/mesa/mesa
 ```
 
-```{image} https://img.shields.io/badge/code%20style-black-000000.svg
-:target: https://github.com/psf/black
+```{image} https://img.shields.io/badge/code%20style-ruff-000000.svg
+:target: https://github.com/astral-sh/ruff
 ```
 
 As part of our contribution process, we practice continuous integration and use GH Actions to help enforce best practices.
@@ -104,7 +104,7 @@ We test by implementing simple models and through traditional unit tests in the 
 py.test --cov=mesa tests/
 ```
 
-With respect to code standards, we follow [PEP8] and the [Google Style Guide]. We use [ruff format] (a more performant alternative to `black`) as an automated code formatter. You can automatically format your code using [pre-commit], which will prevent `git commit` of unstyled code and will automatically apply black style so you can immediately re-run `git commit`. To set up pre-commit run the following commands:
+With respect to code standards, we follow [PEP8] and the [Google Style Guide]. We use [ruff format] (a more performant alternative to `black`) as an automated code formatter. You can automatically format your code using [pre-commit], which will prevent `git commit` of unstyled code and will automatically apply ruff style so you can immediately re-run `git commit`. To set up pre-commit run the following commands:
 
 ```bash
 pip install pre-commit
@@ -176,6 +176,42 @@ All roles are expected to:
 - Make decisions transparently
 
 Mesa grows through good ideas and contributions. We're all volunteers working together to make Mesa better. Don't hesitate to reach out to any maintainer to discuss your interests and potential growth within the project!
+
+## Mesa examples structure and policy
+Mesa maintains a curated set of core examples within the main repository, complemented by a separate [mesa-examples](https://github.com/mesa/mesa-examples) repository for community contributions. This two-tier structure balances maintainability with community creativity.
+
+### Core examples (in `mesa/examples`)
+Core examples in the main Mesa repository are classic, well-known agent-based models that demonstrate Mesa's capabilities and serve as learning resources. They are organized into two categories:
+
+- **Basic Examples** use only stable Mesa features and are ideal starting points for beginners.
+- **Advanced Examples** are more complex models that may use experimental features to demonstrate advanced concepts.
+
+Core examples are:
+- Tested in CI, including batch runs and visualizations
+- Maintained to high code quality standards
+- Updated to work with each Mesa release
+- Documented and included in ReadTheDocs
+- Some are used in performance benchmarking
+
+### Community examples (in mesa-examples)
+The [mesa-examples](https://github.com/mesa/mesa-examples) repository serves as a gallery for user-contributed models and creative applications of Mesa. We welcome diverse contributions here with more relaxed maintenance requirements. Examples in this repository should include:
+- A clear README explaining the model
+- Requirements or environment files for reproducibility
+- Working code compatible with at least one Mesa major version
+
+We accept contributions liberally to this repository to showcase the breadth of Mesa applications, even if we cannot actively maintain all examples long-term.
+
+### Contributing examples
+When contributing a new example, consider:
+- **For core examples**: Propose additions through a GitHub discussion first. Core examples should be:
+  - widely-recognized canonical models
+  - demonstrate specific Mesa features effectively (that are not already sufficiently demonstrated by other models)
+- **For community examples**: Open a PR directly to mesa-examples with your model, README, and environment file.
+- **Improving existing examples**: PRs to update or enhance any example are always welcome in either repository.
+
+This structure allows us to maintain a stable, high-quality set of learning resources while encouraging community creativity and diverse applications of Mesa.
+
+Historical context and further motivation can be found in discussion [#2330](https://github.com/mesa/mesa/discussions/2330) and PR [#2349](https://github.com/mesa/mesa/pull/2349).
 
 ## Maintainers' notes
 Some notes useful for Mesa maintainers.
@@ -290,7 +326,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [18f's foia]: https://github.com/18F/foia-hub/blob/master/CONTRIBUTING.md
 [18f's midas]: https://github.com/18F/midas/blob/devel/CONTRIBUTING.md
 [an issue]: https://github.com/mesa/mesa/issues
-[black]: https://github.com/psf/black
+[ruff]: https://github.com/astral-sh/ruff
 [clone your repository]: https://help.github.com/articles/cloning-a-repository/
 [create a pull request]: https://help.github.com/articles/creating-a-pull-request/
 [django]: https://github.com/django/django/blob/master/CONTRIBUTING.rst

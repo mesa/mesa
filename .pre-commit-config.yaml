@@ -1,13 +1,14 @@
 ci:
     autoupdate_schedule: 'monthly'
+    skip: [vale]
 
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.14.7
+  rev: v0.14.10
   hooks:
     # Run the linter.
-    - id: ruff
+    - id: ruff-check
       types_or: [ python, pyi, jupyter ]
       args: [ --fix ]
     # Run the formatter.
@@ -28,3 +29,32 @@ repos:
   rev: v2.4.1
   hooks:
     - id: codespell
+
+# Prose linting with Vale
+- repo: https://github.com/errata-ai/vale
+  rev: v3.0.7
+  hooks:
+    - id: vale
+      name: Vale
+      description: Check prose style and grammar in documentation
+      files: \.(md|rst|txt)$
+      exclude: |
+        (?x)^(
+            \.git/|
+            \.venv/|
+            venv/|
+            env/|
+            node_modules/|
+            dist/|
+            build/|
+            \.eggs/|
+            .*\.egg-info/|
+            vendor/|
+            tests/fixtures/
+        )
+      args: [
+            "--config=.vale.ini",
+            "--minAlertLevel=error",
+            "--output=line"
+      ]
+      pass_filenames: true

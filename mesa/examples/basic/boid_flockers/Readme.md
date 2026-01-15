@@ -17,7 +17,7 @@ To run the model interactively, in this directory, run the following command
 
 ## Files
 
-* [model.py](model.py): Ccntains the Boid Model
+* [model.py](model.py): Contains the Boid Model
 * [agents.py](agents.py): Contains the Boid agent
 * [app.py](app.py): Solara based Visualization code.
 
