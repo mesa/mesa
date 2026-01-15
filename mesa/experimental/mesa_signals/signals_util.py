@@ -23,11 +23,9 @@ __all__ = [
 if TYPE_CHECKING:
     from mesa.experimental.mesa_signals import ListSignalType, SignalType
 
-
 @dataclass(frozen=True, slots=True)
 class Message:
     """A message class containing information about a signal change."""
-
     name: str
     old: Any
     new: Any
