@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Message:
     """A message class containing information about a signal change."""
 
