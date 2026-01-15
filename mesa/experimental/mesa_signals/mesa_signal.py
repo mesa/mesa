@@ -17,15 +17,13 @@ clean separation of concerns.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import contextlib
 import functools
 import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Callable
-from typing import Any, Generator
+from collections.abc import Callable, Generator
+from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
@@ -35,6 +33,7 @@ _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
 CURRENT_COMPUTED: Computed | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[tuple[str,]] = set()
+
 
 class BaseObservable(ABC):
     """Abstract base class for all Observables."""
@@ -436,12 +435,13 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
-        signal = Message(name=observable,
+        signal = Message(
+            name=observable,
             old=old_value,
             new=new_value,
             owner=self,
             type=signal_type,
-            additional_args = kwargs
+            additional_args=kwargs,
         )
 
         self._mesa_notify(signal)
@@ -483,5 +483,3 @@ def descriptor_generator(obj) -> Generator[tuple[str, set], Any, None]:
         for entry in base_dict.values():
             if isinstance(entry, BaseObservable):
                 yield entry.public_name, entry.signal_types
-
-

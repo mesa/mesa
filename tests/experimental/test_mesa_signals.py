@@ -142,7 +142,12 @@ def test_ObservableList():
     handler.assert_called_once()
     handler.assert_called_once_with(
         Message(
-            name="my_list", new=1, old=None, type="append", owner=agent, additional_args={"index":0}
+            name="my_list",
+            new=1,
+            old=None,
+            type="append",
+            owner=agent,
+            additional_args={"index": 0},
         )
     )
     agent.unobserve("my_list", "append", handler)
@@ -221,7 +226,7 @@ def test_Message():
             super().__init__(model)
             self.some_attribute = value
 
-    def on_change(signal:Message):
+    def on_change(signal: Message):
         assert signal.name == "some_attribute"
         assert signal.type == "change"
         assert signal.old == 10

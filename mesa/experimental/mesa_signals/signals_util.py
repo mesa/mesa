@@ -13,7 +13,6 @@ import weakref
 from dataclasses import dataclass
 from typing import Any
 
-
 __all__ = [
     "Message",
     "create_weakref",
@@ -28,6 +27,7 @@ class Message:
     owner: Any
     type: str
     additional_args: dict
+
 
 def create_weakref(item, callback=None):
     """Helper function to create a correct weakref for any item."""
