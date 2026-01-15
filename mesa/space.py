@@ -589,8 +589,8 @@ def ufunc_requires_additional_input(ufunc):  # noqa: D103
     return ufunc.nargs > 1
 
 
-
 from mesa.discrete_space.property_layer import PropertyLayer as NewPropertyLayer
+
 
 class PropertyLayer(NewPropertyLayer):
     """A class representing a layer of properties in a two-dimensional grid.
@@ -636,7 +636,7 @@ class PropertyLayer(NewPropertyLayer):
             raise ValueError(
                 f"Width and height must be positive integers, got {width} and {height}."
             )
-        
+
         super().__init__(name, (width, height), default_value, dtype)
         self.width = width
         self.height = height
