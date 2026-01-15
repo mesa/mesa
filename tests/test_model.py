@@ -11,12 +11,12 @@ def test_model_set_up():
     """Test Model initialization."""
     model = Model()
     assert model.running is True
-    assert model.steps == 0
+    assert model._steps == 0
     assert model.time == 0.0
     assert model._simulator is None
 
     model.step()
-    assert model.steps == 1
+    assert model._steps == 1
     assert model.time == 1.0
 
 
@@ -26,7 +26,7 @@ def test_model_time_increment():
 
     for i in range(5):
         model.step()
-        assert model.steps == i + 1
+        assert model._steps == i + 1
         assert model.time == float(i + 1)
 
 
@@ -51,12 +51,12 @@ def test_running():
     class TestModel(Model):
         def step(self):
             """Stop at step 10."""
-            if self.steps == 10:
+            if self.time >= 10:
                 self.running = False
 
     model = TestModel()
     model.run_model()
-    assert model.steps == 10
+    assert model._steps == 10
     assert model.time == 10.0
 
 

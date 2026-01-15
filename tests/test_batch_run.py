@@ -370,7 +370,7 @@ def test_batch_run_legacy():
             self.schedule = None
             super().__init__()
             self.datacollector = DataCollector(
-                model_reporters={"Step": lambda m: m.steps},
+                model_reporters={"Step": lambda m: m._steps},
                 agent_reporters={"Dummy": lambda a: 1},
             )
             # FORCE LEGACY: Delete _collection_steps attribute manually
@@ -388,7 +388,7 @@ def test_batch_run_legacy():
     # Period = 2
     # range(0, 6, 2) generates -> [0, 2, 4]
     # The last model step is 5.
-    # steps[-1] (4) != model.steps-1 (5).
+    # steps[-1] (4) != model._steps-1 (5).
     # This forces the code to execute: steps.append(5)
     results = mesa.batch_run(
         LegacyModel,
@@ -504,12 +504,12 @@ class SparseCollectionModel(Model):
 
     def step(self):
         """Execute one model step, collecting data at specified intervals."""
-        if self.steps % self.collect_interval == 0:
+        if self._steps % self.collect_interval == 0:
             self.datacollector.collect(self)
 
         self.agent.step()
 
-        if self.steps >= 20:
+        if self._steps >= 20:
             self.running = False
 
 
@@ -761,11 +761,11 @@ def test_batch_run_agenttype_and_agent_reporters():
         def __init__(self, model, wealth):
             super().__init__(model)
             self.wealth = wealth
-            self.steps = 0
+            self._steps = 0
 
         def step(self):
             self.wealth += 1
-            self.steps += 1
+            self._steps += 1
 
     class MixedReportersModel(Model):
         """Model with both agent_reporters and agenttype_reporters."""
@@ -776,7 +776,7 @@ def test_batch_run_agenttype_and_agent_reporters():
             self.datacollector = DataCollector(
                 model_reporters={"agent_count": lambda m: len(m.agents)},
                 agent_reporters={"wealth": "wealth"},
-                agenttype_reporters={MixedAgent: {"type_steps": "steps"}},
+                agenttype_reporters={MixedAgent: {"type_steps": "_steps"}},
             )
             for i in range(n_agents):
                 MixedAgent(self, wealth=i * 10)
