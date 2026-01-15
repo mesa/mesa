@@ -8,11 +8,12 @@ This module provides helper functionality used by Mesa's reactive programming sy
 These utilities support the core signals implementation by providing reference
 management and convenient data structures used throughout the reactive system.
 """
+
 from __future__ import annotations
 
 import weakref
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 __all__ = [
     "Message",
