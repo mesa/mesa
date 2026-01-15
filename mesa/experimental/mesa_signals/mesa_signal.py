@@ -337,28 +337,28 @@ class HasObservables:
         """
         # fixme should name/signal_type also take a list of str?
         if not isinstance(name, All):
-            if name not in self.observables:
-                raise ValueError(
-                    f"you are trying to subscribe to {name}, but this Observable is not known"
-                )
-            else:
-                names = [
-                    name,
-                ]
+            names = [name] if isinstance(name, str) else name
+
+            for n in names:
+                if n not in self.observables:
+                    raise ValueError(
+                        f"you are trying to subscribe to {n}, but this Observable is not known"
+                    )
         else:
             names = self.observables.keys()
 
         for name in names:
             if not isinstance(signal_type, All):
-                if signal_type not in self.observables[name]:
-                    raise ValueError(
-                        f"you are trying to subscribe to a signal of {signal_type} "
-                        f"on Observable {name}, which does not emit this signal_type"
-                    )
-                else:
-                    signal_types = [
-                        signal_type,
-                    ]
+                signal_types = (
+                    [signal_type] if isinstance(signal_type, str) else signal_type
+                )
+
+                for st in signal_types:
+                    if st not in self.observables[name]:
+                        raise ValueError(
+                            f"you are trying to subscribe to a signal of {st} "
+                            f"on Observable {name}, which does not emit this signal_type"
+                        )
             else:
                 signal_types = self.observables[name]
 
@@ -375,23 +375,23 @@ class HasObservables:
             handler: the handler that is unsubscribing
 
         """
-        names = (
-            [
-                name,
-            ]
-            if not isinstance(name, All)
-            else self.observables.keys()
-        )
+        if isinstance(name, All):
+            names = self.observables.keys()
+        elif isinstance(name, str):
+            names = [name]
+        else:
+            names = name
 
         for name in names:
             # we need to do this here because signal types might
             # differ for name so for each name we need to check
             if isinstance(signal_type, All):
                 signal_types = self.observables[name]
+            elif isinstance(signal_type, str):
+                signal_types = [signal_type]
             else:
-                signal_types = [
-                    signal_type,
-                ]
+                signal_types = signal_type
+
             for signal_type in signal_types:
                 with contextlib.suppress(KeyError):
                     remaining = []
@@ -410,12 +410,15 @@ class HasObservables:
             name: name of the Observable to unsubscribe for all signal types
 
         """
-        if not isinstance(name, All):
-            with contextlib.suppress(KeyError):
-                del self.subscribers[name]
-                # ignore when unsubscribing to Observables that have no subscription
-        else:
+        if isinstance(name, All):
             self.subscribers = defaultdict(functools.partial(defaultdict, list))
+        else:
+            names = [name] if isinstance(name, str) else name
+
+            for n in names:
+                with contextlib.suppress(KeyError):
+                    del self.subscribers[n]
+                    # ignore when unsubscribing to Observables that have no subscription
 
     def notify(
         self,
