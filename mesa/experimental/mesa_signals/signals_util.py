@@ -8,15 +8,19 @@ This module provides helper functionality used by Mesa's reactive programming sy
 These utilities support the core signals implementation by providing reference
 management and convenient data structures used throughout the reactive system.
 """
+from __future__ import annotations
 
 import weakref
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 __all__ = [
     "Message",
     "create_weakref",
 ]
+
+if TYPE_CHECKING:
+    from mesa.experimental.mesa_signals import SignalType
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,8 +31,8 @@ class Message:
     old: Any
     new: Any
     owner: Any
-    type: str
-    additional_args: dict
+    type: SignalType
+    additional_kwargs: dict
 
 
 def create_weakref(item, callback=None):
