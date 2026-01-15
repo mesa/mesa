@@ -66,13 +66,15 @@ renderer = (
     .setup_structure(  # To customize the grid appearance.
         grid_color="black", grid_dash=[6, 2], grid_opacity=0.3
     )
-    .setup_agents(agent_portrayal, cmap="viridis", vmin=0, vmax=10)
+    .setup_agents(agent_portrayal, cmap="viridis", vmin=0, vmax=10,
+                  tooltip_fields=["Wealth", "Age"])
 )
 renderer.render()
 
 # The post_process function is used to modify the Altair chart after it has been created.
 # It can be used to add legends, colorbars, or other visual elements.
 renderer.post_process = post_process
+
 
 # Creates a line plot component from the model's "Gini" datacollector.
 GiniPlot = make_plot_component("Gini")
