@@ -450,7 +450,7 @@ class HasObservables:
         observable: str,
         old_value: Any,
         new_value: Any,
-        signal_type: str,
+        signal_type: str | SignalType,
         **kwargs,
     ):
         """Emit a signal.
