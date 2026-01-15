@@ -34,6 +34,7 @@ class Message:
     additional_kwargs: dict
 
 
+
 def create_weakref(item, callback=None):
     """Helper function to create a correct weakref for any item."""
     if hasattr(item, "__self__"):
