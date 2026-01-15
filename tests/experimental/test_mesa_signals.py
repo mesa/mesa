@@ -233,7 +233,7 @@ def test_Message():
         assert signal.old == 10
         assert signal.new == 5
         assert signal.owner == agent
-        assert signal.additional_args == {}
+        assert signal.additional_kwargs == {}
 
         items = dir(signal)
         for entry in ["name", "signal_type", "old", "new", "owner"]:
