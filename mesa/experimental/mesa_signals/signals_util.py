@@ -22,6 +22,7 @@ __all__ = [
 @dataclass(frozen=True)
 class Message:
     """A message class containing information about a signal change."""
+
     name: str
     old: Any
     new: Any
