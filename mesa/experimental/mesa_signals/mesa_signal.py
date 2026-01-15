@@ -348,7 +348,7 @@ class HasObservables:
     def observe(
         self,
         name: str | All,
-        signal_type: str | All,
+        signal_type: str | SignalType | All,
         handler: Callable,
     ):
         """Subscribe to the Observable <name> for signal_type.
@@ -394,7 +394,7 @@ class HasObservables:
             for signal_type in signal_types:
                 self.subscribers[name][signal_type].append(ref)
 
-    def unobserve(self, name: str | All, signal_type: str | All, handler: Callable):
+    def unobserve(self, name: str | All, signal_type: str | SignalType | All, handler: Callable):
         """Unsubscribe to the Observable <name> for signal_type.
 
         Args:
@@ -468,8 +468,8 @@ class HasObservables:
             old=old_value,
             new=new_value,
             owner=self,
-            type=signal_type,
-            additional_args=kwargs,
+            signal_type=signal_type,
+            additional_kwargs=kwargs,
         )
 
         self._mesa_notify(signal)
