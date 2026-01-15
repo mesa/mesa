@@ -108,7 +108,8 @@ Sometimes the answer is that we just need better documentation. Python itself is
 With alignment on both problem and design, implementation can proceed:
 
 - Write the code following Mesa's standards
-- Include tests and documentation
+- Include/update tests and and check test coverage
+- Include/update documentation and check Readthedocs rendering
 - Open a PR for review
 
 And if needed:
