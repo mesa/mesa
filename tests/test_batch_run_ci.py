@@ -1,5 +1,4 @@
-"""
-CI smoke test for batch_run.
+"""CI smoke test for batch_run.
 
 Ensures batch_run executes example models without crashing.
 """
