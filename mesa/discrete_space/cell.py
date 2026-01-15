@@ -131,7 +131,12 @@ class Cell:
             agent (CellAgent): agent to remove from this cell
 
         """
-        self._agents.remove(agent)
+        # super nerdy swap remove trick to make removal faster
+        _agents = self._agents
+        index = _agents.index(agent)
+        _agents[index] = _agents[-1]
+        _agents.pop()
+
         self.empty = self.is_empty
 
     @property
