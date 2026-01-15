@@ -66,8 +66,13 @@ renderer = (
     .setup_structure(  # To customize the grid appearance.
         grid_color="black", grid_dash=[6, 2], grid_opacity=0.3
     )
-    .setup_agents(agent_portrayal, cmap="viridis", vmin=0, vmax=10,
-                  tooltip_fields=["Wealth", "Age"])
+    .setup_agents(
+        agent_portrayal,
+        cmap="viridis",
+        vmin=0,
+        vmax=10,
+        tooltip_fields=["Wealth", "Age"],
+    )
 )
 renderer.render()
 
