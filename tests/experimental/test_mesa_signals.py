@@ -11,7 +11,7 @@ from mesa.experimental.mesa_signals import (
     Computed,
     HasObservables,
     Observable,
-    ObservableList,
+    ObservableList, ListSignalType,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 
@@ -145,9 +145,9 @@ def test_ObservableList():
             name="my_list",
             new=1,
             old=None,
-            type="append",
+            signal_type=ListSignalType.APPEND,
             owner=agent,
-            additional_args={"index": 0},
+            additional_kwargs={"index": 0},
         )
     )
     agent.unobserve("my_list", "append", handler)
