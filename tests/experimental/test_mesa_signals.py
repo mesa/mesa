@@ -229,14 +229,14 @@ def test_Message():
 
     def on_change(signal: Message):
         assert signal.name == "some_attribute"
-        assert signal.type == "change"
+        assert signal.signal_type == "change"
         assert signal.old == 10
         assert signal.new == 5
         assert signal.owner == agent
         assert signal.additional_args == {}
 
         items = dir(signal)
-        for entry in ["name", "type", "old", "new", "owner"]:
+        for entry in ["name", "signal_type", "old", "new", "owner"]:
             assert entry in items
 
     model = Model(seed=42)

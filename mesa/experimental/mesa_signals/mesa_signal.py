@@ -487,9 +487,9 @@ class HasObservables:
 
         """
         # we put this into a helper method, so we can emit signals with other fields
-        # then the default ones in notify.
+        # than the default ones in notify.
         observable = signal.name
-        signal_type = signal.type
+        signal_type = signal.signal_type
 
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
