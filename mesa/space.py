@@ -589,10 +589,14 @@ def ufunc_requires_additional_input(ufunc):  # noqa: D103
     return ufunc.nargs > 1
 
 
-class PropertyLayer:
+
+from mesa.discrete_space.property_layer import PropertyLayer as NewPropertyLayer
+
+class PropertyLayer(NewPropertyLayer):
     """A class representing a layer of properties in a two-dimensional grid.
 
     Each cell in the grid can store a value of a specified data type.
+    This class inherits from mesa.discrete_space.property_layer.PropertyLayer.
 
     Attributes:
         name (str): The name of the property layer.
@@ -625,10 +629,6 @@ class PropertyLayer:
             over the precision and efficiency of data storage and computations, especially in cases of large data
             volumes or specialized numerical operations.
         """
-        self.name = name
-        self.width = width
-        self.height = height
-
         # Check that width and height are positive integers
         if (not isinstance(width, int) or width < 1) or (
             not isinstance(height, int) or height < 1
@@ -636,20 +636,10 @@ class PropertyLayer:
             raise ValueError(
                 f"Width and height must be positive integers, got {width} and {height}."
             )
-        # Check if the dtype is suitable for the data
-        try:
-            if dtype(default_value) != default_value:
-                warnings.warn(
-                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-        except (ValueError, TypeError) as e:
-            raise TypeError(
-                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
-            ) from e
-
-        self.data = np.full((width, height), default_value, dtype=dtype)
+        
+        super().__init__(name, (width, height), default_value, dtype)
+        self.width = width
+        self.height = height
 
     def set_cell(self, position: Coordinate, value):
         """Update a single cell's value in-place."""
@@ -716,30 +706,7 @@ class PropertyLayer:
             value: The value to be used if the operation is a NumPy ufunc. Ignored for lambda functions.
             condition_function: (Optional) A callable that returns a boolean array when applied to the data.
         """
-        condition_array = np.ones_like(
-            self.data, dtype=bool
-        )  # Default condition (all cells)
-        if condition_function is not None:
-            if isinstance(condition_function, np.ufunc):
-                condition_array = condition_function(self.data)
-            else:
-                vectorized_condition = np.vectorize(condition_function)
-                condition_array = vectorized_condition(self.data)
-
-        # Check if the operation is a lambda function or a NumPy ufunc
-        if isinstance(operation, np.ufunc):
-            if ufunc_requires_additional_input(operation):
-                if value is None:
-                    raise ValueError("This ufunc requires an additional input value.")
-                modified_data = operation(self.data, value)
-            else:
-                modified_data = operation(self.data)
-        else:
-            # Vectorize non-ufunc operations
-            vectorized_operation = np.vectorize(operation)
-            modified_data = vectorized_operation(self.data)
-
-        self.data = np.where(condition_array, modified_data, self.data)
+        super().modify_cells(operation, value, condition=condition_function)
 
     def select_cells(self, condition, return_list=True):
         """Find cells that meet a specified condition using NumPy's boolean indexing, in-place.
@@ -763,7 +730,7 @@ class PropertyLayer:
         Args:
             operation: A function to apply. Can be a lambda function or a NumPy ufunc.
         """
-        return operation(self.data)
+        return self.aggregate(operation)
 
 
 class _PropertyGrid(_Grid):
