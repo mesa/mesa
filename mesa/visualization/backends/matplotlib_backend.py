@@ -110,7 +110,7 @@ class MatplotlibBackend(AbstractRenderer):
             if isinstance(portray_input, dict):
                 warnings.warn(
                     (
-                        "Returning a dict from agent_portrayal is deprecated. "
+                        "Returning a dict from agent_portrayal is deprecated and will be removed in Mesa 4.0. "
                         "Please return an AgentPortrayalStyle instance instead. "
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
