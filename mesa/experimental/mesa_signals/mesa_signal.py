@@ -336,31 +336,31 @@ class HasObservables:
 
         """
         # fixme should name/signal_type also take a list of str?
-        if not isinstance(name, All):
+        if isinstance(name, All):
+            names = self.observables.keys()
+        else:
             names = [name] if isinstance(name, str) else name
 
-            for n in names:
-                if n not in self.observables:
-                    raise ValueError(
-                        f"you are trying to subscribe to {n}, but this Observable is not known"
-                    )
-        else:
-            names = self.observables.keys()
+        for n in names:
+            if n not in self.observables:
+                raise ValueError(
+                    f"you are trying to subscribe to {n}, but this Observable is not known"
+                )
 
         for name in names:
-            if not isinstance(signal_type, All):
+            if isinstance(signal_type, All):
+                signal_types = self.observables[name]
+            else:
                 signal_types = (
                     [signal_type] if isinstance(signal_type, str) else signal_type
                 )
 
-                for st in signal_types:
-                    if st not in self.observables[name]:
-                        raise ValueError(
-                            f"you are trying to subscribe to a signal of {st} "
-                            f"on Observable {name}, which does not emit this signal_type"
-                        )
-            else:
-                signal_types = self.observables[name]
+            for st in signal_types:
+                if st not in self.observables[name]:
+                    raise ValueError(
+                        f"you are trying to subscribe to a signal of {st} "
+                        f"on Observable {name}, which does not emit this signal_type"
+                    )
 
             ref = create_weakref(handler)
             for signal_type in signal_types:
@@ -377,20 +377,18 @@ class HasObservables:
         """
         if isinstance(name, All):
             names = self.observables.keys()
-        elif isinstance(name, str):
-            names = [name]
         else:
-            names = name
+            names = [name] if isinstance(name, str) else name
 
         for name in names:
             # we need to do this here because signal types might
             # differ for name so for each name we need to check
             if isinstance(signal_type, All):
                 signal_types = self.observables[name]
-            elif isinstance(signal_type, str):
-                signal_types = [signal_type]
             else:
-                signal_types = signal_type
+                signal_types = (
+                    [signal_type] if isinstance(signal_type, str) else signal_type
+                )
 
             for signal_type in signal_types:
                 with contextlib.suppress(KeyError):
