@@ -16,13 +16,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
+from mesa.experimental.devs.eventlist import (
+    EventList,
+    Priority,
+    RecurringEvent,
+    SimulationEvent,
+)
 
 if TYPE_CHECKING:
     from mesa.model import Model
 
 
-def scheduled(func=None, *, interval: int | float = 1.0, priority: Priority = Priority.DEFAULT):
+def scheduled(
+    func=None, *, interval: int | float = 1.0, priority: Priority = Priority.DEFAULT
+):
     """Decorator to mark a method for automatic recurring scheduling.
 
     Can be used with or without parentheses:
@@ -173,14 +180,14 @@ class Scheduler:
         # Iterate through the class, not the instance
         for name in dir(self.model.__class__):
             # Skip private methods and properties
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             # Get the attribute from the CLASS, not the instance
             class_attr = getattr(self.model.__class__, name)
 
             # Check if it's a method with _scheduled attribute
-            if callable(class_attr) and hasattr(class_attr, '_scheduled'):
+            if callable(class_attr) and hasattr(class_attr, "_scheduled"):
                 interval = class_attr._scheduled_interval
                 priority = class_attr._scheduled_priority
 
@@ -191,10 +198,7 @@ class Scheduler:
                 self._schedule_recurring(bound_method, interval, priority)
 
     def _schedule_recurring(
-            self,
-            method: Callable,
-            interval: int | float,
-            priority: Priority
+        self, method: Callable, interval: int | float, priority: Priority
     ) -> None:
         """Schedule a method to recur at fixed intervals.
 
@@ -204,19 +208,15 @@ class Scheduler:
             priority: Priority level for the events
         """
         next_time = self.model.time + interval
-        event = SimulationEvent(
+        event = RecurringEvent(
             time=next_time,
             function=method,
+            scheduler=self,
+            interval=interval,
             priority=priority,
             function_args=[],
-            function_kwargs={}
+            function_kwargs={},
         )
-
-        # Mark the event as recurring so we can reschedule it after execution
-        event._recurring = True
-        event._interval = interval
-        event._priority = priority
-
         self.event_list.add_event(event)
 
 
@@ -242,25 +242,24 @@ class RunControl:
         self.scheduler = scheduler
 
     def run_until(self, end_time: int | float) -> None:
-        """Run the model until the specified time."""
+        """Run the model until the specified time.
+
+        Executes all events scheduled up to and including end_time.
+
+        Args:
+            end_time: The simulation time to run until
+        """
         while not self.scheduler.event_list.is_empty():
             try:
                 event = self.scheduler.event_list.pop_event()
             except IndexError:
+                # No more events
                 self.model.time = end_time
                 break
 
             if event.time <= end_time:
                 self.model.time = event.time
-                event.execute()
-
-                # If this is a recurring event, reschedule it
-                if hasattr(event, '_recurring') and event._recurring:
-                    self.scheduler._schedule_recurring(
-                        event.fn(),  # Get the actual function
-                        event._interval,
-                        event._priority
-                    )
+                event.execute()  # RecurringEvent handles rescheduling itself
             else:
                 # Event is beyond end_time, put it back
                 self.scheduler.event_list.add_event(event)
@@ -306,13 +305,6 @@ class RunControl:
                 self.model.time = event.time
                 event.execute()
 
-                # If this is a recurring event, reschedule it
-                if hasattr(event, '_recurring') and event._recurring:
-                    self.scheduler._schedule_recurring(
-                        event.fn(),
-                        event._interval,
-                        event._priority
-                    )
             except IndexError:
                 break
 
