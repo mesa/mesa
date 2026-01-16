@@ -302,3 +302,53 @@ def test_computed():
     # Error should be raised when we try to evaluate the property
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = agent.c1
+
+
+def test_computed_dynamic_dependencies():
+    """Test that dependencies are correctly pruned (cleared) when code paths change.
+
+    This ensures that if a computed property stops using a dependency (e.g. via an if/else),
+    it stops listening to that dependency (Zombie Dependencies).
+    """
+
+    class DynamicAgent(Agent, HasObservables):
+        use_a = Observable()
+        val_a = Observable()
+        val_b = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.use_a = True
+            self.val_a = 10
+            self.val_b = 20
+
+        @computed
+        def result(self):
+            if self.use_a:
+                return self.val_a
+            else:
+                return self.val_b
+
+    model = Model(seed=42)
+    agent = DynamicAgent(model)
+
+    # Use Path A (depends on val_a)
+    assert agent.result == 10
+
+    # Switch to Path B (should now depend ONLY on val_b)
+    agent.use_a = False
+    assert agent.result == 20
+
+    # Modify 'val_a'
+    # Since we are on Path B, changes to val_a should be ignored.
+    handler = Mock()
+    agent.observe("result", "change", handler)
+
+    agent.val_a = 999  # Should NOT trigger 'result' change
+    handler.assert_not_called()
+
+    # Modify 'val_b'
+    # This SHOULD trigger a notification
+    agent.val_b = 30
+    handler.assert_called_once()
+    assert agent.result == 30
