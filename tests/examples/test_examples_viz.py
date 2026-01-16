@@ -131,9 +131,8 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         Sheep,
         Wolf,
     )
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
-    model = WolfSheep(simulator=ABMSimulator(), rng=42)
+    model = WolfSheep(rng=42)
 
     def agent_portrayal(agent):
         if agent is None:
