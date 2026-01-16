@@ -452,14 +452,12 @@ class HasObservables:
             case All():
                 self.subscribers = defaultdict(functools.partial(defaultdict, list))
             case str():
-                names = [name]
-            case _:
-                names = name
-
-        if not isinstance(name, All):
-            for n in names:
                 with contextlib.suppress(KeyError):
-                    del self.subscribers[n]
+                    del self.subscribers[name]
+            case _:
+                for n in name:
+                    with contextlib.suppress(KeyError):
+                        del self.subscribers[n]
                     # ignore when unsubscribing to Observables that have no subscription
 
     def notify(
