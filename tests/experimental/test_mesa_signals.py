@@ -63,7 +63,8 @@ def test_HasObservables():
 
     # For attributes with no observers, use .get() to safely access the lazy dict
     subscribers = {
-        entry() for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 0
 
@@ -76,7 +77,9 @@ def test_HasObservables():
 
     agent.unobserve(All(), "change", handler)
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers.get(attr, {}).get("change", [])}
+        subscribers = {
+            entry() for entry in agent.subscribers.get(attr, {}).get("change", [])
+        }
         assert handler not in subscribers
         assert len(subscribers) == 0
 
