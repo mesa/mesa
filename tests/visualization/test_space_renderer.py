@@ -197,7 +197,7 @@ def test_property_layer_style_instance():
     sr.backend_renderer = MagicMock()
 
     style = PropertyLayerStyle(color="blue")
-    sr.draw_propertylayer(style)
+    sr.setup_propertylayer(style).draw_propertylayer()
 
     # Verify that the backend renderer's draw_propertylayer was called
     sr.backend_renderer.draw_propertylayer.assert_called_once()
