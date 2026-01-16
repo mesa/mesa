@@ -28,7 +28,10 @@ from types import MethodType
 from typing import Any
 from weakref import WeakMethod, ref
 
-from mesa.timeflow import Scheduler
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mesa.timeflow import Scheduler
 
 
 class Priority(IntEnum):
