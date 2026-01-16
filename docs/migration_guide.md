@@ -3,6 +3,111 @@ This guide contains breaking changes between major Mesa versions and how to reso
 
 Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
 
+## Mesa 3.5
+### Unified time API
+Mesa 3.5 adds a new Unified time API, consisting of a `@scheduled` decorator and run methods. Calling `model.step()` directly in a for-loop is deprecated.
+
+Previously, models could advance time by calling `model.step()` repeatedly (in a loop), where each iteration manually triggered one time step. With the new unified time API, the `@scheduled` decorator marks methods for automatic execution at regular intervals, and the `run_for()` method handles time advancement and event execution. This integrates discrete event scheduling directly into Mesa models, allowing you to combine regular stepping with one-off events and agent self-scheduling.
+
+#### Using @scheduled for recurring methods
+```python
+# Old
+class MyModel(Model):
+    def step(self):
+        self.agents.shuffle_do("step")
+
+model = MyModel()
+for _ in range(100):
+    model.step()
+
+# New
+from mesa.timeflow import scheduled
+
+class MyModel(Model):
+    @scheduled
+    def step(self):
+        self.agents.shuffle_do("step")
+
+model = MyModel()
+model.run_for(100)
+```
+
+The `@scheduled` decorator automatically schedules the method to run every 1.0 time units by default. You can customize the interval:
+```python
+@scheduled(interval=7)  # Run every 7 time units
+def weekly_update(self):
+    self.collect_statistics()
+
+@scheduled(interval=0.5)  # Run twice per time unit
+def fast_update(self):
+    self.update_physics()
+```
+
+#### New run methods
+Models now have several ways to advance time:
+```python
+# Run for a specific duration
+model.run_for(100)
+
+# Run until a specific time
+model.run_until(500.0)
+
+# Run while a condition is true
+model.run_while(lambda m: m.running)
+
+# Execute next scheduled event (useful for debugging)
+model.run_next_event()
+```
+
+#### Event scheduling
+You can now schedule one-off or agent-triggered events:
+```python
+class MyModel(Model):
+    def __init__(self):
+        super().__init__()
+        self.schedule_at(self.disaster, time=50.0)  # Schedule one-off event
+
+    @scheduled
+    def step(self):
+        self.agents.shuffle_do("step")
+
+    def disaster(self):  # This fires once at t=50
+        self.resources *= 0.5
+
+# Agents can schedule their own events
+class Citizen(Agent):
+    def get_arrested(self, sentence):
+        self.in_jail = True
+        # Schedule release after sentence duration
+        self.model.schedule_after(self.release, delay=sentence)
+
+    def release(self):
+        self.in_jail = False
+```
+
+#### Pure event-driven models
+For discrete event simulation without regular stepping, omit the `@scheduled` decorator entirely:
+```python
+class QueueingModel(Model):
+    def __init__(self, arrival_rate):
+        super().__init__()
+        self.arrival_rate = arrival_rate
+        # Bootstrap with first arrival
+        self.schedule_at(self.customer_arrival, time=0)
+
+    def customer_arrival(self):
+        Customer(self)
+        # Schedule next arrival
+        next_time = self.time + self.random.expovariate(self.arrival_rate)
+        self.schedule_at(self.customer_arrival, time=next_time)
+
+model = QueueingModel(arrival_rate=2.0)
+model.run_until(1000.0)  # Time jumps between events
+```
+Mesa 4.0 will remove time advancement by calling `model.step()` repeatedly.
+
+**References:** [Discussion #2921](https://github.com/projectmesa/mesa/discussions/2921)
+
 ## Mesa 3.4.0
 
 ### batch run
