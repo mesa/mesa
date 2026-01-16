@@ -18,7 +18,14 @@ The implementation supports both pure discrete event simulation and hybrid appro
 combining agent-based modeling with event scheduling.
 """
 
-from .eventlist import Priority, SimulationEvent
+from .eventlist import EventList, Priority, SimulationEvent
 from .simulator import ABMSimulator, DEVSimulator, Simulator
 
-__all__ = ["ABMSimulator", "DEVSimulator", "Priority", "SimulationEvent", "Simulator"]
+__all__ = [
+    "ABMSimulator",
+    "DEVSimulator",
+    "EventList",
+    "Priority",
+    "SimulationEvent",
+    "Simulator",
+]

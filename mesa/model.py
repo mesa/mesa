@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 import sys
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 # mypy
 from typing import Any
@@ -20,6 +20,7 @@ from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
+from mesa.timeflow import Priority, RunControl, Scheduler, SimulationEvent
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -103,6 +104,10 @@ class Model[A: Agent, S: Scenario]:
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
 
+        # Add timeflow components
+        self._scheduler = Scheduler(self)
+        self._run_control = RunControl(self, self._scheduler)
+
         # check if `scenario` is provided
         # and if so, whether rng is the same or not
         if scenario is not None:
@@ -165,17 +170,32 @@ class Model[A: Agent, S: Scenario]:
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
-        # Automatically increment time and step counters
+        # Automatically increment step counter
         self.steps += 1
+
+        # Schedule the user's step method to run at the next time unit
         # Only auto-increment time if no simulator is controlling it
         if self._simulator is None:
-            self.time += 1
+            self._scheduler.schedule_at(
+                callback=self._user_step,
+                time=self.time + 1,
+                priority=Priority.HIGH,
+                args=args,
+                kwargs=kwargs,
+            )
 
-        _mesa_logger.info(
-            f"calling model.step for step {self.steps} at time {self.time}"
-        )
-        # Call the original user-defined step method
-        self._user_step(*args, **kwargs)
+            _mesa_logger.info(
+                f"calling model.step for step {self.steps} at time {self.time + 1}"
+            )
+
+            # Run until that scheduled event completes
+            self.run_for(1)
+        else:
+            # Simulator is controlling time, just call the method
+            _mesa_logger.info(
+                f"calling model.step for step {self.steps} at time {self.time}"
+            )
+            self._user_step(*args, **kwargs)
 
     @property
     def agents(self) -> AgentSet[A]:
@@ -303,3 +323,45 @@ class Model[A: Agent, S: Scenario]:
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
         for agent in list(self._agents.keys()):
             agent.remove()
+
+    def schedule_at(
+        self,
+        callback: Callable,
+        time: int | float,
+        priority: Priority = Priority.DEFAULT,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
+    ) -> SimulationEvent:
+        """Schedule an event at an absolute time."""
+        return self._scheduler.schedule_at(callback, time, priority, args, kwargs)
+
+    def schedule_after(
+        self,
+        callback: Callable,
+        delay: int | float,
+        priority: Priority = Priority.DEFAULT,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
+    ) -> SimulationEvent:
+        """Schedule an event after a delay from current time."""
+        return self._scheduler.schedule_after(callback, delay, priority, args, kwargs)
+
+    def cancel_event(self, event: SimulationEvent) -> None:
+        """Cancel a scheduled event."""
+        self._scheduler.cancel(event)
+
+    def run_until(self, end_time: int | float) -> None:
+        """Run the model until the specified time."""
+        self._run_control.run_until(end_time)
+
+    def run_for(self, duration: int | float) -> None:
+        """Run the model for a specific duration."""
+        self._run_control.run_for(duration)
+
+    def run_while(self, condition: Callable[[Model], bool]) -> None:
+        """Run the model while a condition remains true."""
+        self._run_control.run_while(condition)
+
+    def run_next_event(self) -> bool:
+        """Execute the next scheduled event."""
+        return self._run_control.run_next_event()
