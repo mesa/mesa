@@ -123,10 +123,10 @@ class GrassPatch(FixedAgent):
         self._fully_grown = value
 
         if not value:  # If grass was just eaten
-            self.model.simulator.schedule_event_relative(
+            self.model.schedule_after(
                 setattr,
-                self.grass_regrowth_time,
-                function_args=[self, "fully_grown", True],
+                delay=self.grass_regrowth_time,
+                args=[self, "fully_grown", True],
             )
 
     def __init__(self, model, countdown, grass_regrowth_time, cell):
@@ -145,6 +145,6 @@ class GrassPatch(FixedAgent):
 
         # Schedule initial growth if not fully grown
         if not self.fully_grown:
-            self.model.simulator.schedule_event_relative(
-                setattr, countdown, function_args=[self, "fully_grown", True]
+            self.model.schedule_after(
+                setattr, delay=countdown, args=[self, "fully_grown", True]
             )

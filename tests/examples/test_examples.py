@@ -100,13 +100,11 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 def test_wolf_sheep():  # noqa: D103
     from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
     app.page  # noqa: B018
 
-    simulator = ABMSimulator()
-    WolfSheep(rng=42, simulator=simulator)
-    simulator.run_for(10)
+    model = WolfSheep(rng=42)
+    model.run_for(10)
 
 
 def test_alliance_formation_model():  # noqa: D103
