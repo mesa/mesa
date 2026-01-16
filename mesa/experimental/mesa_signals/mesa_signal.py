@@ -65,10 +65,10 @@ class SignalType(str, Enum):
         return self.value
 
 
-_hashable_signal = namedtuple("_HashableSignal", "instance name")
+_hashable_signal = namedtuple("_HashableSignal", "instance observable")
 
 CURRENT_COMPUTED: Computed | None = None  # the current Computed that is evaluating
-PROCESSING_SIGNALS: set[tuple[str,]] = set()
+PROCESSING_SIGNALS: set[tuple[HasObservables, BaseObservable]] = set()
 
 
 class BaseObservable(ABC):
@@ -91,9 +91,7 @@ class BaseObservable(ABC):
             # this Observable as a parent
             CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
 
-            # fixme, this can be done more cleanly
-            #  problem here is that we cannot use self (i.e., the observable), we need to add the instance as well
-            PROCESSING_SIGNALS.add(_hashable_signal(instance, self.public_name))
+            PROCESSING_SIGNALS.add(_hashable_signal(instance, self))
 
         return value
 
@@ -131,7 +129,7 @@ class Observable(BaseObservable):
     def __set__(self, instance: HasObservables, value):  # noqa D103
         if (
             CURRENT_COMPUTED is not None
-            and _hashable_signal(instance, self.public_name) in PROCESSING_SIGNALS
+            and _hashable_signal(instance, self) in PROCESSING_SIGNALS
         ):
             raise ValueError(
                 f"cyclical dependency detected: Computed({CURRENT_COMPUTED.name}) tries to change "
