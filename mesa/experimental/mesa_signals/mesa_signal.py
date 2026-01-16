@@ -213,17 +213,36 @@ class Computed:
         self.name: str = ""  # set by Computable
         self.owner: HasObservables  # set by Computable
 
+
+        # so what exactly is in here?
+        # has observables is some object that can emit signals
+        # the inner dict has the name of the observable and its last accessed value
+        # as value?
         self.parents: weakref.WeakKeyDictionary[HasObservables, dict[str, Any]] = (
             weakref.WeakKeyDictionary()
         )
 
+        # fixme::
+        #     in __call__ we do an extensive check
+        #     to see if parents have changed more then once, and are back at
+        #     their original values. This is not very efficient.
+        #     One way to avoid this is to count the number of times a parent changes,
+        #     if this is larger than 1, we need to check, otherwise we don't
+        #
+        # fixme::
+        #     another option is to use message.value to just cache all changed values
+        #     we then don't need to check because we know its latest value
+        self._parent_change_counts: dict[str, int] = {}
+
     def __str__(self):
         return f"COMPUTED: {self.name}"
 
-    def _set_dirty(self, signal):
+    def _set_dirty(self, signal: Message):
+        self._parent_change_counts[signal.name] += 1
+
         if not self._is_dirty:
             self._is_dirty = True
-            self.owner.notify(self.name, self._value, None, "change")
+            self.owner.notify(self.name, self._value, None, SignalType.CHANGE)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any
