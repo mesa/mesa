@@ -277,8 +277,8 @@ class Computed:
                 changed = True
                 self._first = False
 
-            # we might be dirty but values might have changed
-            # back and forth in our parents so let's check to make sure we
+            # we might be dirty, but values might have changed
+            # back and forth in our parents, so let's check to make sure we
             # really need to recalculate
             if not changed:
                 for parent in self.parents.keyrefs():
