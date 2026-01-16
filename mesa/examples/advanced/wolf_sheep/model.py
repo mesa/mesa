@@ -15,7 +15,7 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
-from mesa.experimental.devs import ABMSimulator
+from mesa.timeflow import scheduled
 
 
 class WolfSheep(Model):
@@ -41,7 +41,6 @@ class WolfSheep(Model):
         grass_regrowth_time=30,
         sheep_gain_from_food=4,
         rng=None,
-        simulator: ABMSimulator = None,
     ):
         """Create a new Wolf-Sheep model with the given parameters.
 
@@ -61,8 +60,6 @@ class WolfSheep(Model):
             simulator: ABMSimulator instance for event scheduling
         """
         super().__init__(rng=rng)
-        self.simulator = simulator
-        self.simulator.setup(self)
 
         # Initialize model parameters
         self.height = height
@@ -122,6 +119,7 @@ class WolfSheep(Model):
         self.running = True
         self.datacollector.collect(self)
 
+    @scheduled
     def step(self):
         """Execute one step of the model."""
         # First activate all sheep, then all wolves, both in random order
