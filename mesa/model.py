@@ -175,6 +175,14 @@ class Model[A: Agent, S: Scenario]:
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
+        # Warn about deprecated manual stepping
+        warnings.warn(
+            "Calling model.step() directly in a loop is deprecated and will be removed in Mesa 4.0."
+            "Use the @scheduled decorator and run methods instead. See: https://mesa.readthedocs.io/latest/migration_guide.html#unified-time-api",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
+
         # Automatically increment step counter
         self.steps += 1
 
