@@ -54,11 +54,17 @@ def test_HasObservables():
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert handler in subscribers
 
     agent.unobserve("some_attribute", "change", handler)
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert handler not in subscribers
 
     # For attributes with no observers, use .get() to safely access the lazy dict
@@ -72,7 +78,9 @@ def test_HasObservables():
     agent.observe(All(), "change", handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[attr]["change"]}
+        subscribers = {
+            entry() for entry in agent.subscribers.get(attr, {}).get("change", [])
+        }
         assert handler in subscribers
 
     agent.unobserve(All(), "change", handler)
@@ -90,24 +98,35 @@ def test_HasObservables():
         agent.observe("some_attribute", "change", handler)
         agent.observe("some_other_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == nr_observers
 
     agent.clear_all_subscriptions("some_attribute")
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 3
 
     agent.clear_all_subscriptions(All())
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 0
 
