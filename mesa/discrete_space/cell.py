@@ -14,7 +14,7 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache, cached_property
+from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
@@ -39,14 +39,22 @@ class Cell:
     """
 
     __slots__ = [
-        "__dict__",
         "_agents",
+        "_empty",
         "capacity",
         "connections",
         "coordinate",
         "properties",
         "random",
     ]
+
+    @property
+    def empty(self) -> bool:  # noqa: D102
+        return self._empty
+
+    @empty.setter
+    def empty(self, value: bool) -> None:
+        self._empty = value
 
     def __init__(
         self,
@@ -146,7 +154,7 @@ class Cell:
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
 
-    @cached_property
+    @property
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
@@ -183,28 +191,54 @@ class Cell:
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
-        # if radius == 0:
-        #     return {self: self.agents}
+        """Return cells within given radius using iterative BFS.
+
+        Note: This implementation uses iterative breadth-first search instead
+        of recursion to avoid RecursionError on large radius values.
+        """
         if radius < 1:
             raise ValueError("radius must be larger than one")
+
+        # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:
             neighborhood = {
                 neighbor: neighbor._agents for neighbor in self.connections.values()
             }
-            if not include_center:
-                return neighborhood
-            else:
+            if include_center:
                 neighborhood[self] = self._agents
-                return neighborhood
-        else:
-            neighborhood: dict[Cell, list[Agent]] = {}
-            for neighbor in self.connections.values():
-                neighborhood.update(
-                    neighbor._neighborhood(radius - 1, include_center=True)
-                )
-            if not include_center:
-                neighborhood.pop(self, None)
             return neighborhood
+
+        # Use iterative BFS for radius > 1 to avoid RecursionError
+        visited: set[Cell] = {self}
+        current_layer: list[Cell] = list(self.connections.values())
+        neighborhood: dict[Cell, list[Agent]] = {}
+
+        # Add immediate neighbors (radius=1)
+        for neighbor in current_layer:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                neighborhood[neighbor] = neighbor._agents
+
+        # Expand outward for remaining radius levels
+        for _ in range(radius - 1):
+            next_layer: list[Cell] = []
+            for cell in current_layer:
+                for neighbor in cell.connections.values():
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        next_layer.append(neighbor)
+                        neighborhood[neighbor] = neighbor._agents
+            current_layer = next_layer
+            if not current_layer:
+                break  # No more cells to explore
+
+        # Handle center inclusion
+        if include_center:
+            neighborhood[self] = self._agents
+        else:
+            neighborhood.pop(self, None)
+
+        return neighborhood
 
     def __getstate__(self):
         """Return state of the Cell with connections set to empty."""
@@ -215,12 +249,5 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        try:
-            self.__dict__.pop(
-                "neighborhood"
-            )  # cached properties are stored in __dict__, see functools.cached_property docs
-        except KeyError:
-            pass  # cache is not set
-        else:
-            self.get_neighborhood.cache_clear()
-            self._neighborhood.cache_clear()
+        self.get_neighborhood.cache_clear()
+        self._neighborhood.cache_clear()

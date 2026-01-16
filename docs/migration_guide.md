@@ -3,7 +3,29 @@ This guide contains breaking changes between major Mesa versions and how to reso
 
 Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
 
-## Mesa 3.4.0
+## Mesa 3.5
+### model steps deprecated
+`model.steps` is deprecated and will be removed in Mesa 4.0. Use `model.time` instead.
+
+Previously, time in Mesa was fragmented: simple models used `model.steps` as a proxy for time, while discrete event simulations stored time separately in `simulator.time`.
+`model.time` is now the single, canonical source of simulation time in Mesa.
+
+For most use cases, simply replace `model.steps` with `model.time`. Since `model.time` is a float that increments by 1.0 per step by default, the numerical values will be equivalent.
+
+```python
+# Old
+current = model.steps
+
+# New
+current = model.time
+
+# If you need an integer step count, cast to int
+current = int(model.time)
+```
+
+- Ref: [PR #3136](https://github.com/projectmesa/mesa/pull/3136), [PR #2903](https://github.com/projectmesa/mesa/pull/2903)
+
+## Mesa 3.4
 
 ### batch run
 `batch_run` has been updated to offer explicit control over the random seeds that are used to run multiple replications of a given experiment. For this a new keyword argument, `rng` has been added and `iterations` will issue a `DeprecationWarning`. The new `rng` keyword argument takes a valid value for seeding or a list of valid values. If you want to run multiple iterations/replications of a given experiment, you need to pass the required seeds explicitly.
@@ -29,7 +51,7 @@ results = mesa.batch_run(
 )
 ```
 
-## Mesa 3.3.0
+## Mesa 3.3
 
 Mesa 3.3.0 is a visualization upgrade introducing a new and improved API, full support for both `altair` and `matplotlib` backends, and resolving several recurring issues from previous versions.
 For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html).

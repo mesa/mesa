@@ -33,6 +33,10 @@ def test_orthogonal_grid_neumann():
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
 
+    with pytest.raises(AttributeError):
+        cell = grid.cell_klass(1)
+        cell.a = 5  # because of __slots__ this should not be possible
+
     assert len(grid._cells) == width * height
 
     # von neumann neighborhood, torus false, top left corner
@@ -962,6 +966,18 @@ def test_property_layer():
     assert layer.aggregate(np.sum) == 100
 
 
+def test_property_layer_from_data():
+    """Test PropertyLayer.from_data factory method."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+
+    data = np.random.default_rng(12456).random((5, 5))
+    grid.add_property_layer(PropertyLayer.from_data("elevation", data))
+
+    # using from_data should not have side effects
+    grid._cells[(2, 2)].elevation = 2
+    assert data[2, 2] != grid._cells[(2, 2)].elevation
+
+
 def test_property_layer_errors():
     """Test error handling for PropertyLayers."""
     dimensions = 5, 5
@@ -1164,3 +1180,91 @@ def test_select_random_empty_cell_fallback():
     # Ensure the property layer data was actually correct (the fallback relies on this)
     assert grid.empty.data[5, 5]
     assert not grid.empty.data[0, 0]
+
+
+def test_fixed_agent_removal_state():
+    """Test that a FixedAgent's cell is None after removal."""
+    model = Model()
+    cell1 = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell1
+
+    assert agent in cell1.agents
+    assert agent.cell == cell1
+
+    # Remove the agent
+    agent.remove()
+
+    assert agent not in cell1.agents
+    assert agent.cell is None
+
+
+def test_pickling_cell():
+    """Test pickling of a Cell."""
+    cell = Cell((1,), capacity=1, random=random.Random(42))
+
+    unpickled_cell = pickle.loads(pickle.dumps(cell))  # noqa: S301
+
+    assert cell.coordinate == unpickled_cell.coordinate
+    assert cell.capacity == unpickled_cell.capacity
+
+
+def test_large_radius_neighborhood():
+    """Test that get_neighborhood works with large radius values without RecursionError.
+
+    This is a regression test for issue #3105:
+    Cell.get_neighborhood() crashes with RecursionError for large radius values.
+
+    The fix replaces recursive traversal with iterative BFS.
+    """
+    # Create a linear chain of 2000 cells (e.g., a highway, pipeline, or network path)
+    cells = [Cell((i,), random=random.Random(42)) for i in range(2000)]
+
+    # Connect them in a chain
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # This should NOT raise RecursionError (previously crashed at radius > 1000)
+    neighbors = cells[0].get_neighborhood(radius=1500)
+
+    # Verify we got the expected number of neighbors
+    assert len(neighbors) == 1500
+
+
+def test_large_radius_with_include_center():
+    """Test include_center parameter with large radius values."""
+    cells = [Cell((i,), random=random.Random(42)) for i in range(1500)]
+
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # With include_center=True
+    neighbors_with_center = cells[0].get_neighborhood(radius=1200, include_center=True)
+
+    # With include_center=False (default)
+    neighbors_without_center = cells[0].get_neighborhood(
+        radius=1200, include_center=False
+    )
+
+    # Center should add exactly 1 cell
+    assert len(neighbors_with_center) == len(neighbors_without_center) + 1
+    assert cells[0] in neighbors_with_center
+    assert cells[0] not in neighbors_without_center
+
+
+def test_radius_exceeds_reachable_cells():
+    """Test that radius larger than reachable cells doesn't crash."""
+    # Create a small chain of 100 cells
+    cells = [Cell((i,), random=random.Random(42)) for i in range(100)]
+
+    for i in range(len(cells) - 1):
+        cells[i].connect(cells[i + 1], key=(1,))
+        cells[i + 1].connect(cells[i], key=(-1,))
+
+    # Request radius much larger than chain length - should not crash
+    neighbors = cells[0].get_neighborhood(radius=5000)
+
+    # Should return all reachable cells (99, since we exclude center by default)
+    assert len(neighbors) == 99

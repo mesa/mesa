@@ -5,6 +5,7 @@ lists. Observable collections emit signals when items are added, removed, or mod
 allowing other components to react to changes in the collection's contents.
 
 The module provides:
+- ListSignalType: Enum defining signal types for list collections
 - ObservableList: A list descriptor that emits signals on modifications
 - SignalingList: The underlying list implementation that manages signal emission
 
@@ -13,13 +14,65 @@ changes in collections of agents, resources, or other model elements.
 """
 
 from collections.abc import Iterable, MutableSequence
+from enum import Enum
 from typing import Any
 
 from .mesa_signal import BaseObservable, HasObservables
 
 __all__ = [
+    "ListSignalType",
     "ObservableList",
 ]
+
+
+class ListSignalType(str, Enum):
+    """Enumeration of signal types that observable lists can emit.
+
+    Provides list-specific signal types with IDE autocomplete and type safety.
+    Inherits from str for backward compatibility with existing string-based code.
+    Includes all list-specific signals (INSERT, APPEND, REMOVE, REPLACE) plus
+    the base CHANGE signal inherited from the observable protocol.
+
+    Note on Design:
+        This enum does NOT extend SignalType because Python Enums cannot be extended
+        once they have members defined. Instead, we include CHANGE as a member here
+        to maintain compatibility. The string inheritance provides value equality:
+        ListSignalType.CHANGE == SignalType.CHANGE == "change" (all True).
+
+    Attributes:
+        CHANGE: Emitted when the list itself is replaced/assigned.
+        INSERT: Emitted when an item is inserted into the list.
+        APPEND: Emitted when an item is appended to the list.
+        REMOVE: Emitted when an item is removed from the list.
+        REPLACE: Emitted when an item is replaced/modified in the list.
+
+    Examples:
+        >>> from mesa.experimental.mesa_signals import ObservableList, HasObservables, ListSignalType
+        >>> class MyModel(HasObservables):
+        ...     items = ObservableList()
+        ...     def __init__(self):
+        ...         super().__init__()
+        ...         self.items = []
+        >>> model = MyModel()
+        >>> model.observe("items", ListSignalType.INSERT, lambda s: print(f"Inserted {s.new}"))
+        >>> model.items.insert(0, "first")
+        Inserted first
+
+    Note:
+        String-based signal types are still supported for backward compatibility:
+        >>> model.observe("items", "insert", handler)  # Still works
+        Also compatible with SignalType.CHANGE since both equal "change" as strings.
+    """
+
+    CHANGE = "change"
+    INSERT = "insert"
+    APPEND = "append"
+    REMOVE = "remove"
+    REPLACE = "replace"
+
+    def __str__(self):
+        """Return the string value of the signal type."""
+        return self.value
 
 
 class ObservableList(BaseObservable):
@@ -28,7 +81,8 @@ class ObservableList(BaseObservable):
     def __init__(self):
         """Initialize the ObservableList."""
         super().__init__()
-        self.signal_types: set = {"remove", "replace", "change", "insert", "append"}
+        # Use all members of ListSignalType enum
+        self.signal_types: set = set(ListSignalType)
         self.fallback_value = []
 
     def __set__(self, instance: "HasObservables", value: Iterable):
@@ -75,7 +129,9 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data[index]
         self.data[index] = value
-        self.owner.notify(self.name, old_value, value, "replace", index=index)
+        self.owner.notify(
+            self.name, old_value, value, ListSignalType.REPLACE, index=index
+        )
 
     def __delitem__(self, index: int) -> None:
         """Delete item at index.
@@ -86,7 +142,9 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data
         del self.data[index]
-        self.owner.notify(self.name, old_value, None, "remove", index=index)
+        self.owner.notify(
+            self.name, old_value, None, ListSignalType.REMOVE, index=index
+        )
 
     def __getitem__(self, index) -> Any:
         """Get item at index.
@@ -112,7 +170,7 @@ class SignalingList(MutableSequence[Any]):
 
         """
         self.data.insert(index, value)
-        self.owner.notify(self.name, None, value, "insert", index=index)
+        self.owner.notify(self.name, None, value, ListSignalType.INSERT, index=index)
 
     def append(self, value):
         """Insert value at index.
@@ -124,7 +182,7 @@ class SignalingList(MutableSequence[Any]):
         """
         index = len(self.data)
         self.data.append(value)
-        self.owner.notify(self.name, None, value, "append", index=index)
+        self.owner.notify(self.name, None, value, ListSignalType.APPEND, index=index)
 
     def __str__(self):
         return self.data.__str__()

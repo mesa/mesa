@@ -3,6 +3,69 @@
 ---
 title: Release History
 ---
+# 3.4.1 (2025-01-10)
+## Highlights
+Mesa 3.4.1 is a patch release with bug fixes, performance improvements, and documentation enhancements. This release addresses issues affecting data collection, memory management, and grid operations while introducing performance optimizations.
+
+This release resolves several bugs affecting simulation accuracy: fixed multiple `batch_run` and `DataCollector` issues including `agenttype_reporters` support (#3095), sparse data collection (#2988), and proper handling of multiple `collect()` calls per step (#3058); resolved `MultiGrid._empty_mask` not updating correctly (#3019) and infinite loops in `select_random_empty_cell()` (#3014); fixed a memory leak in `ContinuousSpace` agent removal (#3031); corrected `EventList.peek_ahead()` chronological ordering (#3010); and ensured `FixedAgent` state consistency after removal (#3100).
+
+Several optimizations improve Mesa's performance: `PropertyLayer` was refactored to implement the NumPy interface directly, enabling standard NumPy syntax (#3074); `select_random_empty_cell()` now uses vectorized NumPy operations instead of slow O(N) Python iteration (#3087); and `Cell.is_empty`/`is_full` checks were optimized to remove unnecessary O(n) copies (#3069).
+
+The documentation received several improvements including version warnings for visualization tutorials (#2949), updated contribution guidelines (#3028), and implementation of Vale for consistent documentation style (#3022). The entire `mesa.space` module is now marked as maintenance-only (#3082), with users encouraged to use `mesa.discrete_space` for new projects. Generic type parameters were added to `Agent`, `AgentSet`, and `Model` classes to improve static type checking (#2885).
+
+We're excited to welcome 9 new contributors to Mesa in this release! Thank you to everyone who contributed bug fixes, performance improvements, and documentation enhancements.
+
+## What's Changed
+### 🛠 Enhancements made
+* Optimize Cell is_empty/is_full by @codebyNJ in #3069
+* Refactor PropertyLayer to implement NumPy interface and deprecate wrappers by @codebreaker32 in #3074
+* Optimise select_random_empty_cell() in grid.py by @codebreaker32 in #3087
+* Add generic type parameters to Agent, AgentSet, and Model by @SiddharthBansal007 in #2885
+### 🐛 Bugs fixed
+* Fix: peak_ahead returns events in correct chronological order by @Nithin9585 in #3010
+* fix: prevent infinite loop in select_random_empty_cell via heuristic fallback by @DipayanDasgupta in #3014
+* Fix: datacollector missing attribute error by @codebyNJ in #3041
+* Fix: Add deepcopy to agent reporters to prevent mutable reference lea… by @Nithin9585 in #3038
+* Add initialization check in Simulator.run_for() by @codebreaker32 in #3036
+* Fix: Method Reporter Validation in DataCollector by @vedantvakharia in #3002
+* Fix MultiGrid._empty_mask not updated correctly by @Nithin9585 in #3019
+* Fix: Correct data retrieval in batch_run when DataCollector.collect() called multiple times per step by @Nithin9585 in #3058
+* Fix: IndexError in batch_run with sparse data collection by @Nithin9585 in #2988
+* Fix: Add agenttype_reporters support to batch_run by @BhoomiAgrawal12 in #3095
+* Fix memory leak in ContinuousSpace agent removal by @Nithin9585 in #3031
+* Minor Refactoring in solara_viz by @codebreaker32 in #3059
+* Fix: Correct `FixedAgent` state after removal by @Sonu0305 in #3100
+### 🔍 Examples updated
+* Resolve FIXME in `sugarscape_g1mt/agents.py` by @Sonu0305 in #3062
+* Update alliance formation mode by @quaquel in #3075
+### 📜 Documentation improvements
+* document Model.time in Model API by @Gee307 in #3020
+* docs: Add example structure and policy to contributing guide by @EwoutH in #3028
+* Changed broken documentation link in docs/tutorials/1_adding_space.ipynb by @ShashwatAwate in #2973
+* Updated CONTRIBUTING.md to replace old black documentation with new ruff format. by @falloficarus22 in #3071
+* docs: Add Mesa 3.3+ version warnings to visualization tutorials by @Srinath0916 in #2949
+* Implementation of Vale by @vedantvakharia in #3022
+* Mark whole `mesa.space` module maintenance-only by @quaquel in #3082
+### 🔧 Maintenance
+* CI: Restore coverage collection after test reorganization by @falloficarus22 in #3006
+* Fix flaky Playwright test in `test_examples_viz.py` by @vedantvakharia in #3039
+* tests: consolidate Solara viz tests and restore Altair coverage #2993 by @DipayanDasgupta in #3011
+* test: add coverage for ignore_missing=True in DataCollector by @disgruntled-penguin in #3054
+* test: ensure DataCollector raises ValueError when collecting data for… by @disgruntled-penguin in #3053
+* Lint: Enable RUF012 and annotate mutable class attributes with ClassVar by @falloficarus22 in #3033
+
+## New Contributors
+* @Gee307 made their first contribution in #3020
+* @DipayanDasgupta made their first contribution in #3014
+* @ShashwatAwate made their first contribution in #2973
+* @vedantvakharia made their first contribution in #3039
+* @codebyNJ made their first contribution in #3041
+* @disgruntled-penguin made their first contribution in #3054
+* @Sonu0305 made their first contribution in #3062
+* @Srinath0916 made their first contribution in #2949
+* @BhoomiAgrawal12 made their first contribution in #3095
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.0...v3.4.1
 
 # 3.4.0 (2025-12-24)
 ## Highlights

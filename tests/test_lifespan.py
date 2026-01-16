@@ -22,7 +22,7 @@ class LifeTimeModel(Model):
         self.datacollector = DataCollector(
             agent_reporters={
                 "remaining_life": lambda a: a.remaining_life,
-                "steps": lambda a: a.steps,
+                "time": lambda a: a.time,
             }
         )
 
@@ -56,13 +56,13 @@ class FiniteLifeAgent(Agent):
     def __init__(self, lifetime, model):  # noqa: D107
         super().__init__(model)
         self.remaining_life = lifetime
-        self.steps = 0
+        self.time = 0
         self.model = model
 
     def step(self):  # noqa: D102
         deactivated = self.deactivate()
         if not deactivated:
-            self.steps += 1  # keep track of how many ticks are seen
+            self.time += 1  # keep track of how many ticks are seen
             if np.random.binomial(1, 0.1) != 0:  # 10% chance of dying
                 self.remove()
 
@@ -83,7 +83,7 @@ class TestAgentLifespan(unittest.TestCase):  # noqa: D101
 
     def test_ticks_seen(self):
         """Each agent should be activated no more than one time."""
-        assert self.df.steps.max() == 1
+        assert self.df.time.max() == 1
 
     def test_agent_lifetime(self):  # noqa: D102
         lifetimes = self.df.groupby(["AgentID"]).agg({"Step": len})
