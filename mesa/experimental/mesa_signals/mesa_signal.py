@@ -213,7 +213,6 @@ class Computed:
         self.name: str = ""  # set by Computable
         self.owner: HasObservables  # set by Computable
 
-
         # so what exactly is in here?
         # has observables is some object that can emit signals
         # the inner dict has the name of the observable and its last accessed value
