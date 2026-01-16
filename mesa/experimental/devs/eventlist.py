@@ -28,6 +28,8 @@ from types import MethodType
 from typing import Any
 from weakref import WeakMethod, ref
 
+from mesa.timeflow import Scheduler
+
 
 class Priority(IntEnum):
     """Enumeration of priority levels."""
@@ -121,6 +123,65 @@ class SimulationEvent:
             other.priority,
             other.unique_id,
         )
+
+
+class RecurringEvent(SimulationEvent):
+    """A simulation event that automatically reschedules itself after execution.
+
+    Attributes:
+        interval: Time between recurring executions
+        scheduler: Reference to the scheduler to reschedule with
+    """
+
+    def __init__(
+        self,
+        time: int | float,
+        function: Callable,
+        scheduler: Scheduler,
+        interval: int | float,
+        priority: Priority = Priority.DEFAULT,
+        function_args: list[Any] | None = None,
+        function_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize a recurring event.
+
+        Args:
+            time: The initial execution time
+            function: The callable to execute
+            scheduler: The scheduler to use for rescheduling
+            interval: Time between executions
+            priority: Priority level for the event
+            function_args: Arguments for the callable
+            function_kwargs: Keyword arguments for the callable
+        """
+        super().__init__(time, function, priority, function_args, function_kwargs)
+        self.interval = interval
+        self.scheduler = scheduler
+
+    def execute(self):
+        """Execute the event and reschedule it."""
+        if not self.CANCELED:
+            # Get the function before calling super (which might clear it)
+            fn = self.fn()
+            if fn is not None:
+                # Execute the function
+                fn(*self.function_args, **self.function_kwargs)
+
+                # Reschedule for next occurrence
+                # Note: self.priority is already an int, so we pass it directly
+                # without wrapping in Priority enum
+                next_event = RecurringEvent(
+                    time=self.scheduler.model.time + self.interval,
+                    function=fn,
+                    scheduler=self.scheduler,
+                    interval=self.interval,
+                    priority=Priority(
+                        self.priority
+                    ),  # Convert int back to Priority enum
+                    function_args=self.function_args,
+                    function_kwargs=self.function_kwargs,
+                )
+                self.scheduler.event_list.add_event(next_event)
 
 
 class EventList:

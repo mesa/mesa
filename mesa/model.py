@@ -164,7 +164,7 @@ class Model[A: Agent, S: Scenario]:
         self._run_control = RunControl(self, self._scheduler)
 
         # Check the class definition, not the instance
-        if hasattr(self.__class__.step, '_scheduled'):
+        if hasattr(self.__class__.step, "_scheduled"):
             # step is @scheduled, don't wrap it - let the scheduler handle it
             self._user_step = self.step
         else:
