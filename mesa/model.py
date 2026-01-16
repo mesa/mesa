@@ -104,10 +104,6 @@ class Model[A: Agent, S: Scenario]:
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
 
-        # Add timeflow components
-        self._scheduler = Scheduler(self)
-        self._run_control = RunControl(self, self._scheduler)
-
         # check if `scenario` is provided
         # and if so, whether rng is the same or not
         if scenario is not None:
@@ -167,6 +163,10 @@ class Model[A: Agent, S: Scenario]:
         self._all_agents: AgentSet[A] = AgentSet(
             [], random=self.random
         )  # an agenset with all agents
+
+        # Add timeflow components
+        self._scheduler = Scheduler(self)
+        self._run_control = RunControl(self, self._scheduler)
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
