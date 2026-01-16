@@ -129,7 +129,7 @@ def test_abm_simulator():
     assert len(simulator.event_list) == 2
 
     simulator.run_for(3)
-    assert model.steps == 3
+    assert model._steps == 3
     assert model.time == 3.0
 
     # run_until without setup

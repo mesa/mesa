@@ -14,7 +14,7 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache, cached_property
+from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
@@ -39,14 +39,22 @@ class Cell:
     """
 
     __slots__ = [
-        "__dict__",
         "_agents",
+        "_empty",
         "capacity",
         "connections",
         "coordinate",
         "properties",
         "random",
     ]
+
+    @property
+    def empty(self) -> bool:  # noqa: D102
+        return self._empty
+
+    @empty.setter
+    def empty(self, value: bool) -> None:
+        self._empty = value
 
     def __init__(
         self,
@@ -146,7 +154,7 @@ class Cell:
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
 
-    @cached_property
+    @property
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
@@ -241,12 +249,5 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        try:
-            self.__dict__.pop(
-                "neighborhood"
-            )  # cached properties are stored in __dict__, see functools.cached_property docs
-        except KeyError:
-            pass  # cache is not set
-        else:
-            self.get_neighborhood.cache_clear()
-            self._neighborhood.cache_clear()
+        self.get_neighborhood.cache_clear()
+        self._neighborhood.cache_clear()

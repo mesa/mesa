@@ -948,4 +948,4 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
 def ShowSteps(model):
     """Display the current step of the model."""
     update_counter.get()
-    return solara.Text(f"Step: {model.steps}")
+    return solara.Text(f"Time: {model.time}")

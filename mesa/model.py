@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import random
 import sys
+import warnings
 from collections.abc import Sequence
 
 # mypy
@@ -17,6 +18,7 @@ import numpy as np
 
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
+from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
@@ -35,7 +37,8 @@ class Model[A: Agent]:
 
     Attributes:
         running: A boolean indicating if the model should continue running.
-        steps: the number of times `model.step()` has been called.
+        steps: (Deprecated) the number of times `model.step()` has been called.
+               Use `model.time` instead.
         time: the current simulation time. Automatically increments by 1.0
               with each step unless controlled by a discrete event simulator.
         random: a seeded python.random number generator.
@@ -48,12 +51,24 @@ class Model[A: Agent]:
 
     """
 
+    @property
+    def scenario(self) -> Scenario:
+        """Return scenario instance."""
+        return self._scenario
+
+    @scenario.setter
+    def scenario(self, scenario: Scenario) -> None:
+        """Set scenario instance."""
+        self._scenario = scenario
+        scenario.model = self
+
     @method_logger(__name__)
     def __init__(
         self,
         *args: Any,
         seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
+        scenario: Scenario | None = None,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -67,6 +82,7 @@ class Model[A: Agent]:
             rng : Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
                   `numpy.random.default_rng` to instantiate a `Generator`.
+            scenario : the scenario specifying the computational experiment to run
             kwargs: keyword arguments to pass onto super
 
         Notes:
@@ -75,11 +91,19 @@ class Model[A: Agent]:
         """
         super().__init__(*args, **kwargs)
         self.running: bool = True
-        self.steps: int = 0
+        self._steps: int = 0
         self.time: float = 0.0
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
+
+        # check if `scenario` is provided
+        # and if so, whether rng is the same or not
+        if scenario is not None:
+            if rng is not None and (scenario.rng != rng):
+                raise ValueError("rng and scenario.rng must be the same")
+            else:
+                rng = scenario.rng
 
         if (seed is not None) and (rng is not None):
             raise ValueError("you have to pass either rng or seed, not both")
@@ -106,6 +130,12 @@ class Model[A: Agent]:
                 self.rng: np.random.Generator = np.random.default_rng(rng)
             self._rng = self.rng.bit_generator.state
 
+        # now that we have figured out the seed value for rng
+        # we can set create a scenario with this if needed
+        if scenario is None:
+            scenario = Scenario(rng=seed)
+        self.scenario = scenario
+
         # Wrap the user-defined step method
         self._user_step = self.step
         self.step = self._wrapped_step
@@ -121,16 +151,48 @@ class Model[A: Agent]:
             [], random=self.random
         )  # an agenset with all agents
 
+    @property
+    def steps(self) -> int:
+        """Return the number of steps the model has taken.
+
+        Deprecated: Use `model.time` instead.
+        """
+        warnings.warn(
+            "model.steps is deprecated and will be removed in a future Mesa release. "
+            "Use model.time instead, which provides the same functionality for "
+            "discrete-time models and also supports continuous time with DEVS. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#model-steps-deprecated",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self._steps
+
+    @steps.setter
+    def steps(self, value: int) -> None:
+        """Set the number of steps.
+
+        Deprecated: Use `model.time` instead.
+        """
+        warnings.warn(
+            "model.steps is deprecated and will be removed in a future Mesa release. "
+            "Use model.time instead, which provides the same functionality for "
+            "discrete-time models and also supports continuous time with DEVS. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#model-steps-deprecated",
+            FutureWarning,
+            stacklevel=2,
+        )
+        self._steps = value
+
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
         # Automatically increment time and step counters
-        self.steps += 1
+        self._steps += 1
         # Only auto-increment time if no simulator is controlling it
         if self._simulator is None:
             self.time += 1
 
         _mesa_logger.info(
-            f"calling model.step for step {self.steps} at time {self.time}"
+            f"calling model.step for step {self._steps} at time {self.time}"
         )
         # Call the original user-defined step method
         self._user_step(*args, **kwargs)
