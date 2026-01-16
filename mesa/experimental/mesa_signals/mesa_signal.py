@@ -213,6 +213,7 @@ class Computed:
         self.name: str = ""  # set by Computable
         self.owner: HasObservables  # set by Computable
 
+
         # so what exactly is in here?
         # has observables is some object that can emit signals
         # the inner dict has the name of the observable and its last accessed value
@@ -231,14 +232,11 @@ class Computed:
         # fixme::
         #     another option is to use message.value to just cache all changed values
         #     we then don't need to check because we know its latest value
-        self._parent_change_counts: dict[str, int] = {}
 
     def __str__(self):
         return f"COMPUTED: {self.name}"
 
     def _set_dirty(self, signal: Message):
-        self._parent_change_counts[signal.name] += 1
-
         if not self._is_dirty:
             self._is_dirty = True
             self.owner.notify(self.name, self._value, None, SignalType.CHANGE)
