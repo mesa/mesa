@@ -65,7 +65,7 @@ def test_rng(rng=23):
     model = Model(rng=rng)
     assert model._rng == np.random.default_rng(rng).bit_generator.state
     model2 = Model(rng=rng + 1)
-    assert model2._rng ==np.random.default_rng(rng+1).bit_generator.state
+    assert model2._rng == np.random.default_rng(rng + 1).bit_generator.state
     assert model._rng == np.random.default_rng(rng).bit_generator.state
 
     assert Model(rng=42).random.random() == Model(rng=42).random.random()
