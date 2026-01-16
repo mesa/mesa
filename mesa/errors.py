@@ -23,8 +23,7 @@ class MesaError(Exception):
     """
 
     def __init__(self, message: str):
-        """
-        Initialize a MesaError.
+        """Initialize a MesaError.
 
         Args:
             message (str): The error message.
