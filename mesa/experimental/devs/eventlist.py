@@ -25,10 +25,8 @@ from collections.abc import Callable
 from enum import IntEnum
 from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from mesa.timeflow import Scheduler
