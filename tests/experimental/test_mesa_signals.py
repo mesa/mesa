@@ -1,6 +1,6 @@
 """Tests for mesa_signals."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -352,3 +352,68 @@ def test_computed_dynamic_dependencies():
     agent.val_b = 30
     handler.assert_called_once()
     assert agent.result == 30
+
+
+def test_chained_computations():
+    """Test that a computed property can depend on another computed property."""
+
+    class ChainedAgent(Agent, HasObservables):
+        base = Observable()
+
+        def __init__(self, model, val):
+            super().__init__(model)
+            self.base = val
+
+        @computed
+        def intermediate(self):
+            # When this runs, CURRENT_COMPUTED should be 'final'
+            return self.base * 2
+
+        @computed
+        def final(self):
+            # This sets CURRENT_COMPUTED = final_state
+            # Then it accesses self.intermediate
+            return self.intermediate + 1
+
+    model = Model(seed=42)
+    agent = ChainedAgent(model, 10)
+
+    # Trigger the chain
+    # Access final -> Sets CURRENT_COMPUTED = final -> Access intermediate
+    # intermediate sees CURRENT_COMPUTED is final -> registers dependency
+    assert agent.final == 21
+
+    # Verify dependency flows through the chain
+    # Changing 'base' should invalidate 'intermediate', which invalidates 'final'
+    agent.base = 20
+    assert agent.final == 41
+
+
+def test_dead_parent_fallback():
+    """Test defensive check for garbage collected parents."""
+
+    class SimpleAgent(Agent, HasObservables):
+        @computed
+        def prop(self):
+            return 1
+
+    model = Model(seed=42)
+    agent = SimpleAgent(model)
+
+    _ = agent.prop
+
+    # Get the internal state object (name is _computed_{func_name})
+    state = agent._computed_prop
+
+    # Mark it dirty so it enters the re-evaluation check loop
+    state.is_dirty = True
+
+    # Mock parents.items() to simulate a dead parent (None key).
+    # WeakKeyDictionary usually prevents this, so we must mock it to hit the defensive line.
+    with patch.object(state.parents, "items", return_value=[(None, {})]):
+        # Accessing the property calls the wrapper.
+        # It sees is_dirty=True -> iterates parents -> finds None -> sets changed=True
+        val = agent.prop
+
+        # Ensure it re-calculated
+        assert val == 1
