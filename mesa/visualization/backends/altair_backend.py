@@ -77,6 +77,9 @@ class AltairBackend(AbstractRenderer):
             "filled": [],
         }
 
+        # Store agent attributes separately
+        agent_attributes = {}
+
         # Import here to avoid circular import issues
         from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
 
@@ -188,6 +191,17 @@ class AltairBackend(AbstractRenderer):
             # FIXME: Make filled user-controllable
             filled_value = True
             arguments["filled"].append(filled_value)
+
+            # Collect agent attributes
+            for attr_name in ["unique_id", "wealth", "energy", "age", "state"]:
+                if hasattr(agent, attr_name):
+                    if attr_name not in agent_attributes:
+                        agent_attributes[attr_name] = []
+                    agent_attributes[attr_name].append(getattr(agent, attr_name))
+
+        # Add agent attributes to arguments
+        for attr_name, values in agent_attributes.items():
+            arguments[attr_name] = np.asarray(values)
 
         final_data = {}
         for k, v in arguments.items():

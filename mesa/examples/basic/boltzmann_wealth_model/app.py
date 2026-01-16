@@ -71,7 +71,7 @@ renderer = (
         cmap="viridis",
         vmin=0,
         vmax=10,
-        tooltip_fields=["Wealth", "Age"],
+        tooltip_fields=["wealth"],
     )
 )
 renderer.render()
