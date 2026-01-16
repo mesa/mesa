@@ -257,9 +257,9 @@ class SpaceRenderer:
         """
         if agent_portrayal is not None:
             warnings.warn(
-                "Passing agent_portrayal to draw_agents() is deprecated. "
+                "Passing agent_portrayal to draw_agents() is deprecated and will be removed in Mesa 4.0. "
                 "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents().",
-                PendingDeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
             self.agent_portrayal = agent_portrayal
@@ -299,9 +299,9 @@ class SpaceRenderer:
         """
         if propertylayer_portrayal is not None:
             warnings.warn(
-                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated. "
+                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated and will be removed in Mesa 4.0. "
                 "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer().",
-                PendingDeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
             self.propertylayer_portrayal = propertylayer_portrayal
@@ -325,7 +325,7 @@ class SpaceRenderer:
 
                 warnings.warn(
                     (
-                        "The propertylayer_portrayal dict is deprecated. "
+                        "The propertylayer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
                         "Please use a callable that returns a PropertyLayerStyle instance instead. "
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
