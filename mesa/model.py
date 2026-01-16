@@ -148,10 +148,6 @@ class Model[A: Agent, S: Scenario]:
             scenario = Scenario(rng=seed)  # type: ignore[assignment]
         self.scenario = scenario
 
-        # Wrap the user-defined step method
-        self._user_step = self.step
-        self.step = self._wrapped_step
-
         # setup agent registration data structures
         self._agents: dict[
             A, None
@@ -166,6 +162,15 @@ class Model[A: Agent, S: Scenario]:
         # Add timeflow components
         self._scheduler = Scheduler(self)
         self._run_control = RunControl(self, self._scheduler)
+
+        # Check the class definition, not the instance
+        if hasattr(self.__class__.step, '_scheduled'):
+            # step is @scheduled, don't wrap it - let the scheduler handle it
+            self._user_step = self.step
+        else:
+            # Traditional step() without @scheduled - wrap it
+            self._user_step = self.step
+            self.step = self._wrapped_step
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""

@@ -22,29 +22,28 @@ if TYPE_CHECKING:
     from mesa.model import Model
 
 
-def scheduled(interval: int | float = 1.0, priority: Priority = Priority.DEFAULT):
+def scheduled(func=None, *, interval: int | float = 1.0, priority: Priority = Priority.DEFAULT):
     """Decorator to mark a method for automatic recurring scheduling.
 
-    Args:
-        interval: Time between executions (default: 1.0)
-        priority: Priority level for the scheduled events
-
-    Examples:
+    Can be used with or without parentheses:
         @scheduled
-        def step(self):
-            self.agents.shuffle_do("step")
+        def step(self): ...
 
         @scheduled(interval=7)
-        def weekly_update(self):
-            self.collect_stats()
+        def weekly(self): ...
     """
 
-    def decorator(func):
-        func._scheduled = True
-        func._scheduled_interval = interval
-        func._scheduled_priority = priority
-        return func
+    def decorator(f):
+        f._scheduled = True
+        f._scheduled_interval = interval
+        f._scheduled_priority = priority
+        return f
 
+    # Called without parentheses: @scheduled
+    if func is not None:
+        return decorator(func)
+
+    # Called with parentheses: @scheduled() or @scheduled(interval=2.5)
     return decorator
 
 
@@ -171,23 +170,31 @@ class Scheduler:
 
     def _setup_scheduled_methods(self) -> None:
         """Find and schedule all methods decorated with @scheduled."""
-        for name in dir(self.model):
+        # Iterate through the class, not the instance
+        for name in dir(self.model.__class__):
             # Skip private methods and properties
-            if name.startswith("_"):
+            if name.startswith('_'):
                 continue
 
-            attr = getattr(self.model, name)
+            # Get the attribute from the CLASS, not the instance
+            class_attr = getattr(self.model.__class__, name)
 
             # Check if it's a method with _scheduled attribute
-            if callable(attr) and hasattr(attr, "_scheduled"):
-                interval = attr._scheduled_interval
-                priority = attr._scheduled_priority
+            if callable(class_attr) and hasattr(class_attr, '_scheduled'):
+                interval = class_attr._scheduled_interval
+                priority = class_attr._scheduled_priority
+
+                # Get the BOUND method from the instance to actually call
+                bound_method = getattr(self.model, name)
 
                 # Schedule the first execution
-                self._schedule_recurring(attr, interval, priority)
+                self._schedule_recurring(bound_method, interval, priority)
 
     def _schedule_recurring(
-        self, method: Callable, interval: int | float, priority: Priority
+            self,
+            method: Callable,
+            interval: int | float,
+            priority: Priority
     ) -> None:
         """Schedule a method to recur at fixed intervals.
 
@@ -196,15 +203,21 @@ class Scheduler:
             interval: Time between executions
             priority: Priority level for the events
         """
-
-        def recurring_wrapper():
-            # Execute the method
-            method()
-            # Reschedule for next occurrence
-            self._schedule_recurring(method, interval, priority)
-
         next_time = self.model.time + interval
-        self.schedule_at(recurring_wrapper, time=next_time, priority=priority)
+        event = SimulationEvent(
+            time=next_time,
+            function=method,
+            priority=priority,
+            function_args=[],
+            function_kwargs={}
+        )
+
+        # Mark the event as recurring so we can reschedule it after execution
+        event._recurring = True
+        event._interval = interval
+        event._priority = priority
+
+        self.event_list.add_event(event)
 
 
 class RunControl:
@@ -229,28 +242,25 @@ class RunControl:
         self.scheduler = scheduler
 
     def run_until(self, end_time: int | float) -> None:
-        """Run the model until the specified time.
-
-        Executes all events scheduled up to and including end_time.
-
-        Args:
-            end_time: The simulation time to run until
-
-        Examples:
-            # Run until time reaches 100
-            model.run_until(100)
-        """
+        """Run the model until the specified time."""
         while not self.scheduler.event_list.is_empty():
             try:
                 event = self.scheduler.event_list.pop_event()
             except IndexError:
-                # No more events
                 self.model.time = end_time
                 break
 
             if event.time <= end_time:
                 self.model.time = event.time
                 event.execute()
+
+                # If this is a recurring event, reschedule it
+                if hasattr(event, '_recurring') and event._recurring:
+                    self.scheduler._schedule_recurring(
+                        event.fn(),  # Get the actual function
+                        event._interval,
+                        event._priority
+                    )
             else:
                 # Event is beyond end_time, put it back
                 self.scheduler.event_list.add_event(event)
@@ -295,6 +305,14 @@ class RunControl:
                 event = self.scheduler.event_list.pop_event()
                 self.model.time = event.time
                 event.execute()
+
+                # If this is a recurring event, reschedule it
+                if hasattr(event, '_recurring') and event._recurring:
+                    self.scheduler._schedule_recurring(
+                        event.fn(),
+                        event._interval,
+                        event._priority
+                    )
             except IndexError:
                 break
 
