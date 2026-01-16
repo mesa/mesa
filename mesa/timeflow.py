@@ -6,6 +6,9 @@ advancement and discrete event scheduling within Mesa models.
 Core classes:
 - Scheduler: Manages event scheduling (absolute and relative times)
 - RunControl: Controls time advancement (run_until, run_for, etc.)
+
+Decorators:
+- scheduled: Mark methods for automatic recurring execution
 """
 
 from __future__ import annotations
@@ -17,6 +20,32 @@ from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEven
 
 if TYPE_CHECKING:
     from mesa.model import Model
+
+
+def scheduled(interval: int | float = 1.0, priority: Priority = Priority.DEFAULT):
+    """Decorator to mark a method for automatic recurring scheduling.
+
+    Args:
+        interval: Time between executions (default: 1.0)
+        priority: Priority level for the scheduled events
+
+    Examples:
+        @scheduled
+        def step(self):
+            self.agents.shuffle_do("step")
+
+        @scheduled(interval=7)
+        def weekly_update(self):
+            self.collect_stats()
+    """
+
+    def decorator(func):
+        func._scheduled = True
+        func._scheduled_interval = interval
+        func._scheduled_priority = priority
+        return func
+
+    return decorator
 
 
 class Scheduler:
@@ -38,6 +67,9 @@ class Scheduler:
         """
         self.model = model
         self.event_list = EventList()
+
+        # Auto-schedule methods marked with @scheduled decorator
+        self._setup_scheduled_methods()
 
     def schedule_at(
         self,
@@ -136,6 +168,43 @@ class Scheduler:
     def clear(self) -> None:
         """Clear all scheduled events."""
         self.event_list.clear()
+
+    def _setup_scheduled_methods(self) -> None:
+        """Find and schedule all methods decorated with @scheduled."""
+        for name in dir(self.model):
+            # Skip private methods and properties
+            if name.startswith("_"):
+                continue
+
+            attr = getattr(self.model, name)
+
+            # Check if it's a method with _scheduled attribute
+            if callable(attr) and hasattr(attr, "_scheduled"):
+                interval = attr._scheduled_interval
+                priority = attr._scheduled_priority
+
+                # Schedule the first execution
+                self._schedule_recurring(attr, interval, priority)
+
+    def _schedule_recurring(
+        self, method: Callable, interval: int | float, priority: Priority
+    ) -> None:
+        """Schedule a method to recur at fixed intervals.
+
+        Args:
+            method: The method to schedule
+            interval: Time between executions
+            priority: Priority level for the events
+        """
+
+        def recurring_wrapper():
+            # Execute the method
+            method()
+            # Reschedule for next occurrence
+            self._schedule_recurring(method, interval, priority)
+
+        next_time = self.model.time + interval
+        self.schedule_at(recurring_wrapper, time=next_time, priority=priority)
 
 
 class RunControl:
