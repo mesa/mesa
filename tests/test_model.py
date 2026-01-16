@@ -60,20 +60,20 @@ def test_running():
     assert model.time == 10.0
 
 
-def test_seed(seed=23):
+def test_rng(rng=23):
     """Test initialization of model with specific seed."""
-    model = Model(seed=seed)
-    assert model._seed == seed
-    model2 = Model(seed=seed + 1)
-    assert model2._seed == seed + 1
-    assert model._seed == seed
+    model = Model(rng=rng)
+    assert model._rng == np.random.default_rng(rng).bit_generator.state
+    model2 = Model(rng=rng + 1)
+    assert model2._rng ==np.random.default_rng(rng+1).bit_generator.state
+    assert model._rng == np.random.default_rng(rng).bit_generator.state
 
-    assert Model(seed=42).random.random() == Model(seed=42).random.random()
+    assert Model(rng=42).random.random() == Model(rng=42).random.random()
     assert np.all(
-        Model(seed=42).rng.random(
+        Model(rng=42).rng.random(
             10,
         )
-        == Model(seed=42).rng.random(
+        == Model(rng=42).rng.random(
             10,
         )
     )

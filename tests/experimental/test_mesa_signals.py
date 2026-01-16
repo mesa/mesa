@@ -28,7 +28,7 @@ def test_observables():
 
     handler = Mock()
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
@@ -50,7 +50,7 @@ def test_HasObservables():
 
     handler = Mock()
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
@@ -128,7 +128,7 @@ def test_ObservableList():
             super().__init__(model)
             self.my_list = []
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model)
 
     assert len(agent.my_list) == 0
@@ -232,7 +232,7 @@ def test_AttributeDict():
         for entry in ["name", "type", "old", "new", "owner"]:
             assert entry in items
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", on_change)
     agent.some_attribute = 5
@@ -250,7 +250,7 @@ def test_Computable():
             self.some_other_attribute = value
             self.some_attribute = Computed(lambda x: x.some_other_attribute * 2, self)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     assert agent.some_attribute == 20
 
@@ -283,7 +283,7 @@ def test_Computable():
             self.o1 = value
             self.c1 = Computed(computed_func, self)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     with pytest.raises(ValueError):
         MyAgent(model, 10)
 
