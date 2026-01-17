@@ -73,7 +73,7 @@ class AgentDataSet(DataSet):
                 for k, func in self._collectors.items()
                 if k != "attributes"
             }
-            data.append(attribute_data | callable_data))
+            data.append(attribute_data | callable_data)
         return data
 
 
@@ -97,15 +97,20 @@ class ModelDataSet[M: Model](DataSet):
     @property
     def data(self) -> dict[str, Any]:
         # gets the data for the fields from the agents
-        data = {
-            k: v for k, v in zip(self._args, self._collectors["attributes"](agent))
-        } | {
-            k: func(self.model)
+        try:
+            attribute_data = self._collectors["attributes"]
+        except KeyError:
+            attribute_data = {}
+        else:
+            attribute_data = {k:v for k,v in zip(self._args, attribute_data())}
+
+        callable_data ={
+            k: func()
             for k, func in self._collectors.items()
             if k != "attributes"
         }
 
-        return data
+        return attribute_data | callable_data
 
 
 class TableDataSet(DataSet):
