@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import random
 import sys
-from collections.abc import Sequence
 import warnings
+from collections.abc import Sequence
 
 # mypy
 from typing import Any
