@@ -31,7 +31,7 @@ import threading
 import time
 import traceback
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 import altair as alt
 import pandas as pd
@@ -235,15 +235,12 @@ def create_space_component(renderer: SpaceRenderer):
 def SpaceRendererComponent(
     model: Model,
     renderer: SpaceRenderer,
-    # FIXME: Manage dependencies properly
-    dependencies: list[Any] | None = None,
 ):
     """Render the space of a model using a SpaceRenderer.
 
     Args:
         model (Model): The model whose space is to be rendered.
         renderer: A SpaceRenderer instance to render the model's space.
-        dependencies (list[any], optional): List of dependencies for the component.
     """
     update_counter.get()
 
@@ -278,8 +275,6 @@ def SpaceRendererComponent(
 
         viz_dependencies = [update_counter.value]
         # Update the fig every time frame
-        if dependencies:
-            viz_dependencies.extend(dependencies)
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
