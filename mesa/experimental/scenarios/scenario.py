@@ -80,6 +80,15 @@ class Scenario[M: Model]:
         """Return a dict representation of the scenario."""
         return {**self.__dict__, "model": self.model, "_scenario_id": self._scenario_id}
 
+    def copy(self, **updates):
+        """Create a copy of scenario with optional parameter updates.
+
+        Note: Creates a new scenario with a unique _scenario_id.
+        Note: rng is copied by reference, not cloned. Both scenarios will share
+              the same RNG object and produce identical random sequences.
+        """
+        return self.__class__(**{**self.__dict__, **updates})
+
 
 # def scenarios_from_dataframe(
 #     experiments: pd.DataFrame, rng: int | Iterable[SeedLike]
