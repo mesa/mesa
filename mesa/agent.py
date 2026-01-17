@@ -121,7 +121,9 @@ class Agent[M: Model]:
 
         agents = []
         # Use zip to iterate through all arguments in parallel
-        for values in zip(*arg_iters, *kw_val_iters):
+        # Include range(n) in zip to ensure the loop runs n times
+        # even if arg_iters and kw_val_iters are empty.
+        for values in zip(range(n), *arg_iters, *kw_val_iters):
             # Split values into positional and keyword parts
             instance_args = values[: len(args)]
             instance_kw_vals = values[len(args) :]
