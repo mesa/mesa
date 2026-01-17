@@ -5,6 +5,24 @@ from mesa.examples.advanced.epstein_civil_violence.agents import (
     CitizenState,
     Cop,
 )
+from mesa.experimental.scenarios import Scenario
+
+# Default scenario parameters
+default_scenario = Scenario(
+    rng=None,  # Will use Model's seed if not specified
+    citizen_density=0.7,  # approximate % of cells occupied by citizens
+    cop_density=0.074,  # approximate % of cells occupied by cops
+    citizen_vision=7,  # number of cells citizen can inspect in each direction
+    cop_vision=7,  # number of cells cop can inspect in each direction
+    legitimacy=0.8,  # citizens' perception of regime legitimacy
+    max_jail_term=1000,  # maximum jail sentence
+    active_threshold=0.1,  # rebellion threshold
+    arrest_prob_constant=2.3,  # for arrest probability estimates
+    movement=True,  # whether agents move
+    max_iters=1000,  # maximum iterations
+    activation_order="Random",  # "Random" or "Sequential"
+    grid_type="Von Neumann",  # "Von Neumann" or "Moore"
+)
 
 
 class EpsteinCivilViolence(mesa.Model):
@@ -16,50 +34,19 @@ class EpsteinCivilViolence(mesa.Model):
     Args:
         height: grid height
         width: grid width
-        citizen_density: approximate % of cells occupied by citizens.
-        cop_density: approximate % of cells occupied by cops.
-        citizen_vision: number of cells in each direction (N, S, E and W) that
-            citizen can inspect
-        cop_vision: number of cells in each direction (N, S, E and W) that cop
-            can inspect
-        legitimacy:  (L) citizens' perception of regime legitimacy, equal
-            across all citizens
-        max_jail_term: (J_max)
-        active_threshold: if (grievance - (risk_aversion * arrest_probability))
-            > threshold, citizen rebels
-        arrest_prob_constant: set to ensure agents make plausible arrest
-            probability estimates
-        movement: binary, whether agents try to move at step end
-        max_iters: model may not have a natural stopping point, so we set a
-            max.
-        activation_order: "Random" (default) or "Sequential". Determines if agents act in random or fixed order.
-        grid_type: "Von Neumann" (default) or "Moore". Determines neighborhood topology (4 vs 8 neighbors).
+        seed: random seed for reproducibility
+        scenario: Scenario object containing model parameters.
     """
 
     def __init__(
         self,
         width=40,
         height=40,
-        citizen_density=0.7,
-        cop_density=0.074,
-        citizen_vision=7,
-        cop_vision=7,
-        legitimacy=0.8,
-        max_jail_term=1000,
-        active_threshold=0.1,
-        arrest_prob_constant=2.3,
-        movement=True,
-        max_iters=1000,
-        rng=None,
-        activation_order="Random",
-        grid_type="Von Neumann",
+        scenario=default_scenario,
     ):
-        super().__init__(rng=rng)
-        self.movement = movement
-        self.max_iters = max_iters
-        self.activation_order = activation_order
+        super().__init__(rng=rng, scenario=scenario)
 
-        match grid_type:
+        match self.scenario.grid_type:
             case "Moore":
                 self.grid = OrthogonalMooreGrid(
                     (width, height), capacity=1, torus=True, random=self.random
@@ -69,7 +56,9 @@ class EpsteinCivilViolence(mesa.Model):
                     (width, height), capacity=1, torus=True, random=self.random
                 )
             case _:
-                raise ValueError(f"Unknown value of grid_type: {grid_type}")
+                raise ValueError(
+                    f"Unknown value of grid_type: {self.scenario.grid_type}"
+                )
 
         model_reporters = {
             "active": CitizenState.ACTIVE.name,
@@ -83,27 +72,22 @@ class EpsteinCivilViolence(mesa.Model):
         self.datacollector = mesa.DataCollector(
             model_reporters=model_reporters, agent_reporters=agent_reporters
         )
-        if cop_density + citizen_density > 1:
+        if self.scenario.cop_density + self.scenario.citizen_density > 1:
             raise ValueError("Cop density + citizen density must be less than 1")
 
         for cell in self.grid.all_cells:
             klass = self.random.choices(
                 [Citizen, Cop, None],
-                cum_weights=[citizen_density, citizen_density + cop_density, 1],
+                cum_weights=[
+                    self.scenario.citizen_density,
+                    self.scenario.citizen_density + self.scenario.cop_density,
+                    1,
+                ],
             )[0]
 
-            if klass == Cop:
-                cop = Cop(self, vision=cop_vision, max_jail_term=max_jail_term)
-                cop.move_to(cell)
-            elif klass == Citizen:
-                citizen = Citizen(
-                    self,
-                    regime_legitimacy=legitimacy,
-                    threshold=active_threshold,
-                    vision=citizen_vision,
-                    arrest_prob_constant=arrest_prob_constant,
-                )
-                citizen.move_to(cell)
+            if klass is not None:
+                agent = klass(self)  # Either Citizen or Cop
+                agent.move_to(cell)
 
         self.running = True
         self._update_counts()
@@ -113,20 +97,20 @@ class EpsteinCivilViolence(mesa.Model):
         """
         Advance the model by one step and collect data.
         """
-        match self.activation_order:
+        match self.scenario.activation_order:
             case "Random":
                 self.agents.shuffle_do("step")
             case "Sequential":
                 self.agents.do("step")
             case _:
                 raise ValueError(
-                    f"unknown value of activation_order: {self.activation_order}"
+                    f"unknown value of activation_order: {self.scenario.activation_order}"
                 )
 
         self._update_counts()
         self.datacollector.collect(self)
 
-        if self.steps > self.max_iters:
+        if self.steps > self.scenario.max_iters:
             self.running = False
 
     def _update_counts(self):
