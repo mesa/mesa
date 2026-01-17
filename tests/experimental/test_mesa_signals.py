@@ -382,7 +382,7 @@ def test_chained_computations():
             # Then it accesses self.intermediate
             return self.intermediate + 1
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = ChainedAgent(model, 10)
 
     # Trigger the chain
@@ -441,7 +441,7 @@ def test_list_support():
             self.attr2 = 2
             self.attr3 = 3
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model)
     handler = Mock()
 
