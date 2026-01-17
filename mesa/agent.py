@@ -120,17 +120,19 @@ class Agent[M: Model]:
                 kw_val_iters.append(itertools.repeat(v, n))
 
         agents = []
-        # Use zip to iterate through all arguments in parallel
         # Include range(n) in zip to ensure the loop runs n times
         # even if arg_iters and kw_val_iters are empty.
-        for values in zip(range(n), *arg_iters, *kw_val_iters):
-            # Split values into positional and keyword parts
-            instance_args = values[: len(args)]
-            instance_kw_vals = values[len(args) :]
-            instance_kwargs = dict(zip(kw_keys, instance_kw_vals))
+        for _, *values in zip(range(n), *arg_iters, *kw_val_iters):
+            # values captures the arguments (excluding the range index)
 
-            agent = cls(model, *instance_args, **instance_kwargs)
+            # Split values into positional and keyword parts
+            current_args = values[: len(args)]
+            current_kw_vals = values[len(args) :]
+            current_kwargs = dict(zip(kw_keys, current_kw_vals))
+
+            agent = cls(model, *current_args, **current_kwargs)
             agents.append(agent)
+
         return AgentSet(agents, random=model.random)
 
     @property
