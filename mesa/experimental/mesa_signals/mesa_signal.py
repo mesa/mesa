@@ -67,7 +67,7 @@ class SignalType(str, Enum):
 
 _hashable_signal = namedtuple("_HashableSignal", "instance observable")
 
-CURRENT_COMPUTED: Computed | None = None  # the current Computed that is evaluating
+CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[tuple[HasObservables, BaseObservable]] = set()
 
 
