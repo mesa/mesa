@@ -102,7 +102,10 @@ class ModelDataSet[M: Model](DataSet):
         except KeyError:
             attribute_data = {}
         else:
-            attribute_data = {k: v for k, v in zip(self._args, attribute_data())}
+            if len(self._args) == 1:
+                attribute_data = {k: v for k, v in zip(self._args, (attribute_data(model),))}
+            else:
+                attribute_data = {k: v for k, v in zip(self._args, attribute_data(model))}
 
         callable_data = {
             k: func() for k, func in self._collectors.items() if k != "attributes"
@@ -163,8 +166,9 @@ class DataRegistry[M: Model]:
 
 if __name__ == "__main__":
     model = BoltzmannWealth()
+    model.test = 5
     agent_data = AgentDataSet("wealth", model.agents, "wealth")
-    model_data = ModelDataSet("gini", model, gini=model.compute_gini)
+    model_data = ModelDataSet("gini", model, "test", gini=model.compute_gini)
     data = []
     for _ in range(5):
         model.step()
