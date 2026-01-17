@@ -80,11 +80,6 @@ class Scenario[M: Model]:
         """Return a dict representation of the scenario."""
         return {**self.__dict__, "model": self.model, "_scenario_id": self._scenario_id}
 
-    def get_parameters(self):
-        """Get scenario parameters excluding metadata."""
-        excluded = {"model", "_scenario_id"}
-        return {k: v for k, v in self.__dict__.items() if k not in excluded}
-
     def copy(self, **updates):
         """Create a copy of scenario with optional parameter updates.
         
@@ -92,12 +87,7 @@ class Scenario[M: Model]:
         Note: rng is copied by reference, not cloned. Both scenarios will share
               the same RNG object and produce identical random sequences.
         """
-        params = self.__dict__.copy()
-        params.update(updates)
-        params.pop("model", None)  # Don't copy model reference
-        params.pop("_scenario_id", None)  # Create new scenario with new ID
-        
-        return self.__class__(**params)
+        return self.__class__(**{**self.__dict__, **updates})
 
 
 # def scenarios_from_dataframe(

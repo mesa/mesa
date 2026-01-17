@@ -78,6 +78,23 @@ def test_scenario_serialization():
     assert unpickled._scenario_id == scenario._scenario_id
 
 
+def test_copy_creates_new_scenario_with_updates():
+    """Test copy creates a new scenario with updated parameters."""
+    Scenario._reset_counter()
+
+    scenario = Scenario(a=1, b=2, rng=42)
+    copied = scenario.copy(b=3)
+
+    # Parameters
+    assert copied.a == 1
+    assert copied.b == 3
+    assert copied.rng is scenario.rng  # RNG shared by reference
+
+    # Metadata
+    assert copied.model is None
+    assert copied._scenario_id != scenario._scenario_id
+
+
 def test_agent_scenario_property():
     """Test that agents can access scenario via property."""
     scenario = Scenario(test_param=100, another_param="test", rng=42)
