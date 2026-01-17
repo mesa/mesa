@@ -188,7 +188,16 @@ def test_agent_rng():
 
 def test_agent_create():
     """Test create agent factory method."""
+    # Fast Path (No args/kwargs)
+    model = Model()
+    n = 10
+    fast_agents = Agent.create_agents(model, n)
 
+    assert len(fast_agents) == n
+    assert all(isinstance(a, Agent) for a in fast_agents)
+    assert all(a.model is model for a in fast_agents)
+
+    # Standard Path (With args/kwargs)
     class TestAgent(Agent):
         def __init__(self, model, attr, def_attr, a=0, b=0):
             super().__init__(model)
