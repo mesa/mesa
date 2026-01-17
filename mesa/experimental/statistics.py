@@ -139,7 +139,7 @@ class TableDataSet(DataSet):
         return self.datasets
 
 
-class DataRegistry:
+class DataRegistry[M: Model]:
     """A registry for data sets."""
 
     def __init__(self):
@@ -151,11 +151,11 @@ class DataRegistry:
     def create_dataset(self, dataset_type, name, *args, **kwargs):
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
-    def track_agents(self, agents, **kwargs):
-        self.create_dataset(AgentDataSet, agents.name, agents, **kwargs)
+    def track_agents(self, agents: AgentSet, name:str, **kwargs):
+        self.create_dataset(AgentDataSet, name, agents, **kwargs)
 
-    def track_model(self, model, **kwargs):
-        self.create_dataset(ModelDataSet, model.name, model, **kwargs)
+    def track_model(self, model: M, name:str, **kwargs):
+        self.create_dataset(ModelDataSet, name, model, **kwargs)
 
     def __getitem__(self, name: str):
         return self.datasets[name]
