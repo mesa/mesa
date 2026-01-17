@@ -105,4 +105,3 @@ def test_copy_creates_new_scenario_with_updates():
     # Metadata
     assert copied.model is None
     assert copied._scenario_id != scenario._scenario_id
-
