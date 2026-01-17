@@ -76,3 +76,33 @@ def test_scenario_serialization():
     unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
+
+
+def test_get_parameters_excludes_metadata():
+    """Test get_parameters returns only scenario parameters."""
+    Scenario._reset_counter()
+
+    scenario = Scenario(a=1, b=2, rng=42)
+    params = scenario.get_parameters()
+
+    assert params == {"a": 1, "b": 2, "rng": 42}
+    assert "model" not in params
+    assert "_scenario_id" not in params
+
+
+def test_copy_creates_new_scenario_with_updates():
+    """Test copy creates a new scenario with updated parameters."""
+    Scenario._reset_counter()
+
+    scenario = Scenario(a=1, b=2, rng=42)
+    copied = scenario.copy(b=3)
+
+    # Parameters
+    assert copied.a == 1
+    assert copied.b == 3
+    assert copied.rng is scenario.rng  # RNG shared by reference
+
+    # Metadata
+    assert copied.model is None
+    assert copied._scenario_id != scenario._scenario_id
+
