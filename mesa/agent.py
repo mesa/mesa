@@ -102,6 +102,13 @@ class Agent[M: Model]:
             AgentSet containing the agents created.
 
         """
+        agents = []
+
+        if not args and not kwargs:
+            for _ in range(n):
+                agents.append(cls(model))
+            return AgentSet(agents, random=model.random)
+
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
@@ -119,17 +126,19 @@ class Agent[M: Model]:
             else:
                 kw_val_iters.append(itertools.repeat(v, n))
 
-        agents = []
-        # Include range(n) in zip to ensure the loop runs n times
-        # even if arg_iters and kw_val_iters are empty.
-        for _, *values in zip(range(n), *arg_iters, *kw_val_iters):
-            # Split values into positional and keyword parts
-            instance_args = values[: len(args)]
-            instance_kw_vals = values[len(args) :]
-            instance_kwargs = dict(zip(kw_keys, instance_kw_vals))
+        # If arg_iters is empty, zip(*[]) returns nothing, so we use repeat(())
+        pos_iter = zip(*arg_iters) if arg_iters else itertools.repeat(())
 
-            agent = cls(model, *instance_args, **instance_kwargs)
-            agents.append(agent)
+        kw_iter = zip(*kw_val_iters) if kw_val_iters else itertools.repeat(())
+
+        # We rely on range(n) to drive the loop length
+        if kwargs:
+            for _, p_args, k_vals in zip(range(n), pos_iter, kw_iter):
+                agents.append(cls(model, *p_args, **dict(zip(kw_keys, k_vals))))
+        else:
+            for _, p_args in zip(range(n), pos_iter):
+                agents.append(cls(model, *p_args))
+
         return AgentSet(agents, random=model.random)
 
     @property
