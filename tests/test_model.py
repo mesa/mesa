@@ -82,7 +82,7 @@ def test_rng(rng=23):
 
 def test_reset_randomizer(newseed=42):
     """Test resetting the random seed on the model."""
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         model = Model()
         oldseed = model._seed
         model.reset_randomizer()
