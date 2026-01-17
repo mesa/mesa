@@ -12,21 +12,19 @@ when modified.
 
 from .mesa_signal import (
     All,
-    Computable,
-    Computed,
     HasObservables,
     Observable,
     SignalType,
+    computed,
 )
 from .observable_collections import ListSignalType, ObservableList
 
 __all__ = [
     "All",
-    "Computable",
-    "Computed",
     "HasObservables",
     "ListSignalType",
     "Observable",
     "ObservableList",
     "SignalType",
+    "computed",
 ]
