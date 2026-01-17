@@ -5,7 +5,7 @@ functionality:
 
 - BaseObservable: Abstract base class defining the interface for all observables
 - Observable: Main class for creating observable properties that emit change signals
-- Computable: Class for properties that automatically update based on other observables
+- computed: Decorator for creating properties that automatically update based on dependencies
 - HasObservables: Mixin class that enables an object to contain and manage observables
 - All: Helper class for subscribing to all signals from an observable
 - SignalType: Enum defining the types of signals that can be emitted
@@ -29,7 +29,7 @@ from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import AttributeDict, create_weakref
 
-__all__ = ["All", "Computable", "HasObservables", "Observable", "SignalType"]
+__all__ = ["All", "HasObservables", "Observable", "SignalType", "computed"]
 
 
 class SignalType(str, Enum):
@@ -67,7 +67,7 @@ class SignalType(str, Enum):
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
-CURRENT_COMPUTED: Computed | None = None  # the current Computed that is evaluating
+CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[tuple[str,]] = set()
 
 
@@ -144,86 +144,25 @@ class Observable(BaseObservable):
         PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
-class Computable(BaseObservable):
-    """A Computable that is depended on one or more Observables.
+class ComputedState:
+    """Internal class to hold the state of a computed property for a specific instance."""
 
-    .. code-block:: python
+    __slots__ = ["__weakref__", "func", "is_dirty", "name", "owner", "parents", "value"]
 
-       class MyAgent(Agent):
-           wealth = Computable()
-
-           def __init__(self, model):
-                super().__init__(model)
-                wealth = Computed(func, args, kwargs)
-
-    """
-
-    # fixme, with new _register_observable thing
-    #  we can do computed without a descriptor, but then you
-    #  don't have attribute like access, you would need to do a call operation to get the value
-
-    def __init__(self):
-        """Initialize a Computable."""
-        super().__init__()
-
-        self.signal_types: set[SignalType | str] = {
-            SignalType.CHANGE,
-        }
-
-    def __get__(self, instance, owner):  # noqa: D105
-        computed = getattr(instance, self.private_name)
-        old_value = computed._value
-
-        if CURRENT_COMPUTED is not None:
-            CURRENT_COMPUTED._add_parent(instance, self.public_name, old_value)
-
-        new_value = computed()
-
-        if new_value != old_value:
-            instance.notify(
-                self.public_name,
-                old_value,
-                new_value,
-                "change",
-            )
-            return new_value
-        else:
-            return old_value
-
-    def __set__(self, instance: HasObservables, value: Computed):  # noqa D103
-        if not isinstance(value, Computed):
-            raise ValueError("value has to be a Computable instance")
-
-        setattr(instance, self.private_name, value)
-        value.name = self.public_name
-        value.owner = instance
-        getattr(
-            instance, self.public_name
-        )  # force evaluation of the computed to build the dependency graph
-
-
-class Computed:
-    def __init__(self, func: Callable, *args, **kwargs):
+    def __init__(self, owner: HasObservables, name: str, func: Callable):
+        self.owner = owner
+        self.name = name
         self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        self._is_dirty = True
-        self._first = True
-        self._value = None
-        self.name: str = ""  # set by Computable
-        self.owner: HasObservables  # set by Computable
-
+        self.value = None
+        self.is_dirty = True
         self.parents: weakref.WeakKeyDictionary[HasObservables, dict[str, Any]] = (
             weakref.WeakKeyDictionary()
         )
 
-    def __str__(self):
-        return f"COMPUTED: {self.name}"
-
     def _set_dirty(self, signal):
-        if not self._is_dirty:
-            self._is_dirty = True
-            self.owner.notify(self.name, self._value, None, "change")
+        if not self.is_dirty:
+            self.is_dirty = True
+            self.owner.notify(self.name, self.value, None, SignalType.CHANGE)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any
@@ -248,61 +187,71 @@ class Computed:
         # we can unsubscribe from everything on each parent
         for parent in self.parents:
             parent.unobserve(All(), All(), self._set_dirty)
+        self.parents.clear()
 
-    def __call__(self):
+
+class ComputedProperty(property):
+    """A custom property class to identify computed properties."""
+
+
+def computed(func: Callable) -> property:
+    """Decorator to create a computed property.
+
+    Acts like @property, but automatically tracks dependencies (Observables)
+    accessed during the function execution.
+    """
+    key = f"_computed_{func.__name__}"
+
+    @functools.wraps(func)
+    def wrapper(self: HasObservables):
         global CURRENT_COMPUTED  # noqa: PLW0603
 
-        if self._is_dirty:
+        if not hasattr(self, key):
+            state = ComputedState(self, func.__name__, func)
+            setattr(self, key, state)
+        else:
+            state = getattr(self, key)
+
+        if state.is_dirty:
             changed = False
 
-            if self._first:
-                # fixme might be a cleaner solution for this
-                #  basically, we have no parents.
+            # Check if parents actually changed
+            if not state.parents:
                 changed = True
-                self._first = False
-
-            # we might be dirty but values might have changed
-            # back and forth in our parents so let's check to make sure we
-            # really need to recalculate
-            if not changed:
-                for parent in self.parents.keyrefs():
-                    # does parent still exist?
-                    if parent := parent():
-                        # if yes, compare old and new values for all
-                        # tracked observables on this parent
-                        for name, old_value in self.parents[parent].items():
-                            new_value = getattr(parent, name)
-                            if new_value != old_value:
-                                changed = True
-                                break  # we need to recalculate
-                        else:
-                            # trick for breaking cleanly out of nested for loops
-                            # see https://stackoverflow.com/questions/653509/breaking-out-of-nested-loops
-                            continue
-                        break
-                    else:
-                        # one of our parents no longer exists
+            else:
+                for parent, observations in state.parents.items():
+                    if parent is None:
                         changed = True
+                        break
+                    for attr, old_val in observations.items():
+                        current_val = getattr(parent, attr)
+                        if current_val != old_val:
+                            changed = True
+                            break
+                    if changed:
                         break
 
             if changed:
-                # the dependencies of the computable function might have changed
-                # so, we rebuilt
-                self._remove_parents()
+                state._remove_parents()
 
                 old = CURRENT_COMPUTED
-                CURRENT_COMPUTED = self
+                CURRENT_COMPUTED = state
 
                 try:
-                    self._value = self.func(*self.args, **self.kwargs)
+                    state.value = func(self)
                 except Exception as e:
                     raise e
                 finally:
                     CURRENT_COMPUTED = old
 
-            self._is_dirty = False
+            state.is_dirty = False
 
-        return self._value
+        if CURRENT_COMPUTED is not None:
+            CURRENT_COMPUTED._add_parent(self, func.__name__, state.value)
+
+        return state.value
+
+    return ComputedProperty(wrapper)
 
 
 class All:
@@ -502,12 +451,15 @@ class HasObservables:
 
 
 def descriptor_generator(obj) -> [str, BaseObservable]:
-    """Yield the name and signal_types for each Observable defined on obj."""
-    # we need to traverse the entire class hierarchy to properly get
-    # also observables defined in super classes
+    """Yield the name and signal_types for each Observable defined on obj.
+
+    This handles both legacy BaseObservable descriptors and new @computed properties.
+    """
     for base in type(obj).__mro__:
         base_dict = vars(base)
-
-        for entry in base_dict.values():
+        for name, entry in base_dict.items():
             if isinstance(entry, BaseObservable):
                 yield entry.public_name, entry.signal_types
+            elif isinstance(entry, ComputedProperty):
+                # Computed properties imply a CHANGE signal
+                yield name, {SignalType.CHANGE}
