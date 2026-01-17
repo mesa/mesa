@@ -415,5 +415,76 @@ def test_dead_parent_fallback():
         # It sees is_dirty=True -> iterates parents -> finds None -> sets changed=True
         val = agent.prop
 
-        # Ensure it re-calculated
-        assert val == 1
+    # parents disappearing
+    # Ensure it re-calculated
+    assert val == 1
+
+
+def test_list_support():
+    """Test using list of strings for name and signal_type in observe/unobserve."""
+
+    class MyAgent(Agent, HasObservables):
+        attr1 = Observable()
+        attr2 = Observable()
+        attr3 = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.attr1 = 1
+            self.attr2 = 2
+            self.attr3 = 3
+
+    model = Model(seed=42)
+    agent = MyAgent(model)
+    handler = Mock()
+
+    # Test observe with list of names
+    agent.observe(["attr1", "attr2"], "change", handler)
+
+    # Check subscriptions
+    assert handler in [ref() for ref in agent.subscribers["attr1"]["change"]]
+    assert handler in [ref() for ref in agent.subscribers["attr2"]["change"]]
+    assert handler not in [ref() for ref in agent.subscribers["attr3"]["change"]]
+
+    # Test unobserve with list of names
+    agent.unobserve(["attr1", "attr2"], "change", handler)
+    assert handler not in [ref() for ref in agent.subscribers["attr1"]["change"]]
+    assert handler not in [ref() for ref in agent.subscribers["attr2"]["change"]]
+
+    # Test observe with list of signal types (though Observable only has 'change' by default,
+    # we can register checking error handling or adding custom signals if needed,
+    # but for now Observable only emits 'change', so we can't easily test list of signal types
+    # without a custom observable that emits multiple types. Let's create one.)
+
+    class MultiSignalAgent(Agent, HasObservables):
+        def __init__(self, model):
+            super().__init__(model)
+            # Register a custom observable that emits multiple signal types
+            self._register_signal_emitter("custom_attr", {"type1", "type2", "type3"})
+
+    agent2 = MultiSignalAgent(model)
+    handler2 = Mock()
+
+    # Test observe with list of signal types
+    agent2.observe("custom_attr", ["type1", "type3"], handler2)
+
+    assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type1"]]
+    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type2"]]
+    assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type3"]]
+
+    # Test unobserve with list of signal types
+    agent2.unobserve("custom_attr", ["type1", "type3"], handler2)
+    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type1"]]
+    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type3"]]
+
+    # Test clear_all_subscriptions with list of names
+    agent.observe(["attr1", "attr2", "attr3"], "change", handler)
+    agent.clear_all_subscriptions(["attr1", "attr3"])
+
+    # helper to check emptiness
+    def is_empty(attr):
+        return len([ref() for ref in agent.subscribers[attr]["change"] if ref()]) == 0
+
+    assert is_empty("attr1")
+    assert not is_empty("attr2")
+    assert is_empty("attr3")
