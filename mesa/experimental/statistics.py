@@ -1,16 +1,11 @@
 import abc
 import operator
-from collections import defaultdict
-
 from collections.abc import Callable
-
-
 from typing import Any
 
 from mesa.agent import AgentSet
 from mesa.examples import BoltzmannWealth
 from mesa.model import Model
-
 
 
 class DataSet(abc.ABC):
@@ -43,7 +38,6 @@ class DataSet(abc.ABC):
                     raise ValueError("Invalid reporter type for {name}")
 
         # internal datastructure
-
 
     @property
     @abc.abstractmethod
@@ -146,7 +140,7 @@ class TableDataSet(DataSet):
         self.datasets = []
 
     def add_row(self, row: dict[str, Any]):
-        self.datasets.append({k:row[k] for k in self.fields})
+        self.datasets.append({k: row[k] for k in self.fields})
 
     @property
     def data(self) -> list[dict[str, Any]]:
@@ -176,8 +170,7 @@ class DataRegistry:
         return self.datasets[name]
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     model = BoltzmannWealth()
     agent_data = AgentDataSet("wealth", model.agents, wealth="wealth")
     model_data = ModelDataSet("gini", model, gini=model.compute_gini)
