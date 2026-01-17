@@ -147,6 +147,11 @@ class Agent[M: Model]:
         """Return a seeded np.random rng."""
         return self.model.rng
 
+    @property
+    def scenario(self):
+        """Return the scenario associated with the model."""
+        return self.model.scenario
+
 
 class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
     """A collection class that represents an ordered set of agents within an agent-based model (ABM).
