@@ -290,7 +290,7 @@ class Model[A: Agent]:
         """
         warnings.warn(
             "the use of seed is deprecated, use rng instead",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
 
