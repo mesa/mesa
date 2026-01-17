@@ -20,24 +20,20 @@ class DataSet(abc.ABC):
 
     """
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, *args, **kwargs):
         """Init."""
         self.name = name
-        self.fields = kwargs
+        self._args = args
+        self._collectors: dict[str, Callable] = {}
+        self._kwargs = kwargs
 
-        self._collectors = {}
-        # fixme: the operator.itemgetter optimization
-        #    for all attributes in one go can also be used here.
+        if args:
+            self._collectors["attributes"] = operator.attrgetter(*args)
+
         for name, reporter in kwargs.items():
-            match reporter:
-                case str():
-                    self._collectors[name] = operator.attrgetter(reporter)
-                case Callable():
-                    self._collectors[name] = reporter
-                case _:
-                    raise ValueError("Invalid reporter type for {name}")
-
-        # internal datastructure
+            if not isinstance(reporter, Callable):
+                raise ValueError(f"Invalid reporter type for {name}")
+            self._collectors[name] = reporter
 
     @property
     @abc.abstractmethod
@@ -59,37 +55,25 @@ class AgentDataSet(DataSet):
 
     """
 
-    def __init__(self, name, agents: AgentSet, **kwargs):
+    def __init__(self, name, agents: AgentSet, *args, **kwargs):
         """Init."""
-        super().__init__(name)
+        super().__init__(name, *["unique_id", *args], **kwargs)
         self.agents = agents
-
-        # you can basically always do this
-        # but just for the strings.
-        self.string_fields = []
-        self._collectors = {}
-        for k, v in kwargs.items():
-            match v:
-                case str():
-                    self.string_fields.append(v)
-                case Callable():
-                    self._collectors[k] = v
-                case _:
-                    raise ValueError("Invalid reporter type for {k}")
-        self.string_fields.append("unique_id")
-
-        # Create a single getter for [unique_id, attr1, attr2, ...]
-        self._agent_getter = operator.attrgetter(*self.string_fields)
 
     @property
     def data(self) -> list[dict[str, Any]]:
         # gets the data for the fields from the agents
         data: list[dict[str, Any]] = []
         for agent in self.agents:
-            agent_data = {
-                k: v for k, v in zip(self.string_fields, self._agent_getter(agent))
-            } | {k: func(agent) for k, func in self._collectors.items()}
-            data.append(agent_data)
+            attribute_data = {
+                k: v for k, v in zip(self._args, self._collectors["attributes"](agent))
+            }
+            callable_data = {
+                k: func(agent)
+                for k, func in self._collectors.items()
+                if k != "attributes"
+            }
+            data.append(attribute_data | callable_data))
         return data
 
 
@@ -105,17 +89,21 @@ class ModelDataSet[M: Model](DataSet):
 
     """
 
-    def __init__(self, name, model: M, **kwargs):
+    def __init__(self, name, model: M, *args, **kwargs):
         """Init."""
-        super().__init__(name, **kwargs)
+        super().__init__(name, *args, **kwargs)
         self.model = model
 
     @property
     def data(self) -> dict[str, Any]:
         # gets the data for the fields from the agents
-        data = {}
-        for k, v in self._collectors.items():
-            data[k] = v()
+        data = {
+            k: v for k, v in zip(self._args, self._collectors["attributes"](agent))
+        } | {
+            k: func(self.model)
+            for k, func in self._collectors.items()
+            if k != "attributes"
+        }
 
         return data
 
@@ -172,7 +160,7 @@ class DataRegistry:
 
 if __name__ == "__main__":
     model = BoltzmannWealth()
-    agent_data = AgentDataSet("wealth", model.agents, wealth="wealth")
+    agent_data = AgentDataSet("wealth", model.agents, "wealth")
     model_data = ModelDataSet("gini", model, gini=model.compute_gini)
     data = []
     for _ in range(5):
