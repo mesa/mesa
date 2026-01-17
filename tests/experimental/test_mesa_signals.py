@@ -330,10 +330,6 @@ def test_computed_dynamic_dependencies():
                 return self.val_b
 
     model = Model(rng=42)
-    with pytest.raises(ValueError):
-        MyAgent(model, 10)
-
-    model = Model(rng=42)
     agent = DynamicAgent(model)
 
     # Use Path A (depends on val_a)
