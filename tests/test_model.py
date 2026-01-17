@@ -1,6 +1,7 @@
 """Tests for model.py."""
 
 import numpy as np
+import pytest
 
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs.simulator import DEVSimulator
@@ -79,14 +80,15 @@ def test_rng(rng=23):
     )
 
 
-# def test_reset_randomizer(newseed=42):
-#     """Test resetting the random seed on the model."""
-#     model = Model()
-#     oldseed = model._seed
-#     model.reset_randomizer()
-#     assert model._seed == oldseed
-#     model.reset_randomizer(seed=newseed)
-#     assert model._seed == newseed
+def test_reset_randomizer(newseed=42):
+    """Test resetting the random seed on the model."""
+    with pytest.warns(DeprecationWarning):
+        model = Model()
+        oldseed = model._seed
+        model.reset_randomizer()
+        assert model._seed == oldseed
+        model.reset_randomizer(seed=newseed)
+        assert model._seed == newseed
 
 
 def test_reset_rng(newseed=42):
