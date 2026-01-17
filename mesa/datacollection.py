@@ -361,7 +361,10 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
-            if hasattr(self, "_collection_steps") and self._collection_steps is not None:
+            if (
+                hasattr(self, "_collection_steps")
+                and self._collection_steps is not None
+            ):
                 self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
