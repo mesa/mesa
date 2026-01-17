@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pytest
 
-from mesa.agent import Agent, AgentSet
+from mesa.agent import Agent, AgentSet, WeakAgentSet
 from mesa.model import Model
 
 
@@ -634,6 +634,41 @@ def test_agentset_shuffle():
     agentset = AgentSet(test_agents, random=model.random)
     agentset.shuffle(inplace=True)
     assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
+
+
+def test_weakagentset_behavior():
+    """Test that WeakAgentSet behaves like a normal AgentSet while agents are alive."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+
+    # Keep a hard reference to agents so they aren't GC'd during this test
+    weak_set = WeakAgentSet(agents)
+
+    assert len(weak_set) == 10
+    assert agents[0] in weak_set
+
+    # Select agents with unique_id > 5
+    subset = weak_set.select(lambda a: a.unique_id > 5)
+    assert len(subset) == 5
+
+    # Define a simple side-effect class
+    class MockAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+        def increment(self):
+            self.value += 1
+
+    mock_agents = [MockAgent(model) for _ in range(5)]
+    mock_set = WeakAgentSet(mock_agents)
+
+    mock_set.do("increment")
+    assert all(a.value == 1 for a in mock_agents)
+
+    shuffled = mock_set.shuffle()
+    assert len(shuffled) == 5
+    assert set(shuffled) == set(mock_agents)
 
 
 def test_agentset_groupby():
