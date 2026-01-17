@@ -310,4 +310,65 @@ def test_Computable():
     with pytest.raises(ValueError):
         MyAgent(model, 10)
 
-    # parents disappearing
+
+def test_coverage_edge_cases():
+    """Test edge cases for improved coverage."""
+    import copy
+
+    # Test All.__copy__ and All.__deepcopy__ (lines 287, 290)
+    all_instance = All()
+    shallow = copy.copy(all_instance)
+    deep = copy.deepcopy(all_instance)
+    assert shallow is all_instance
+    assert deep is all_instance
+
+    # Test BaseObservable.__str__ (line 88)
+    class MyAgent(Agent, HasObservables):
+        attr = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.attr = 10
+
+    model = Model(seed=42)
+    agent = MyAgent(model)
+    descriptor = type(agent).__dict__["attr"]
+    assert "attr" in str(descriptor)
+
+    # Test Computed.__str__ (line 193)
+    class ComputedAgent(Agent, HasObservables):
+        computed_attr = Computable()
+        source = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.source = 5
+            self.computed_attr = Computed(lambda x: x.source * 2, self)
+
+    agent2 = ComputedAgent(model)
+    _ = agent2.computed_attr  # trigger computation
+    computed_obj = getattr(agent2, "_computed_attr")
+    str_repr = str(computed_obj)
+    assert "computed_attr" in str_repr
+
+    # Test computable returning same value (line 167)
+    class ConstantComputedAgent(Agent, HasObservables):
+        computed_attr = Computable()
+        source = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.source = 10
+
+            def always_42(x):
+                _ = x.source  # read to register dependency
+                return 42
+
+            self.computed_attr = Computed(always_42, self)
+
+    agent3 = ConstantComputedAgent(model)
+    first = agent3.computed_attr
+    assert first == 42
+    agent3.source = 20  # change dependency
+    second = agent3.computed_attr  # should recalculate but return same value
+    assert second == 42
