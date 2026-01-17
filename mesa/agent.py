@@ -102,37 +102,32 @@ class Agent[M: Model]:
             AgentSet containing the agents created.
 
         """
-
-        class ListLike:
-            """Make default arguments act as if they are in a list of length N.
-
-            This is a helper class.
-            """
-
-            def __init__(self, value):
-                self.value = value
-
-            def __getitem__(self, i):
-                return self.value
-
-        listlike_args = []
+        # Prepare positional argument iterators
+        arg_iters = []
         for arg in args:
-            if isinstance(arg, (list | np.ndarray | tuple)) and len(arg) == n:
-                listlike_args.append(arg)
+            if isinstance(arg, (list, np.ndarray, tuple)) and len(arg) == n:
+                arg_iters.append(arg)
             else:
-                listlike_args.append(ListLike(arg))
+                arg_iters.append(itertools.repeat(arg, n))
 
-        listlike_kwargs = {}
-        for k, v in kwargs.items():
-            if isinstance(v, (list | np.ndarray | tuple)) and len(v) == n:
-                listlike_kwargs[k] = v
+        # Prepare keyword argument iterators
+        kw_keys = list(kwargs.keys())
+        kw_val_iters = []
+        for v in kwargs.values():
+            if isinstance(v, (list, np.ndarray, tuple)) and len(v) == n:
+                kw_val_iters.append(v)
             else:
-                listlike_kwargs[k] = ListLike(v)
+                kw_val_iters.append(itertools.repeat(v, n))
 
         agents = []
-        for i in range(n):
-            instance_args = [arg[i] for arg in listlike_args]
-            instance_kwargs = {k: v[i] for k, v in listlike_kwargs.items()}
+        # Include range(n) in zip to ensure the loop runs n times
+        # even if arg_iters and kw_val_iters are empty.
+        for _, *values in zip(range(n), *arg_iters, *kw_val_iters):
+            # Split values into positional and keyword parts
+            instance_args = values[: len(args)]
+            instance_kw_vals = values[len(args) :]
+            instance_kwargs = dict(zip(kw_keys, instance_kw_vals))
+
             agent = cls(model, *instance_args, **instance_kwargs)
             agents.append(agent)
         return AgentSet(agents, random=model.random)
