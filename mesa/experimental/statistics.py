@@ -102,12 +102,10 @@ class ModelDataSet[M: Model](DataSet):
         except KeyError:
             attribute_data = {}
         else:
-            attribute_data = {k:v for k,v in zip(self._args, attribute_data())}
+            attribute_data = {k: v for k, v in zip(self._args, attribute_data())}
 
-        callable_data ={
-            k: func()
-            for k, func in self._collectors.items()
-            if k != "attributes"
+        callable_data = {
+            k: func() for k, func in self._collectors.items() if k != "attributes"
         }
 
         return attribute_data | callable_data
