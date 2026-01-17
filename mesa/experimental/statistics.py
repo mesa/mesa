@@ -1,3 +1,5 @@
+"""Helper classes for collecting statistics."""
+
 import abc
 import operator
 from collections.abc import Callable
@@ -6,6 +8,8 @@ from typing import Any
 from mesa.agent import AgentSet
 from mesa.examples import BoltzmannWealth
 from mesa.model import Model
+
+__all__ = ["AgentDataSet", "DataRegistry", "DataSet", "ModelDataSet", "TableDataSet"]
 
 
 class DataSet(abc.ABC):
@@ -38,7 +42,7 @@ class DataSet(abc.ABC):
     @property
     @abc.abstractmethod
     def data(self):
-        """Return the data of the table"""
+        """Return the data of the table."""
         ...
 
 
@@ -62,12 +66,13 @@ class AgentDataSet(DataSet):
 
     @property
     def data(self) -> list[dict[str, Any]]:
+        """Return the data of the table."""
         # gets the data for the fields from the agents
         data: list[dict[str, Any]] = []
         for agent in self.agents:
-            attribute_data = {
-                k: v for k, v in zip(self._args, self._collectors["attributes"](agent))
-            }
+            attribute_data = dict(
+                zip(self._args, self._collectors["attributes"](agent))
+            )
             callable_data = {
                 k: func(agent)
                 for k, func in self._collectors.items()
@@ -96,6 +101,7 @@ class ModelDataSet[M: Model](DataSet):
 
     @property
     def data(self) -> dict[str, Any]:
+        """Return the data of the table."""
         # gets the data for the fields from the agents
         try:
             attribute_data = self._collectors["attributes"]
@@ -103,9 +109,9 @@ class ModelDataSet[M: Model](DataSet):
             attribute_data = {}
         else:
             if len(self._args) == 1:
-                attribute_data = {k: v for k, v in zip(self._args, (attribute_data(model),))}
+                attribute_data = {self._args[0]: attribute_data(model)}
             else:
-                attribute_data = {k: v for k, v in zip(self._args, attribute_data(model))}
+                attribute_data = dict(zip(self._args, attribute_data(model)))
 
         callable_data = {
             k: func() for k, func in self._collectors.items() if k != "attributes"
@@ -134,10 +140,12 @@ class TableDataSet(DataSet):
         self.datasets = []
 
     def add_row(self, row: dict[str, Any]):
+        """Add a row to the table."""
         self.datasets.append({k: row[k] for k in self.fields})
 
     @property
     def data(self) -> list[dict[str, Any]]:
+        """Return the data of the table."""
         # gets the data for the fields from the agents
         return self.datasets
 
@@ -146,21 +154,27 @@ class DataRegistry[M: Model]:
     """A registry for data sets."""
 
     def __init__(self):
+        """Init."""
         self.datasets = {}
 
     def add_dataset(self, dataset: DataSet):
+        """Add a dataset to the registry."""
         self.datasets[dataset.name] = dataset
 
     def create_dataset(self, dataset_type, name, *args, **kwargs):
+        """Create a dataset of the specified type and add it to the registry."""
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
     def track_agents(self, agents: AgentSet, name: str, **kwargs):
+        """Track the specified fields for the agents in the AgentSet."""
         self.create_dataset(AgentDataSet, name, agents, **kwargs)
 
     def track_model(self, model: M, name: str, **kwargs):
+        """Track the specified fields in the model."""
         self.create_dataset(ModelDataSet, name, model, **kwargs)
 
     def __getitem__(self, name: str):
+        """Get a dataset by name."""
         return self.datasets[name]
 
 
