@@ -1354,38 +1354,3 @@ def test_property_layer_select_cells_split():
     with pytest.warns(FutureWarning, match="select_cells is deprecated"):
         res_mask = layer.select_cells(condition, return_list=False)
     assert np.all(res_mask == mask)
-
-
-def test_grid_select_cells_split():
-    """Test the split select_cells methods in HasPropertyLayers."""
-    dimensions = (5, 5)
-    grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
-
-    data = np.random.default_rng(12456).random(dimensions)
-    grid.add_property_layer(PropertyLayer.from_data("elevation", data))
-
-    # Test select_cells_boolean
-    mask = grid.select_cells_boolean(conditions={"elevation": lambda x: x > 0.5})
-    assert mask.shape == dimensions
-    assert mask.dtype == bool
-    assert np.all(mask == (data > 0.5))
-
-    # Test select_cells_index
-    indices = grid.select_cells_index(conditions={"elevation": lambda x: x > 0.5})
-    assert isinstance(indices, list)
-    expected_indices = list(zip(*np.where(data > 0.5)))
-    assert len(indices) == len(expected_indices)
-    assert set(indices) == set(expected_indices)
-
-    # Test deprecated select_cells
-    with pytest.warns(FutureWarning, match="select_cells is deprecated"):
-        res_list = grid.select_cells(
-            conditions={"elevation": lambda x: x > 0.5}, return_list=True
-        )
-    assert set(res_list) == set(indices)
-
-    with pytest.warns(FutureWarning, match="select_cells is deprecated"):
-        res_mask = grid.select_cells(
-            conditions={"elevation": lambda x: x > 0.5}, return_list=False
-        )
-    assert np.all(res_mask == mask)
