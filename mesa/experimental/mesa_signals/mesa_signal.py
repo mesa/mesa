@@ -23,9 +23,9 @@ import functools
 import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Generator
+from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
