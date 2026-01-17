@@ -5,7 +5,7 @@ import pickle
 import numpy as np
 import pytest
 
-from mesa import Model
+from mesa import Agent, Model
 from mesa.experimental.scenarios import Scenario
 
 
@@ -76,3 +76,18 @@ def test_scenario_serialization():
     unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
     assert unpickled._scenario_id == scenario._scenario_id
+
+
+def test_agent_scenario_property():
+    """Test that agents can access scenario via property."""
+    scenario = Scenario(test_param=100, another_param="test", rng=42)
+    model = Model(scenario=scenario)
+    agent = Agent(model)
+
+    # Agent should have access to scenario
+    assert agent.scenario is model.scenario
+    assert agent.scenario.test_param == 100
+    assert agent.scenario.another_param == "test"
+
+    # Verify it's the same object, not a copy
+    assert agent.scenario is agent.model.scenario
