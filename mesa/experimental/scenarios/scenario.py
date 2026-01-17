@@ -82,7 +82,7 @@ class Scenario[M: Model]:
 
     def copy(self, **updates):
         """Create a copy of scenario with optional parameter updates.
-        
+
         Note: Creates a new scenario with a unique _scenario_id.
         Note: rng is copied by reference, not cloned. Both scenarios will share
               the same RNG object and produce identical random sequences.
