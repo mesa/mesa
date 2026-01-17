@@ -27,7 +27,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
-from mesa.experimental.mesa_signals.signals_util import AttributeDict, create_weakref
+from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
 __all__ = ["All", "HasObservables", "Observable", "SignalType", "computed"]
 
@@ -297,7 +297,7 @@ class HasObservables:
     def observe(
         self,
         name: str | All,
-        signal_type: str | All,
+        signal_type: str | SignalType | All,
         handler: Callable,
     ):
         """Subscribe to the Observable <name> for signal_type.
@@ -348,7 +348,9 @@ class HasObservables:
             for st in signal_types:
                 self.subscribers[name][st].append(ref)
 
-    def unobserve(self, name: str | All, signal_type: str | All, handler: Callable):
+    def unobserve(
+        self, name: str | All, signal_type: str | SignalType | All, handler: Callable
+    ):
         """Unsubscribe to the Observable <name> for signal_type.
 
         Args:
@@ -413,7 +415,7 @@ class HasObservables:
         observable: str,
         old_value: Any,
         new_value: Any,
-        signal_type: str,
+        signal_type: str | SignalType,
         **kwargs,
     ):
         """Emit a signal.
@@ -426,18 +428,18 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
-        signal = AttributeDict(
+        signal = Message(
             name=observable,
             old=old_value,
             new=new_value,
             owner=self,
-            type=signal_type,
-            **kwargs,
+            signal_type=signal_type,
+            additional_kwargs=kwargs,
         )
 
         self._mesa_notify(signal)
 
-    def _mesa_notify(self, signal: AttributeDict):
+    def _mesa_notify(self, signal: Message):
         """Send out the signal.
 
         Args:
@@ -448,9 +450,9 @@ class HasObservables:
 
         """
         # we put this into a helper method, so we can emit signals with other fields
-        # then the default ones in notify.
+        # than the default ones in notify.
         observable = signal.name
-        signal_type = signal.type
+        signal_type = signal.signal_type
 
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
