@@ -151,10 +151,10 @@ class DataRegistry[M: Model]:
     def create_dataset(self, dataset_type, name, *args, **kwargs):
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
-    def track_agents(self, agents: AgentSet, name:str, **kwargs):
+    def track_agents(self, agents: AgentSet, name: str, **kwargs):
         self.create_dataset(AgentDataSet, name, agents, **kwargs)
 
-    def track_model(self, model: M, name:str, **kwargs):
+    def track_model(self, model: M, name: str, **kwargs):
         self.create_dataset(ModelDataSet, name, model, **kwargs)
 
     def __getitem__(self, name: str):
