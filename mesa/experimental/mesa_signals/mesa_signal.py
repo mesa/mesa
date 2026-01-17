@@ -312,7 +312,6 @@ class HasObservables:
             does not emit the given signal_type
 
         """
-        # fixme should name/signal_type also take a list of str?
         match name:
             case All():
                 names = self.observables.keys()
