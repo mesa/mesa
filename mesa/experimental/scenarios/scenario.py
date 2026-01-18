@@ -55,9 +55,9 @@ class Scenario[M: Model]:
         for base in reversed(cls.__mro__):
             if base is Scenario or base is object:
                 continue
-            annotations = getattr(base, '__annotations__', {})
+            annotations = getattr(base, "__annotations__", {})
             for key in annotations:
-                if hasattr(base, key) and not key.startswith('_'):
+                if hasattr(base, key) and not key.startswith("_"):
                     defaults[key] = getattr(base, key)
 
         # Cache on the class itself
