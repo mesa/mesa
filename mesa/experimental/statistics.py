@@ -305,9 +305,16 @@ class DataField(property):
         super().__init__(self.getter, self.setter)
         self.field_name = table
         self.attribute_name = attribute_name
+        self.table = None
 
     def getter(self, obj: Agent):
-        table = obj.model.data_registry[self.field_name]
+        if self.table is None:
+            table = obj.model.data_registry[self.field_name]
+            self.table = table
+        else:
+            table = self.table
+
+
         i = table.agent_to_index(obj)
         j = table.attribute_to_index[self.attribute_name]
         return table._data[i, j]
