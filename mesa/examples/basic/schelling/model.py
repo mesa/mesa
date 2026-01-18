@@ -15,7 +15,7 @@ class Schelling(Model):
         minority_pc: float = 0.5,
         homophily: float = 0.4,
         radius: int = 1,
-        seed=None,
+        rng=None,
     ):
         """Create a new Schelling model.
 
@@ -26,9 +26,9 @@ class Schelling(Model):
             minority_pc: Chance for an agent to be in minority class (0-1)
             homophily: Minimum number of similar neighbors needed for happiness
             radius: Search radius for checking neighbor similarity
-            seed: Seed for reproducibility
+            rng: Seed for reproducibility
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
 
         # Model parameters
         self.density = density

@@ -479,8 +479,8 @@ def test_networkgrid():
     """Test NetworkGrid."""
     n = 10
     m = 20
-    seed = 42
-    G = nx.gnm_random_graph(n, m, seed=seed)  # noqa: N806
+    rng = 42
+    G = nx.gnm_random_graph(n, m, seed=rng)  # noqa: N806
     grid = Network(G, random=random.Random(42))
 
     assert len(grid._cells) == n
@@ -536,8 +536,8 @@ def test_empties_space():
     """Test empties method for Discrete Spaces."""
     n = 10
     m = 20
-    seed = 42
-    G = nx.gnm_random_graph(n, m, seed=seed)  # noqa: N806
+    rng = 42
+    G = nx.gnm_random_graph(n, m, seed=rng)  # noqa: N806
     grid = Network(G, random=random.Random(42))
 
     assert len(grid.empties) == n
@@ -551,8 +551,8 @@ def test_agents_property():
     """Test empties method for Discrete Spaces."""
     n = 10
     m = 20
-    seed = 42
-    G = nx.gnm_random_graph(n, m, seed=seed)  # noqa: N806
+    rng = 42
+    G = nx.gnm_random_graph(n, m, seed=rng)  # noqa: N806
     grid = Network(G, random=random.Random(42))
 
     model = Model()

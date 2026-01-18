@@ -50,11 +50,11 @@ class EpsteinCivilViolence(mesa.Model):
         arrest_prob_constant=2.3,
         movement=True,
         max_iters=1000,
-        seed=None,
+        rng=None,
         activation_order="Random",
         grid_type="Von Neumann",
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.movement = movement
         self.max_iters = max_iters
         self.activation_order = activation_order
