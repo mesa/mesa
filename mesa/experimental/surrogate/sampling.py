@@ -14,7 +14,15 @@ def sample_parameters(param_space, n_samples, seed=None):
     scaled_samples = qmc.scale(sample, l_bounds, u_bounds)
 
     param_names = list(param_space.keys())
-    return [
-        {param_names[i]: scaled_samples[j, i] for i in range(dim)}
-        for j in range(n_samples)
+    is_int = [
+        isinstance(v[0], int) and isinstance(v[1], int) for v in param_space.values()
     ]
+
+    output = []
+    for j in range(n_samples):
+        config = {}
+        for i in range(dim):
+            val = scaled_samples[j, i]
+            config[param_names[i]] = round(val) if is_int[i] else val
+        output.append(config)
+    return output
