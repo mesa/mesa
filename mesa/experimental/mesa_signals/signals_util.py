@@ -9,38 +9,31 @@ These utilities support the core signals implementation by providing reference
 management and convenient data structures used throughout the reactive system.
 """
 
+from __future__ import annotations
+
 import weakref
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 __all__ = [
-    "AttributeDict",
+    "Message",
     "create_weakref",
 ]
 
+if TYPE_CHECKING:
+    from mesa.experimental.mesa_signals import ListSignalType, SignalType
 
-class AttributeDict(dict):
-    """A dict with attribute like access.
 
-    Each value can be accessed as if it were an attribute with its key as attribute name
+@dataclass(frozen=True, slots=True)
+class Message:
+    """A message class containing information about a signal change."""
 
-    """
-
-    # I want our signals to act like traitlet signals, so this is inspired by trailets Bunch
-    # and some stack overflow posts.
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-    def __getattr__(self, key):  # noqa: D105
-        try:
-            return self.__getitem__(key)
-        except KeyError as e:
-            # we need to go from key error to attribute error
-            raise AttributeError(key) from e
-
-    def __dir__(self):  # noqa: D105
-        # allows us to easily access all defined attributes
-        names = dir({})
-        names.extend(self.keys())
-        return names
+    name: str
+    old: Any
+    new: Any
+    owner: Any
+    signal_type: SignalType | ListSignalType
+    additional_kwargs: dict
 
 
 def create_weakref(item, callback=None):

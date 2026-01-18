@@ -180,7 +180,7 @@ def test_agent_membership():
 
 def test_agent_rng():
     """Test whether agent.random and agent.rng are equal to model.random and model.rng."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = Agent(model)
     assert agent.random is model.random
     assert agent.rng is model.rng
@@ -188,7 +188,16 @@ def test_agent_rng():
 
 def test_agent_create():
     """Test create agent factory method."""
+    # Fast Path (No args/kwargs)
+    model = Model()
+    n = 10
+    fast_agents = Agent.create_agents(model, n)
 
+    assert len(fast_agents) == n
+    assert all(isinstance(a, Agent) for a in fast_agents)
+    assert all(a.model is model for a in fast_agents)
+
+    # Standard Path (With args/kwargs)
     class TestAgent(Agent):
         def __init__(self, model, attr, def_attr, a=0, b=0):
             super().__init__(model)
@@ -197,7 +206,7 @@ def test_agent_create():
             self.a = a
             self.b = b
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     n = 10
     some_attribute = model.rng.random(n)
     a = tuple([model.random.random() for _ in range(n)])
@@ -550,7 +559,7 @@ def test_agentset_shuffle_do():
             if agent_to_remove is not self:
                 agent_to_remove.remove()
 
-    model = Model(seed=32)
+    model = Model(rng=32)
     for _ in range(100):
         AgentWithRemove(model)
     model.agents.shuffle_do("step")
