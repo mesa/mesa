@@ -256,7 +256,7 @@ class Model[A: Agent]:
             seed: A new seed for the RNG; if None, reset using the current seed
         """
         warnings.warn(
-            "the use of seed is deprecated, use rng instead",
+            "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
             FutureWarning,
             stacklevel=2,
         )
