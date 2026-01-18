@@ -1,6 +1,5 @@
 """Tests for multi-level and overlapping meta-agents."""
 
-
 from mesa import Agent, Model
 from mesa.experimental.meta_agents.meta_agent import MetaAgent, create_meta_agent
 
