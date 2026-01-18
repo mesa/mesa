@@ -72,6 +72,74 @@ That's great! You can just start working on things, reach out to us. Skim to the
 ### I'm neither
 Start with creating your own models, for fun. Once you have some experience, move to the topics above.
 
+## Mesa development process
+Mesa is a library that aims to provide elegant, scalable, flexible, and powerful building blocks to a wide audience of agent-based modellers. When contributing, it helps to understand our development philosophy and process.
+
+### When to open what
+- **Small enhancements or bug fixes**: Opening an issue or directly a PR is often great.
+- **Larger features or uncertain scope**: Open a [Discussion](https://github.com/mesa/mesa/discussions) first. This helps align on the problem and approach before investing significant effort.
+- **When in doubt**: Start with a Discussion. It's always easier to move from discussion to implementation than to rework a large PR.
+
+### Our development process
+For significant features, we typically follow a three-stage process. While not always linear, this flow helps ensure we build the right thing the right way.
+
+#### Stage 1: Problem alignment
+Before jumping into solutions, we first align on the problem:
+
+- **Target audience**: Who is this feature for? What's their experience level and context?
+- **Use cases**: When and why would someone use this? What are they trying to accomplish?
+- **Existing solutions**: What do other libraries offer? What can we learn from or connect to?
+- **Gap analysis**: Given existing solutions (both in Mesa and elsewhere), where are the gaps?
+
+This stage answers the fundamental question: *Is this problem worth solving, and are we the right ones to solve it?*
+
+#### Stage 2: Conceptual/high-level design
+Once we agree on the problem, we design the solution at a high level:
+
+- **User API**: What will the interface look like from a user's perspective? How will modellers interact with this feature?
+- **Core architecture**: What data structures and patterns will we use internally?
+- **Integration**: How does this fit with existing Mesa components?
+
+The goal is to wrap our heads around the conceptual approach before diving into code.
+
+Sometimes the answer is that we just need better documentation. Python itself is a powerful tool and there are many existing libraries in the ecosystem to leverage.
+
+#### Stage 3: Implementation
+With alignment on both problem and design, implementation can proceed:
+
+- Write the code following Mesa's standards
+- Include/update tests and and check test coverage
+- Include/update documentation and check Readthedocs rendering
+- Open a PR for review
+
+And if needed:
+- Update relevant examples
+- Update/extend the tutorial
+- Write a section for the [migration guide](docs/migration_guide.md)
+
+### Pathfinding PRs
+For complex features where feasibility or proportionality is uncertain, we sometimes use *pathfinding PRs*. These are exploratory implementations meant to:
+
+- Test whether an approach is technically viable
+- Understand the true complexity and scope
+- Gather concrete data (e.g., micro-benchmarks) to inform design decisions
+- Spark discussion with working code rather than abstract ideas
+
+Pathfinding PRs aren't expected to be merge-ready. They're tools for learning and discussion. If you're exploring a complex feature, consider posting initial results and ideas in a Discussion before opening a full PR.
+
+### Example workflow
+Here's how this process might look in practice:
+
+1. **Discussion opened**: "I'd think feature X should be in Mesa"
+2. **Problem alignment**: Community discusses target users, use cases, existing solutions, and identifies gaps
+3. **Conceptual design**: Proposals for user API and architecture are shared and refined
+4. **Pathfinding** (if needed): A quick prototype tests feasibility and gathers data
+5. **Implementation PR**: Full implementation with tests, docs, and examples
+6. **Review and iteration**: Community feedback leads to refinements
+7. **Merge**: Feature becomes part of Mesa
+
+Figuring out the right direction is often as valuable as implementing a predefined solution. Don't hesitate to ask questions and propose ideas early in the process!
+
 ## Testing and Code Standards
 
 ```{image} https://codecov.io/gh/mesa/mesa/branch/main/graph/badge.svg

@@ -40,7 +40,7 @@ class WolfSheep(Model):
         grass=True,
         grass_regrowth_time=30,
         sheep_gain_from_food=4,
-        seed=None,
+        rng=None,
         simulator: ABMSimulator = None,
     ):
         """Create a new Wolf-Sheep model with the given parameters.
@@ -57,10 +57,10 @@ class WolfSheep(Model):
             grass_regrowth_time: How long it takes for a grass patch to regrow
                                 once it is eaten
             sheep_gain_from_food: Energy sheep gain from grass, if enabled
-            seed: Random seed
+            rng: Random rng
             simulator: ABMSimulator instance for event scheduling
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.simulator = simulator
         self.simulator.setup(self)
 

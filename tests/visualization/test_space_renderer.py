@@ -2,6 +2,7 @@
 
 import random
 import re
+import warnings
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -38,8 +39,8 @@ from mesa.visualization.space_renderer import SpaceRenderer
 class CustomModel(mesa.Model):
     """A simple model for testing purposes."""
 
-    def __init__(self, seed=None):  # noqa: D107
-        super().__init__(seed=seed)
+    def __init__(self, rng=None):  # noqa: D107
+        super().__init__(rng=rng)
         self.grid = mesa.discrete_space.OrthogonalMooreGrid(
             [2, 2], random=random.Random(42)
         )
@@ -197,7 +198,7 @@ def test_property_layer_style_instance():
     sr.backend_renderer = MagicMock()
 
     style = PropertyLayerStyle(color="blue")
-    sr.draw_propertylayer(style)
+    sr.setup_propertylayer(style).draw_propertylayer()
 
     # Verify that the backend renderer's draw_propertylayer was called
     sr.backend_renderer.draw_propertylayer.assert_called_once()
@@ -207,3 +208,112 @@ def test_property_layer_style_instance():
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style
+
+
+def test_network_non_contiguous_nodes():
+    """Test network with non-contiguous node IDs (Issue #3023).
+
+    Verifies dictionary lookup correctly maps agents to positions
+    regardless of node ID values.
+    """
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 5, 10, 15]  # Non-contiguous node IDs
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        sr.space_drawer.pos = {
+            0: np.array([0.1, 0.2]),
+            1: np.array([0.3, 0.4]),
+            5: np.array([0.5, 0.6]),
+            10: np.array([0.7, 0.8]),
+            15: np.array([0.9, 1.0]),
+        }
+
+        args = {
+            "loc": np.array([[0, 0], [1, 1], [5, 5], [10, 10], [15, 15]], dtype=float)
+        }
+
+        mapped = sr._map_coordinates(args)
+
+        assert mapped["loc"].shape == (5, 2)
+        assert not np.any(np.isnan(mapped["loc"]))
+        expected = np.array(
+            [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8], [0.9, 1.0]]
+        )
+        np.testing.assert_array_equal(mapped["loc"], expected)
+
+
+def test_network_missing_nodes_warning():
+    """Test warning when many nodes missing from layout (Issue #3064).
+
+    Verifies NaN masking for missing nodes and warning threshold (>10%).
+    """
+    mock_graph = MagicMock()
+    mock_graph.nodes = list(range(10))
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        # Only 5 of 10 nodes in layout (50% missing, triggers warning)
+        sr.space_drawer.pos = {i: np.array([float(i), 0.0]) for i in range(5)}
+
+        args = {"loc": np.array([[i, i] for i in range(10)], dtype=float)}
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            assert len(w) == 1
+            assert "5/10 agents" in str(w[0].message)
+            # First 5 mapped, last 5 are NaN
+            for i in range(5):
+                np.testing.assert_array_equal(mapped["loc"][i], [float(i), 0.0])
+            for i in range(5, 10):
+                assert np.all(np.isnan(mapped["loc"][i]))
+
+
+def test_network_race_condition_graceful():
+    """Test graceful handling when layout lags behind simulation.
+
+    Combines both fixes: dictionary lookup + NaN masking for resilience.
+    """
+    mock_graph = MagicMock()
+    mock_graph.nodes = [0, 1, 2, 50, 100]
+
+    model = CustomModel()
+    network = Network(G=mock_graph, random=random.Random(42))
+
+    with patch.object(model, "grid", new=network):
+        sr = SpaceRenderer(model)
+        # Layout only has nodes 0-2 (stale)
+        sr.space_drawer.pos = {
+            0: np.array([0.0, 0.0]),
+            1: np.array([1.0, 0.0]),
+            2: np.array([2.0, 0.0]),
+        }
+
+        args = {
+            "loc": np.array([[0, 0], [1, 1], [2, 2], [50, 50], [100, 100]], dtype=float)
+        }
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mapped = sr._map_coordinates(args)
+
+            # Should warn since 2/5 = 40% > 10% threshold
+            assert len(w) == 1
+            assert "2/5 agents" in str(w[0].message)
+
+        assert mapped["loc"].shape == (5, 2)
+        # Known nodes mapped correctly
+        np.testing.assert_array_equal(mapped["loc"][0], [0.0, 0.0])
+        np.testing.assert_array_equal(mapped["loc"][1], [1.0, 0.0])
+        np.testing.assert_array_equal(mapped["loc"][2], [2.0, 0.0])
+        # Missing nodes become NaN (hidden, not crashed)
+        assert np.all(np.isnan(mapped["loc"][3]))
+        assert np.all(np.isnan(mapped["loc"][4]))

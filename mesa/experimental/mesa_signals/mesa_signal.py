@@ -5,9 +5,10 @@ functionality:
 
 - BaseObservable: Abstract base class defining the interface for all observables
 - Observable: Main class for creating observable properties that emit change signals
-- Computable: Class for properties that automatically update based on other observables
+- computed: Decorator for creating properties that automatically update based on dependencies
 - HasObservables: Mixin class that enables an object to contain and manage observables
 - All: Helper class for subscribing to all signals from an observable
+- SignalType: Enum defining the types of signals that can be emitted
 
 The module implements a robust reactive system where changes to observable properties
 automatically trigger updates to dependent computed values and notify subscribed
@@ -23,15 +24,50 @@ import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Callable
+from enum import Enum
 from typing import Any
 
-from mesa.experimental.mesa_signals.signals_util import AttributeDict, create_weakref
+from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
-__all__ = ["All", "Computable", "HasObservables", "Observable"]
+__all__ = ["All", "HasObservables", "Observable", "SignalType", "computed"]
+
+
+class SignalType(str, Enum):
+    """Enumeration of signal types that observables can emit.
+
+    This enum provides type-safe signal type definitions with IDE autocomplete support.
+    Inherits from str for backward compatibility with existing string-based code.
+
+    Attributes:
+        CHANGE: Emitted when an observable's value changes.
+
+    Examples:
+        >>> from mesa.experimental.mesa_signals import Observable, HasObservables, SignalType
+        >>> class MyModel(HasObservables):
+        ...     value = Observable()
+        ...     def __init__(self):
+        ...         super().__init__()
+        ...         self._value = 0
+        >>> model = MyModel()
+        >>> model.observe("value", SignalType.CHANGE, lambda s: print(s.new))
+        >>> model.value = 10
+        10
+
+    Note:
+        String-based signal types are still supported for backward compatibility:
+        >>> model.observe("value", "change", handler)  # Still works
+    """
+
+    CHANGE = "change"
+
+    def __str__(self):
+        """Return the string value of the signal type."""
+        return self.value
+
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
-CURRENT_COMPUTED: Computed | None = None  # the current Computed that is evaluating
+CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[tuple[str,]] = set()
 
 
@@ -44,14 +80,7 @@ class BaseObservable(ABC):
         super().__init__()
         self.public_name: str
         self.private_name: str
-
-        # fixme can we make this an inner class enum?
-        #  or some SignalTypes helper class?
-        #  its even more complicated. Ideally you can define
-        #  signal_types throughout the class hierarchy and they are just
-        #  combined together.
-        #  while we also want to  make sure that any signal being emitted is valid for that class
-        self.signal_types: set = set()
+        self.signal_types: set[SignalType | str] = set()
         self.fallback_value = fallback_value
 
     def __get__(self, instance: HasObservables, owner):
@@ -81,7 +110,7 @@ class BaseObservable(ABC):
             self.public_name,
             getattr(instance, self.private_name, self.fallback_value),
             value,
-            "change",
+            SignalType.CHANGE,
         )
 
     def __str__(self):
@@ -95,8 +124,8 @@ class Observable(BaseObservable):
         """Initialize an Observable."""
         super().__init__(fallback_value=fallback_value)
 
-        self.signal_types: set = {
-            "change",
+        self.signal_types: set[SignalType | str] = {
+            SignalType.CHANGE,
         }
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
@@ -115,87 +144,25 @@ class Observable(BaseObservable):
         PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
-class Computable(BaseObservable):
-    """A Computable that is depended on one or more Observables.
+class ComputedState:
+    """Internal class to hold the state of a computed property for a specific instance."""
 
-    .. code-block:: python
+    __slots__ = ["__weakref__", "func", "is_dirty", "name", "owner", "parents", "value"]
 
-       class MyAgent(Agent):
-           wealth = Computable()
-
-           def __init__(self, model):
-                super().__init__(model)
-                wealth = Computed(func, args, kwargs)
-
-    """
-
-    # fixme, with new _register_observable thing
-    #  we can do computed without a descriptor, but then you
-    #  don't have attribute like access, you would need to do a call operation to get the value
-
-    def __init__(self):
-        """Initialize a Computable."""
-        super().__init__()
-
-        # fixme have 2 signal: change and is_dirty?
-        self.signal_types: set = {
-            "change",
-        }
-
-    def __get__(self, instance, owner):  # noqa: D105
-        computed = getattr(instance, self.private_name)
-        old_value = computed._value
-
-        if CURRENT_COMPUTED is not None:
-            CURRENT_COMPUTED._add_parent(instance, self.public_name, old_value)
-
-        new_value = computed()
-
-        if new_value != old_value:
-            instance.notify(
-                self.public_name,
-                old_value,
-                new_value,
-                "change",
-            )
-            return new_value
-        else:
-            return old_value
-
-    def __set__(self, instance: HasObservables, value: Computed):  # noqa D103
-        if not isinstance(value, Computed):
-            raise ValueError("value has to be a Computable instance")
-
-        setattr(instance, self.private_name, value)
-        value.name = self.public_name
-        value.owner = instance
-        getattr(
-            instance, self.public_name
-        )  # force evaluation of the computed to build the dependency graph
-
-
-class Computed:
-    def __init__(self, func: Callable, *args, **kwargs):
+    def __init__(self, owner: HasObservables, name: str, func: Callable):
+        self.owner = owner
+        self.name = name
         self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        self._is_dirty = True
-        self._first = True
-        self._value = None
-        self.name: str = ""  # set by Computable
-        self.owner: HasObservables  # set by Computable
-
+        self.value = None
+        self.is_dirty = True
         self.parents: weakref.WeakKeyDictionary[HasObservables, dict[str, Any]] = (
             weakref.WeakKeyDictionary()
         )
 
-    def __str__(self):
-        return f"COMPUTED: {self.name}"
-
     def _set_dirty(self, signal):
-        if not self._is_dirty:
-            self._is_dirty = True
-            self.owner.notify(self.name, self._value, None, "change")
+        if not self.is_dirty:
+            self.is_dirty = True
+            self.owner.notify(self.name, self.value, None, SignalType.CHANGE)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any
@@ -220,61 +187,71 @@ class Computed:
         # we can unsubscribe from everything on each parent
         for parent in self.parents:
             parent.unobserve(All(), All(), self._set_dirty)
+        self.parents.clear()
 
-    def __call__(self):
+
+class ComputedProperty(property):
+    """A custom property class to identify computed properties."""
+
+
+def computed(func: Callable) -> property:
+    """Decorator to create a computed property.
+
+    Acts like @property, but automatically tracks dependencies (Observables)
+    accessed during the function execution.
+    """
+    key = f"_computed_{func.__name__}"
+
+    @functools.wraps(func)
+    def wrapper(self: HasObservables):
         global CURRENT_COMPUTED  # noqa: PLW0603
 
-        if self._is_dirty:
+        if not hasattr(self, key):
+            state = ComputedState(self, func.__name__, func)
+            setattr(self, key, state)
+        else:
+            state = getattr(self, key)
+
+        if state.is_dirty:
             changed = False
 
-            if self._first:
-                # fixme might be a cleaner solution for this
-                #  basically, we have no parents.
+            # Check if parents actually changed
+            if not state.parents:
                 changed = True
-                self._first = False
-
-            # we might be dirty but values might have changed
-            # back and forth in our parents so let's check to make sure we
-            # really need to recalculate
-            if not changed:
-                for parent in self.parents.keyrefs():
-                    # does parent still exist?
-                    if parent := parent():
-                        # if yes, compare old and new values for all
-                        # tracked observables on this parent
-                        for name, old_value in self.parents[parent].items():
-                            new_value = getattr(parent, name)
-                            if new_value != old_value:
-                                changed = True
-                                break  # we need to recalculate
-                        else:
-                            # trick for breaking cleanly out of nested for loops
-                            # see https://stackoverflow.com/questions/653509/breaking-out-of-nested-loops
-                            continue
-                        break
-                    else:
-                        # one of our parents no longer exists
+            else:
+                for parent, observations in state.parents.items():
+                    if parent is None:
                         changed = True
+                        break
+                    for attr, old_val in observations.items():
+                        current_val = getattr(parent, attr)
+                        if current_val != old_val:
+                            changed = True
+                            break
+                    if changed:
                         break
 
             if changed:
-                # the dependencies of the computable function might have changed
-                # so, we rebuilt
-                self._remove_parents()
+                state._remove_parents()
 
                 old = CURRENT_COMPUTED
-                CURRENT_COMPUTED = self
+                CURRENT_COMPUTED = state
 
                 try:
-                    self._value = self.func(*self.args, **self.kwargs)
+                    state.value = func(self)
                 except Exception as e:
                     raise e
                 finally:
                     CURRENT_COMPUTED = old
 
-            self._is_dirty = False
+            state.is_dirty = False
 
-        return self._value
+        if CURRENT_COMPUTED is not None:
+            CURRENT_COMPUTED._add_parent(self, func.__name__, state.value)
+
+        return state.value
+
+    return ComputedProperty(wrapper)
 
 
 class All:
@@ -320,7 +297,7 @@ class HasObservables:
     def observe(
         self,
         name: str | All,
-        signal_type: str | All,
+        signal_type: str | SignalType | All,
         handler: Callable,
     ):
         """Subscribe to the Observable <name> for signal_type.
@@ -335,38 +312,45 @@ class HasObservables:
             does not emit the given signal_type
 
         """
-        # fixme should name/signal_type also take a list of str?
-        if not isinstance(name, All):
-            if name not in self.observables:
+        match name:
+            case All():
+                names = self.observables.keys()
+            case str():
+                names = [name]
+            case _:
+                names = name
+
+        for n in names:
+            if n not in self.observables:
                 raise ValueError(
-                    f"you are trying to subscribe to {name}, but this Observable is not known"
+                    f"you are trying to subscribe to {n}, but this Observable is not known"
                 )
-            else:
-                names = [
-                    name,
-                ]
-        else:
-            names = self.observables.keys()
+
+        match signal_type:
+            case All():
+                target_signals = None
+            case str():
+                target_signals = [signal_type]
+            case _:
+                target_signals = signal_type
 
         for name in names:
-            if not isinstance(signal_type, All):
-                if signal_type not in self.observables[name]:
+            signal_types = target_signals or self.observables[name]
+
+            for st in signal_types:
+                if st not in self.observables[name]:
                     raise ValueError(
-                        f"you are trying to subscribe to a signal of {signal_type} "
+                        f"you are trying to subscribe to a signal of {st} "
                         f"on Observable {name}, which does not emit this signal_type"
                     )
-                else:
-                    signal_types = [
-                        signal_type,
-                    ]
-            else:
-                signal_types = self.observables[name]
 
             ref = create_weakref(handler)
-            for signal_type in signal_types:
-                self.subscribers[name][signal_type].append(ref)
+            for st in signal_types:
+                self.subscribers[name][st].append(ref)
 
-    def unobserve(self, name: str | All, signal_type: str | All, handler: Callable):
+    def unobserve(
+        self, name: str | All, signal_type: str | SignalType | All, handler: Callable
+    ):
         """Unsubscribe to the Observable <name> for signal_type.
 
         Args:
@@ -375,31 +359,35 @@ class HasObservables:
             handler: the handler that is unsubscribing
 
         """
-        names = (
-            [
-                name,
-            ]
-            if not isinstance(name, All)
-            else self.observables.keys()
-        )
+        match name:
+            case All():
+                names = self.observables.keys()
+            case str():
+                names = [name]
+            case _:
+                names = name
+
+        match signal_type:
+            case All():
+                target_signals = None
+            case str():
+                target_signals = [signal_type]
+            case _:
+                target_signals = signal_type
 
         for name in names:
             # we need to do this here because signal types might
             # differ for name so for each name we need to check
-            if isinstance(signal_type, All):
-                signal_types = self.observables[name]
-            else:
-                signal_types = [
-                    signal_type,
-                ]
-            for signal_type in signal_types:
+            signal_types = target_signals or self.observables[name]
+
+            for st in signal_types:
                 with contextlib.suppress(KeyError):
                     remaining = []
-                    for ref in self.subscribers[name][signal_type]:
+                    for ref in self.subscribers[name][st]:
                         if subscriber := ref():  # noqa: SIM102
                             if subscriber != handler:
                                 remaining.append(ref)
-                    self.subscribers[name][signal_type] = remaining
+                    self.subscribers[name][st] = remaining
 
     def clear_all_subscriptions(self, name: str | All):
         """Clears all subscriptions for the observable <name>.
@@ -410,19 +398,24 @@ class HasObservables:
             name: name of the Observable to unsubscribe for all signal types
 
         """
-        if not isinstance(name, All):
-            with contextlib.suppress(KeyError):
-                del self.subscribers[name]
-                # ignore when unsubscribing to Observables that have no subscription
-        else:
-            self.subscribers = defaultdict(functools.partial(defaultdict, list))
+        match name:
+            case All():
+                self.subscribers = defaultdict(functools.partial(defaultdict, list))
+            case str():
+                with contextlib.suppress(KeyError):
+                    del self.subscribers[name]
+            case _:
+                for n in name:
+                    with contextlib.suppress(KeyError):
+                        del self.subscribers[n]
+                    # ignore when unsubscribing to Observables that have no subscription
 
     def notify(
         self,
         observable: str,
         old_value: Any,
         new_value: Any,
-        signal_type: str,
+        signal_type: str | SignalType,
         **kwargs,
     ):
         """Emit a signal.
@@ -435,18 +428,18 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
-        signal = AttributeDict(
+        signal = Message(
             name=observable,
             old=old_value,
             new=new_value,
             owner=self,
-            type=signal_type,
-            **kwargs,
+            signal_type=signal_type,
+            additional_kwargs=kwargs,
         )
 
         self._mesa_notify(signal)
 
-    def _mesa_notify(self, signal: AttributeDict):
+    def _mesa_notify(self, signal: Message):
         """Send out the signal.
 
         Args:
@@ -457,9 +450,9 @@ class HasObservables:
 
         """
         # we put this into a helper method, so we can emit signals with other fields
-        # then the default ones in notify.
+        # than the default ones in notify.
         observable = signal.name
-        signal_type = signal.type
+        signal_type = signal.signal_type
 
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
@@ -474,12 +467,15 @@ class HasObservables:
 
 
 def descriptor_generator(obj) -> [str, BaseObservable]:
-    """Yield the name and signal_types for each Observable defined on obj."""
-    # we need to traverse the entire class hierarchy to properly get
-    # also observables defined in super classes
+    """Yield the name and signal_types for each Observable defined on obj.
+
+    This handles both legacy BaseObservable descriptors and new @computed properties.
+    """
     for base in type(obj).__mro__:
         base_dict = vars(base)
-
-        for entry in base_dict.values():
+        for name, entry in base_dict.items():
             if isinstance(entry, BaseObservable):
                 yield entry.public_name, entry.signal_types
+            elif isinstance(entry, ComputedProperty):
+                # Computed properties imply a CHANGE signal
+                yield name, {SignalType.CHANGE}
