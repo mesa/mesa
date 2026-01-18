@@ -949,3 +949,19 @@ def ShowSteps(model):
     """Display the current step of the model."""
     update_counter.get()
     return solara.Text(f"Step: {model.steps}")
+
+
+def is_solara_available() -> bool:
+    """
+    Check whether Solara is installed and importable.
+
+    Returns
+    -------
+    bool
+        True if solara can be imported, False otherwise.
+    """
+    try:
+        import solara  # noqa: F401
+        return True
+    except ImportError:
+        return False
