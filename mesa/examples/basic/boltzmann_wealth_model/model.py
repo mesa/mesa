@@ -66,7 +66,9 @@ class BoltzmannWealth(Model):
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        agent_wealths = self.data_registry["wealth"].data[:, 1]  # we need the data column, not the id column
+        agent_wealths = self.data_registry["wealth"].data[
+            :, 1
+        ]  # we need the data column, not the id column
         sorted_x = np.sort(agent_wealths)
         n = len(agent_wealths)
         cumx = np.cumsum(sorted_x, dtype=float)
