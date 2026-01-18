@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import random
 import sys
+import warnings
 from collections.abc import Sequence
 
 # mypy
@@ -124,6 +125,12 @@ class Model[A: Agent, S: Scenario]:
                 self.random = random.Random(seed)
             self._seed = seed  # this allows for reproducing stdlib.random
         elif rng is None:
+            warnings.warn(
+                "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
             self.random = random.Random(seed)
             self._seed = seed  # this allows for reproducing stdlib.random
 
@@ -254,6 +261,12 @@ class Model[A: Agent, S: Scenario]:
         Args:
             seed: A new seed for the RNG; if None, reset using the current seed
         """
+        warnings.warn(
+            "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
         if seed is None:
             seed = self._seed
         self.random.seed(seed)

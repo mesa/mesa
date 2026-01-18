@@ -9,7 +9,7 @@ from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceA
 
 def test_continuous_space():
     """Test ContinuousSpace class."""
-    model = Model(seed=42)
+    model = Model(rng=42)
 
     dimensions = np.asarray([[0, 1], [-1, 0]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
@@ -58,7 +58,7 @@ def test_continuous_space():
 
 def test_continuous_agent():
     """Test ContinuousSpaceAgent class."""
-    model = Model(seed=42)
+    model = Model(rng=42)
 
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
@@ -98,7 +98,7 @@ def test_continuous_agent():
         agent.remove()
         assert space.agent_positions.shape == (110 - 1 - i, 2)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
 
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
@@ -116,7 +116,7 @@ def test_continuous_agent():
 def test_continous_space_calculate_distances():
     """Test ContinuousSpace.distance method."""
     # non torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
 
@@ -152,7 +152,7 @@ def test_continous_space_calculate_distances():
     )
 
     # torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
 
@@ -232,7 +232,7 @@ def test_continous_space_calculate_distances():
 def test_continous_space_difference_vector():
     """Test ContinuousSpace.get_difference_vector method."""
     # non torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
 
@@ -246,7 +246,7 @@ def test_continous_space_difference_vector():
     assert np.all(vector == [-0.8, 0])
 
     # torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
 
@@ -265,7 +265,7 @@ def test_continous_space_difference_vector():
 
 def test_continuous_space_get_k_nearest_agents():  # noqa: D103
     # non torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
 
@@ -302,7 +302,7 @@ def test_continuous_space_get_k_nearest_agents():  # noqa: D103
     assert np.allclose(distances, [0.4, 0.4])
 
     # torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
 
@@ -322,7 +322,7 @@ def test_continuous_space_get_k_nearest_agents():  # noqa: D103
 
 def test_continuous_space_get_agents_in_radius():  # noqa: D103
     # non torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
 
@@ -355,7 +355,7 @@ def test_continuous_space_get_agents_in_radius():  # noqa: D103
     assert len(agents) == 5
 
     # torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
 
@@ -378,7 +378,7 @@ def test_continuous_space_get_agents_in_radius():  # noqa: D103
 
 def test_get_neighbor_methos():  # noqa: D103
     # non torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
 
@@ -406,7 +406,7 @@ def test_get_neighbor_methos():  # noqa: D103
     assert len(agents) == 2
 
     # torus
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=True, random=model.random)
 
@@ -443,7 +443,7 @@ def test_agent_removal_no_ghost_entries():
 
     Regression test for GitHub issue #3029.
     """
-    model = Model(seed=42)
+    model = Model(rng=42)
     dimensions = np.asarray([[0, 10], [0, 10]])
 
     # Test 1: Remove middle agent

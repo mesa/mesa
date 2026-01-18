@@ -28,7 +28,7 @@ def post_process(chart):
 
 
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",
