@@ -58,18 +58,14 @@ def test_is_solara_available_returns_bool():
 from mesa.visualization import solara_viz
 from types import SimpleNamespace
 
-def test_is_solara_available():
-    assert isinstance(solara_viz.is_solara_available(), bool)
-
-def test_visualize_model():
-    # Mock model
+def test_visualize_model_dashboard():
     model = SimpleNamespace()
     model.steps = 1
     model.grid = SimpleNamespace(width=5, height=5)
-    agent1 = SimpleNamespace(pos=(1, 2))
-    agent2 = SimpleNamespace(pos=(3, 4))
+    agent1 = SimpleNamespace(pos=(1, 2), type="A")
+    agent2 = SimpleNamespace(pos=(3, 4), type="B")
     model.schedule = SimpleNamespace(agents=[agent1, agent2])
 
-    viz = solara_viz.visualize_model(model)
+    viz = solara_viz.visualize_model_dashboard(model)
     assert viz is not None
 >>>>>>> 4fa239ca (Add initial Solara visualization for Mesa models)
