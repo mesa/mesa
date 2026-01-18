@@ -86,6 +86,9 @@ docs = [
   "myst-parser",  # Markdown in Sphinx
   "sphinx-copybutton", # Add a copy option in docs
 ]
+surrogate = [
+    "scikit-learn",
+]
 
 [project.urls]
 homepage = "https://github.com/mesa/mesa"
