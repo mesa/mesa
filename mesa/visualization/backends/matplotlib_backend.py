@@ -75,13 +75,16 @@ class MatplotlibBackend(AbstractRenderer):
         """
         return self.space_drawer.draw_matplotlib(self.ax, **kwargs)
 
-    def collect_agent_data(self, space, agent_portrayal, default_size=None):
+    def collect_agent_data(
+        self, space, agent_portrayal, default_size=None, tooltip_fields=None
+    ):
         """Collect plotting data for all agents in the space.
 
         Args:
             space: The Mesa space containing agents.
             agent_portrayal (Callable): Function that returns AgentPortrayalStyle for each agent.
             default_size (float, optional): Default marker size if not specified in portrayal.
+            tooltip_fields: Ignored for matplotlib backend. Accepted for API compatibility with Altair backend.
 
         Returns:
             dict: Dictionary containing agent plotting data arrays.
