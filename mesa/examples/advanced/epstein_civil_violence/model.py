@@ -1,5 +1,5 @@
 import mesa
-from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid  #
+from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid
 from mesa.examples.advanced.epstein_civil_violence.agents import (
     Citizen,
     CitizenState,
@@ -7,22 +7,24 @@ from mesa.examples.advanced.epstein_civil_violence.agents import (
 )
 from mesa.experimental.scenarios import Scenario
 
-# Default scenario parameters
-default_scenario = Scenario(
-    rng=None,  # Will use Model's seed if not specified
-    citizen_density=0.7,  # approximate % of cells occupied by citizens
-    cop_density=0.074,  # approximate % of cells occupied by cops
-    citizen_vision=7,  # number of cells citizen can inspect in each direction
-    cop_vision=7,  # number of cells cop can inspect in each direction
-    legitimacy=0.8,  # citizens' perception of regime legitimacy
-    max_jail_term=1000,  # maximum jail sentence
-    active_threshold=0.1,  # rebellion threshold
-    arrest_prob_constant=2.3,  # for arrest probability estimates
-    movement=True,  # whether agents move
-    max_iters=1000,  # maximum iterations
-    activation_order="Random",  # "Random" or "Sequential"
-    grid_type="Von Neumann",  # "Von Neumann" or "Moore"
-)
+
+# Define a typed scenario subclass with defaults
+class EpsteinScenario(Scenario):
+    """Scenario parameters for Epstein Civil Violence model."""
+
+    citizen_density: float = 0.7
+    cop_density: float = 0.074
+    citizen_vision: int = 7
+    cop_vision: int = 7
+    legitimacy: float = 0.8
+    max_jail_term: int = 1000
+    active_threshold: float = 0.1
+    arrest_prob_constant: float = 2.3
+    movement: bool = True
+    max_iters: int = 1000
+    activation_order: str = "Random"
+    grid_type: str = "Von Neumann"
+    rng: int = 42
 
 
 class EpsteinCivilViolence(mesa.Model):
@@ -35,16 +37,20 @@ class EpsteinCivilViolence(mesa.Model):
         height: grid height
         width: grid width
         seed: random seed for reproducibility
-        scenario: Scenario object containing model parameters.
+        scenario: EpsteinScenario object containing model parameters.
     """
 
     def __init__(
         self,
         width=40,
         height=40,
-        scenario=default_scenario,
+        scenario: EpsteinScenario | None = None,
     ):
-        super().__init__(rng=rng, scenario=scenario)
+        # Create default scenario if none provided
+        if scenario is None:
+            scenario = EpsteinScenario()
+
+        super().__init__(scenario=scenario)
 
         match self.scenario.grid_type:
             case "Moore":

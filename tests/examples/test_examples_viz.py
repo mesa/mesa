@@ -278,7 +278,7 @@ def test_epstein_civil_violence_model(
         agent_colors,
     )
 
-    model = EpsteinCivilViolence(rng=42)
+    model = EpsteinCivilViolence()
 
     def agent_portrayal(agent):
         if agent is None:
