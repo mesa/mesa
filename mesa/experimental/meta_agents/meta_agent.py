@@ -227,25 +227,21 @@ def create_meta_agent(
             for key, value in meta_attributes.items():
                 setattr(meta_agent_instance, key, value)
 
-    # Path 1 - Add agents to existing meta-agent
-    constituting_agents = [a for a in agents if hasattr(a, "meta_agent")]
-    if len(constituting_agents) > 0:
-        if len(constituting_agents) == 1:
-            add_attributes(constituting_agents[0].meta_agent, agents, meta_attributes)
-            add_methods(constituting_agents[0].meta_agent, agents, meta_methods)
-            constituting_agents[0].meta_agent.add_constituting_agents(agents)
+    # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
+    # This preserves the "singleton/unique group per class" behavior while allowing overlap between different classes
+    existing_meta_agents = []
+    for a in agents:
+        if hasattr(a, "meta_agents"):
+            for ma in a.meta_agents:
+                if ma.__class__.__name__ == new_agent_class:
+                    existing_meta_agents.append(ma)
 
-            return constituting_agents[0].meta_agent  # Return the existing meta-agent
-
-        else:
-            constituting_agent = model.random.choice(constituting_agents)
-            agents = set(agents) - set(constituting_agents)
-            add_attributes(constituting_agent.meta_agent, agents, meta_attributes)
-            add_methods(constituting_agent.meta_agent, agents, meta_methods)
-            constituting_agent.meta_agent.add_constituting_agents(agents)
-            # TODO: Add way for user to specify how agents join meta-agent
-            # instead of random choice
-            return constituting_agent.meta_agent
+    if len(existing_meta_agents) > 0:
+        meta_agent = model.random.choice(existing_meta_agents)
+        add_attributes(meta_agent, agents, meta_attributes)
+        add_methods(meta_agent, agents, meta_methods)
+        meta_agent.add_constituting_agents(agents)
+        return meta_agent
 
     else:
         # Path 2 - Create a new instance of an existing meta-agent class
@@ -292,7 +288,11 @@ class MetaAgent(Agent):
 
         # Add ref to meta_agent in constituting_agents
         for agent in self._constituting_set:
-            agent.meta_agent = self  # TODO: Make a set for meta_agents
+            if not hasattr(agent, "meta_agents"):
+                agent.meta_agents = set()
+            agent.meta_agents.add(self)
+            # Maintain backward compatibility for code expecting agent.meta_agent
+            agent.meta_agent = self
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -365,8 +365,10 @@ class MetaAgent(Agent):
         """
         for agent in new_agents:
             self._constituting_set.add(agent)
-            agent.meta_agent = self  # TODO: Make a set for meta_agents
-            self.model.register_agent(agent)
+            if not hasattr(agent, "meta_agents"):
+                agent.meta_agents = set()
+            agent.meta_agents.add(self)
+            agent.meta_agent = self
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
@@ -376,8 +378,13 @@ class MetaAgent(Agent):
         """
         for agent in remove_agents:
             self._constituting_set.discard(agent)
-            agent.meta_agent = None  # TODO: Remove meta_agent from set
-            self.model.deregister_agent(agent)
+            if hasattr(agent, "meta_agents"):
+                agent.meta_agents.discard(self)
+                # Update backward compatibility attribute
+                if len(agent.meta_agents) > 0:
+                    agent.meta_agent = next(iter(agent.meta_agents))
+                else:
+                    agent.meta_agent = None
 
     def step(self):
         """Perform the agent's step.
