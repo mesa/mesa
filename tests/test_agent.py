@@ -180,7 +180,7 @@ def test_agent_membership():
 
 def test_agent_rng():
     """Test whether agent.random and agent.rng are equal to model.random and model.rng."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = Agent(model)
     assert agent.random is model.random
     assert agent.rng is model.rng
@@ -206,7 +206,7 @@ def test_agent_create():
             self.a = a
             self.b = b
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     n = 10
     some_attribute = model.rng.random(n)
     a = tuple([model.random.random() for _ in range(n)])
@@ -559,7 +559,7 @@ def test_agentset_shuffle_do():
             if agent_to_remove is not self:
                 agent_to_remove.remove()
 
-    model = Model(seed=32)
+    model = Model(rng=32)
     for _ in range(100):
         AgentWithRemove(model)
     model.agents.shuffle_do("step")
