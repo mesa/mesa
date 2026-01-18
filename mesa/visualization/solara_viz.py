@@ -952,16 +952,16 @@ def ShowSteps(model):
 
 
 def is_solara_available() -> bool:
-    """
-    Check whether Solara is installed and importable.
+    """Check whether Solara is installed and importable.
 
-    Returns
+    Returns:
     -------
     bool
         True if solara can be imported, False otherwise.
     """
     try:
         import solara  # noqa: F401
+
         return True
     except ImportError:
         return False

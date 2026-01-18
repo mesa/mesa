@@ -48,11 +48,8 @@ def test_solara_viz_app_runs():
 
 
 def test_is_solara_available_returns_bool():
-    """
-    Ensure is_solara_available returns a boolean value.
-    """
+    """Ensure is_solara_available returns a boolean value."""
     from mesa.visualization.solara_viz import is_solara_available
 
     result = is_solara_available()
     assert isinstance(result, bool)
-
