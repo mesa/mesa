@@ -204,19 +204,15 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self,
         name,
         *args,
-        n=100 # just for initial sizing of the inner numpy array
+        n=100,  # just for initial sizing of the inner numpy array
     ):
         """Init."""
         super().__init__(
             name,
             *["unique_id", *args],
-
         )
 
-
-        self._agent_data: np.array = np.empty(
-            (n, len(self._args)), dtype=float
-        )
+        self._agent_data: np.array = np.empty((n, len(self._args)), dtype=float)
         self._data: (
             np.array
         )  # a view on _agent_positions containing all active positions
@@ -228,10 +224,12 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, A] = {}
         self._agent_to_index: dict[A, int | None] = {}
-        self.attribute_to_index: dict[str, int] = {arg: i for i, arg in enumerate(self._args)}
+        self.attribute_to_index: dict[str, int] = {
+            arg: i for i, arg in enumerate(self._args)
+        }
 
     def agent_to_index(self, agent: A):
-        """helper method to map an agent to its index in the table"""
+        """Helper method to map an agent to its index in the table"""
         try:
             return self._agent_to_index[agent]
         except KeyError:
@@ -266,7 +264,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
             return index
 
     @property
-    def data(self):  # noqa: D102
+    def data(self):
         return self._data
 
     def _remove_agent(self, agent: A) -> None:
@@ -301,7 +299,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 class DataField(property):
     """A property that tracks a field of an object."""
 
-    def __init__(self, table: str, attribute_name:str):
+    def __init__(self, table: str, attribute_name: str):
         # fixme, here a full descriptor might work nicer
         # because of __set_name__
         super().__init__(self.getter, self.setter)
@@ -318,11 +316,12 @@ class DataField(property):
         table = obj.model.data_registry[self.field_name]
         i = table.agent_to_index(obj)
         j = table.attribute_to_index[self.attribute_name]
-        table._data[i,j] = value
+        table._data[i, j] = value
 
 
 if __name__ == "__main__":
     from mesa.examples import BoltzmannWealth
+
     model = BoltzmannWealth()
     model.test = 5
     agent_data = AgentDataSet("wealth", model.agents, "wealth")

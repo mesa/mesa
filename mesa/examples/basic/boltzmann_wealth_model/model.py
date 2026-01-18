@@ -6,6 +6,7 @@ A simple model of wealth distribution based on the Boltzmann-Gibbs distribution.
 Agents move randomly on a grid, giving one unit of wealth to a random neighbor
 when they occupy the same cell.
 """
+
 import numpy as np
 
 from mesa import Model
@@ -57,7 +58,6 @@ class BoltzmannWealth(Model):
     def step(self):
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.compute_gini()
-
 
     def compute_gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
