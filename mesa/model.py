@@ -120,7 +120,7 @@ class Model[A: Agent]:
             self._seed = seed  # this allows for reproducing stdlib.random
         elif rng is None:
             warnings.warn(
-                "the use of seed is deprecated, use rng instead",
+                "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
                 FutureWarning,
                 stacklevel=2,
             )
