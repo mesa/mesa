@@ -36,7 +36,7 @@ def wolf_sheep_portrayal(agent):
 
 
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",

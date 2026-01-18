@@ -39,8 +39,8 @@ from mesa.visualization.space_renderer import SpaceRenderer
 class CustomModel(mesa.Model):
     """A simple model for testing purposes."""
 
-    def __init__(self, seed=None):  # noqa: D107
-        super().__init__(seed=seed)
+    def __init__(self, rng=None):  # noqa: D107
+        super().__init__(rng=rng)
         self.grid = mesa.discrete_space.OrthogonalMooreGrid(
             [2, 2], random=random.Random(42)
         )

@@ -23,7 +23,7 @@ def pd_agent_portrayal(agent):
 
 # Model parameters
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",

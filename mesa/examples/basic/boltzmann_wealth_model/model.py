@@ -27,16 +27,16 @@ class BoltzmannWealth(Model):
         datacollector (DataCollector): Collects and stores model data
     """
 
-    def __init__(self, n=100, width=10, height=10, seed=None):
+    def __init__(self, n=100, width=10, height=10, rng=None):
         """Initialize the model.
 
         Args:
             n (int, optional): Number of agents. Defaults to 100.
             width (int, optional): Grid width. Defaults to 10.
             height (int, optional): Grid height. Defaults to 10.
-            seed (int, optional): Random seed. Defaults to None.
+            rng (int, optional): Random rng. Defaults to None.
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
 
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
