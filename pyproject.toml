@@ -47,7 +47,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 # User collections
 rec = ["mesa[network,viz]"]
-all = ["mesa[network,viz,dev,examples,docs]"]
+all = ["mesa[network,viz,dev,examples,docs,surrogate]"]
 # Core dependencies
 network = [
   "networkx",
