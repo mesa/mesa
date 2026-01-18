@@ -167,9 +167,10 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         model (Model): The ABM model instance to which this AgentSet belongs.
 
     Notes:
-        The AgentSet maintains agents in a standard dictionary acting as an ordered set.
-        It is associated with a specific model instance, enabling interactions with the
-        model's environment and other agents.
+        The AgentSet maintains weak references to agents, allowing for efficient management of agent lifecycles
+        without preventing garbage collection. It is associated with a specific model instance, enabling
+        interactions with the model's environment and other agents.The implementation uses a WeakKeyDictionary to store agents,
+        which means that agents not referenced elsewhere in the program may be automatically removed from the AgentSet.
 
     Notes:
         If random is None then the random number generator in the model of the first agent is used.
@@ -185,7 +186,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         Can be overridden by subclasses to change storage behavior (e.g. WeakKeyDictionary).
         """
         # We use dict.fromkeys to maintain order and uniqueness efficiently
-        return dict.fromkeys(agents)
+        return weakref.WeakKeyDictionary(dict.fromkeys(agents))
 
     def __init__(
         self,
@@ -288,14 +289,16 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             Using inplace = True is more performant
 
         """
-        agents_list = list(self)
-        self.random.shuffle(agents_list)
+        weakrefs = list(self._agents.keyrefs())
+        self.random.shuffle(weakrefs)
 
         if inplace:
-            self._agents = self._storage(agents_list)
+            self._agents.data = dict.fromkeys(weakrefs)
             return self
         else:
-            return AgentSet(agents_list, self.random)
+            return AgentSet(
+                (agent for ref in weakrefs if (agent := ref()) is not None), self.random
+            )
 
     def sort(
         self,
@@ -347,15 +350,14 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         Returns:
             AgentSet | list[Any]: The results of the callable calls if return_results is True, otherwise the AgentSet itself.
         """
-        # We iterate over a copy of the list to ensure safety if agents are removed during iteration
-        agents_list = list(self)
+        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
         if isinstance(method, str):
-            for agent in agents_list:
-                if agent in self:
+            for agentref in self._agents.keyrefs():
+                if (agent := agentref()) is not None:
                     getattr(agent, method)(*args, **kwargs)
         else:
-            for agent in agents_list:
-                if agent in self:
+            for agentref in self._agents.keyrefs():
+                if (agent := agentref()) is not None:
                     method(agent, *args, **kwargs)
 
         return self
@@ -365,16 +367,16 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
         It's a fast, optimized version of calling shuffle() followed by do().
         """
-        agents_list = list(self)
-        self.random.shuffle(agents_list)
+        weakrefs = list(self._agents.keyrefs())
+        self.random.shuffle(weakrefs)
 
         if isinstance(method, str):
-            for agent in agents_list:
-                if agent in self:
+            for ref in weakrefs:
+                if (agent := ref()) is not None:
                     getattr(agent, method)(*args, **kwargs)
         else:
-            for agent in agents_list:
-                if agent in self:
+            for ref in weakrefs:
+                if (agent := ref()) is not None:
                     method(agent, *args, **kwargs)
 
         return self
@@ -394,18 +396,19 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         Returns:
            list[Any]: The results of the callable calls
         """
-        res = []
-        # We iterate over a copy of the list to ensure safety if agents are removed during iteration
-        agents_list = list(self)
-
+        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
         if isinstance(method, str):
-            for agent in agents_list:
-                if agent in self:
-                    res.append(getattr(agent, method)(*args, **kwargs))
+            res = [
+                getattr(agent, method)(*args, **kwargs)
+                for agentref in self._agents.keyrefs()
+                if (agent := agentref()) is not None
+            ]
         else:
-            for agent in agents_list:
-                if agent in self:
-                    res.append(method(agent, *args, **kwargs))
+            res = [
+                method(agent, *args, **kwargs)
+                for agentref in self._agents.keyrefs()
+                if (agent := agentref()) is not None
+            ]
 
         return res
 
@@ -558,7 +561,8 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         Note:
             This method is an implementation of the abstract method from MutableSet.
         """
-        self._agents.pop(agent, None)
+        with contextlib.suppress(KeyError):
+            del self._agents[agent]
 
     def remove(self, agent: A):
         """Remove an agent from the AgentSet.
@@ -632,17 +636,82 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
     # for MutableSet clear, pop, remove, __ior__, __iand__, __ixor__, and __isub__
 
 
-class WeakAgentSet[A: Agent](AgentSet[A]):
-    """An AgentSet that stores agents using weak references.
-
-    This class mimics the behavior of the AgentSet in Mesa versions prior to 3.1,
-    where agents are automatically removed from the set if they are no longer
-    referenced elsewhere (e.g., removed from the model).
-    """
+class _StrongAgentSet[A: Agent](AgentSet[A]):
+    """An AgentSet that stores agents using strong references."""
 
     def _storage(self, agents: Iterable[A]):
-        """Generate a WeakKeyDictionary storage for the agents."""
-        return weakref.WeakKeyDictionary(dict.fromkeys(agents))
+        """Generate a dict storage for the agents."""
+        return dict.fromkeys(agents)
+
+    def _update(self, agents):
+        """Update the internal strong dictionary."""
+        self._agents = self._storage(agents)
+        return self
+
+    def __copy__(self):
+        """Explicitly return a standard (weak) AgentSet when copied."""
+        return AgentSet(self._agents, self.random)
+
+    def do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
+        """Execute method on agents."""
+        # Snapshot keys to avoid RuntimeError if agents are removed during iteration
+        agents = list(self._agents)
+
+        if isinstance(method, str):
+            for agent in agents:
+                if agent in self._agents:  # Liveness check
+                    getattr(agent, method)(*args, **kwargs)
+        else:
+            for agent in agents:
+                if agent in self._agents:
+                    method(agent, *args, **kwargs)
+        return self
+
+    def shuffle_do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
+        """Shuffle and execute."""
+        agents = list(self._agents)
+        self.random.shuffle(agents)
+
+        if isinstance(method, str):
+            for agent in agents:
+                if agent in self._agents:
+                    getattr(agent, method)(*args, **kwargs)
+        else:
+            for agent in agents:
+                if agent in self._agents:
+                    method(agent, *args, **kwargs)
+        return self
+
+    def map(self, method: str | Callable, *args, **kwargs) -> list[Any]:
+        """Map method over agents."""
+        # Map usually implies return values, so we generally don't expect removals.
+        # However, for consistency with 'do', we snapshot.
+        agents = list(self._agents)
+
+        if isinstance(method, str):
+            return [
+                getattr(agent, method)(*args, **kwargs)
+                for agent in agents
+                if agent in self._agents
+            ]
+        else:
+            return [
+                method(agent, *args, **kwargs)
+                for agent in agents
+                if agent in self._agents
+            ]
+
+    def shuffle(self, inplace: bool = False) -> AgentSet:
+        """Shuffle agents."""
+        agents = list(self._agents)
+        self.random.shuffle(agents)
+
+        if inplace:
+            self._agents = dict.fromkeys(agents)
+            return self
+        else:
+            # Downgrade to standard (weak) AgentSet for external usage
+            return AgentSet(agents, self.random)
 
 
 class GroupBy:

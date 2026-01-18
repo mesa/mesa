@@ -1,11 +1,14 @@
 """Agent.py related tests."""
 
+import gc
 import pickle
+import weakref
+from copy import copy
 
 import numpy as np
 import pytest
 
-from mesa.agent import Agent, AgentSet, WeakAgentSet
+from mesa.agent import Agent, AgentSet, _StrongAgentSet
 from mesa.model import Model
 
 
@@ -645,39 +648,97 @@ def test_agentset_shuffle():
     assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
 
 
-def test_weakagentset_behavior():
-    """Test that WeakAgentSet behaves like a normal AgentSet while agents are alive."""
+class MockStrongAgent(Agent):
+    """Simple agent for testing side effects in StrongAgentSet tests."""
+
+    def __init__(self, model, value=0):
+        """Initialises the Agent."""
+        super().__init__(model)
+        self.value = value
+
+    def increment(self):
+        """Increment the value by one."""
+        self.value += 1
+
+    def kill_other(self, other_agent):
+        """Kill another agent to test zombie safety."""
+        other_agent.remove()
+
+
+def test_strongagentset_references():
+    """Test that _StrongAgentSet actually holds strong references."""
     model = Model()
-    agents = [AgentTest(model) for _ in range(10)]
 
-    # Keep a hard reference to agents so they aren't GC'd during this test
-    weak_set = WeakAgentSet(agents)
+    agent = MockStrongAgent(model)
+    agent_ref = weakref.ref(agent)
 
-    assert len(weak_set) == 10
-    assert agents[0] in weak_set
+    strong_set = _StrongAgentSet([agent], model.random)
 
-    # Select agents with unique_id > 5
-    subset = weak_set.select(lambda a: a.unique_id > 5)
-    assert len(subset) == 5
+    # Delete the original strong reference
+    del agent
+    gc.collect()
 
-    # Define a simple side-effect class
-    class MockAgent(Agent):
-        def __init__(self, model):
-            super().__init__(model)
-            self.value = 0
+    # The agent should STILL be alive because strong_set holds it
+    assert agent_ref() is not None
+    assert agent_ref() in strong_set
 
-        def increment(self):
-            self.value += 1
 
-    mock_agents = [MockAgent(model) for _ in range(5)]
-    mock_set = WeakAgentSet(mock_agents)
+def test_strongagentset_downgrade():
+    """Test that operations on StrongAgentSet return standard (weak) AgentSets."""
+    model = Model()
+    agents = [MockStrongAgent(model, i) for i in range(5)]
+    strong_set = _StrongAgentSet(agents, model.random)
 
-    mock_set.do("increment")
-    assert all(a.value == 1 for a in mock_agents)
+    subset = strong_set.select(lambda a: a.value < 2)
+    assert len(subset) == 2
+    assert isinstance(subset, AgentSet)
+    assert not isinstance(subset, _StrongAgentSet)
 
-    shuffled = mock_set.shuffle()
+    shuffled = strong_set.shuffle(inplace=False)
     assert len(shuffled) == 5
-    assert set(shuffled) == set(mock_agents)
+    assert isinstance(shuffled, AgentSet)
+    assert not isinstance(shuffled, _StrongAgentSet)
+
+    copied = copy(strong_set)
+    assert isinstance(copied, AgentSet)
+    assert not isinstance(copied, _StrongAgentSet)
+
+
+def test_strongagentset_inplace():
+    """Test that inplace operations maintain the StrongAgentSet type."""
+    model = Model()
+    agents = [MockStrongAgent(model, i) for i in range(5)]
+    strong_set = _StrongAgentSet(agents, model.random)
+
+    # Inplace Shuffle
+    res = strong_set.shuffle(inplace=True)
+    assert res is strong_set
+    assert isinstance(res, _StrongAgentSet)
+
+    # Inplace Select
+    res = strong_set.select(lambda a: a.value < 2, inplace=True)
+    assert res is strong_set
+    assert len(res) == 2
+    assert isinstance(res, _StrongAgentSet)
+
+
+def test_strongagentset_methods():
+    """Test the methods overridden for dictionary compatibility (do, map, etc)."""
+    model = Model()
+    agents = [MockStrongAgent(model, 10) for _ in range(5)]
+    strong_set = _StrongAgentSet(agents, model.random)
+
+    # Test .do() (String method)
+    strong_set.do("increment")
+    assert all(a.value == 11 for a in agents)
+
+    # Test .map() (Callable)
+    values = strong_set.map(lambda a: a.value)
+    assert values == [11] * 5
+
+    # Test .shuffle_do()
+    strong_set.shuffle_do("increment")
+    assert all(a.value == 12 for a in agents)
 
 
 def test_agentset_groupby():
