@@ -6,11 +6,12 @@ A simple model of wealth distribution based on the Boltzmann-Gibbs distribution.
 Agents move randomly on a grid, giving one unit of wealth to a random neighbor
 when they occupy the same cell.
 """
+import numpy as np
 
 from mesa import Model
-from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
+from mesa.experimental.statistics import DataRegistry, NumpyAgentDataSet
 
 
 class BoltzmannWealth(Model):
@@ -38,14 +39,13 @@ class BoltzmannWealth(Model):
         """
         super().__init__(rng=rng)
 
+        self.data_registry = DataRegistry()
+        self.data_registry.create_dataset(NumpyAgentDataSet, "wealth", "wealth")
+
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
 
         # Set up data collection
-        self.datacollector = DataCollector(
-            model_reporters={"Gini": self.compute_gini},
-            agent_reporters={"Wealth": "wealth"},
-        )
         MoneyAgent.create_agents(
             self,
             self.num_agents,
@@ -53,11 +53,11 @@ class BoltzmannWealth(Model):
         )
 
         self.running = True
-        self.datacollector.collect(self)
 
     def step(self):
         self.agents.shuffle_do("step")  # Activate all agents in random order
-        self.datacollector.collect(self)  # Collect data
+        self.compute_gini()
+
 
     def compute_gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
@@ -66,9 +66,15 @@ class BoltzmannWealth(Model):
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        agent_wealths = [agent.wealth for agent in self.agents]
-        x = sorted(agent_wealths)
+        agent_wealths = self.data_registry["wealth"].data
+        x = np.sort(agent_wealths)
         n = self.num_agents
         # Calculate using the standard formula for Gini coefficient
         b = sum(xi * (n - i) for i, xi in enumerate(x)) / (n * sum(x))
         return 1 + (1 / n) - 2 * b
+
+
+if __name__ == "__main__":
+    model = BoltzmannWealth(1000)
+    for _ in range(100):
+        model.step()

@@ -5,8 +5,9 @@ import operator
 from collections.abc import Callable
 from typing import Any
 
+import numpy as np
+
 from mesa.agent import Agent, AgentSet
-from mesa.examples import BoltzmannWealth
 from mesa.model import Model
 
 __all__ = ["AgentDataSet", "DataRegistry", "DataSet", "ModelDataSet", "TableDataSet"]
@@ -196,7 +197,132 @@ class DataRegistry[M: Model]:
         return self.datasets[name]
 
 
+class NumpyAgentDataSet[A: Agent](DataSet):
+    """A numpy array based data set for agents, used in conjunction with DataField"""
+
+    def __init__(
+        self,
+        name,
+        *args,
+        n=100 # just for initial sizing of the inner numpy array
+    ):
+        """Init."""
+        super().__init__(
+            name,
+            *["unique_id", *args],
+
+        )
+
+
+        self._agent_data: np.array = np.empty(
+            (n, len(self._args)), dtype=float
+        )
+        self._data: (
+            np.array
+        )  # a view on _agent_positions containing all active positions
+
+        # the list of agents in the space
+        self.active_agents = []
+        self._n_agents = 0  # the number of active agents in the space
+
+        #  a mapping from agents to index and vice versa
+        self._index_to_agent: dict[int, A] = {}
+        self._agent_to_index: dict[A, int | None] = {}
+        self.attribute_to_index: dict[str, int] = {arg: i for i, arg in enumerate(self._args)}
+
+    def agent_to_index(self, agent: A):
+        """helper method to map an agent to its index in the table"""
+        try:
+            return self._agent_to_index[agent]
+        except KeyError:
+            # agent is new
+            # we need to somehow keep track if agents are removed
+            # or we need a weakkey trick but then how to do the reindexing
+            # or we can update remove to cleanup all datafields
+            index = self._n_agents
+            self._n_agents += 1
+
+            if self._agent_data.shape[0] <= index:
+                # we are out of space
+                fraction = 0.2  # we add 20%  Fixme
+                n = round(fraction * self._n_agents, None)
+                self._agent_data = np.vstack(
+                    [
+                        self._agent_data,
+                        np.empty(
+                            (n, len(self._args)),
+                        ),
+                    ]
+                )
+
+            self._agent_to_index[agent] = index
+            self._index_to_agent[index] = agent
+
+            # we want to maintain a view rather than a copy on the active agents and positions
+            # this is essential for the performance of the rest of this code
+            self.active_agents.append(agent)
+            self._data = self._agent_data[0 : self._n_agents]
+
+            return index
+
+    @property
+    def data(self):  # noqa: D102
+        return self._data
+
+    def _remove_agent(self, agent: A) -> None:
+        """Remove an agent from the table.
+
+        fixme when to call this
+
+        """
+        index = self._agent_to_index[agent]
+        self._agent_to_index.pop(agent, None)
+        self._index_to_agent.pop(index, None)
+        del self.active_agents[index]
+
+        # Shift all subsequent agents up by 1
+        for agent in self.active_agents[index::]:
+            old_index = self._agent_to_index[agent]
+            self._agent_to_index[agent] = old_index - 1
+            self._index_to_agent[old_index - 1] = agent
+
+        # Clean up the stale entry from the last shifted agent
+        if len(self.active_agents) > index:
+            self._index_to_agent.pop(len(self.active_agents), None)
+
+        # we move all data below the removed agent one row up
+        self._agent_data[index : self._n_agents - 1] = self._agent_data[
+            index + 1 : self._n_agents
+        ]
+        self._n_agents -= 1
+        self._data = self._agent_data[0 : self._n_agents]
+
+
+class DataField(property):
+    """A property that tracks a field of an object."""
+
+    def __init__(self, table: str, attribute_name:str):
+        # fixme, here a full descriptor might work nicer
+        # because of __set_name__
+        super().__init__(self.getter, self.setter)
+        self.field_name = table
+        self.attribute_name = attribute_name
+
+    def getter(self, obj: Agent):
+        table = obj.model.data_registry[self.field_name]
+        i = table.agent_to_index(obj)
+        j = table.attribute_to_index[self.attribute_name]
+        return table._data[i, j]
+
+    def setter(self, obj: Agent, value):
+        table = obj.model.data_registry[self.field_name]
+        i = table.agent_to_index(obj)
+        j = table.attribute_to_index[self.attribute_name]
+        table._data[i,j] = value
+
+
 if __name__ == "__main__":
+    from mesa.examples import BoltzmannWealth
     model = BoltzmannWealth()
     model.test = 5
     agent_data = AgentDataSet("wealth", model.agents, "wealth")
