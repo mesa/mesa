@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
@@ -17,24 +17,30 @@ if TYPE_CHECKING:
 
 
 class Scenario[M: Model]:
-    """A Scenario class.
+    """A Scenario class for defining model parameters and experiments.
+
+    Supports both simple instantiation and type-hinted subclassing:
+
+        # Simple usage
+        scenario = Scenario(rng=42, density=0.8, minority_pc=0.5)
+
+        # Type-hinted subclass (recommended for complex models)
+        class MyScenario(Scenario):
+            citizen_density: float = 0.7
+            cop_vision: int = 7
+            movement: bool = True
+
+        scenario = MyScenario(rng=42, cop_vision=10)  # Override defaults
 
     Attributes:
-        model : the model instance to which this scenario belongs
-        scenario_id : a unique identifier for this scenario, auto-generated, starting from 0
+        model: The model instance to which this scenario belongs
+        scenario_id: A unique identifier for this scenario, auto-generated starting from 0
+        rng: Random number generator or seed value
 
     Notes:
-        all additional parameters are stored as attributes of the scenario and
-        are thus available via property access.
-
-    It is recommended to add a property to your agents to make scenario access
-    easy inside your agent. For example:
-
-    ::
-        @property
-        def scenario(self):
-            return self.model.scenario
-
+        All parameters are accessible via attribute access (scenario.param).
+        Class-level attributes in subclasses serve as default values.
+        Scenario parameters cannot be modified during model execution.
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
@@ -49,9 +55,8 @@ class Scenario[M: Model]:
         """Initialize a Scenario.
 
         Args:
-            rng: a random number generator or valid seed value for a numpy generator.
-            kwargs: all other scenario parameters
-
+            rng: Random number generator or valid seed value
+            **kwargs: All other scenario parameters (override class-level defaults)
         """
         self.model: M | None = None
         self._scenario_id: int = (
@@ -59,25 +64,45 @@ class Scenario[M: Model]:
             if "_scenario_id" not in kwargs
             else kwargs.pop("_scenario_id")
         )
-        self.__dict__.update(rng=rng, **kwargs)
 
-    def __iter__(self):  # noqa: D105
+        # Collect class-level annotated attributes as defaults
+        defaults = {}
+        for cls in reversed(self.__class__.__mro__):
+            if cls is Scenario or cls is object:
+                continue
+            # Get type-annotated attributes
+            annotations = getattr(cls, "__annotations__", {})
+            for key in annotations:
+                if hasattr(cls, key) and not key.startswith("_"):
+                    defaults[key] = getattr(cls, key)
+
+        # Apply defaults, then override with kwargs, then set rng
+        self.__dict__.update(defaults)
+        self.__dict__.update(kwargs)
+        self.__dict__["rng"] = rng
+
+    def __iter__(self):
+        """Iterate over (key, value) pairs."""
         return iter(self.__dict__.items())
 
-    def __len__(self):  # noqa: D105
+    def __len__(self):
+        """Return number of parameters."""
         return len(self.__dict__)
 
-    def __setattr__(self, name: str, value: object) -> None:  # noqa: D105
+    def __setattr__(self, name: str, value: object) -> None:
+        """Prevent modification during model execution."""
         try:
-            if self.model.running:
-                raise ValueError("Cannot change scenario parameters during model run.")
+            if self.model and self.model.running:
+                raise ValueError(
+                    f"Cannot change scenario parameter '{name}' during model run."
+                )
         except AttributeError:
-            # happens when we do self.model = None in init
+            # During initialization when self.model doesn't exist yet
             pass
         super().__setattr__(name, value)
 
-    def to_dict(self):
-        """Return a dict representation of the scenario."""
+    def to_dict(self) -> dict[str, Any]:
+        """Return dict representation of the scenario."""
         return {**self.__dict__, "model": self.model, "_scenario_id": self._scenario_id}
 
 
