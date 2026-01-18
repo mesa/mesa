@@ -5,7 +5,7 @@ import operator
 from collections.abc import Callable
 from typing import Any
 
-from mesa.agent import AgentSet
+from mesa.agent import AgentSet, Agent
 from mesa.examples import BoltzmannWealth
 from mesa.model import Model
 
@@ -46,12 +46,15 @@ class DataSet(abc.ABC):
         ...
 
 
-class AgentDataSet(DataSet):
+class AgentDataSet[A: Agent](DataSet):
     """Data set for agents data.
 
     Args:
         name: the name of the data set
         agents: the agents to collect data from
+        select_kwargs : dict of valid keyword arguments for agentset.select
+                        is passed, the agentset will be filtered before gathering
+                        the data
         kwargs: key value pairs specifying the fields to collect.
                 a value must be either a string (for attributes) or a
                 callable.
@@ -59,17 +62,23 @@ class AgentDataSet(DataSet):
 
     """
 
-    def __init__(self, name, agents: AgentSet, *args, **kwargs):
+    def __init__(self, name, agents: AgentSet[A], *args,
+                 select_kwargs:dict|None=None, **kwargs):
         """Init."""
         super().__init__(name, *["unique_id", *args], **kwargs)
         self.agents = agents
+        self.select_kwargs = select_kwargs
+
 
     @property
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the table."""
         # gets the data for the fields from the agents
         data: list[dict[str, Any]] = []
-        for agent in self.agents:
+
+        agents = self._agents if self.select_kwargs is None else self.agents.select(*self.select_kwargs)
+
+        for agent in agents:
             attribute_data = dict(
                 zip(self._args, self._collectors["attributes"](agent))
             )
