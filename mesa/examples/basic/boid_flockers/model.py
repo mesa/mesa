@@ -32,7 +32,7 @@ class BoidFlockers(Model):
         cohere=0.03,
         separate=0.015,
         match=0.05,
-        seed=None,
+        rng=None,
     ):
         """Create a new Boids Flocking model.
 
@@ -46,9 +46,9 @@ class BoidFlockers(Model):
             cohere: Weight of cohesion behavior (default: 0.03)
             separate: Weight of separation behavior (default: 0.015)
             match: Weight of alignment behavior (default: 0.05)
-            seed: Random seed for reproducibility (default: None)
+            rng: Random rng for reproducibility (default: None)
         """
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.agent_angles = np.zeros(
             population_size
         )  # holds the angle representing the direction of all agents at a given step

@@ -11,8 +11,8 @@ from mesa.datacollection import DataCollector
 class LifeTimeModel(Model):
     """Simple model for running models with a finite life."""
 
-    def __init__(self, agent_lifetime=1, n_agents=10, seed=None):  # noqa: D107
-        super().__init__(seed=seed)
+    def __init__(self, agent_lifetime=1, n_agents=10, rng=None):  # noqa: D107
+        super().__init__(rng=rng)
 
         self.agent_lifetime = agent_lifetime
         self.n_agents = n_agents
