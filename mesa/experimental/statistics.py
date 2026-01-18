@@ -5,7 +5,7 @@ import operator
 from collections.abc import Callable
 from typing import Any
 
-from mesa.agent import AgentSet, Agent
+from mesa.agent import Agent, AgentSet
 from mesa.examples import BoltzmannWealth
 from mesa.model import Model
 
@@ -62,13 +62,18 @@ class AgentDataSet[A: Agent](DataSet):
 
     """
 
-    def __init__(self, name, agents: AgentSet[A], *args,
-                 select_kwargs:dict|None=None, **kwargs):
+    def __init__(
+        self,
+        name,
+        agents: AgentSet[A],
+        *args,
+        select_kwargs: dict | None = None,
+        **kwargs,
+    ):
         """Init."""
         super().__init__(name, *["unique_id", *args], **kwargs)
         self.agents = agents
         self.select_kwargs = select_kwargs
-
 
     @property
     def data(self) -> list[dict[str, Any]]:
@@ -76,7 +81,11 @@ class AgentDataSet[A: Agent](DataSet):
         # gets the data for the fields from the agents
         data: list[dict[str, Any]] = []
 
-        agents = self._agents if self.select_kwargs is None else self.agents.select(*self.select_kwargs)
+        agents = (
+            self._agents
+            if self.select_kwargs is None
+            else self.agents.select(*self.select_kwargs)
+        )
 
         for agent in agents:
             attribute_data = dict(
