@@ -44,7 +44,24 @@ class Scenario[M: Model]:
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
+    _scenario_defaults: dict[str, Any] = {}
     __slots__ = ("__dict__", "_scenario_id", "model")
+
+    @classmethod
+    def __init_subclass__(cls):
+        """Called once when a subclass is created."""
+        # Collect defaults once and cache on the class
+        defaults = {}
+        for base in reversed(cls.__mro__):
+            if base is Scenario or base is object:
+                continue
+            annotations = getattr(base, '__annotations__', {})
+            for key in annotations:
+                if hasattr(base, key) and not key.startswith('_'):
+                    defaults[key] = getattr(base, key)
+
+        # Cache on the class itself
+        cls._scenario_defaults = defaults
 
     @classmethod
     def _reset_counter(cls):
@@ -64,20 +81,7 @@ class Scenario[M: Model]:
             if "_scenario_id" not in kwargs
             else kwargs.pop("_scenario_id")
         )
-
-        # Collect class-level annotated attributes as defaults
-        defaults = {}
-        for cls in reversed(self.__class__.__mro__):
-            if cls is Scenario or cls is object:
-                continue
-            # Get type-annotated attributes
-            annotations = getattr(cls, "__annotations__", {})
-            for key in annotations:
-                if hasattr(cls, key) and not key.startswith("_"):
-                    defaults[key] = getattr(cls, key)
-
-        # Apply defaults, then override with kwargs, then set rng
-        self.__dict__.update(defaults)
+        self.__dict__.update(self._scenario_defaults)
         self.__dict__.update(kwargs)
         self.__dict__["rng"] = rng
 
