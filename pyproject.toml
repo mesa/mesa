@@ -60,7 +60,7 @@ viz = [
 ]
 # Dev and CI stuff
 dev = [
-  "mesa[rec]",
+  "mesa[rec, surrogate]",
   "ruff",
   "pytest",
   "pytest-cov",
