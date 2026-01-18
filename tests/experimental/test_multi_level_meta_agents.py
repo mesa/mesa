@@ -1,8 +1,12 @@
+"""Tests for multi-level and overlapping meta-agents."""
+
+
 from mesa import Agent, Model
 from mesa.experimental.meta_agents.meta_agent import MetaAgent, create_meta_agent
 
 
 def test_overlapping_meta_agents():
+    """Test that an agent can belong to multiple meta-agents simultaneously."""
     model = Model()
     agent1 = Agent(model)
     agent2 = Agent(model)
@@ -37,6 +41,7 @@ def test_overlapping_meta_agents():
 
 
 def test_remove_from_multiple_groups():
+    """Test that removing an agent from one group keeps other memberships intact."""
     model = Model()
     agent1 = Agent(model)
     group1 = MetaAgent(model, {agent1}, name="Group1")
@@ -61,6 +66,7 @@ def test_remove_from_multiple_groups():
 
 
 def test_create_meta_agent_independent_groups_with_overlap():
+    """Test that create_meta_agent creates separate groups for different class names even if agents overlap."""
     model = Model()
     agent1 = Agent(model)
     agent2 = Agent(model)
@@ -77,16 +83,8 @@ def test_create_meta_agent_independent_groups_with_overlap():
     assert meta2.__class__.__name__ == "GroupB"
 
     assert len(agent1.meta_agents) == 2
-    assert (
-        group1_in_meta := any(
-            ma.__class__.__name__ == "GroupA" for ma in agent1.meta_agents
-        )
-    )
-    assert (
-        group2_in_meta := any(
-            ma.__class__.__name__ == "GroupB" for ma in agent1.meta_agents
-        )
-    )
+    assert any(ma.__class__.__name__ == "GroupA" for ma in agent1.meta_agents)
+    assert any(ma.__class__.__name__ == "GroupB" for ma in agent1.meta_agents)
 
     assert len(agent2.meta_agents) == 1
     assert any(ma.__class__.__name__ == "GroupB" for ma in agent2.meta_agents)
