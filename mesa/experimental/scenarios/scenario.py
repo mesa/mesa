@@ -44,7 +44,7 @@ class Scenario[M: Model]:
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
-    _scenario_defaults: dict[str, Any] = {}
+    _scenario_defaults: ClassVar[dict[str, Any]] = {}
     __slots__ = ("__dict__", "_scenario_id", "model")
 
     @classmethod
