@@ -22,8 +22,8 @@ class EpsteinScenario(Scenario):
     arrest_prob_constant: float = 2.3
     movement: bool = True
     max_iters: int = 1000
-    activation_order: str = "Random"
-    grid_type: str = "Von Neumann"
+    activation_order: Literal["Random", "Sequential"] = "Random"
+    grid_type: Literal["Von Neumann", "Moore"] = "Von Neumann"
     rng: int = 42
 
 
