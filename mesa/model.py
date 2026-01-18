@@ -28,10 +28,6 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 _mesa_logger = create_module_logger()
 
 
-<<<<<<< Updated upstream
-# TODO: We can add `= Scenario` default type when Python 3.13+ is required
-=======
->>>>>>> Stashed changes
 class Model[A: Agent, S: Scenario]:
     """Base class for models in the Mesa ABM library.
 
