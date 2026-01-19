@@ -665,80 +665,162 @@ class MockStrongAgent(Agent):
         other_agent.remove()
 
 
-def test_strongagentset_references():
-    """Test that _StrongAgentSet actually holds strong references."""
+def test_strongagentset_checks():
+    """Comprehensive test for _StrongAgentSet behavior."""
+
+    class MockAgent(Agent):
+        def __init__(self, model, value=0):
+            super().__init__(model)
+            self.value = value
+            self.acted = False
+
+        def increment(self):
+            self.value += 1
+
+        def kill_target(self, target):
+            self.acted = True
+            if target:
+                target.remove()
+
+        def get_val_side_effect(self, target):
+            if target:
+                target.remove()
+            return self.value
+
     model = Model()
 
-    agent = MockStrongAgent(model)
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
+
+    # 1. Reference Retention Check (Strong Refs)
+    agent = MockAgent(model)
     agent_ref = weakref.ref(agent)
 
-    strong_set = _StrongAgentSet([agent], model.random)
-
-    # Delete the original strong reference
+    # Delete the original strong reference (local variable)
     del agent
     gc.collect()
 
-    # The agent should STILL be alive because strong_set holds it
+    # Assert: Agent should STILL be alive (held by model.agents / strong_set)
     assert agent_ref() is not None
     assert agent_ref() in strong_set
 
-
-def test_strongagentset_downgrade():
-    """Test that operations on StrongAgentSet return standard (weak) AgentSets."""
-    model = Model()
-    agents = [MockStrongAgent(model, i) for i in range(5)]
-    strong_set = _StrongAgentSet(agents, model.random)
-
+    # 2. Automatic Downgrade Check
+    # Clear and repopulate
+    for a in list(strong_set):
+        a.remove()
+    agents = [MockAgent(model, i) for i in range(5)]
+    # Note: MockAgent init calls model.register_agent, which adds to strong_set now
     subset = strong_set.select(lambda a: a.value < 2)
-    assert len(subset) == 2
     assert isinstance(subset, AgentSet)
     assert not isinstance(subset, _StrongAgentSet)
+    assert len(subset) == 2
 
+    # Shuffle (inplace=False) -> Must return AgentSet (Weak)
     shuffled = strong_set.shuffle(inplace=False)
-    assert len(shuffled) == 5
     assert isinstance(shuffled, AgentSet)
     assert not isinstance(shuffled, _StrongAgentSet)
 
+    # Copy -> Must return AgentSet (Weak)
     copied = copy(strong_set)
     assert isinstance(copied, AgentSet)
     assert not isinstance(copied, _StrongAgentSet)
 
+    # 3. Inplace Behavior Check
+    # We create a temporary strong set for this to avoid messing up the main model one
+    temp_set = _StrongAgentSet(agents, model.random)
+    res = temp_set.select(lambda a: a.value < 3, inplace=True)
+    assert res is temp_set
+    assert isinstance(res, _StrongAgentSet)
+    assert len(res) == 3
 
-def test_strongagentset_inplace():
-    """Test that inplace operations maintain the StrongAgentSet type."""
-    model = Model()
-    agents = [MockStrongAgent(model, i) for i in range(5)]
-    strong_set = _StrongAgentSet(agents, model.random)
-
-    # Inplace Shuffle
-    res = strong_set.shuffle(inplace=True)
-    assert res is strong_set
+    # Shuffle (inplace=True) -> Must keep _StrongAgentSet
+    res = temp_set.shuffle(inplace=True)
+    assert res is temp_set
     assert isinstance(res, _StrongAgentSet)
 
-    # Inplace Select
-    res = strong_set.select(lambda a: a.value < 2, inplace=True)
-    assert res is strong_set
-    assert len(res) == 2
-    assert isinstance(res, _StrongAgentSet)
+    # 4. Method Overrides Check
 
+    test_agents = [MockAgent(model, 10) for _ in range(3)]
+    manual_set = _StrongAgentSet(test_agents, model.random)
 
-def test_strongagentset_methods():
-    """Test the methods overridden for dictionary compatibility (do, map, etc)."""
+    # .do()
+    manual_set.do("increment")
+    assert all(a.value == 11 for a in test_agents)
+
+    # .map()
+    vals = manual_set.map(lambda a: a.value)
+    assert vals == [11, 11, 11]
+
+    # .shuffle_do()
+    manual_set.shuffle_do("increment")
+    assert all(a.value == 12 for a in test_agents)
+
+    # 5. Liveness during iteration
     model = Model()
-    agents = [MockStrongAgent(model, 10) for _ in range(5)]
-    strong_set = _StrongAgentSet(agents, model.random)
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
 
-    # Test .do() (String method)
-    strong_set.do("increment")
-    assert all(a.value == 11 for a in agents)
+    # Test .do() safety
+    agent_a = MockAgent(model, value=10)
+    agent_b = MockAgent(model, value=20)
+    # Force order A -> B
 
-    # Test .map() (Callable)
-    values = strong_set.map(lambda a: a.value)
-    assert values == [11] * 5
+    def kill_scenario(agent):
+        if agent is agent_a:
+            agent.kill_target(agent_b)  # A kills B
+        elif agent is agent_b:
+            agent.acted = True  # B tries to act
+
+    strong_set.do(kill_scenario)
+
+    assert agent_a.acted is True
+    assert agent_b.acted is False  # B should NOT have acted
+    assert agent_b not in strong_set
+
+    # Test .map() safety
+    # Reset model
+    model = Model()
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
+
+    agent_a = MockAgent(model, value=10)
+    agent_b = MockAgent(model, value=20)
+
+    # A removes B inside the map
+    results = strong_set.map(
+        lambda a: a.get_val_side_effect(agent_b if a is agent_a else None)
+    )
+
+    assert len(results) == 1  # Should only contain A's result
+    assert results == [10]
+    assert agent_b not in strong_set
 
     # Test .shuffle_do()
-    strong_set.shuffle_do("increment")
-    assert all(a.value == 12 for a in agents)
+    # Reset model
+    model = Model()
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
+
+    agent_a = MockAgent(model)
+    agent_b = MockAgent(model)
+
+    # Mock random.shuffle to preserve [A, B] order
+    original_shuffle = model.random.shuffle
+    try:
+        model.random.shuffle = lambda x: None  # No-op shuffle
+
+        def shuffle_kill(agent):
+            if agent is agent_a:
+                agent.kill_target(agent_b)
+            elif agent is agent_b:
+                agent.acted = True
+
+        strong_set.shuffle_do(shuffle_kill)
+
+        assert agent_a.acted is True
+        assert agent_b.acted is False  # B killed before acting
+    finally:
+        model.random.shuffle = original_shuffle
 
 
 def test_agentset_groupby():
