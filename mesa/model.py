@@ -217,7 +217,7 @@ class Model[A: Agent, S: Scenario]:
         try:
             self._agents_by_type[type(agent)].add(agent)
         except KeyError:
-            self._agents_by_type[type(agent)] = AgentSet(
+            self._agents_by_type[type(agent)] = _StrongAgentSet(
                 [
                     agent,
                 ],
