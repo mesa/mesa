@@ -28,7 +28,7 @@ def test_observables():
 
     handler = Mock()
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
@@ -50,7 +50,7 @@ def test_HasObservables():
 
     handler = Mock()
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
@@ -128,7 +128,7 @@ def test_ObservableList():
             super().__init__(model)
             self.my_list = []
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model)
 
     assert len(agent.my_list) == 0
@@ -238,7 +238,7 @@ def test_Message():
         for entry in ["name", "signal_type", "old", "new", "owner"]:
             assert entry in items
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", on_change)
     agent.some_attribute = 5
@@ -258,7 +258,7 @@ def test_computed():
         def some_attribute(self):
             return self.some_other_attribute * 2
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model, 10)
     # Initial Access (Calculates 10 * 2)
     assert agent.some_attribute == 20
@@ -336,7 +336,7 @@ def test_computed_dynamic_dependencies():
             else:
                 return self.val_b
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = DynamicAgent(model)
 
     # Use Path A (depends on val_a)
@@ -382,7 +382,7 @@ def test_chained_computations():
             # Then it accesses self.intermediate
             return self.intermediate + 1
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = ChainedAgent(model, 10)
 
     # Trigger the chain
@@ -404,7 +404,7 @@ def test_dead_parent_fallback():
         def prop(self):
             return 1
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = SimpleAgent(model)
 
     _ = agent.prop
@@ -441,7 +441,7 @@ def test_list_support():
             self.attr2 = 2
             self.attr3 = 3
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     agent = MyAgent(model)
     handler = Mock()
 
