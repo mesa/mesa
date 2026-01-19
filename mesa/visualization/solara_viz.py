@@ -95,6 +95,8 @@ def SolaraViz(
         simulator: A simulator that controls the model (optional)
         model_params (dict, optional): Parameters for (re-)instantiating a model.
             Can include user-adjustable parameters and fixed parameters. Defaults to None.
+        scenario_params (dict, optional): Parameters for the model's scenario.
+            Can include user-adjustable parameters and fixed parameters. Defaults to None.
         name (str | None, optional): Name of the visualization. Defaults to the model's class name.
         **console_kwargs (dict, optional): Arguments to pass to the command console.
             Currently supported arguments:
@@ -488,6 +490,7 @@ def ModelController(
         model: Reactive model instance
         renderer: SpaceRenderer instance to render the model's space.
         model_parameters: Reactive parameters for (re-)instantiating a model.
+        scenario_parameters: Reactive parameters for the model's scenario.
         play_interval: Interval for playing the model steps in milliseconds.
         render_interval: Controls how often the plots are updated during simulation steps.Higher value reduce update frequency.
         use_threads: Flag for indicating whether to utilize multi-threading for model execution.
@@ -621,6 +624,7 @@ def SimulatorController(
         simulator: Simulator instance
         renderer: SpaceRenderer instance to render the model's space.
         model_parameters: Reactive parameters for (re-)instantiating a model.
+        scenario_parameters: Reactive parameters for the model's scenario.
         play_interval: Interval for playing the model steps in milliseconds.
         render_interval: Controls how often the plots are updated during simulation steps.Higher values reduce update frequency.
         use_threads: Flag for indicating whether to utilize multi-threading for model execution.
@@ -778,10 +782,17 @@ def check_param_is_fixed(param):
 def ModelCreator(
     model: solara.Reactive[Model],
     user_params: dict,
+<<<<<<< HEAD
     scenario_params: dict = None,
     *,
     model_parameters: dict | solara.Reactive[dict] = None,
     scenario_parameters: dict | solara.Reactive[dict] = None,
+=======
+    scenario_params: dict | None = None,
+    *,
+    model_parameters: dict | solara.Reactive[dict] | None = None,
+    scenario_parameters: dict | solara.Reactive[dict] | None = None,
+>>>>>>> ac1a8ea7 (Support Scenarios in SolaraViz visualization)
 ):
     """Solara component for creating and managing a model instance with user-defined parameters.
 
