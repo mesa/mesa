@@ -66,6 +66,7 @@ def SolaraViz(
     render_interval: int = 1,
     simulator: Simulator | None = None,
     model_params=None,
+    scenario_params=None,
     name: str | None = None,
     use_threads: bool = False,
     **console_kwargs,
@@ -131,13 +132,34 @@ def SolaraViz(
         ]
     if model_params is None:
         model_params = {}
+    if scenario_params is None:
+        scenario_params = {}
 
     # Convert model to reactive
     if not isinstance(model, solara.Reactive):
         model = solara.use_reactive(model)  # noqa: RUF100  # noqa: SH102
 
-    # Set up reactive model_parameters shared by ModelCreator and ModelController
+    # Auto-detect scenario parameters if not provided and scenario exists
+    if (
+        not scenario_params
+        and hasattr(model.value, "scenario")
+        and model.value.scenario
+    ):
+        scenario_defaults = getattr(model.value.scenario, "_scenario_defaults", {})
+        model_init_params = inspect.signature(model.value.__class__.__init__).parameters
+
+        new_model_params = {}
+        new_scenario_params = {}
+        for k, v in model_params.items():
+            if k in scenario_defaults and k not in model_init_params:
+                new_scenario_params[k] = v
+            else:
+                new_model_params[k] = v
+        model_params = new_model_params
+        scenario_params = new_scenario_params
+
     reactive_model_parameters = solara.use_reactive({})
+    reactive_scenario_parameters = solara.use_reactive({})
     reactive_play_interval = solara.use_reactive(play_interval)
     reactive_render_interval = solara.use_reactive(render_interval)
     reactive_use_threads = solara.use_reactive(use_threads)
@@ -189,6 +211,7 @@ def SolaraViz(
                     model,
                     renderer=renderer,
                     model_parameters=reactive_model_parameters,
+                    scenario_parameters=reactive_scenario_parameters,
                     play_interval=reactive_play_interval,
                     render_interval=reactive_render_interval,
                     use_threads=reactive_use_threads,
@@ -199,13 +222,18 @@ def SolaraViz(
                     simulator,
                     renderer=renderer,
                     model_parameters=reactive_model_parameters,
+                    scenario_parameters=reactive_scenario_parameters,
                     play_interval=reactive_play_interval,
                     render_interval=reactive_render_interval,
                     use_threads=reactive_use_threads,
                 )
         with solara.Card("Model Parameters"):
             ModelCreator(
-                model, model_params, model_parameters=reactive_model_parameters
+                model,
+                model_params,
+                scenario_params,
+                model_parameters=reactive_model_parameters,
+                scenario_parameters=reactive_scenario_parameters,
             )
         with solara.Card("Information"):
             ShowSteps(model.value)
@@ -449,6 +477,7 @@ def ModelController(
     *,
     renderer: solara.Reactive[SpaceRenderer] | None = None,
     model_parameters: dict | solara.Reactive[dict] = None,
+    scenario_parameters: dict | solara.Reactive[dict] = None,
     play_interval: int | solara.Reactive[int] = 100,
     render_interval: int | solara.Reactive[int] = 1,
     use_threads: bool | solara.Reactive[bool] = False,
@@ -469,6 +498,10 @@ def ModelController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
+
+    if scenario_parameters is None:
+        scenario_parameters = {}
+    scenario_parameters = solara.use_reactive(scenario_parameters)
     visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
 
     error_message = solara.use_reactive(None)
@@ -533,9 +566,14 @@ def ModelController(
         visualization_pause_event.clear()
         _mesa_logger.log(
             10,
-            f"creating new {model.value.__class__} instance with {model_parameters.value}",
+            f"creating new {model.value.__class__} instance with {model_parameters.value} and {scenario_parameters.value}",
         )
-        model.value = model.value = model.value.__class__(**model_parameters.value)
+        kwargs = {**model_parameters.value}
+        if scenario_parameters.value:
+            scenario_class = model.value.scenario.__class__
+            kwargs["scenario"] = scenario_class(**scenario_parameters.value)
+
+        model.value = model.value.__class__(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -571,6 +609,7 @@ def SimulatorController(
     renderer: solara.Reactive[SpaceRenderer] | None = None,
     *,
     model_parameters: dict | solara.Reactive[dict] = None,
+    scenario_parameters: dict | solara.Reactive[dict] = None,
     play_interval: int | solara.Reactive[int] = 100,
     render_interval: int | solara.Reactive[int] = 1,
     use_threads: bool | solara.Reactive[bool] = False,
@@ -592,9 +631,15 @@ def SimulatorController(
     """
     playing = solara.use_reactive(False)
     running = solara.use_reactive(True)
+
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
+
+    if scenario_parameters is None:
+        scenario_parameters = {}
+    scenario_parameters = solara.use_reactive(scenario_parameters)
+
     visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
     pause_step_event = solara.use_memo(lambda: threading.Event(), [])
 
@@ -660,9 +705,13 @@ def SimulatorController(
         simulator.reset()
         visualization_pause_event.clear()
         pause_step_event.clear()
-        model.value = model.value = model.value.__class__(
-            simulator=simulator, **model_parameters.value
-        )
+
+        kwargs = {**model_parameters.value, "simulator": simulator}
+        if scenario_parameters.value:
+            scenario_class = model.value.scenario.__class__
+            kwargs["scenario"] = scenario_class(**scenario_parameters.value)
+
+        model.value = model.value.__class__(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -729,8 +778,10 @@ def check_param_is_fixed(param):
 def ModelCreator(
     model: solara.Reactive[Model],
     user_params: dict,
+    scenario_params: dict = None,
     *,
     model_parameters: dict | solara.Reactive[dict] = None,
+    scenario_parameters: dict | solara.Reactive[dict] = None,
 ):
     """Solara component for creating and managing a model instance with user-defined parameters.
 
@@ -741,7 +792,9 @@ def ModelCreator(
     Args:
         model: A reactive model instance. This is the main model to be created and managed.
         user_params: Parameters for (re-)instantiating a model. Can include user-adjustable parameters and fixed parameters. Defaults to None.
+        scenario_params: Parameters for the model's scenario.
         model_parameters: reactive parameters for reinitializing the model
+        scenario_parameters: reactive parameters for reinitializing the scenario
 
     Returns:
         solara.component: A Solara component that renders the model creation and management interface.
@@ -761,15 +814,23 @@ def ModelCreator(
         - The `seed` argument ensures reproducibility by setting the initial seed for the model's random number generator.
         - The component provides an interface for adjusting user-defined parameters and reseeding the model.
     """
+    if scenario_params is None:
+        scenario_params = {}
+
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
+
+    if scenario_parameters is None:
+        scenario_parameters = {}
+    scenario_parameters = solara.use_reactive(scenario_parameters)
 
     solara.use_effect(
         lambda: _check_model_params(model.value.__class__.__init__, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
+    scenario_adjust_params, scenario_fixed_params = split_model_params(scenario_params)
 
     # Use solara.use_effect to run the initialization code only once
     solara.use_effect(
@@ -783,11 +844,29 @@ def ModelCreator(
         [],
     )
 
+    solara.use_effect(
+        # set scenario_parameters to the default values for all parameters
+        lambda: scenario_parameters.set(
+            {
+                **scenario_fixed_params,
+                **{k: v.get("value") for k, v in scenario_adjust_params.items()},
+            }
+        ),
+        [],
+    )
+
     @function_logger(__name__)
-    def on_change(name, value):
+    def on_model_change(name, value):
         model_parameters.value = {**model_parameters.value, name: value}
 
-    UserInputs(user_adjust_params, on_change=on_change)
+    @function_logger(__name__)
+    def on_scenario_change(name, value):
+        scenario_parameters.value = {**scenario_parameters.value, name: value}
+
+    UserInputs(user_adjust_params, on_change=on_model_change)
+    if scenario_adjust_params:
+        solara.Markdown("### Scenario Parameters")
+        UserInputs(scenario_adjust_params, on_change=on_scenario_change)
 
 
 def _check_model_params(init_func, model_params):
