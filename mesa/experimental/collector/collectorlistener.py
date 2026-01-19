@@ -1,262 +1,149 @@
-"""High-performance Listener replacement for DataCollector.
+"""High-performance Listener for the DataRegistry Architecture.
 
-This module provides a faster alternative to Mesa's standard DataCollector by
-leveraging:
-1. Columnar Storage (Dictionary of Lists) for O(1) appends.
-2. Pre-compiled C-level attribute accessors (operator.attrgetter).
-3. Zero-Copy integration with Polars (if installed).
+This module acts as the 'Conductor', triggering the DataRegistry to extract
+data at the right time and storing it efficiently using Lazy Block Storage.
 """
 
 from __future__ import annotations
 
 import contextlib
-import operator
-from collections.abc import Callable
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
+
+from mesa.experimental.devs import Priority
 
 if TYPE_CHECKING:
     from mesa.model import Model
 
-# Attempt to import Polars for performance, but stay optional
+# Optional Polars import for high-performance output generation
 with contextlib.suppress(ImportError):
     import polars as pl
 
 
-class BaseListener:
-    """Base class for listeners that subscribe to model signals.
+class CollectorListener:
+    """Orchestrates data collection using the Model's scheduler.
 
-    This class handles the basic setup of observing standard model signals
-    ('step', 'end', 'reset'). Subclasses should override the specific
-    event handlers (`on_step`, `on_run_end`, `on_reset`).
+    It binds to the model and schedules a recurring collection event that
+    runs after the model step is complete.
     """
 
     def __init__(self, model: Model):
-        """Initialize the listener and subscribe to model signals.
-
-        Args:
-            model: The Mesa model instance to observe.
-        """
+        """Initialize the listener and schedule the first collection."""
         self.model = model
-        # Subscribe to standard signals
-        self.model.observe("step", "step", self.on_step)
-        self.model.observe("end", "end", self.on_run_end)
-        self.model.observe("reset", "reset", self.on_reset)
 
-    def on_step(self, signal):
-        """Handler for the 'step' signal."""
+        # Ensure the Registry exists
+        if not hasattr(model, "data_registry"):
+            raise AttributeError(
+                "CollectorListener requires 'model.data' to be a DataRegistry."
+            )
+        self.registry = model.data_registry
 
-    def on_run_end(self, signal):
-        """Handler for the 'end' signal (simulation complete)."""
+        # Storage: Dictionary of Lists
+        # Structure: {"wealth": [(step, block), ...], "gini": [{row}, ...]}
+        self.tables: dict[str, list[Any]] = defaultdict(list)
 
-    def on_reset(self, signal):
-        """Handler for the 'reset' signal."""
+        # Scheduling: Start the recursive loop
+        # Schedule at time=1 because model.step() usually increments time to 1.0 first.
+        # Priority.LOW ensures we run AFTER the agents have moved.
+        self.model.schedule_at(self._collect, time=1, priority=Priority.LOW)
 
+    def _collect(self):
+        """The main collection callback."""
+        current_step = self.model.steps
 
-class CollectorListener(BaseListener):
-    """The replacement for DataCollector with C-speed optimizations.
+        # Iterate over all configured datasets in the registry
+        for name, dataset in self.registry.datasets.items():
+            # Trigger the compiled logic in statistics.py
+            collected_data = dataset.data
 
-    Architecture:
-    - Columnar Storage: Uses `Dict[str, List]` instead of `List[Dict]`. This ensures
-      contiguity in memory and allows for O(1) appends.
-    - Pre-compiled Accessors: When reporters are strings (e.g., "wealth"),
-      this class compiles them into `operator.attrgetter` callables, which run at
-      C-speed, bypassing Python's `getattr` loop overhead.
-    - Efficient Handling: Automatically handles agents dying or being removed;
-      data is only collected for agents present in `model.agents` at the current step.
-    """
+            # Store tuple (Step, Block) for O(1) performance.
+            if isinstance(collected_data, list):
+                if collected_data:
+                    self.tables[name].append((current_step, collected_data))
 
-    def __init__(
-        self,
-        model: Model,
-        model_reporters: dict[str, Callable | str] | None = None,
-        agent_reporters: dict[str, Callable | str] | None = None,
-        tables: dict[str, list[str]] | None = None,
-    ):
-        """Initialize the CollectorListener.
+            # Numpy Agent Data (Numpy Array)
+            # Store tuple (Step, Array Copy). We MUST copy to prevent mutation.
+            elif isinstance(collected_data, np.ndarray):
+                if collected_data.size > 0:
+                    self.tables[name].append((current_step, collected_data.copy()))
 
-        Args:
-            model: The model to observe.
-            model_reporters: Dictionary mapping column names to attributes/functions
-                             for model-level data.
-            agent_reporters: Dictionary mapping column names to attributes/functions
-                             for agent-level data.
-            tables: Dictionary defining schemas for custom tables.
-                    Format: {'table_name': ['col1', 'col2']}
-        """
-        super().__init__(model)
+            # Model Data (Single Dict)
+            # Eagerly inject step because it's cheap (1 row)
+            elif isinstance(collected_data, dict):
+                row = collected_data.copy()
+                row["step"] = current_step
+                self.tables[name].append(row)
 
-        raw_model_reporters = model_reporters or {}
-        self.agent_reporters = agent_reporters or {}
-        self.tables_config = tables or {}
-
-        # Columnar Storage (Dict of Lists)
-        self.model_vars: dict[str, list[Any]] = {k: [] for k in raw_model_reporters}
-        self._agent_data: dict[str, list[Any]] = {k: [] for k in self.agent_reporters}
-        self._agent_data["Step"] = []
-        self._agent_data["AgentID"] = []
-
-        self.tables: dict[str, dict[str, list[Any]]] = {
-            name: {col: [] for col in cols} for name, cols in self.tables_config.items()
-        }
-
-        # Handle string reporters by converting to attrgetter
-        self._model_reporters = {}
-        for name, reporter in raw_model_reporters.items():
-            if isinstance(reporter, str):
-                self._model_reporters[name] = operator.attrgetter(reporter)
+            # Fallback
             else:
-                self._model_reporters[name] = reporter
+                self.tables[name].append((current_step, collected_data))
 
-        # Compile the best strategy for agent collection
-        self._collect_agents = self._setup_agent_collection()
+        # RECURSION: Schedule the next collection
+        with contextlib.suppress(ValueError):
+            self.model.schedule_after(self._collect, delay=1, priority=Priority.LOW)
 
-    def _setup_agent_collection(self) -> Callable:
-        """Determine and compile the optimal agent collection strategy.
+    def clear(self):
+        """Clear all stored data. Call this on model reset."""
+        self.tables.clear()
+        self.model.schedule_at(self._collect, time=1, priority=Priority.LOW)
 
-        Returns:
-            The bound method to be used for agent collection.
-        """
-        # Case 1: No reporters defined
-        if not self.agent_reporters:
-            return self._collect_agents_noop
+    def get_table_dataframe(self, name: str) -> pd.DataFrame:
+        """Convert the stored data into a DataFrame."""
+        if name not in self.tables:
+            raise KeyError(f"Table '{name}' not found.")
 
-        # Case 2: All reporters are strings
-        # We can use the "Fast Path" (C-speed attrgetter + zip)
-        if all(isinstance(v, str) for v in self.agent_reporters.values()):
-            # Create a single getter for [unique_id, attr1, attr2, ...]
-            all_attrs = ["unique_id", *self.agent_reporters.values()]
-            self._agent_getter = operator.attrgetter(*all_attrs)
+        raw_data = self.tables[name]
+        if not raw_data:
+            return pd.DataFrame()
 
-            # Cache the destination lists for O(1) retrieval during step
-            self._agent_targets = [self._agent_data["AgentID"]] + [
-                self._agent_data[k] for k in self.agent_reporters
-            ]
+        first_item = raw_data[0]
 
-            return self._collect_agents_fast_zip
+        # Tuple (Step, Block) -> Agents
+        if isinstance(first_item, tuple):
+            _, block = first_item
 
-        # Case 3: Mixed reporters (Functions/Lambdas)
-        # Fallback to standard Python iteration
-        return self._collect_agents_slow
+            # Numpy Array
+            if isinstance(block, np.ndarray):
+                return self._flatten_numpy_data(name, raw_data)
 
-    def _collect_model(self, model):
-        """Collects data for all model reporters."""
-        for name, reporter in self._model_reporters.items():
-            self.model_vars[name].append(reporter(model))
+            # List of Dicts
+            return self._flatten_standard_agent_data(raw_data)
 
-    def _collect_agents_noop(self, model, step):
-        """No-op strategy when no agent reporters are defined."""
+        # Dict -> Model Data
+        if "pl" in globals() and pl is not None:
+            return pl.DataFrame(raw_data).to_pandas()
+        return pd.DataFrame(raw_data)
 
-    def _collect_agents_fast_zip(self, model, step):
-        """The 'Zero-Overhead' Strategy for agent collection.
+    def _flatten_standard_agent_data(self, raw_data: list[tuple[int, list[dict]]]):
+        """Explode List-of-Dicts blocks."""
+        if "pl" in globals() and pl is not None:
+            rows = []
+            for step, block in raw_data:
+                for row in block:
+                    row["step"] = step
+                    rows.append(row)
+            return pl.DataFrame(rows).to_pandas()
 
-        Architecture:
-        1. Accesses the raw iterator of agents.
-        2. Uses `map(getter, agents)` to fetch all attributes in C-speed.
-        3. Uses `zip(*...)` to transpose the rows into columns (also C-speed).
-        4. Uses `list.extend` to bulk append data.
-
-        Args:
-            model: The model instance.
-            step: The current step number.
-        """
-        # Rely on model.agents. Standard AgentSet iteration yields agents (Keys).
-        # We do NOT try to guess .values() anymore, as that breaks AgentSet structure.
-        agents = model.agents
-
-        # If it's an AgentSet, access the internal dict to skip the __iter__
-        # method overhead, but iterate it directly (Keys).
-        if hasattr(agents, "_agents"):
-            agents = agents._agents
-        elif isinstance(agents, dict):
-            # Only if it's a raw dict
-            agents = agents.values()
-
-        try:
-            cols = zip(*map(self._agent_getter, agents))
-
-            # Bulk Extend
-            for target, data in zip(self._agent_targets, cols):
-                target.extend(data)
-
-            # Handle Step Column (Efficient Fill)
-            count = len(self._agent_targets[0]) - len(self._agent_data["Step"])
-            self._agent_data["Step"].extend([step] * count)
-
-        except ValueError:
-            # Handles empty agent set case (zip(*[]) raises ValueError or returns empty)
-            pass
-
-    def _collect_agents_slow(self, model, step):
-        """Fallback strategy for mixed or complex callable reporters.
-
-        Iterates in Python, which is slower but supports full flexibility.
-        """
-        agents = model.agents
-
-        ids = []
         rows = []
+        for step, block in raw_data:
+            for row in block:
+                row_copy = row.copy()
+                row_copy["step"] = step
+                rows.append(row_copy)
+        return pd.DataFrame(rows)
 
-        reporters = [self.agent_reporters[k] for k in self.agent_reporters]
+    def _flatten_numpy_data(self, name: str, raw_data: list[tuple[int, np.ndarray]]):
+        """Explode Numpy blocks."""
+        dataset = self.registry.datasets[name]
+        columns = list(dataset._args)
 
-        for agent in agents:
-            ids.append(agent.unique_id)
-            row = []
-            for r in reporters:
-                if isinstance(r, str):
-                    row.append(getattr(agent, r))
-                else:
-                    row.append(r(agent))
-            rows.append(row)
+        all_dfs = []
+        for step, array in raw_data:
+            df = pd.DataFrame(array, columns=columns)
+            df["step"] = step
+            all_dfs.append(df)
 
-        count = len(ids)
-        if count > 0:
-            self._agent_data["Step"].extend([step] * count)
-            self._agent_data["AgentID"].extend(ids)
-
-            cols = zip(*rows)
-            keys = list(self.agent_reporters.keys())
-            for key, col_data in zip(keys, cols):
-                self._agent_data[key].extend(col_data)
-
-    def on_step(self, signal):
-        """Triggered automatically by the model's 'step' signal."""
-        model = signal.new
-        self._collect_model(model)
-        self._collect_agents(model, model.time)
-
-    def add_table_row(self, table_name: str, row: dict[str, Any]):
-        """Add a row to a custom table.
-
-        Args:
-            table_name: The name of the table to append to.
-            row: A dictionary matching the table's schema.
-        """
-        for col, val in row.items():
-            self.tables[table_name][col].append(val)
-
-    def get_model_vars_dataframe(self):
-        """Returns model variables as a DataFrame.
-
-        Returns:
-            pd.DataFrame: A pandas DataFrame of model variables.
-        """
-        if "pl" in globals() and pl is not None:
-            return pl.DataFrame(self.model_vars).to_pandas()
-        return pd.DataFrame(self.model_vars)
-
-    def get_agent_vars_dataframe(self):
-        """Returns agent variables as a DataFrame.
-
-        Optimization:
-            If Polars is installed, this method uses `pl.DataFrame` to ingest
-            the dictionary of lists. This is often 'Zero-Copy' or significantly
-            faster than Pandas' list-of-dicts ingestion.
-
-        Returns:
-            pd.DataFrame: A pandas DataFrame of agent variables.
-        """
-        if "pl" in globals() and pl is not None:
-            return pl.DataFrame(self._agent_data).to_pandas()
-        return pd.DataFrame(self._agent_data)
+        return pd.concat(all_dfs, ignore_index=True)
