@@ -679,10 +679,10 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
         if isinstance(method, str):
             for agent in agents:
                 # Since we iterate over a snapshot of strong references, agents removed during the loop
-                # are not garbage collected and remain "alive" in the list (unlike weak references which resolve to None). 
-                # This check prevents executing methods on these "zombie" agents that 
+                # are not garbage collected and remain "alive" in the list (unlike weak references which resolve to None).
+                # This check prevents executing methods on these "zombie" agents that
                 # have been removed from the model but persist in the iteration snapshot
-                if agent in self._agents: 
+                if agent in self._agents:
                     getattr(agent, method)(*args, **kwargs)
         else:
             for agent in agents:
