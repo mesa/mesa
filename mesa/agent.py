@@ -640,7 +640,11 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
     """An AgentSet that stores agents using strong references."""
 
     def _create_storage(self, agents: Iterable[A]):
-        """Generate a dict storage for the agents."""
+        """Generate a dict storage for the agents.
+
+        This overrides the default WeakKeyDictionary to use a standard dict,
+        maintaining strong references to the agents.
+        """
         return dict.fromkeys(agents)
 
     def _update(self, agents):
@@ -649,11 +653,26 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
         return self
 
     def __copy__(self):
-        """Explicitly return a standard (weak) AgentSet when copied."""
+        """Return a shallow copy of the AgentSet.
+
+        Returns:
+            A standard (weak) AgentSet containing the same agents.
+
+        Note:
+            This operation 'downgrades' the container from a _StrongAgentSet (strong references)
+            to a standard AgentSet (weak references). This ensures that copies held by users
+            do not prevent agents from being garbage collected if removed from the model.
+        """
         return AgentSet(self._agents, self.random)
 
-    def do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
-        """Execute method on agents."""
+    def do(self, method: str | Callable, *args, **kwargs):
+        """Execute a method on each agent in the AgentSet.
+
+        Args:
+            method: The method name (str) or a callable to execute.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        """
         # Snapshot keys to avoid RuntimeError if agents are removed during iteration
         agents = list(self._agents)
 
@@ -667,8 +686,15 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
                     method(agent, *args, **kwargs)
         return self
 
-    def shuffle_do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
-        """Shuffle and execute."""
+    def shuffle_do(self, method: str | Callable, *args, **kwargs):
+        """Shuffle the agents and execute a method on each.
+
+        Args:
+            method: The method name (str) or a callable to execute.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        """
         agents = list(self._agents)
         self.random.shuffle(agents)
 
@@ -683,7 +709,16 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
         return self
 
     def map(self, method: str | Callable, *args, **kwargs) -> list[Any]:
-        """Map method over agents."""
+        """Execute a method on each agent and return the results.
+
+        Args:
+            method: The method name (str) or a callable to execute.
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            A list of return values.
+        """
         # Map usually implies return values, so we generally don't expect removals.
         # However, for consistency with 'do', we snapshot.
         agents = list(self._agents)
@@ -702,7 +737,19 @@ class _StrongAgentSet[A: Agent](AgentSet[A]):
             ]
 
     def shuffle(self, inplace: bool = False) -> AgentSet:
-        """Shuffle agents."""
+        """Randomly shuffle the order of agents in the AgentSet.
+
+        Args:
+            inplace: If True, shuffles the set in place. If False, returns a new shuffled set.
+
+        Returns:
+            If inplace=False (default), returns a standard (weak) AgentSet.
+            If inplace=True, returns self (keeping strong references).
+
+        Note:
+            When inplace=False, this operation 'downgrades' the container to a standard
+            AgentSet (weak references) to prevent memory leaks in user space.
+        """
         agents = list(self._agents)
         self.random.shuffle(agents)
 
