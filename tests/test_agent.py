@@ -648,23 +648,6 @@ def test_agentset_shuffle():
     assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
 
 
-class MockStrongAgent(Agent):
-    """Simple agent for testing side effects in StrongAgentSet tests."""
-
-    def __init__(self, model, value=0):
-        """Initialises the Agent."""
-        super().__init__(model)
-        self.value = value
-
-    def increment(self):
-        """Increment the value by one."""
-        self.value += 1
-
-    def kill_other(self, other_agent):
-        """Kill another agent to test zombie safety."""
-        other_agent.remove()
-
-
 def test_strongagentset_checks():
     """Comprehensive test for _StrongAgentSet behavior."""
 
