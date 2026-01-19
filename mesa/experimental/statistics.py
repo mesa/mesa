@@ -231,7 +231,9 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self.active_agents = []
         self._n_agents = 0  # the number of active agents in the space
 
-        self._data: np.ndarray = self._agent_data[0: self._n_agents]  # a view on _agent_positions containing all active positions
+        self._data: np.ndarray = self._agent_data[
+            0 : self._n_agents
+        ]  # a view on _agent_positions containing all active positions
 
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, A] = {}
