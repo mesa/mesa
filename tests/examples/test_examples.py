@@ -1,4 +1,7 @@
 # noqa: D100
+import gc
+import weakref
+
 from mesa.examples import (
     BoidFlockers,
     BoltzmannWealth,
@@ -12,9 +15,6 @@ from mesa.examples import (
     WolfSheep,
 )
 
-import gc
-import weakref
-
 
 def test_boltzmann_model():  # noqa: D103
     from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
@@ -26,11 +26,12 @@ def test_boltzmann_model():  # noqa: D103
 
     for _i in range(10):
         model.step()
-    model.remove_all_agents() # this seems to be needed
+    model.remove_all_agents()  # this seems to be needed
 
     del model
     gc.collect()
     assert ref() is None
+
 
 def test_conways_game_model():  # noqa: D103
     from mesa.examples.basic.conways_game_of_life import app  # noqa: PLC0415
@@ -98,6 +99,7 @@ def test_boid_flockers():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
 
 def test_epstein():  # noqa: D103
     from mesa.examples.advanced.epstein_civil_violence import app  # noqa: PLC0415
@@ -167,6 +169,7 @@ def test_wolf_sheep():  # noqa: D103
     del simulator
     gc.collect()
     assert ref() is None
+
 
 def test_alliance_formation_model():  # noqa: D103
     from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
