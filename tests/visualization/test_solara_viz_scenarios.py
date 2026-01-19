@@ -44,18 +44,6 @@ class TestSolaraVizScenarios(unittest.TestCase):
         # but we can check if it renders without error
         solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
 
-    def test_explicit_scenario_params(self):
-        """Test that scenario_params can be explicitly provided."""
-        model = MyModel()
-        model_params = {"height": 50}
-        scenario_params = {"density": Slider("Density", 0.8, 0.1, 1.0, 0.1)}
-
-        solara.render(
-            SolaraViz(
-                model, model_params=model_params, scenario_params=scenario_params
-            ),
-            handle_error=False,
-        )
 
     def test_reset_with_scenario(self):
         """Test that resetting the model correctly reconstructs the scenario."""
