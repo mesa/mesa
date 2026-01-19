@@ -180,7 +180,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
     """
 
-    def _storage(self, agents: Iterable[A]):
+    def _create_storage(self, agents: Iterable[A]):
         """Generate the storage container for the agents.
 
         Can be overridden by subclasses to change storage behavior (e.g. WeakKeyDictionary).
@@ -199,7 +199,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
             random (Random | np.random.Generator | None): the random number generator
         """
-        self._agents = self._storage(agents)
+        self._agents = self._create_storage(agents)
 
         if (len(self._agents) == 0) and random is None:
             warnings.warn(
@@ -332,7 +332,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
         This is a private method primarily used internally by other methods like select, shuffle, and sort.
         """
-        self._agents = self._storage(agents)
+        self._agents = self._create_storage(agents)
         return self
 
     def do(self, method: str | Callable, *args, **kwargs) -> AgentSet[A]:
@@ -639,13 +639,13 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 class _StrongAgentSet[A: Agent](AgentSet[A]):
     """An AgentSet that stores agents using strong references."""
 
-    def _storage(self, agents: Iterable[A]):
+    def _create_storage(self, agents: Iterable[A]):
         """Generate a dict storage for the agents."""
         return dict.fromkeys(agents)
 
     def _update(self, agents):
         """Update the internal strong dictionary."""
-        self._agents = self._storage(agents)
+        self._agents = self._create_storage(agents)
         return self
 
     def __copy__(self):
