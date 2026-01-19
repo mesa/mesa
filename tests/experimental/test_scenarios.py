@@ -91,3 +91,64 @@ def test_agent_scenario_property():
 
     # Verify it's the same object, not a copy
     assert agent.scenario is agent.model.scenario
+
+
+def test_scenario_subclassing():
+    """Test that Scenario can be subclassed with type-hinted attributes."""
+
+    class MyScenario(Scenario):
+        density: float = 0.8
+        vision: int = 7
+        movement: bool = True
+
+    # Test class-level defaults are picked up
+    scenario = MyScenario(rng=42)
+    assert scenario.density == 0.8
+    assert scenario.vision == 7
+    assert scenario.movement is True
+    assert scenario.rng == 42
+
+    # Test overriding defaults
+    scenario = MyScenario(rng=42, density=0.5, vision=10)
+    assert scenario.density == 0.5
+    assert scenario.vision == 10
+    assert scenario.movement is True  # Not overridden, still default
+
+
+def test_scenario_subclass_with_model():
+    """Test that scenario subclasses work correctly with Model."""
+
+    class TestScenario(Scenario):
+        citizen_density: float = 0.7
+        cop_vision: int = 7
+
+    # Create scenario and pass to model
+    scenario = TestScenario(rng=42, citizen_density=0.8)
+    model = Model(scenario=scenario)
+
+    # Verify model has correct scenario type
+    assert isinstance(model.scenario, TestScenario)
+    assert model.scenario.citizen_density == 0.8
+    assert model.scenario.cop_vision == 7
+
+
+def test_scenario_fresh_instance_per_model():
+    """Test that each model gets a fresh scenario instance (no shared state)."""
+
+    class MyScenario(Scenario):
+        counter: int = 0
+
+    # Create first model
+    scenario1 = MyScenario(rng=42)
+    model1 = Model(scenario=scenario1)
+    model1.running = True
+
+    # Create second model with fresh scenario
+    scenario2 = MyScenario(rng=43)
+    model2 = Model(scenario=scenario2)
+    model2.running = False  # Not running yet
+
+    # Should not raise error - different scenario instances
+    scenario2.counter = 5
+    assert scenario2.counter == 5
+    assert scenario1.counter == 0
