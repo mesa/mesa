@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 filename1 = "timings_1"
-filename2 = "timings_2"
+filename2 = "timings_3"
 
 with open(f"{filename1}.pickle", "rb") as handle:
     timings_1 = pickle.load(handle)  # noqa: S301

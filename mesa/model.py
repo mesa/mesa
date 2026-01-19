@@ -6,6 +6,7 @@ Core Objects: Model
 # Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
+import itertools
 import random
 import sys
 import warnings
@@ -98,6 +99,7 @@ class Model[A: Agent, S: Scenario]:
         self.running: bool = True
         self.steps: int = 0
         self.time: float = 0.0
+        self.agent_id_counter = itertools.count(1)
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -211,6 +213,7 @@ class Model[A: Agent, S: Scenario]:
             super in the ``__init__`` method.
         """
         self._agents[agent] = None
+        agent.unique_id = next(self.agent_id_counter)
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled

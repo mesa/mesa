@@ -63,7 +63,7 @@ class Agent[M: Model]:
         super().__init__(*args, **kwargs)
 
         self.model: M = model
-        self.unique_id: int = next(self._ids[model])
+        self.unique_id = None
         self.pos: Position | None = None
         self.model.register_agent(self)
 
