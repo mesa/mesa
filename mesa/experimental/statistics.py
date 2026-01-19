@@ -198,7 +198,19 @@ class DataRegistry[M: Model]:
 
 
 class NumpyAgentDataSet[A: Agent](DataSet):
-    """A numpy array based data set for agents, used in conjunction with DataField"""
+    """A NumPy array data set for storing agent data.
+
+    Args:
+       name: the name of the data set
+       agent_type: the type of agents to collect data from
+       *args: the attributes to collect
+       n: the initial size of the internal numpy array
+
+    Notes:
+        The internal numpy array is automatically made larger if needed.
+        However, it can be beneficial to prespecify its exact size via `n` if known to avoid resizing.
+
+    """
 
     def __init__(
         self,
@@ -213,14 +225,13 @@ class NumpyAgentDataSet[A: Agent](DataSet):
             *args,  # fixme: what about unique_id?
         )
 
-        self._agent_data: np.array = np.empty((n, len(self._args)), dtype=float)
-        self._data: (
-            np.array
-        )  # a view on _agent_positions containing all active positions
+        self._agent_data: np.ndarray = np.empty((n, len(self._args)), dtype=float)
 
         # the list of agents in the space
         self.active_agents = []
         self._n_agents = 0  # the number of active agents in the space
+
+        self._data: np.ndarray = self._agent_data[0: self._n_agents]  # a view on _agent_positions containing all active positions
 
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, A] = {}
@@ -233,7 +244,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
             setattr(agent_type, arg, property(*generate_getter_and_setter(self, arg)))
 
     def agent_to_index(self, agent: A):
-        """Helper method to map an agent to its index in the table"""
+        """Helper method to map an agent to its index in the table."""
         try:
             return self._agent_to_index[agent]
         except KeyError:
@@ -301,42 +312,18 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 
 
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
-    """Generate getter and setter for a DataField"""
-    data = table._agent_data
+    """Generate getter and setter for the specified attribute."""
     j = table.attribute_to_index[attribute_name]
 
     def getter(obj: Agent):
         i = table.agent_to_index(obj)
-        return data[i, j]
+        return table._data[i, j]
 
     def setter(obj: Agent, value):
         i = table.agent_to_index(obj)
-        data[i, j] = value
+        table._data[i, j] = value
 
     return getter, setter
-
-
-class DataField(property):
-    """A property that tracks a field of an object."""
-
-    def __init__(self, table: str, attribute_name: str):
-        # fixme, here a full descriptor might work nicer
-        # because of __set_name__
-        super().__init__(self.getter, self.setter)
-        self.table_name = table
-        self.attribute_name = attribute_name
-
-    def getter(self, obj: Agent):
-        table = obj.model.data_registry[self.table_name]
-        i = table.agent_to_index(obj)
-        j = table.attribute_to_index[self.attribute_name]
-        return table._data[i, j]
-
-    def setter(self, obj: Agent, value):
-        table = obj.model.data_registry[self.table_name]
-        i = table.agent_to_index(obj)
-        j = table.attribute_to_index[self.attribute_name]
-        table._data[i, j] = value
 
 
 if __name__ == "__main__":
