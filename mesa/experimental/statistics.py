@@ -303,24 +303,18 @@ class DataField(property):
         # fixme, here a full descriptor might work nicer
         # because of __set_name__
         super().__init__(self.getter, self.setter)
-        self.field_name = table
+        self.table_name = table
         self.attribute_name = attribute_name
-        self.table = None
+
 
     def getter(self, obj: Agent):
-        if self.table is None:
-            table = obj.model.data_registry[self.field_name]
-            self.table = table
-        else:
-            table = self.table
-
-
+        table = obj.model.data_registry[self.table_name]
         i = table.agent_to_index(obj)
         j = table.attribute_to_index[self.attribute_name]
         return table._data[i, j]
 
     def setter(self, obj: Agent, value):
-        table = obj.model.data_registry[self.field_name]
+        table = obj.model.data_registry[self.table_name]
         i = table.agent_to_index(obj)
         j = table.attribute_to_index[self.attribute_name]
         table._data[i, j] = value

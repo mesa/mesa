@@ -77,6 +77,6 @@ class BoltzmannWealth(Model):
 
 
 if __name__ == "__main__":
-    model = BoltzmannWealth(1000)
-    for _ in range(100):
+    model = BoltzmannWealth(100)
+    for _ in range(125):
         model.step()
