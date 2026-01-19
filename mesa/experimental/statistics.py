@@ -202,14 +202,15 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 
     def __init__(
         self,
-        name,
+        name: str,
+        agent_type: type[A],
         *args,
         n=100,  # just for initial sizing of the inner numpy array
     ):
         """Init."""
         super().__init__(
             name,
-            *["unique_id", *args],
+            *args, # fixme: what about unique_id?
         )
 
         self._agent_data: np.array = np.empty((n, len(self._args)), dtype=float)
@@ -227,6 +228,9 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self.attribute_to_index: dict[str, int] = {
             arg: i for i, arg in enumerate(self._args)
         }
+
+        for arg in self._args:
+            setattr(agent_type, arg, property(*generate_getter_and_setter(self, arg)))
 
     def agent_to_index(self, agent: A):
         """Helper method to map an agent to its index in the table"""
@@ -294,6 +298,25 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         ]
         self._n_agents -= 1
         self._data = self._agent_data[0 : self._n_agents]
+
+
+def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
+    """Generate getter and setter for a DataField"""
+    data = table._agent_data
+    j = table.attribute_to_index[attribute_name]
+
+    def getter(obj: Agent):
+        i = table.agent_to_index(obj)
+        return data[i, j]
+
+    def setter(obj: Agent, value):
+        i = table.agent_to_index(obj)
+        data[i, j] = value
+
+    return getter, setter
+
+
+
 
 
 class DataField(property):
