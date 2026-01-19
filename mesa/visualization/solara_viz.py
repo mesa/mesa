@@ -782,17 +782,10 @@ def check_param_is_fixed(param):
 def ModelCreator(
     model: solara.Reactive[Model],
     user_params: dict,
-<<<<<<< HEAD
-    scenario_params: dict = None,
-    *,
-    model_parameters: dict | solara.Reactive[dict] = None,
-    scenario_parameters: dict | solara.Reactive[dict] = None,
-=======
     scenario_params: dict | None = None,
     *,
     model_parameters: dict | solara.Reactive[dict] | None = None,
     scenario_parameters: dict | solara.Reactive[dict] | None = None,
->>>>>>> ac1a8ea7 (Support Scenarios in SolaraViz visualization)
 ):
     """Solara component for creating and managing a model instance with user-defined parameters.
 

@@ -13,11 +13,6 @@ from mesa.visualization.solara_viz import (
 
 
 class MyScenario(Scenario):
-<<<<<<< HEAD
-=======
-    """A mock scenario for testing."""
-
->>>>>>> ac1a8ea7 (Support Scenarios in SolaraViz visualization)
     """A mock scenario for testing."""
 
     density: float = 0.7
@@ -36,12 +31,13 @@ class MyModel(mesa.Model):
 
 class TestSolaraVizScenarios(unittest.TestCase):
     """Test suite for SolaraViz Scenario support."""
+
     def test_auto_split_params(self):
         """Test that parameters are automatically split between model and scenario."""
         model = MyModel()
         model_params = {
             "height": 50,
-            "density": 0.8  # Should be moved to scenario
+            "density": 0.8,  # Should be moved to scenario
         }
 
         # We can't easily check the internal state of SolaraViz components without complex mocks
@@ -54,12 +50,16 @@ class TestSolaraVizScenarios(unittest.TestCase):
         model_params = {"height": 50}
         scenario_params = {"density": Slider("Density", 0.8, 0.1, 1.0, 0.1)}
 
-        solara.render(SolaraViz(model, model_params=model_params, scenario_params=scenario_params), handle_error=False)
+        solara.render(
+            SolaraViz(model, model_params=model_params, scenario_params=scenario_params),
+            handle_error=False,
+        )
 
     def test_reset_with_scenario(self):
         """Test that resetting the model correctly reconstructs the scenario."""
         # This is harder to test without a full Solara environment and interaction
         # but we can try to test the ModelController logic if we can isolate it.
+
 
 if __name__ == "__main__":
     unittest.main()
