@@ -1,5 +1,4 @@
 from mesa.discrete_space import CellAgent
-from mesa.experimental.statistics import DataField
 
 
 class MoneyAgent(CellAgent):

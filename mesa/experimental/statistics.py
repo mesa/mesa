@@ -210,7 +210,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         """Init."""
         super().__init__(
             name,
-            *args, # fixme: what about unique_id?
+            *args,  # fixme: what about unique_id?
         )
 
         self._agent_data: np.array = np.empty((n, len(self._args)), dtype=float)
@@ -314,9 +314,6 @@ def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
         data[i, j] = value
 
     return getter, setter
-
-
-
 
 
 class DataField(property):

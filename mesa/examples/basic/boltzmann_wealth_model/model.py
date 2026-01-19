@@ -41,7 +41,9 @@ class BoltzmannWealth(Model):
         super().__init__(rng=rng)
 
         self.data_registry = DataRegistry()
-        self.data_registry.create_dataset(NumpyAgentDataSet, "wealth", MoneyAgent,"wealth", n=100)
+        self.data_registry.create_dataset(
+            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=100
+        )
 
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
