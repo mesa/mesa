@@ -306,7 +306,6 @@ class DataField(property):
         self.table_name = table
         self.attribute_name = attribute_name
 
-
     def getter(self, obj: Agent):
         table = obj.model.data_registry[self.table_name]
         i = table.agent_to_index(obj)
