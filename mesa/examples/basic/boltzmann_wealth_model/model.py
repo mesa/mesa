@@ -41,7 +41,9 @@ class BoltzmannWealth(Model):
         super().__init__(rng=rng)
 
         self.data_registry = DataRegistry()
-        self.data_registry.create_dataset(NumpyAgentDataSet, "wealth", MoneyAgent,"wealth", n=n)
+        self.data_registry.create_dataset(
+            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=n
+        )
 
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
@@ -66,7 +68,9 @@ class BoltzmannWealth(Model):
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        agent_wealths = self.data_registry["wealth"].data  # fixme agent_id is currently not included
+        agent_wealths = self.data_registry[
+            "wealth"
+        ].data  # fixme agent_id is currently not included
         sorted_x = np.sort(agent_wealths)
         n = len(agent_wealths)
         cumx = np.cumsum(sorted_x, dtype=float)
