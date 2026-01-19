@@ -28,12 +28,17 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 _mesa_logger = create_module_logger()
 
 
-class Model[A: Agent]:
+# TODO: We can add `= Scenario` default type when Python 3.13+ is required
+class Model[A: Agent, S: Scenario]:
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
     It includes the basic attributes and methods necessary for initializing and
     running a simulation model.
+
+    Type Parameters:
+        A: The agent type used in this model
+        S: The scenario type used in this model
 
     Attributes:
         running: A boolean indicating if the model should continue running.
@@ -41,7 +46,8 @@ class Model[A: Agent]:
         time: the current simulation time. Automatically increments by 1.0
               with each step unless controlled by a discrete event simulator.
         random: a seeded python.random number generator.
-        rng : a seeded numpy.random.Generator
+        rng: a seeded numpy.random.Generator
+        scenario: the scenario instance containing model parameters
 
     Notes:
         Model.agents returns the AgentSet containing all agents registered with the model. Changing
@@ -51,12 +57,12 @@ class Model[A: Agent]:
     """
 
     @property
-    def scenario(self) -> Scenario:
+    def scenario(self) -> S:
         """Return scenario instance."""
         return self._scenario
 
     @scenario.setter
-    def scenario(self, scenario: Scenario) -> None:
+    def scenario(self, scenario: S) -> None:
         """Set scenario instance."""
         self._scenario = scenario
         scenario.model = self
@@ -67,7 +73,7 @@ class Model[A: Agent]:
         *args: Any,
         seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
-        scenario: Scenario | None = None,
+        scenario: S | None = None,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -78,10 +84,10 @@ class Model[A: Agent]:
         Args:
             args: arguments to pass onto super
             seed: the seed for the random number generator
-            rng : Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
+            rng: Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
                   `numpy.random.default_rng` to instantiate a `Generator`.
-            scenario : the scenario specifying the computational experiment to run
+            scenario: the scenario specifying the computational experiment to run
             kwargs: keyword arguments to pass onto super
 
         Notes:
@@ -138,7 +144,7 @@ class Model[A: Agent]:
         # now that we have figured out the seed value for rng
         # we can set create a scenario with this if needed
         if scenario is None:
-            scenario = Scenario(rng=seed)
+            scenario = Scenario(rng=seed)  # type: ignore[assignment]
         self.scenario = scenario
 
         # Wrap the user-defined step method
