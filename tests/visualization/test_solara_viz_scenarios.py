@@ -51,7 +51,9 @@ class TestSolaraVizScenarios(unittest.TestCase):
         scenario_params = {"density": Slider("Density", 0.8, 0.1, 1.0, 0.1)}
 
         solara.render(
-            SolaraViz(model, model_params=model_params, scenario_params=scenario_params),
+            SolaraViz(
+                model, model_params=model_params, scenario_params=scenario_params
+            ),
             handle_error=False,
         )
 
