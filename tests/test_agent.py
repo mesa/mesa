@@ -805,6 +805,65 @@ def test_strongagentset_checks():
     finally:
         model.random.shuffle = original_shuffle
 
+    # 6. Test string-based map safety
+    # Reset model
+    model = Model()
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
+
+    # Define a Mock Agent that uses methods for string-based calls
+    class StringKillerAgent(MockAgent):
+        def kill_and_return(self, victim):
+            # Side effect: remove victim
+            if victim:
+                victim.remove()
+            return "killer_result"
+
+        def innocent_return(self, *args):
+            # This should NEVER run for the victim
+            self.acted = True
+            return "victim_result"
+
+    agent_a = StringKillerAgent(model)
+    agent_b = StringKillerAgent(model)
+
+    # Force A to kill B
+    # Note: map passes arguments. We pass agent_b as the victim argument to the method.
+    # Logic:
+    # i. 'kill_and_return' is called on A with arg (agent_b). A removes B.
+    # ii. Loop moves to B. 'kill_and_return' is ATTEMPTED on B.
+    # iii. Liveness check sees B is gone. B is skipped.
+    results = strong_set.map("kill_and_return", agent_b)
+
+    assert len(results) == 1
+    assert "killer_result" in results
+    assert "victim_result" not in results
+    assert agent_b not in strong_set
+    assert agent_b.acted is False
+
+    # 7. Test string-based do safety
+    # Reset model
+    model = Model()
+    strong_set = _StrongAgentSet([], model.random)
+    model._all_agents = strong_set
+
+    class DoKillerAgent(MockAgent):
+        def kill_neighbor(self, victim):
+            if self is agent_a:
+                if victim:
+                    victim.remove()
+            elif self is agent_b:
+                self.acted = True  # Should not happen
+
+    agent_a = DoKillerAgent(model)
+    agent_b = DoKillerAgent(model)
+
+    # We execute 'kill_neighbor' on all agents, passing agent_b as an argument
+    strong_set.do("kill_neighbor", agent_b)
+
+    assert agent_b not in strong_set
+    assert agent_b.acted is False  # Proves the elif branch was correctly skipped
+
 
 def test_agentset_groupby():
     """Test AgentSet.groupby."""
