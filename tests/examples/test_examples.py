@@ -12,6 +12,7 @@ from mesa.examples import (
     WolfSheep,
 )
 
+import gc
 import weakref
 
 
@@ -25,7 +26,10 @@ def test_boltzmann_model():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents() # this seems to be needed
+
     del model
+    gc.collect()
     assert ref() is None
 
 def test_conways_game_model():  # noqa: D103
@@ -38,7 +42,10 @@ def test_conways_game_model():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -52,7 +59,10 @@ def test_schelling_model():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -66,7 +76,10 @@ def test_virus_on_network():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -80,7 +93,10 @@ def test_boid_flockers():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 def test_epstein():  # noqa: D103
@@ -93,7 +109,10 @@ def test_epstein():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -107,7 +126,10 @@ def test_pd_grid():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -121,7 +143,10 @@ def test_sugarscape_g1mt():  # noqa: D103
 
     for _i in range(10):
         model.step()
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
 
 
@@ -136,9 +161,11 @@ def test_wolf_sheep():  # noqa: D103
     ref = weakref.ref(model)
 
     simulator.run_for(10)
+    model.remove_all_agents()
 
     del model
     del simulator
+    gc.collect()
     assert ref() is None
 
 def test_alliance_formation_model():  # noqa: D103
@@ -151,8 +178,10 @@ def test_alliance_formation_model():  # noqa: D103
 
     for _i in range(10):
         model.step()
-
     assert len(model.agents) == len(model.network.nodes)
 
+    model.remove_all_agents()
+
     del model
+    gc.collect()
     assert ref() is None
