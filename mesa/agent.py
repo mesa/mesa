@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import contextlib
 import copy
-import functools
 import itertools
 import operator
 import warnings
@@ -18,7 +17,7 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 
 # mypy
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 
@@ -43,11 +42,6 @@ class Agent[M: Model]:
 
     """
 
-    # this is a class level attribute
-    # it is a dictionary, indexed by model instance
-    # so, unique_id is unique relative to a model, and counting starts from 1
-    _ids: ClassVar[defaultdict] = defaultdict(functools.partial(itertools.count, 1))
-
     def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
@@ -63,7 +57,7 @@ class Agent[M: Model]:
         super().__init__(*args, **kwargs)
 
         self.model: M = model
-        self.unique_id: int = next(self._ids[model])
+        self.unique_id = None
         self.pos: Position | None = None
         self.model.register_agent(self)
 

@@ -105,11 +105,13 @@ def find_combinations(
     for candidate_group in itertools.chain.from_iterable(
         itertools.combinations(group, size) for size in range(*size_range)
     ):
-        group_set, result = evaluate_combination(
+        evaluation_result = evaluate_combination(
             candidate_group, model, evaluation_func
         )
-        if result:
-            combinations.append((group_set, result))
+        if evaluation_result is not None:
+            group_set, result = evaluation_result
+            if result:
+                combinations.append((group_set, result))
 
     if len(combinations) > 0 and filter_func:
         filtered_combinations = filter_func(combinations)
@@ -164,8 +166,9 @@ def create_meta_agent(
     Returns:
         - MetaAgent Instance
     """
-    # Convert agents to set to ensure uniqueness
-    agents = set(agents)
+    # Convert agents to dict, to ensure uniqueness,
+    # we need a dict, not a set to keep stuff deterministic
+    agents = list(dict.fromkeys(agents).keys())
 
     # Ensure there is at least one agent base class
     if not mesa_agent_type:
