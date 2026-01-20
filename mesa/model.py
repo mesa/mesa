@@ -164,18 +164,23 @@ class Model[A: Agent, S: Scenario]:
         self._scheduler = Scheduler(self)
         self._run_control = RunControl(self, self._scheduler)
 
-        # Store reference to user's step method
+        # Store reference to user's step method before we replace self.step
         self._user_step = self.step
 
-        # Auto-schedule the step method as the model's heartbeat
+        # Auto-schedule the internal step handler as the model's heartbeat
         self.step_event: RecurringEvent = self._scheduler.schedule(
-            self._user_step,
+            self._execute_step,
             interval=1,
             priority=Priority.DEFAULT,
         )
 
         # Replace step with backwards-compatible wrapper for direct calls
         self.step = self._deprecated_step_call
+
+    def _execute_step(self) -> None:
+        """Internal method that executes the user's step and updates counters."""
+        self.steps += 1
+        self._user_step()
 
     def _deprecated_step_call(self, *args, **kwargs) -> None:
         """Backwards-compatible step wrapper that advances time by 1.
