@@ -509,15 +509,9 @@ def ModelController(
     @function_logger(__name__)
     def do_step():
         """Advance the model by the number of steps specified by the render_interval slider."""
-        # Check if model uses @scheduled (new unified API) or traditional step
-        uses_scheduled = hasattr(model.value.__class__.step, "_scheduled")
-
         if playing.value:
             for _ in range(render_interval.value):
-                if uses_scheduled:
-                    model.value.run_for(1)
-                else:
-                    model.value.step()
+                model.value.run_for(1)
                 running.value = model.value.running
                 if not playing.value:
                     break
@@ -526,10 +520,7 @@ def ModelController(
 
         else:
             for _ in range(render_interval.value):
-                if uses_scheduled:
-                    model.value.run_for(1)
-                else:
-                    model.value.step()
+                model.value.run_for(1)
                 running.value = model.value.running
             force_update()
 
@@ -573,6 +564,7 @@ def ModelController(
         solara.Error(label=error_message.value)
 
 
+# This whole think can be removed with the new unified time progression API
 @solara.component
 def SimulatorController(
     model: solara.Reactive[Model],
@@ -646,15 +638,9 @@ def SimulatorController(
 
     def do_step():
         """Advance the model by the number of steps specified by the render_interval slider."""
-        # Check if model uses @scheduled (new unified API) or traditional step
-        uses_scheduled = hasattr(model.value.__class__.step, "_scheduled")
-
         if playing.value:
             for _ in range(render_interval.value):
-                if uses_scheduled:
-                    model.value.run_for(1)
-                else:
-                    model.value.step()
+                simulator.run_for(1)
                 running.value = model.value.running
                 if not playing.value:
                     break
@@ -663,10 +649,7 @@ def SimulatorController(
 
         else:
             for _ in range(render_interval.value):
-                if uses_scheduled:
-                    model.value.run_for(1)
-                else:
-                    model.value.step()
+                simulator.run_for(1)
                 running.value = model.value.running
             force_update()
 
