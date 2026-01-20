@@ -26,7 +26,6 @@ def run_model(model_class, seed, parameters):
     Returns:
         startup time and run time
     """
-    uses_scheduled = ["WolfSheep"]
     start_init = timeit.default_timer()
     model = model_class(rng=seed, **parameters)
 

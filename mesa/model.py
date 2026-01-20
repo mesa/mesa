@@ -20,7 +20,13 @@ from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
-from mesa.timeflow import Priority, RecurringEvent, RunControl, Scheduler, SimulationEvent
+from mesa.timeflow import (
+    Priority,
+    RecurringEvent,
+    RunControl,
+    Scheduler,
+    SimulationEvent,
+)
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -325,17 +331,17 @@ class Model[A: Agent, S: Scenario]:
             agent.remove()
 
     def schedule(
-            self,
-            callback: Callable,
-            start_at: int | float | None = None,
-            start_after: int | float | None = None,
-            interval: int | float | Callable | None = None,
-            count: int | None = None,
-            end_at: int | float | None = None,
-            end_after: int | float | None = None,
-            priority: Priority = Priority.DEFAULT,
-            args: list[Any] | None = None,
-            kwargs: dict[str, Any] | None = None,
+        self,
+        callback: Callable,
+        start_at: int | float | None = None,
+        start_after: int | float | None = None,
+        interval: int | float | Callable | None = None,
+        count: int | None = None,
+        end_at: int | float | None = None,
+        end_after: int | float | None = None,
+        priority: Priority = Priority.DEFAULT,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
     ) -> SimulationEvent | RecurringEvent:
         """Schedule an event with flexible timing options.
 

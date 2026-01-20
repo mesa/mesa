@@ -106,7 +106,7 @@ class Agent[M: Model]:
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
-            if isinstance(arg, (list, np.ndarray, tuple)) and len(arg) == n:
+            if isinstance(arg, list | np.ndarray | tuple) and len(arg) == n:
                 arg_iters.append(arg)
             else:
                 arg_iters.append(itertools.repeat(arg, n))
@@ -115,7 +115,7 @@ class Agent[M: Model]:
         kw_keys = list(kwargs.keys())
         kw_val_iters = []
         for v in kwargs.values():
-            if isinstance(v, (list, np.ndarray, tuple)) and len(v) == n:
+            if isinstance(v, list | np.ndarray | tuple) and len(v) == n:
                 kw_val_iters.append(v)
             else:
                 kw_val_iters.append(itertools.repeat(v, n))

@@ -95,7 +95,7 @@ class Simulator:
         model._simulator = self  # Register simulator with model
 
         # Disable the model's internal step scheduling - simulator takes over
-        if hasattr(model, 'step_event') and model.step_event is not None:
+        if hasattr(model, "step_event") and model.step_event is not None:
             model.step_event.cancel()
             model.step_event = None
 
@@ -337,7 +337,7 @@ class ABMSimulator(Simulator):
 
         # Use _execute_step which increments counters and calls user's step
         # This ensures model.steps is updated correctly
-        step_method = getattr(model, '_execute_step', model._user_step)
+        step_method = getattr(model, "_execute_step", model._user_step)
 
         # Schedule step as a recurring event using RecurringEvent
         self._step_event = RecurringEvent(

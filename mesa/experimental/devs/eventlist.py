@@ -130,13 +130,13 @@ class SimulationEvent:
         state = self.__dict__.copy()
         # Convert weak reference back to strong reference for pickling
         fn = self.fn() if self.fn is not None else None
-        state['_fn_strong'] = fn
-        state['fn'] = None  # Don't pickle the weak reference
+        state["_fn_strong"] = fn
+        state["fn"] = None  # Don't pickle the weak reference
         return state
 
     def __setstate__(self, state):
         """Restore state after unpickling."""
-        fn = state.pop('_fn_strong')
+        fn = state.pop("_fn_strong")
         self.__dict__.update(state)
         # Recreate weak reference
         if fn is not None:
@@ -219,11 +219,11 @@ class RecurringEvent(SimulationEvent):
             return False
 
         # Check end_after limit (from first execution)
-        if self.end_after is not None and self._first_execution_time is not None:
-            if self.scheduler.model.time >= self._first_execution_time + self.end_after:
-                return False
-
-        return True
+        return not (
+            self.end_after is not None
+            and self._first_execution_time is not None
+            and self.scheduler.model.time >= self._first_execution_time + self.end_after
+        )
 
     def execute(self):
         """Execute the event and reschedule it if conditions allow."""
@@ -249,9 +249,11 @@ class RecurringEvent(SimulationEvent):
                 should_schedule = True
                 if self.end_at is not None and next_time > self.end_at:
                     should_schedule = False
-                if self.end_after is not None and self._first_execution_time is not None:
-                    if next_time > self._first_execution_time + self.end_after:
-                        should_schedule = False
+                if (
+                    self.end_after is not None
+                    and self._first_execution_time is not None
+                ) and next_time > self._first_execution_time + self.end_after:
+                    should_schedule = False
 
                 if should_schedule:
                     # Create next occurrence with same settings
