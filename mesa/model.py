@@ -20,7 +20,7 @@ from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs import Simulator
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
-from mesa.timeflow import Priority, RunControl, Scheduler, SimulationEvent
+from mesa.timeflow import Priority, RecurringEvent, RunControl, Scheduler, SimulationEvent
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -164,51 +164,33 @@ class Model[A: Agent, S: Scenario]:
         self._scheduler = Scheduler(self)
         self._run_control = RunControl(self, self._scheduler)
 
-        # Check the class definition, not the instance
-        if hasattr(self.__class__.step, "_scheduled"):
-            # step is @scheduled, don't wrap it - let the scheduler handle it
-            self._user_step = self.step
-        else:
-            # Traditional step() without @scheduled - wrap it
-            self._user_step = self.step
-            self.step = self._wrapped_step
+        # Store reference to user's step method
+        self._user_step = self.step
 
-    def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
-        """Automatically increments time and steps after calling the user's step method."""
-        # Warn about deprecated manual stepping
+        # Auto-schedule the step method as the model's heartbeat
+        self.step_event: RecurringEvent = self._scheduler.schedule(
+            self._user_step,
+            interval=1,
+            priority=Priority.DEFAULT,
+        )
+
+        # Replace step with backwards-compatible wrapper for direct calls
+        self.step = self._deprecated_step_call
+
+    def _deprecated_step_call(self, *args, **kwargs) -> None:
+        """Backwards-compatible step wrapper that advances time by 1.
+
+        This allows old code that calls model.step() in a loop to continue working,
+        while issuing a deprecation warning.
+        """
         warnings.warn(
-            "Calling model.step() directly in a loop is deprecated and will be removed in Mesa 4.0."
-            "Use the @scheduled decorator and run methods instead. See: https://mesa.readthedocs.io/latest/migration_guide.html#unified-time-api",
+            "Calling model.step() directly to advance time is deprecated and will be "
+            "removed in Mesa 4.0. Use model.run_for(1) or model.run_until() instead. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#unified-time-api",
             PendingDeprecationWarning,
             stacklevel=2,
         )
-
-        # Automatically increment step counter
-        self.steps += 1
-
-        # Schedule the user's step method to run at the next time unit
-        # Only auto-increment time if no simulator is controlling it
-        if self._simulator is None:
-            self._scheduler.schedule_at(
-                callback=self._user_step,
-                time=self.time + 1,
-                priority=Priority.HIGH,
-                args=args,
-                kwargs=kwargs,
-            )
-
-            _mesa_logger.info(
-                f"calling model.step for step {self.steps} at time {self.time + 1}"
-            )
-
-            # Run until that scheduled event completes
-            self.run_for(1)
-        else:
-            # Simulator is controlling time, just call the method
-            _mesa_logger.info(
-                f"calling model.step for step {self.steps} at time {self.time}"
-            )
-            self._user_step(*args, **kwargs)
+        self.run_for(1)
 
     @property
     def agents(self) -> AgentSet[A]:
@@ -337,6 +319,39 @@ class Model[A: Agent, S: Scenario]:
         for agent in list(self._agents.keys()):
             agent.remove()
 
+    def schedule(
+            self,
+            callback: Callable,
+            start_at: int | float | None = None,
+            start_after: int | float | None = None,
+            interval: int | float | Callable | None = None,
+            count: int | None = None,
+            end_at: int | float | None = None,
+            end_after: int | float | None = None,
+            priority: Priority = Priority.DEFAULT,
+            args: list[Any] | None = None,
+            kwargs: dict[str, Any] | None = None,
+    ) -> SimulationEvent | RecurringEvent:
+        """Schedule an event with flexible timing options.
+
+        See Scheduler.schedule() for full documentation.
+
+        Returns:
+            SimulationEvent for one-off events, RecurringEvent for recurring events.
+        """
+        return self._scheduler.schedule(
+            callback,
+            start_at=start_at,
+            start_after=start_after,
+            interval=interval,
+            count=count,
+            end_at=end_at,
+            end_after=end_after,
+            priority=priority,
+            args=args,
+            kwargs=kwargs,
+        )
+
     def schedule_at(
         self,
         callback: Callable,
@@ -345,7 +360,7 @@ class Model[A: Agent, S: Scenario]:
         args: list[Any] | None = None,
         kwargs: dict[str, Any] | None = None,
     ) -> SimulationEvent:
-        """Schedule an event at an absolute time."""
+        """Schedule a one-off event at an absolute time."""
         return self._scheduler.schedule_at(callback, time, priority, args, kwargs)
 
     def schedule_after(
@@ -356,7 +371,7 @@ class Model[A: Agent, S: Scenario]:
         args: list[Any] | None = None,
         kwargs: dict[str, Any] | None = None,
     ) -> SimulationEvent:
-        """Schedule an event after a delay from current time."""
+        """Schedule a one-off event after a delay from current time."""
         return self._scheduler.schedule_after(callback, delay, priority, args, kwargs)
 
     def cancel_event(self, event: SimulationEvent) -> None:

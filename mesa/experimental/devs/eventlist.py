@@ -130,8 +130,14 @@ class RecurringEvent(SimulationEvent):
     """A simulation event that automatically reschedules itself after execution.
 
     Attributes:
-        interval: Time between recurring executions
+        interval: Time between recurring executions (number or callable)
         scheduler: Reference to the scheduler to reschedule with
+        count: Maximum number of executions (None = infinite)
+        end_at: Absolute time to stop recurring
+        end_after: Duration from first execution to stop
+        _executions: Number of times this event has executed
+        _first_execution_time: Time of first execution (for end_after)
+        _paused: Whether the event is currently paused
     """
 
     def __init__(
@@ -139,10 +145,13 @@ class RecurringEvent(SimulationEvent):
         time: int | float,
         function: Callable,
         scheduler: Scheduler,
-        interval: int | float,
+        interval: int | float | Callable,
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
+        count: int | None = None,
+        end_at: int | float | None = None,
+        end_after: int | float | None = None,
     ) -> None:
         """Initialize a recurring event.
 
@@ -150,38 +159,127 @@ class RecurringEvent(SimulationEvent):
             time: The initial execution time
             function: The callable to execute
             scheduler: The scheduler to use for rescheduling
-            interval: Time between executions
+            interval: Time between executions (number or callable that takes model)
             priority: Priority level for the event
             function_args: Arguments for the callable
             function_kwargs: Keyword arguments for the callable
+            count: Maximum number of executions (None = infinite)
+            end_at: Absolute time to stop recurring
+            end_after: Duration from first execution to stop
         """
         super().__init__(time, function, priority, function_args, function_kwargs)
         self.interval = interval
         self.scheduler = scheduler
+        self.count = count
+        self.end_at = end_at
+        self.end_after = end_after
+        self._executions = 0
+        self._first_execution_time: float | None = None
+        self._paused = False
+
+    def _get_next_interval(self) -> float:
+        """Get the next interval value, calling if it's a callable."""
+        if callable(self.interval):
+            return self.interval(self.scheduler.model)
+        return self.interval
+
+    def _should_continue(self) -> bool:
+        """Check if the event should continue recurring."""
+        if self._canceled or self._paused:
+            return False
+
+        # Check count limit
+        if self.count is not None and self._executions >= self.count:
+            return False
+
+        # Check end_at limit
+        if self.end_at is not None and self.scheduler.model.time >= self.end_at:
+            return False
+
+        # Check end_after limit (from first execution)
+        if self.end_after is not None and self._first_execution_time is not None:
+            if self.scheduler.model.time >= self._first_execution_time + self.end_after:
+                return False
+
+        return True
 
     def execute(self):
-        """Execute the event and reschedule it."""
-        if not self.CANCELED:
-            # Get the function before calling super (which might clear it)
+        """Execute the event and reschedule it if conditions allow."""
+        if self._canceled or self._paused:
+            return
+
+        fn = self.fn()
+        if fn is not None:
+            # Record first execution time
+            if self._first_execution_time is None:
+                self._first_execution_time = self.scheduler.model.time
+
+            # Execute the function
+            fn(*self.function_args, **self.function_kwargs)
+            self._executions += 1
+
+            # Check if we should reschedule
+            if self._should_continue():
+                next_interval = self._get_next_interval()
+                next_time = self.scheduler.model.time + next_interval
+
+                # Check if next execution would exceed limits
+                should_schedule = True
+                if self.end_at is not None and next_time > self.end_at:
+                    should_schedule = False
+                if self.end_after is not None and self._first_execution_time is not None:
+                    if next_time > self._first_execution_time + self.end_after:
+                        should_schedule = False
+
+                if should_schedule:
+                    # Create next occurrence with same settings
+                    next_event = RecurringEvent(
+                        time=next_time,
+                        function=fn,
+                        scheduler=self.scheduler,
+                        interval=self.interval,
+                        priority=Priority(self.priority),
+                        function_args=self.function_args,
+                        function_kwargs=self.function_kwargs,
+                        count=self.count,
+                        end_at=self.end_at,
+                        end_after=self.end_after,
+                    )
+                    # Carry over execution state
+                    next_event._executions = self._executions
+                    next_event._first_execution_time = self._first_execution_time
+                    self.scheduler.event_list.add_event(next_event)
+
+    def pause(self) -> None:
+        """Pause this recurring event. Can be resumed later."""
+        self._paused = True
+
+    def resume(self) -> None:
+        """Resume a paused recurring event.
+
+        Schedules the next occurrence based on current time + interval.
+        """
+        if self._paused and not self._canceled:
+            self._paused = False
             fn = self.fn()
             if fn is not None:
-                # Execute the function
-                fn(*self.function_args, **self.function_kwargs)
+                next_interval = self._get_next_interval()
+                next_time = self.scheduler.model.time + next_interval
 
-                # Reschedule for next occurrence
-                # Note: self.priority is already an int, so we pass it directly
-                # without wrapping in Priority enum
                 next_event = RecurringEvent(
-                    time=self.scheduler.model.time + self.interval,
+                    time=next_time,
                     function=fn,
                     scheduler=self.scheduler,
                     interval=self.interval,
-                    priority=Priority(
-                        self.priority
-                    ),  # Convert int back to Priority enum
+                    priority=Priority(self.priority),
                     function_args=self.function_args,
                     function_kwargs=self.function_kwargs,
+                    count=self.count,
+                    end_at=self.end_at,
+                    end_after=self.end_after,
                 )
+                next_event._executions = self._executions
+                next_event._first_execution_time = self._first_execution_time
                 self.scheduler.event_list.add_event(next_event)
 
 
