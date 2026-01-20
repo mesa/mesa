@@ -166,8 +166,9 @@ def create_meta_agent(
     Returns:
         - MetaAgent Instance
     """
-    # Convert agents to set to ensure uniqueness
-    agents = set(agents)
+    # Convert agents to dict, to ensure uniqueness,
+    # we need a dict, not a set to keep stuff deterministic
+    agents = list(dict.fromkeys(agents).keys())
 
     # Ensure there is at least one agent base class
     if not mesa_agent_type:
