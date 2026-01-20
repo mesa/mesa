@@ -168,7 +168,7 @@ def create_meta_agent(
     """
     # Convert agents to dict, to ensure uniquenes,
     # we need a dict, not a set to keep stuff deterministic
-    agents = list({agent:None for agent in agents}.keys())
+    agents = list(dict.fromkeys(agents).keys())
 
     # Ensure there is at least one agent base class
     if not mesa_agent_type:
