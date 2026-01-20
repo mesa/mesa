@@ -98,7 +98,7 @@ class Model[A: Agent, S: Scenario]:
         self.running: bool = True
         self.steps: int = 0
         self.time: float = 0.0
-        self.agent_id_counter = 0
+        self.agent_id_counter: int = 1
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
