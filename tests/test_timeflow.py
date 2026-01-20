@@ -4,7 +4,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.devs.eventlist import Priority
-from mesa.timeflow import RunControl, Scheduler, scheduled
+from mesa.timeflow import RunControl, Scheduler
 
 
 class TestScheduler:

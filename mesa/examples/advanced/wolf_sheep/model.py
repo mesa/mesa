@@ -15,7 +15,6 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
-from mesa.timeflow import scheduled
 
 
 class WolfSheep(Model):
@@ -119,7 +118,6 @@ class WolfSheep(Model):
         self.running = True
         self.datacollector.collect(self)
 
-    @scheduled
     def step(self):
         """Execute one step of the model."""
         # First activate all sheep, then all wolves, both in random order
