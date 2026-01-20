@@ -242,7 +242,9 @@ def create_meta_agent(
 
         else:
             constituting_agent = model.random.choice(constituting_agents)
-            agents = list( (dict.fromkeys(agents) | dict.fromkeys(constituting_agents)).keys() )
+            agents = list(
+                (dict.fromkeys(agents) | dict.fromkeys(constituting_agents)).keys()
+            )
             add_attributes(constituting_agent.meta_agent, agents, meta_attributes)
             add_methods(constituting_agent.meta_agent, agents, meta_methods)
             constituting_agent.meta_agent.add_constituting_agents(agents)
