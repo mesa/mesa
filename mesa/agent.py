@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import contextlib
 import copy
-import functools
 import itertools
 import operator
 import warnings
@@ -18,7 +17,7 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 
 # mypy
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 
@@ -42,6 +41,7 @@ class Agent[M: Model]:
         unique_id is unique relative to a model instance and starts from 1
 
     """
+
     def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
