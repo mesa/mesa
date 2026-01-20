@@ -42,12 +42,6 @@ class Agent[M: Model]:
         unique_id is unique relative to a model instance and starts from 1
 
     """
-
-    # this is a class level attribute
-    # it is a dictionary, indexed by model instance
-    # so, unique_id is unique relative to a model, and counting starts from 1
-    _ids: ClassVar[defaultdict] = defaultdict(functools.partial(itertools.count, 1))
-
     def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
