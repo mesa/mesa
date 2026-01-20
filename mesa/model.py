@@ -77,6 +77,7 @@ class Model[A: Agent]:
         self.running: bool = True
         self.steps: int = 0
         self.time: float = 0.0
+        self.agent_id_counter: int = 1
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -170,6 +171,8 @@ class Model[A: Agent]:
             super in the ``__init__`` method.
         """
         self._agents[agent] = None
+        agent.unique_id = self.agent_id_counter
+        self.agent_id_counter += 1
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled
