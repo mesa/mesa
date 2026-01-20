@@ -6,7 +6,6 @@ Core Objects: Model
 # Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
-import itertools
 import random
 import sys
 import warnings
