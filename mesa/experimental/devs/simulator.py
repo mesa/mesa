@@ -16,8 +16,8 @@ Key features:
 - Priority-based event execution
 - Support for running simulations for specific durations or until specific end times
 
-The simulators enable Mesa models to use traditional time-step based approaches, pure
-event-driven approaches, or hybrid combinations of both.
+Note: These simulators are maintained for backwards compatibility. New code should use
+the unified time API directly on Model (model.schedule(), model.run_for(), etc.).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from .eventlist import EventList, Priority, SimulationEvent
+from .eventlist import EventList, Priority, RecurringEvent, SimulationEvent
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -36,29 +36,25 @@ if TYPE_CHECKING:
 class Simulator:
     """The Simulator controls the time advancement of the model.
 
-    The simulator uses next event time progression to advance the simulation time, and execute the next event
+    The simulator uses next event time progression to advance the simulation time, and execute the next event.
+
+    Note: This class is maintained for backwards compatibility. New code should use
+    the unified time API directly on Model.
 
     Attributes:
         event_list (EventList): The list of events to execute
-        time (float | int): The current simulation time
-        time_unit (type) : The unit of the simulation time
+        time_unit (type): The unit of the simulation time
         model (Model): The model to simulate
 
-
     """
-
-    # TODO: add replication support
-    # TODO: add experimentation support
 
     def __init__(self, time_unit: type, start_time: int | float):
         """Initialize a Simulator instance.
 
         Args:
-            time_unit: type of the smulaiton time
-            start_time: the starttime of the simulator
+            time_unit: type of the simulation time
+            start_time: the start time of the simulator
         """
-        # should model run in a separate thread,
-        # and we can then interact with start, stop, run_until, and step?
         self.event_list = EventList()
         self.start_time = start_time
         self.time_unit = time_unit
@@ -74,7 +70,8 @@ class Simulator:
         )
         return self.model.time
 
-    def check_time_unit(self, time: int | float) -> bool: ...  # noqa: D102
+    def check_time_unit(self, time: int | float) -> bool:  # noqa: D102
+        ...
 
     def setup(self, model: Model) -> None:
         """Set up the simulator with the model to simulate.
@@ -83,8 +80,7 @@ class Simulator:
             model (Model): The model to simulate
 
         Raises:
-            Exception if simulator.time is not equal to simulator.starttime
-            Exception if event list is not empty
+            ValueError: if model time doesn't match start_time or events already scheduled
 
         """
         if model.time != self.start_time:
@@ -97,6 +93,11 @@ class Simulator:
 
         self.model = model
         model._simulator = self  # Register simulator with model
+
+        # Disable the model's internal step scheduling - simulator takes over
+        if hasattr(model, 'step_event') and model.step_event is not None:
+            model.step_event.cancel()
+            model.step_event = None
 
     def reset(self):
         """Reset the simulator."""
@@ -113,7 +114,7 @@ class Simulator:
             end_time (int | float): The end time for stopping the simulator
 
         Raises:
-            Exception if simulator.setup() has not yet been called
+            RuntimeError: if simulator.setup() has not yet been called
 
         """
         if self.model is None:
@@ -140,7 +141,7 @@ class Simulator:
         """Execute the next event.
 
         Raises:
-            Exception if simulator.setup() has not yet been called
+            RuntimeError: if simulator.setup() has not yet been called
 
         """
         if self.model is None:
@@ -160,11 +161,10 @@ class Simulator:
         """Run the simulator for the specified time delta.
 
         Args:
-            time_delta (float| int): The time delta. The simulator is run from the current time to the current time
-                                     plus the time delta
+            time_delta (float | int): The time delta
 
         Raises:
-            Exception if simulator.setup() has not yet been called
+            RuntimeError: if simulator.setup() has not yet been called
 
         """
         try:
@@ -189,7 +189,7 @@ class Simulator:
             function (Callable): The callable to execute for this event
             priority (Priority): the priority of the event, optional
             function_args (List[Any]): list of arguments for function
-            function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
+            function_kwargs (Dict[str, Any]): dict of keyword arguments for function
 
         Returns:
             SimulationEvent: the simulation event that is scheduled
@@ -218,7 +218,7 @@ class Simulator:
             time (int | float): the time for which to schedule the event
             priority (Priority): the priority of the event, optional
             function_args (List[Any]): list of arguments for function
-            function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
+            function_kwargs (Dict[str, Any]): dict of keyword arguments for function
 
         Returns:
             SimulationEvent: the simulation event that is scheduled
@@ -252,7 +252,7 @@ class Simulator:
             time_delta (int | float): the time delta
             priority (Priority): the priority of the event, optional
             function_args (List[Any]): list of arguments for function
-            function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
+            function_kwargs (Dict[str, Any]): dict of keyword arguments for function
 
         Returns:
             SimulationEvent: the simulation event that is scheduled
@@ -290,23 +290,41 @@ class Simulator:
                 f"time unit mismatch {event.time} is not of time unit {self.time_unit}"
             )
 
-        # check timeunit of events
         self.event_list.add_event(event)
 
 
+class _SimulatorScheduler:
+    """Minimal scheduler interface for RecurringEvent compatibility with Simulator."""
+
+    def __init__(self, simulator: Simulator):
+        self.simulator = simulator
+
+    @property
+    def model(self):
+        return self.simulator.model
+
+    @property
+    def event_list(self):
+        return self.simulator.event_list
+
+
 class ABMSimulator(Simulator):
-    """This simulator uses incremental time progression, while allowing for additional event scheduling.
+    """Simulator for agent-based models with fixed time steps and event scheduling.
 
     The basic time unit of this simulator is an integer. It schedules `model.step` for each tick with the
     highest priority. This implies that by default, `model.step` is the first event executed at a specific tick.
-    In addition, discrete event scheduling, using integer as the time unit is fully supported, paving the way
-    for hybrid ABM-DEVS simulations.
+    In addition, discrete event scheduling using integer time units is fully supported.
+
+    Note: This class is maintained for backwards compatibility. New code should use
+    the unified time API with model.run_for() or model.run_until().
 
     """
 
     def __init__(self):
-        """Initialize a ABM simulator."""
+        """Initialize an ABM simulator."""
         super().__init__(int, 0)
+        self._scheduler_interface = _SimulatorScheduler(self)
+        self._step_event: RecurringEvent | None = None
 
     def setup(self, model):
         """Set up the simulator with the model to simulate.
@@ -316,7 +334,22 @@ class ABMSimulator(Simulator):
 
         """
         super().setup(model)
-        self.schedule_event_next_tick(self.model.step, priority=Priority.HIGH)
+
+        # Use _execute_step which increments counters and calls user's step
+        # This ensures model.steps is updated correctly
+        step_method = getattr(model, '_execute_step', model._user_step)
+
+        # Schedule step as a recurring event using RecurringEvent
+        self._step_event = RecurringEvent(
+            time=1,  # First execution at t=1
+            function=step_method,
+            scheduler=self._scheduler_interface,
+            interval=1,
+            priority=Priority.HIGH,
+            function_args=[],
+            function_kwargs={},
+        )
+        self.event_list.add_event(self._step_event)
 
     def check_time_unit(self, time) -> bool:
         """Check whether the time is of the correct unit.
@@ -332,8 +365,7 @@ class ABMSimulator(Simulator):
             return True
         if isinstance(time, float):
             return time.is_integer()
-        else:
-            return False
+        return False
 
     def schedule_event_next_tick(
         self,
@@ -350,6 +382,9 @@ class ABMSimulator(Simulator):
             function_args (List[Any]): List of arguments to pass to the callable
             function_kwargs (Dict[str, Any]): List of keyword arguments to pass to the callable
 
+        Returns:
+            SimulationEvent: the scheduled event
+
         """
         return self.schedule_event_relative(
             function,
@@ -360,13 +395,13 @@ class ABMSimulator(Simulator):
         )
 
     def run_until(self, end_time: int) -> None:
-        """Run the simulator up to and included the specified end time.
+        """Run the simulator up to and including the specified end time.
 
         Args:
-            end_time (float| int): The end_time delta. The simulator is until the specified end time
+            end_time (int): The end time to run until
 
         Raises:
-            Exception if simulator.setup() has not yet been called
+            RuntimeError: if simulator.setup() has not yet been called
 
         """
         if self.model is None:
@@ -383,14 +418,7 @@ class ABMSimulator(Simulator):
 
             if event.time <= end_time:
                 self.model.time = float(event.time)
-
-                # Reschedule model.step for next tick if this is a step event
-                if event.fn() == self.model.step:
-                    self.schedule_event_next_tick(
-                        self.model.step, priority=Priority.HIGH
-                    )
-
-                event.execute()
+                event.execute()  # RecurringEvent handles rescheduling itself
             else:
                 self.model.time = float(end_time)
                 self._schedule_event(event)
@@ -400,7 +428,10 @@ class ABMSimulator(Simulator):
 class DEVSimulator(Simulator):
     """A simulator where the unit of time is a float.
 
-    Can be used for full-blown discrete event simulating using event scheduling.
+    Can be used for full-blown discrete event simulation using event scheduling.
+
+    Note: This class is maintained for backwards compatibility. New code should use
+    the unified time API directly on Model.
 
     """
 
@@ -415,7 +446,7 @@ class DEVSimulator(Simulator):
             time (float): the time
 
         Returns:
-        bool: whether the time is of the correct unit
+            bool: whether the time is of the correct unit
 
         """
         return isinstance(time, numbers.Number)
