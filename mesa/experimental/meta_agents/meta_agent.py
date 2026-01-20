@@ -242,7 +242,7 @@ def create_meta_agent(
 
         else:
             constituting_agent = model.random.choice(constituting_agents)
-            agents = set(agents) - set(constituting_agents)
+            agents = list( (dict.fromkeys(agents) | dict.fromkeys(constituting_agents)).keys() )
             add_attributes(constituting_agent.meta_agent, agents, meta_attributes)
             add_methods(constituting_agent.meta_agent, agents, meta_methods)
             constituting_agent.meta_agent.add_constituting_agents(agents)
@@ -369,7 +369,6 @@ class MetaAgent(Agent):
         for agent in new_agents:
             self._constituting_set.add(agent)
             agent.meta_agent = self  # TODO: Make a set for meta_agents
-            self.model.register_agent(agent)
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
