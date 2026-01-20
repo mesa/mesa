@@ -32,11 +32,7 @@ def run_model(model_class, seed, parameters):
 
     end_init_start_run = timeit.default_timer()
 
-    if model_class.__name__ in uses_scheduled:
-        model.run_for(config["steps"])
-    else:
-        for _ in range(config["steps"]):
-            model.step()
+    model.run_for(config["steps"])
 
     end_run = timeit.default_timer()
 
