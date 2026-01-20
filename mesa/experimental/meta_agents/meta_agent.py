@@ -166,7 +166,7 @@ def create_meta_agent(
     Returns:
         - MetaAgent Instance
     """
-    # Convert agents to dict, to ensure uniquenes,
+    # Convert agents to dict, to ensure uniqueness,
     # we need a dict, not a set to keep stuff deterministic
     agents = list(dict.fromkeys(agents).keys())
 
