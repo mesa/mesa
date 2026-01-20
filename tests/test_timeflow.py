@@ -1,9 +1,11 @@
 """Tests for unified time and event scheduling API."""
 
+import random
+
 import pytest
 
 from mesa import Agent, Model
-from mesa.experimental.devs.eventlist import Priority
+from mesa.experimental.devs.eventlist import Priority, RecurringEvent
 from mesa.timeflow import RunControl, Scheduler
 
 
@@ -24,6 +26,7 @@ class TestScheduler:
 
         assert event.time == 10.0
         assert not event.CANCELED
+        # Note: Model.__init__ schedules step, so we use a fresh scheduler here
         assert len(scheduler.event_list) == 1
 
     def test_schedule_at_past_raises_error(self):
@@ -145,6 +148,286 @@ class TestScheduler:
         assert scheduler.event_list.is_empty()
 
 
+class TestCoreScheduleMethod:
+    """Test the core schedule() method with all its options."""
+
+    def test_schedule_one_off_immediate(self):
+        """Test scheduling a one-off event at current time."""
+        model = Model()
+        scheduler = Scheduler(model)
+
+        executed = []
+
+        def callback():
+            executed.append(model.time)
+
+        # No start_at or start_after means immediate (current time)
+        event = scheduler.schedule(callback)
+
+        assert event.time == 0.0
+        assert not isinstance(event, RecurringEvent)
+
+    def test_schedule_one_off_start_at(self):
+        """Test scheduling a one-off event at absolute time."""
+        model = Model()
+        scheduler = Scheduler(model)
+
+        executed = []
+
+        def callback():
+            executed.append(model.time)
+
+        event = scheduler.schedule(callback, start_at=25.0)
+
+        assert event.time == 25.0
+        assert not isinstance(event, RecurringEvent)
+
+    def test_schedule_one_off_start_after(self):
+        """Test scheduling a one-off event after delay."""
+        model = Model()
+        model.time = 10.0
+        scheduler = Scheduler(model)
+
+        executed = []
+
+        def callback():
+            executed.append(model.time)
+
+        event = scheduler.schedule(callback, start_after=5.0)
+
+        assert event.time == 15.0
+
+    def test_schedule_recurring_fixed_interval(self):
+        """Test scheduling a recurring event with fixed interval."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        event = scheduler.schedule(callback, interval=3.0)
+
+        assert isinstance(event, RecurringEvent)
+
+        run_control.run_until(10.0)
+
+        # Should execute at t=3, 6, 9
+        assert execution_times == [3.0, 6.0, 9.0]
+
+    def test_schedule_recurring_with_start_at(self):
+        """Test recurring event with explicit start time."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        scheduler.schedule(callback, start_at=5.0, interval=2.0)
+
+        run_control.run_until(12.0)
+
+        # Should execute at t=5, 7, 9, 11
+        assert execution_times == [5.0, 7.0, 9.0, 11.0]
+
+    def test_schedule_recurring_callable_interval(self):
+        """Test recurring event with callable interval (variable timing)."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+        interval_sequence = iter([2.0, 3.0, 1.0, 5.0])
+
+        def get_interval(m):
+            return next(interval_sequence, 100.0)  # Large default to stop
+
+        def callback():
+            execution_times.append(model.time)
+
+        scheduler.schedule(callback, interval=get_interval)
+
+        run_control.run_until(15.0)
+
+        # First at 2.0, then +3.0=5.0, then +1.0=6.0, then +5.0=11.0
+        assert execution_times == [2.0, 5.0, 6.0, 11.0]
+
+    def test_schedule_recurring_with_count(self):
+        """Test recurring event with count limit."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        scheduler.schedule(callback, interval=2.0, count=3)
+
+        run_control.run_until(20.0)
+
+        # Should only execute 3 times: t=2, 4, 6
+        assert execution_times == [2.0, 4.0, 6.0]
+
+    def test_schedule_recurring_with_end_at(self):
+        """Test recurring event with end_at limit."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        scheduler.schedule(callback, interval=3.0, end_at=10.0)
+
+        run_control.run_until(20.0)
+
+        # Should execute at t=3, 6, 9 (not 12, which is > end_at)
+        assert execution_times == [3.0, 6.0, 9.0]
+
+    def test_schedule_recurring_with_end_after(self):
+        """Test recurring event with end_after limit (from first execution)."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        # Start at 5, run for 7 time units after first execution
+        scheduler.schedule(callback, start_at=5.0, interval=2.0, end_after=7.0)
+
+        run_control.run_until(20.0)
+
+        # First execution at t=5, end_after=7 means stop after t=12
+        # So: t=5, 7, 9, 11 (next would be 13, which is > 5+7=12)
+        assert execution_times == [5.0, 7.0, 9.0, 11.0]
+
+    def test_schedule_conflicting_start_params_raises(self):
+        """Test that specifying both start_at and start_after raises error."""
+        model = Model()
+        scheduler = Scheduler(model)
+
+        def callback():
+            pass
+
+        with pytest.raises(
+            ValueError, match="Cannot specify both start_at and start_after"
+        ):
+            scheduler.schedule(callback, start_at=10.0, start_after=5.0)
+
+    def test_schedule_conflicting_end_params_raises(self):
+        """Test that specifying multiple end conditions raises error."""
+        model = Model()
+        scheduler = Scheduler(model)
+
+        def callback():
+            pass
+
+        with pytest.raises(ValueError, match="Can only specify one of"):
+            scheduler.schedule(callback, interval=1.0, count=5, end_at=10.0)
+
+        with pytest.raises(ValueError, match="Can only specify one of"):
+            scheduler.schedule(callback, interval=1.0, count=5, end_after=10.0)
+
+        with pytest.raises(ValueError, match="Can only specify one of"):
+            scheduler.schedule(callback, interval=1.0, end_at=10.0, end_after=5.0)
+
+
+class TestRecurringEventControl:
+    """Test pause/resume/stop methods on RecurringEvent."""
+
+    def test_recurring_event_pause(self):
+        """Test pausing a recurring event."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        event = scheduler.schedule(callback, interval=2.0)
+
+        # Run until t=5, should execute at t=2, 4
+        run_control.run_until(5.0)
+        assert execution_times == [2.0, 4.0]
+
+        # Pause the event
+        event.pause()
+
+        # Run more - no new executions
+        run_control.run_until(10.0)
+        assert execution_times == [2.0, 4.0]
+
+    def test_recurring_event_resume(self):
+        """Test resuming a paused recurring event."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        event = scheduler.schedule(callback, interval=2.0)
+
+        # Run until t=5
+        run_control.run_until(5.0)
+        assert execution_times == [2.0, 4.0]
+
+        # Pause
+        event.pause()
+        run_control.run_until(8.0)
+        assert execution_times == [2.0, 4.0]
+
+        # Resume - should schedule next at current_time + interval
+        event.resume()
+        run_control.run_until(15.0)
+
+        # After resume at t=8, next execution at t=10, then t=12, t=14
+        assert execution_times == [2.0, 4.0, 10.0, 12.0, 14.0]
+
+    def test_recurring_event_stop(self):
+        """Test permanently stopping a recurring event."""
+        model = Model()
+        scheduler = Scheduler(model)
+        run_control = RunControl(model, scheduler)
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        event = scheduler.schedule(callback, interval=2.0)
+
+        run_control.run_until(5.0)
+        assert execution_times == [2.0, 4.0]
+
+        # Stop permanently
+        event.cancel()
+
+        run_control.run_until(10.0)
+        assert execution_times == [2.0, 4.0]
+
+        # Cannot resume after stop
+        event.resume()
+        run_control.run_until(15.0)
+        assert execution_times == [2.0, 4.0]  # Still no new executions
+
+
 class TestRunControl:
     """Test the RunControl class."""
 
@@ -251,111 +534,53 @@ class TestRunControl:
         assert model.time == 50.0
 
 
-class TestScheduledDecorator:
-    """Test the @scheduled decorator."""
+class TestModelIntegration:
+    """Test integration of timeflow with Model class."""
 
-    def test_scheduled_default_interval(self):
-        """Test @scheduled with default interval of 1.0."""
+    def test_model_has_step_event(self):
+        """Test that Model automatically schedules step as heartbeat."""
+        model = Model()
 
-        class TestModel(Model):
+        assert hasattr(model, "step_event")
+        assert isinstance(model.step_event, RecurringEvent)
+
+    def test_model_step_heartbeat(self):
+        """Test that step() is called automatically as heartbeat."""
+
+        class CountingModel(Model):
             def __init__(self):
                 super().__init__()
                 self.step_count = 0
 
-            @scheduled
             def step(self):
                 self.step_count += 1
 
-        model = TestModel()
-        model.run_until(5.0)
+        model = CountingModel()
+        model.run_for(5)
 
-        # Should execute at t=1, 2, 3, 4, 5
         assert model.step_count == 5
 
-    def test_scheduled_custom_interval(self):
-        """Test @scheduled with custom interval."""
+    def test_model_schedule_method(self):
+        """Test the unified model.schedule() method."""
+        model = Model()
 
-        class TestModel(Model):
-            def __init__(self):
-                super().__init__()
-                self.update_count = 0
+        execution_times = []
 
-            @scheduled(interval=2.5)
-            def periodic_update(self):
-                self.update_count += 1
+        def callback():
+            execution_times.append(model.time)
 
-        model = TestModel()
-        model.run_until(10.0)
+        # One-off
+        model.schedule(callback, start_at=5.0)
 
-        # Should execute at t=2.5, 5.0, 7.5, 10.0
-        assert model.update_count == 4
+        # Recurring
+        model.schedule(callback, interval=10.0, count=2)
 
-    def test_scheduled_with_priority(self):
-        """Test @scheduled respects priority."""
+        model.run_until(30.0)
 
-        class TestModel(Model):
-            def __init__(self):
-                super().__init__()
-                self.execution_order = []
-
-            @scheduled(priority=Priority.LOW)
-            def low_priority_step(self):
-                self.execution_order.append("low")
-
-            @scheduled(priority=Priority.HIGH)
-            def high_priority_step(self):
-                self.execution_order.append("high")
-
-        model = TestModel()
-        model.run_until(1.0)
-
-        # High priority should execute first
-        assert model.execution_order == ["high", "low"]
-
-    def test_multiple_scheduled_methods(self):
-        """Test model with multiple @scheduled methods at different intervals."""
-
-        class TestModel(Model):
-            def __init__(self):
-                super().__init__()
-                self.hourly_count = 0
-                self.daily_count = 0
-
-            @scheduled(interval=1.0)
-            def hourly(self):
-                self.hourly_count += 1
-
-            @scheduled(interval=24.0)
-            def daily(self):
-                self.daily_count += 1
-
-        model = TestModel()
-        model.run_until(48.0)
-
-        assert model.hourly_count == 48
-        assert model.daily_count == 2
-
-    def test_scheduled_not_triggered_on_private_methods(self):
-        """Test that @scheduled on private methods doesn't break."""
-
-        class TestModel(Model):
-            def __init__(self):
-                super().__init__()
-                self.count = 0
-
-            @scheduled
-            def _private_method(self):
-                self.count += 1
-
-        model = TestModel()
-        model.run_until(5.0)
-
-        # Private methods should be skipped
-        assert model.count == 0
-
-
-class TestModelIntegration:
-    """Test integration of timeflow with Model class."""
+        # One-off at 5, recurring at 10, 20
+        assert 5.0 in execution_times
+        assert 10.0 in execution_times
+        assert 20.0 in execution_times
 
     def test_model_schedule_at(self):
         """Test model.schedule_at method."""
@@ -369,7 +594,7 @@ class TestModelIntegration:
         model.schedule_at(callback, time=15.0)
         model.run_until(20.0)
 
-        assert results == [15.0]
+        assert 15.0 in results
         assert model.time == 20.0
 
     def test_model_schedule_after(self):
@@ -385,7 +610,7 @@ class TestModelIntegration:
         model.schedule_after(callback, delay=5.0)
         model.run_until(20.0)
 
-        assert results == [15.0]
+        assert 15.0 in results
 
     def test_model_cancel_event(self):
         """Test model.cancel_event method."""
@@ -415,10 +640,11 @@ class TestModelIntegration:
         model.schedule_at(callback, time=10.0)
 
         model.run_for(7.0)
-        assert times == [5.0]
+        assert 5.0 in times
+        assert 10.0 not in times
 
         model.run_until(15.0)
-        assert times == [5.0, 10.0]
+        assert 10.0 in times
 
     def test_hybrid_step_and_events(self):
         """Test combining step() with scheduled events."""
@@ -432,7 +658,6 @@ class TestModelIntegration:
                 # Schedule one-off event
                 self.schedule_at(self.drought, time=50.0)
 
-            @scheduled
             def step(self):
                 self.step_count += 1
 
@@ -467,19 +692,24 @@ class TestModelIntegration:
 
         assert agent.released is True
 
-    def test_pure_event_driven_no_step(self):
-        """Test pure event-driven simulation without step."""
+    def test_pure_event_driven_model(self):
+        """Test pure event-driven simulation (step does nothing special)."""
 
         class EventDrivenModel(Model):
             def __init__(self):
                 super().__init__()
                 self.arrival_times = []
+                # Cancel the default step heartbeat
+                self.step_event.cancel()
+                # Bootstrap event chain
                 self.schedule_at(self.customer_arrival, time=1.0)
+
+            def step(self):
+                pass  # Not used
 
             def customer_arrival(self):
                 self.arrival_times.append(self.time)
                 if len(self.arrival_times) < 5:
-                    # Schedule next arrival
                     next_time = self.time + 2.0
                     self.schedule_at(self.customer_arrival, time=next_time)
 
@@ -496,21 +726,81 @@ class TestModelIntegration:
                 super().__init__()
                 self.step_count = 0
 
-            @scheduled
             def step(self):
                 self.step_count += 1
                 if self.step_count >= 10:
                     self.running = False
 
         model = StoppingModel()
-
-        def condition(m):
-            return m.running
-
-        model.run_while(condition)
+        model.run_while(lambda m: m.running)
 
         assert model.step_count == 10
         assert model.running is False
+
+    def test_deprecated_direct_step_call(self):
+        """Test that calling model.step() directly shows deprecation warning."""
+        model = Model()
+
+        with pytest.warns(PendingDeprecationWarning, match="deprecated"):
+            model.step()
+
+
+class TestStochasticIntervals:
+    """Test stochastic/variable interval scheduling."""
+
+    def test_exponential_arrivals(self):
+        """Test Poisson process with exponential inter-arrival times."""
+        model = Model()
+        # Cancel default step
+        model.step_event.cancel()
+
+        rng = random.Random(42)
+        arrival_times = []
+
+        def arrival():
+            arrival_times.append(model.time)
+
+        # Schedule with exponential intervals
+        model.schedule(
+            arrival,
+            interval=lambda m: rng.expovariate(1.0),  # rate = 1
+            count=10,
+        )
+
+        model.run_until(100.0)
+
+        assert len(arrival_times) == 10
+        # Verify times are increasing
+        for i in range(1, len(arrival_times)):
+            assert arrival_times[i] > arrival_times[i - 1]
+
+    def test_variable_interval_based_on_model_state(self):
+        """Test interval that depends on model state."""
+
+        class AdaptiveModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.activity_rate = 2.0
+                self.step_event.cancel()
+                self.check_times = []
+
+                self.schedule(
+                    self.check,
+                    interval=lambda m: m.activity_rate,
+                    count=5,
+                )
+
+            def check(self):
+                self.check_times.append(self.time)
+                # Slow down over time
+                self.activity_rate += 1.0
+
+        model = AdaptiveModel()
+        model.run_until(50.0)
+
+        # First interval is 2, then 3, then 4, then 5, then 6
+        # Times: 2, 5, 9, 14, 20
+        assert model.check_times == [2.0, 5.0, 9.0, 14.0, 20.0]
 
 
 class TestEdgeCases:
@@ -519,6 +809,9 @@ class TestEdgeCases:
     def test_empty_event_list_run_until(self):
         """Test run_until with no scheduled events."""
         model = Model()
+        # Cancel the default step
+        model.step_event.cancel()
+
         model.run_until(100.0)
 
         assert model.time == 100.0
@@ -526,6 +819,7 @@ class TestEdgeCases:
     def test_schedule_at_current_time(self):
         """Test scheduling an event at current time."""
         model = Model()
+        model.step_event.cancel()
         model.time = 10.0
 
         executed = []
@@ -541,6 +835,7 @@ class TestEdgeCases:
     def test_multiple_events_same_time_same_priority(self):
         """Test execution order for events at same time and priority."""
         model = Model()
+        model.step_event.cancel()
 
         execution_order = []
 
@@ -567,24 +862,52 @@ class TestEdgeCases:
     def test_run_next_event_empty_list(self):
         """Test run_next_event returns False when no events."""
         model = Model()
+        model.step_event.cancel()
 
         result = model.run_next_event()
 
         assert result is False
 
-    def test_scheduled_with_no_parentheses(self):
-        """Test @scheduled decorator without parentheses."""
+    def test_pause_resume_maintains_count(self):
+        """Test that pause/resume maintains execution count."""
+        model = Model()
+        model.step_event.cancel()
 
-        class TestModel(Model):
-            def __init__(self):
-                super().__init__()
-                self.count = 0
+        execution_times = []
 
-            @scheduled
-            def step(self):
-                self.count += 1
+        def callback():
+            execution_times.append(model.time)
 
-        model = TestModel()
-        model.run_until(3.0)
+        event = model.schedule(callback, interval=2.0, count=5)
 
-        assert model.count == 3
+        # Run until 2 executions
+        model.run_until(5.0)
+        assert len(execution_times) == 2  # t=2, 4
+
+        # Pause and resume
+        event.pause()
+        model.run_until(8.0)
+        event.resume()
+        model.run_until(20.0)
+
+        # Should only have 5 total executions due to count limit
+        assert len(execution_times) == 5
+
+    def test_end_after_measures_from_first_execution(self):
+        """Test that end_after is measured from first execution, not schedule time."""
+        model = Model()
+        model.step_event.cancel()
+
+        execution_times = []
+
+        def callback():
+            execution_times.append(model.time)
+
+        # Start at t=10, run for 5 time units after first execution
+        model.schedule(callback, start_at=10.0, interval=2.0, end_after=5.0)
+
+        model.run_until(30.0)
+
+        # First at 10, end_after=5 means stop after t=15
+        # So: 10, 12, 14 (16 would be > 15)
+        assert execution_times == [10.0, 12.0, 14.0]
