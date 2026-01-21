@@ -151,13 +151,13 @@ class DataRegistry[M: Model]:
         """Create a dataset of the specified type and add it to the registry."""
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
-    def track_agents(self, agents: AgentSet, name: str, **kwargs):
+    def track_agents(self, agents: AgentSet, name: str, *args):
         """Track the specified fields for the agents in the AgentSet."""
-        self.create_dataset(AgentDataSet, name, agents, **kwargs)
+        self.create_dataset(AgentDataSet, name, agents, *args)
 
-    def track_model(self, model: M, name: str, **kwargs):
+    def track_model(self, model: M, name: str, *args):
         """Track the specified fields in the model."""
-        self.create_dataset(ModelDataSet, name, model, **kwargs)
+        self.create_dataset(ModelDataSet, name, model, *args)
 
     def __getitem__(self, name: str):
         """Get a dataset by name."""

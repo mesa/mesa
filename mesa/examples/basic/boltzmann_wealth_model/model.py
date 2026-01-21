@@ -42,8 +42,9 @@ class BoltzmannWealth(Model):
 
         self.data_registry = DataRegistry()
         self.data_registry.create_dataset(
-            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=n
+            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=n, dtype=float
         )
+        self.data_registry.track_model(self, "model_data", "gini")
 
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
@@ -59,9 +60,14 @@ class BoltzmannWealth(Model):
 
     def step(self):
         self.agents.shuffle_do("step")  # Activate all agents in random order
-        self.compute_gini()
 
-    def compute_gini(self):
+        # mimic data collector by just accessing data fields.
+        a = self.data_registry["wealth"].data
+        b = self.data_registry["model_data"].data
+        c = 1
+
+    @property
+    def gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
 
         The Gini coefficient is a measure of inequality in distributions.
