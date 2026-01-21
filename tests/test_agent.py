@@ -66,10 +66,12 @@ def test_agentset():
 
     assert agents[0] in agentset
     assert len(agentset) == len(agents)
-    assert all(a1 == a2 for a1, a2 in zip(agentset[0:5], agents[0:5]))
+    assert all(a1 == a2 for a1, a2 in zip(agentset.to_list()[:5], agents[:5]))
 
     for a1, a2 in zip(agentset, agents):
         assert a1 == a2
+
+    assert agentset.to_list() == agents
 
     def test_function(agent):
         return agent.unique_id > 5
@@ -85,7 +87,9 @@ def test_agentset():
     assert len(agentset.select(test_function, inplace=True)) == 5
     assert agentset.select(inplace=True) == agentset
     assert all(a1 == a2 for a1, a2 in zip(agentset.select(), agentset))
-    assert all(a1 == a2 for a1, a2 in zip(agentset.select(at_most=5), agentset[:5]))
+    assert all(
+        a1 == a2 for a1, a2 in zip(agentset.select(at_most=5), agentset.to_list()[:5])
+    )
 
     assert len(agentset.shuffle(inplace=False).select(at_most=5)) == 5
 
@@ -94,11 +98,15 @@ def test_agentset():
 
     assert all(
         a1 == a2
-        for a1, a2 in zip(agentset.sort(test_function, ascending=False), agentset[::-1])
+        for a1, a2 in zip(
+            agentset.sort(test_function, ascending=False), agentset.to_list()[::-1]
+        )
     )
     assert all(
         a1 == a2
-        for a1, a2 in zip(agentset.sort("unique_id", ascending=False), agentset[::-1])
+        for a1, a2 in zip(
+            agentset.sort("unique_id", ascending=False), agentset.to_list()[::-1]
+        )
     )
 
     assert all(
@@ -245,12 +253,12 @@ def test_agentset_get_item():
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
 
-    assert agentset[0] == agents[0]
-    assert agentset[-1] == agents[-1]
-    assert agentset[1:3] == agents[1:3]
+    assert agentset.to_list()[0] == agents[0]
+    assert agentset.to_list()[-1] == agents[-1]
+    assert agentset.to_list()[1:3] == agents[1:3]
 
-    with pytest.raises(IndexError):
-        _ = agentset[20]
+    with pytest.raises(TypeError):
+        _ = agentset[0]
 
 
 def test_agentset_do_str():
@@ -554,7 +562,7 @@ def test_agentset_shuffle_do():
             if not self.is_alive:
                 raise Exception
 
-            agent_to_remove = self.random.choice(self.model.agents)
+            agent_to_remove = self.random.choice(self.model.agents.to_list())
 
             if agent_to_remove is not self:
                 agent_to_remove.remove()

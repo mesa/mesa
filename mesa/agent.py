@@ -13,7 +13,7 @@ import operator
 import warnings
 import weakref
 from collections import defaultdict
-from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet
 from random import Random
 
 # mypy
@@ -151,11 +151,10 @@ class Agent[M: Model]:
         return self.model.scenario
 
 
-class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
+class AgentSet[A: Agent](MutableSet[A]):
     """A collection class that represents an ordered set of agents within an agent-based model (ABM).
 
-    This class extends both MutableSet and Sequence, providing set-like functionality with order preservation and
-    sequence operations.
+    This class extends MutableSet, providing set-like functionality with order preservation.
 
     Attributes:
         model (Model): The ABM model instance to which this AgentSet belongs.
@@ -208,6 +207,10 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
     def __iter__(self) -> Iterator[A]:
         """Provide an iterator over the agents in the AgentSet."""
         return self._agents.keys()
+
+    def to_list(self) -> list[A]:
+        """Return the agents in the AgentSet as a list."""
+        return list(self._agents.keys())
 
     def __contains__(self, agent: A) -> bool:
         """Check if an agent is in the AgentSet. Can be used like `agent in agentset`."""
@@ -506,23 +509,6 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         for agent in self:
             setattr(agent, attr_name, value)
         return self
-
-    @overload
-    def __getitem__(self, item: int) -> A: ...
-
-    @overload
-    def __getitem__(self, item: slice) -> list[A]: ...
-
-    def __getitem__(self, item):
-        """Retrieve an agent or a slice of agents from the AgentSet.
-
-        Args:
-            item (int | slice): The index or slice for selecting agents.
-
-        Returns:
-            Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
-        """
-        return list(self._agents.keys())[item]
 
     def add(self, agent: A):
         """Add an agent to the AgentSet.

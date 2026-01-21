@@ -132,7 +132,7 @@ class TestDataCollector(unittest.TestCase):
         self.model.datacollector.collect(self.model)
         for i in range(7):
             if i == 4:
-                self.model.agents[3].remove()
+                self.model.agents.to_list()[3].remove()
             self.model.step()
 
         # Write to table:
