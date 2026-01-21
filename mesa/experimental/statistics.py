@@ -395,7 +395,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     """Generate getter and setter for the specified attribute."""
     # fixme: what if we make this  a method on the data set instead?
-    j = table._index_in_table[attribute_name]
+    j = table.attribute_to_index[attribute_name]
 
     def getter(obj: Agent):
         i = getattr(obj, table._index_in_table, None)
