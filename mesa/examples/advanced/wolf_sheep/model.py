@@ -12,7 +12,6 @@ Replication of the model found in NetLogo:
 import math
 
 from mesa import Model
-from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
 from mesa.experimental.devs import ABMSimulator
@@ -80,8 +79,10 @@ class WolfSheep(Model):
 
         # Set up data collection
         self.data_registry = DataRegistry()
-        self.data_registry.track_model(self,"model_data", "n_wolves", "n_sheep")
-        self.data_registry.create_dataset(NumpyAgentDataSet, "wolf_data", Wolf,"energy")
+        self.data_registry.track_model(self, "model_data", "n_wolves", "n_sheep")
+        self.data_registry.create_dataset(
+            NumpyAgentDataSet, "wolf_data", Wolf, "energy"
+        )
 
         # Create sheep:
         Sheep.create_agents(
@@ -130,10 +131,10 @@ class WolfSheep(Model):
         self.agents_by_type[Wolf].shuffle_do("step")
 
         # Collect data
-        a = self.data_registry["model_data"].data # fake snapshotting if for now
+        a = self.data_registry["model_data"].data  # fake snapshotting if for now
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     simulator = ABMSimulator()
     model = WolfSheep(simulator=simulator)
     simulator.run_for(10)

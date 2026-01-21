@@ -155,9 +155,13 @@ class DataRegistry[M: Model]:
         """Create a dataset of the specified type and add it to the registry."""
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
-    def track_agents(self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None):
+    def track_agents(
+        self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None
+    ):
         """Track the specified fields for the agents in the AgentSet."""
-        self.create_dataset(AgentDataSet, name, agents, *args, select_kwargs=select_kwargs)
+        self.create_dataset(
+            AgentDataSet, name, agents, *args, select_kwargs=select_kwargs
+        )
 
     def track_model(self, model: M, name: str, *args):
         """Track the specified fields in the model."""
@@ -166,8 +170,6 @@ class DataRegistry[M: Model]:
     def __getitem__(self, name: str):
         """Get a dataset by name."""
         return self.datasets[name]
-
-
 
 
 class NumpyAgentDataSet[A: Agent](DataSet):
@@ -364,12 +366,12 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         # Boolean indexing - returns only active rows
         # self._n_slots is the number of slots that have been handed out
         # some might be inactive now, but there can never be more
-        return self._agent_data[self._is_active[:self._n_slots]]
+        return self._agent_data[self._is_active[: self._n_slots]]
 
     @property
     def active_agents(self) -> list[A]:
         """Return list of all active agents."""
-        active_indices = np.where(self._is_active[:self._n_slots])[0]
+        active_indices = np.where(self._is_active[: self._n_slots])[0]
         return [self._index_to_agent[i] for i in active_indices]
 
     @property
@@ -401,7 +403,9 @@ def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     j = table.attribute_to_index[attribute_name]
 
     def getter(obj: Agent):
-        i = getattr(obj, table._index_in_table)  # should just exist because of registration in Agent.__init__
+        i = getattr(
+            obj, table._index_in_table
+        )  # should just exist because of registration in Agent.__init__
         return table._agent_data[i, j]
 
     def setter(obj: Agent, value):
