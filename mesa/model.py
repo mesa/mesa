@@ -119,11 +119,24 @@ class Model[A: Agent, S: Scenario]:
                 self.rng.bit_generator.state
             )  # this allows for reproducing the rng
 
-            try:
-                self.random = random.Random(rng)
-            except TypeError:
+            # We must ensure 'seed' captures the actual integer used,
+            if rng is None:
+                # Case A: No rng provided. Generate a random integer seed.
                 seed = int(self.rng.integers(np.iinfo(np.int32).max))
                 self.random = random.Random(seed)
+            else:
+                try:
+                    # Case B: Try to use the provided rng (e.g., int) directly
+                    self.random = random.Random(rng)
+                except TypeError:
+                    # Case C: rng is a Generator/BitGenerator (not valid for random.Random)
+                    # Extract an integer seed from it
+                    seed = int(self.rng.integers(np.iinfo(np.int32).max))
+                    self.random = random.Random(seed)
+                else:
+                    # Success: rng was valid. Capture it as the seed.
+                    seed = rng
+
             self._seed = seed  # this allows for reproducing stdlib.random
         elif rng is None:
             warnings.warn(
