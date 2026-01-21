@@ -127,7 +127,6 @@ class Model[A: Agent, S: Scenario]:
             else:
                 seed = int(self.rng.integers(np.iinfo(np.int32).max))
                 self.random = random.Random(seed)
-
             self._seed = seed  # this allows for reproducing stdlib.random
         elif rng is None:
             warnings.warn(
