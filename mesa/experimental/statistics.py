@@ -2,7 +2,6 @@
 
 import abc
 import operator
-from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -185,14 +184,13 @@ class NumpyAgentDataSet[A: Agent](DataSet):
     _MIN_GROWTH = 100  # Minimum rows to add
     _COMPACT_THRESHOLD = 0.3  # when to reindex everything for memory reasons
 
-
     def __init__(
         self,
         name: str,
         agent_type: type[A],
         *args,
         n=100,  # just for initial sizing of the inner numpy array
-        dtype = np.float64,
+        dtype=np.float64,
     ):
         """Init."""
         super().__init__(
@@ -264,7 +262,6 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self._n_active += 1
 
         return index
-
 
     def remove_agent(self, agent: A) -> None:
         """Remove an agent from the dataset in O(1) time.
