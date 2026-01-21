@@ -103,7 +103,11 @@ class ModelDataSet[M: Model](DataSet):
     def data(self) -> dict[str, Any]:
         """Return the data of the table."""
         # gets the data for the fields from the agents
-        return self._collector(self.model)
+        values = self._collector(self.model)
+        try:
+            return dict(zip(self._attributes, values))
+        except TypeError:
+            return {self._attributes[0]: values}
 
 
 class TableDataSet(DataSet):
@@ -151,9 +155,9 @@ class DataRegistry[M: Model]:
         """Create a dataset of the specified type and add it to the registry."""
         self.datasets[name] = dataset_type(name, *args, **kwargs)
 
-    def track_agents(self, agents: AgentSet, name: str, *args):
+    def track_agents(self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None):
         """Track the specified fields for the agents in the AgentSet."""
-        self.create_dataset(AgentDataSet, name, agents, *args)
+        self.create_dataset(AgentDataSet, name, agents, *args, select_kwargs=select_kwargs)
 
     def track_model(self, model: M, name: str, *args):
         """Track the specified fields in the model."""
@@ -162,6 +166,8 @@ class DataRegistry[M: Model]:
     def __getitem__(self, name: str):
         """Get a dataset by name."""
         return self.datasets[name]
+
+
 
 
 class NumpyAgentDataSet[A: Agent](DataSet):
@@ -206,7 +212,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self._index_in_table = f"_index_datatable_{name}"
 
         # Core data storage
-        self._agent_data: np.ndarray = np.empty((n, len(args)), dtype=dtype)
+        self._agent_data: np.ndarray = np.empty((n, len(self._attributes)), dtype=dtype)
         self._is_active: np.ndarray = np.zeros(n, dtype=bool)
 
         # Agent tracking
@@ -222,6 +228,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         }
 
         # Install properties on the agent class
+        agent_type._datasets.add(self.name)
         for attr in args:
             setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
 
@@ -271,11 +278,9 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 
         Automatically compacts if fragmentation exceeds threshold.
         """
-        try:
-            index = self._agent_to_index[agent]
-        except KeyError:
-            # Agent not in dataset
-            return
+        index = getattr(agent, self._index_in_table, None)
+        if index is None:
+            return  # Not in dataset
 
         # Mark as tombstone
         self._is_active[index] = False
@@ -354,17 +359,18 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         Returns a view (not a copy) when possible for efficiency.
         """
         if self._n_active == 0:
-            return np.empty((0, len(self._attributes)), dtype=float)
+            return np.empty((0, len(self._attributes)), dtype=self.dtype)
 
         # Boolean indexing - returns only active rows
-        return self._agent_data[self._is_active]
+        # self._n_slots is the number of slots that have been handed out
+        # some might be inactive now, but there can never be more
+        return self._agent_data[self._is_active[:self._n_slots]
 
     @property
     def active_agents(self) -> list[A]:
         """Return list of all active agents."""
-        return [
-            self._index_to_agent[i] for i in range(self._n_slots) if self._is_active[i]
-        ]
+        active_indices = np.where(self._is_active[:self._n_slots])[0]
+        return [self._index_to_agent[i] for i in active_indices]
 
     @property
     def fragmentation(self) -> float:
@@ -395,15 +401,11 @@ def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     j = table.attribute_to_index[attribute_name]
 
     def getter(obj: Agent):
-        i = getattr(obj, table._index_in_table, None)
-        if i is None:
-            i = table.add_agent(obj)
+        i = getattr(obj, table._index_in_table)  # should just exist because of registration in Agent.__init__
         return table._agent_data[i, j]
 
     def setter(obj: Agent, value):
-        i = getattr(obj, table._index_in_table, None)
-        if i is None:
-            i = table.add_agent(obj)
+        i = getattr(obj, table._index_in_table)
         table._agent_data[i, j] = value
 
     return getter, setter

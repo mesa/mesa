@@ -43,8 +43,9 @@ def run_model(model_class, seed, parameters):
     else:
         for _ in range(config["steps"]):
             model.step()
-
     end_run = timeit.default_timer()
+
+    model.remove_all_agents()
 
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
