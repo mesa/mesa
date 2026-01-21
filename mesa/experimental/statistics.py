@@ -104,7 +104,7 @@ class ModelDataSet[M: Model](DataSet):
     def data(self) -> dict[str, Any]:
         """Return the data of the table."""
         # gets the data for the fields from the agents
-        return self._collector(model)
+        return self._collector(self.model)
 
 
 class TableDataSet(DataSet):
@@ -185,21 +185,30 @@ class NumpyAgentDataSet[A: Agent](DataSet):
     _MIN_GROWTH = 100  # Minimum rows to add
     _COMPACT_THRESHOLD = 0.3  # when to reindex everything for memory reasons
 
+
     def __init__(
         self,
         name: str,
         agent_type: type[A],
         *args,
         n=100,  # just for initial sizing of the inner numpy array
+        dtype = np.float64,
     ):
         """Init."""
         super().__init__(
             name,
             *args,  # fixme: what about unique_id?
         )
+        # fixme since index is now long-lived
+        #    and only changed via compact, there is no need
+        #    for the lookup of the index on every get and set operation inside the agent
+        #    unique id can also take advantage of long lived nature of indices
+        # fixme: update wolfsheep as well to use numpydataset to see impact of agent addition and removal
+        self.dtype = dtype
+        self._index_in_table = f"_index_datatable_{name}"
 
         # Core data storage
-        self._agent_data: np.ndarray = np.empty((n, len(args)), dtype=float)
+        self._agent_data: np.ndarray = np.empty((n, len(args)), dtype=dtype)
         self._is_active: np.ndarray = np.zeros(n, dtype=bool)
 
         # Agent tracking
@@ -218,31 +227,6 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         for attr in args:
             setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
 
-    def agent_to_index(self, agent: A):
-        """Helper method to map an agent to its index in the table."""
-        try:
-            return self._agent_to_index[agent]
-        except KeyError:
-            # New agent - try to reuse a freed slot first
-            if self._free_indices:
-                index = self._free_indices.pop()
-            else:
-                # Need a new slot
-                index = self._n_slots
-                self._n_slots += 1
-
-                # Expand array if necessary
-                if index >= self._agent_data.shape[0]:
-                    self._expand_storage()
-
-            # Activate the slot
-            self._is_active[index] = True
-            self._agent_to_index[agent] = index
-            self._index_to_agent[index] = agent
-            self._n_active += 1
-
-            return index
-
     def _expand_storage(self) -> None:
         """Expand the internal arrays when out of space."""
         current_size = self._agent_data.shape[0]
@@ -250,7 +234,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         new_size = current_size + growth
 
         # Expand data array
-        new_data = np.empty((new_size, len(self._attribute_names)), dtype=float)
+        new_data = np.empty((new_size, len(self._attributes)), dtype=self.dtype)
         new_data[:current_size] = self._agent_data
         self._agent_data = new_data
 
@@ -258,6 +242,29 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         new_mask = np.zeros(new_size, dtype=bool)
         new_mask[:current_size] = self._is_active
         self._is_active = new_mask
+
+    def add_agent(self, agent: A) -> int:
+        # New agent - try to reuse a freed slot first
+        if self._free_indices:
+            index = self._free_indices.pop()
+        else:
+            # Need a new slot
+            index = self._n_slots
+            self._n_slots += 1
+
+            # Expand array if necessary
+            if index >= self._agent_data.shape[0]:
+                self._expand_storage()
+
+        # Activate the slot
+        setattr(agent, self._index_in_table, index)
+        self._is_active[index] = True
+        self._agent_to_index[agent] = index
+        self._index_to_agent[index] = agent
+        self._n_active += 1
+
+        return index
+
 
     def remove_agent(self, agent: A) -> None:
         """Remove an agent from the dataset in O(1) time.
@@ -279,6 +286,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         # Clean up mappings
         del self._agent_to_index[agent]
         del self._index_to_agent[index]
+        delattr(agent, self._index_in_table)
 
         # Add to free list for reuse
         self._free_indices.append(index)
@@ -326,10 +334,11 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         new_agent_to_index = {}
         new_index_to_agent = {}
 
-        for new_idex, old_idex in enumerate(active_indices):
-            agent = self._index_to_agent[old_idex]
-            new_agent_to_index[agent] = new_idex
-            new_index_to_agent[new_idex] = agent
+        for new_index, old_index in enumerate(active_indices):
+            agent = self._index_to_agent[old_index]
+            new_agent_to_index[agent] = new_index
+            new_index_to_agent[new_index] = agent
+            setattr(agent, self._index_in_table, new_index)
 
         # Update state
         self._agent_data[:n_active] = new_data
@@ -348,10 +357,10 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         Returns a view (not a copy) when possible for efficiency.
         """
         if self._n_active == 0:
-            return np.empty((0, len(self._attribute_names)), dtype=float)
+            return np.empty((0, len(self._attributes)), dtype=float)
 
         # Boolean indexing - returns only active rows
-        return self._agent_data[self._is_active[: self._n_slots]]
+        return self._agent_data[self._is_active]
 
     @property
     def active_agents(self) -> list[A]:
@@ -386,14 +395,18 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     """Generate getter and setter for the specified attribute."""
     # fixme: what if we make this  a method on the data set instead?
-    j = table.attribute_to_index[attribute_name]
+    j = table._index_in_table[attribute_name]
 
     def getter(obj: Agent):
-        i = table.agent_to_index(obj)
+        i = getattr(obj, table._index_in_table, None)
+        if i is None:
+            i = table.add_agent(obj)
         return table._agent_data[i, j]
 
     def setter(obj: Agent, value):
-        i = table.agent_to_index(obj)
+        i = getattr(obj, table._index_in_table, None)
+        if i is None:
+            i = table.add_agent(obj)
         table._agent_data[i, j] = value
 
     return getter, setter
