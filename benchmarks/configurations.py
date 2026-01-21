@@ -3,7 +3,7 @@
 from mesa.examples import BoidFlockers, BoltzmannWealth, Schelling, WolfSheep
 
 configurations = {
-    # Schelling Model Configurations
+    # BoltzmannWealth Model Configurations
     BoltzmannWealth: {
         "small": {
             "seeds": 50,
