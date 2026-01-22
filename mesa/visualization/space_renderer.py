@@ -6,7 +6,6 @@ backends, supporting various space types and visualization components.
 
 from __future__ import annotations
 
-import contextlib
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
@@ -153,23 +152,38 @@ class SpaceRenderer:
             mapped_arguments["loc"] = loc
 
         elif isinstance(self.space, Network):
-            # Map coordinates for Network spaces
+            # Map network node IDs to positions using vectorized dictionary lookup
             loc = arguments["loc"].astype(float)
-            pos = np.asarray(list(self.space_drawer.pos.values()))
-            # For network only both x and y contains the correct coordinates
-            # use one of them
-            x = loc[:, 0]
-            if x is None:
-                x = loc[:, 1]
+            pos_dict = self.space_drawer.pos
+            node_ids = loc[:, 0].astype(int)
 
-            # Ensure x is an integer index for the position mapping
-            x = x.astype(int)
+            # Process unique node IDs once, then broadcast to all agents
+            unique_ids, inverse_indices = np.unique(node_ids, return_inverse=True)
+            unique_positions = np.full((len(unique_ids), 2), np.nan)
+            missing_nodes = []
 
-            # FIXME: Find better way to handle this case
-            # x updates before pos can, therefore gives us index error that
-            # needs to be ignored.
-            with contextlib.suppress(IndexError):
-                mapped_arguments["loc"] = pos[x]
+            for idx, node_id in enumerate(unique_ids):
+                if node_id in pos_dict:
+                    unique_positions[idx] = pos_dict[node_id]
+                else:
+                    missing_nodes.append(node_id)
+
+            mapped_locs = unique_positions[inverse_indices]
+
+            # Warn if significant nodes missing (likely layout issue, not race condition)
+            if missing_nodes and len(missing_nodes) > len(pos_dict) / 10:
+                sample = missing_nodes[: min(5, len(missing_nodes))]
+                warnings.warn(
+                    f"Many nodes {sample}{'...' if len(missing_nodes) > 5 else ''} not found "
+                    f"in position layout ({len(missing_nodes)}/{len(node_ids)} agents). "
+                    f"This may indicate the network layout needs to be updated or regenerated.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+            mapped_arguments["loc"] = (
+                mapped_locs if len(mapped_locs) > 0 else mapped_locs.reshape(0, 2)
+            )
 
         return mapped_arguments
 
@@ -257,9 +271,9 @@ class SpaceRenderer:
         """
         if agent_portrayal is not None:
             warnings.warn(
-                "Passing agent_portrayal to draw_agents() is deprecated. "
+                "Passing agent_portrayal to draw_agents() is deprecated and will be removed in Mesa 4.0. "
                 "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents().",
-                PendingDeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
             self.agent_portrayal = agent_portrayal
@@ -299,9 +313,9 @@ class SpaceRenderer:
         """
         if propertylayer_portrayal is not None:
             warnings.warn(
-                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated. "
+                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated and will be removed in Mesa 4.0. "
                 "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer().",
-                PendingDeprecationWarning,
+                FutureWarning,
                 stacklevel=2,
             )
             self.propertylayer_portrayal = propertylayer_portrayal
@@ -325,7 +339,7 @@ class SpaceRenderer:
 
                 warnings.warn(
                     (
-                        "The propertylayer_portrayal dict is deprecated. "
+                        "The propertylayer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
                         "Please use a callable that returns a PropertyLayerStyle instance instead. "
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"

@@ -86,7 +86,7 @@ class MockModel(Model):
         fixed_model_param=None,
         enable_agent_reporters=True,
         n_agents=3,
-        seed=None,
+        rng=None,
         **kwargs,
     ):
         """Initialize a MockModel.
@@ -97,10 +97,10 @@ class MockModel(Model):
             fixed_model_param: fixed model parameters
             enable_agent_reporters: whether to enable agent reporters
             n_agents: number of agents
-            seed : random seed
+            rng : random seed
             kwargs: keyword arguments
         """
-        super().__init__(seed=seed, **kwargs)
+        super().__init__(rng=rng, **kwargs)
         self.variable_model_param = variable_model_param
         self.variable_agent_param = variable_agent_param
         self.fixed_model_param = fixed_model_param
@@ -144,7 +144,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 1,
             "agent_id": 1,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
         {
             "RunId": 0,
@@ -154,7 +154,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 2,
             "agent_id": 2,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
         {
             "RunId": 0,
@@ -164,7 +164,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 3,
             "agent_id": 3,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
     ]
 
@@ -178,7 +178,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 1,
             "agent_id": 1,
             "agent_local": 250.0,
-            "seed": None,
+            "rng": None,
         },
         {
             "RunId": 0,
@@ -188,7 +188,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 2,
             "agent_id": 2,
             "agent_local": 250.0,
-            "seed": None,
+            "rng": None,
         },
         {
             "RunId": 0,
@@ -198,7 +198,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 3,
             "agent_id": 3,
             "agent_local": 250.0,
-            "seed": None,
+            "rng": None,
         },
     ]
 
@@ -216,7 +216,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 1,
             "agent_id": 1,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
         {
             "RunId": 0,
@@ -226,7 +226,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 2,
             "agent_id": 2,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
         {
             "RunId": 0,
@@ -236,7 +236,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 3,
             "agent_id": 3,
             "agent_local": 250.0,
-            "seed": 42,
+            "rng": 42,
         },
         {
             "RunId": 1,
@@ -246,7 +246,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 1,
             "agent_id": 1,
             "agent_local": 250.0,
-            "seed": 31415,
+            "rng": 31415,
         },
         {
             "RunId": 1,
@@ -256,7 +256,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 2,
             "agent_id": 2,
             "agent_local": 250.0,
-            "seed": 31415,
+            "rng": 31415,
         },
         {
             "RunId": 1,
@@ -266,7 +266,7 @@ def test_batch_run():  # noqa: D103
             "AgentID": 3,
             "agent_id": 3,
             "agent_local": 250.0,
-            "seed": 31415,
+            "rng": 31415,
         },
     ]
 
@@ -297,7 +297,7 @@ def test_batch_run_no_agent_reporters():  # noqa: D103
             "Step": 1000,
             "enable_agent_reporters": False,
             "reported_model_param": 42,
-            "seed": None,
+            "rng": None,
         }
     ]
 
@@ -321,7 +321,7 @@ def test_batch_run_unhashable_param():  # noqa: D103
         "agent_local": 250.0,
         "n_agents": 2,
         "variable_model_param": {"key": "value"},
-        "seed": None,
+        "rng": None,
     }
 
     assert result == [
@@ -370,7 +370,7 @@ def test_batch_run_legacy():
             self.schedule = None
             super().__init__()
             self.datacollector = DataCollector(
-                model_reporters={"Step": lambda m: m._steps},
+                model_reporters={"Step": lambda m: m.steps},
                 agent_reporters={"Dummy": lambda a: 1},
             )
             # FORCE LEGACY: Delete _collection_steps attribute manually
@@ -388,7 +388,7 @@ def test_batch_run_legacy():
     # Period = 2
     # range(0, 6, 2) generates -> [0, 2, 4]
     # The last model step is 5.
-    # steps[-1] (4) != model._steps-1 (5).
+    # steps[-1] (4) != model.steps-1 (5).
     # This forces the code to execute: steps.append(5)
     results = mesa.batch_run(
         LegacyModel,
@@ -504,12 +504,12 @@ class SparseCollectionModel(Model):
 
     def step(self):
         """Execute one model step, collecting data at specified intervals."""
-        if self._steps % self.collect_interval == 0:
+        if self.steps % self.collect_interval == 0:
             self.datacollector.collect(self)
 
         self.agent.step()
 
-        if self._steps >= 20:
+        if self.steps >= 20:
             self.running = False
 
 
@@ -710,8 +710,8 @@ def test_batch_run_agenttype_reporters():
     class AgenttypeModel(Model):
         """Model with agenttype_reporters."""
 
-        def __init__(self, n_agents=5, seed=None):
-            super().__init__(seed=seed)
+        def __init__(self, n_agents=5, rng=None):
+            super().__init__(rng=rng)
             self.n_agents = n_agents
             self.datacollector = DataCollector(
                 model_reporters={"total_agents": lambda m: len(m.agents)},
@@ -761,11 +761,11 @@ def test_batch_run_agenttype_and_agent_reporters():
         def __init__(self, model, wealth):
             super().__init__(model)
             self.wealth = wealth
-            self._steps = 0
+            self.steps = 0
 
         def step(self):
             self.wealth += 1
-            self._steps += 1
+            self.steps += 1
 
     class MixedReportersModel(Model):
         """Model with both agent_reporters and agenttype_reporters."""
@@ -776,7 +776,7 @@ def test_batch_run_agenttype_and_agent_reporters():
             self.datacollector = DataCollector(
                 model_reporters={"agent_count": lambda m: len(m.agents)},
                 agent_reporters={"wealth": "wealth"},
-                agenttype_reporters={MixedAgent: {"type_steps": "_steps"}},
+                agenttype_reporters={MixedAgent: {"type_steps": "steps"}},
             )
             for i in range(n_agents):
                 MixedAgent(self, wealth=i * 10)

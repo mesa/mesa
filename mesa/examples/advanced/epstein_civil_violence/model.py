@@ -50,11 +50,11 @@ class EpsteinCivilViolence(mesa.Model):
         arrest_prob_constant=2.3,
         movement=True,
         max_iters=1000,
-        seed=None,
+        rng=None,
         activation_order="Random",
         grid_type="Von Neumann",
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         self.movement = movement
         self.max_iters = max_iters
         self.activation_order = activation_order
@@ -126,7 +126,7 @@ class EpsteinCivilViolence(mesa.Model):
         self._update_counts()
         self.datacollector.collect(self)
 
-        if self.time > self.max_iters:
+        if self.steps > self.max_iters:
             self.running = False
 
     def _update_counts(self):

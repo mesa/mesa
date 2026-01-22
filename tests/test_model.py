@@ -1,6 +1,7 @@
 """Tests for model.py."""
 
 import numpy as np
+import pytest
 
 from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs.simulator import DEVSimulator
@@ -11,12 +12,12 @@ def test_model_set_up():
     """Test Model initialization."""
     model = Model()
     assert model.running is True
-    assert model._steps == 0
+    assert model.steps == 0
     assert model.time == 0.0
     assert model._simulator is None
 
     model.step()
-    assert model._steps == 1
+    assert model.steps == 1
     assert model.time == 1.0
 
 
@@ -26,7 +27,7 @@ def test_model_time_increment():
 
     for i in range(5):
         model.step()
-        assert model._steps == i + 1
+        assert model.steps == i + 1
         assert model.time == float(i + 1)
 
 
@@ -51,42 +52,67 @@ def test_running():
     class TestModel(Model):
         def step(self):
             """Stop at step 10."""
-            if self.time >= 10:
+            if self.steps == 10:
                 self.running = False
 
     model = TestModel()
     model.run_model()
-    assert model._steps == 10
+    assert model.steps == 10
     assert model.time == 10.0
 
 
-def test_seed(seed=23):
+def test_rng(rng=23):
     """Test initialization of model with specific seed."""
-    model = Model(seed=seed)
-    assert model._seed == seed
-    model2 = Model(seed=seed + 1)
-    assert model2._seed == seed + 1
-    assert model._seed == seed
+    model = Model(rng=rng)
+    assert model._rng == np.random.default_rng(rng).bit_generator.state
+    model2 = Model(rng=rng + 1)
+    assert model2._rng == np.random.default_rng(rng + 1).bit_generator.state
+    assert model._rng == np.random.default_rng(rng).bit_generator.state
 
-    assert Model(seed=42).random.random() == Model(seed=42).random.random()
+    assert Model(rng=42).random.random() == Model(rng=42).random.random()
     assert np.all(
-        Model(seed=42).rng.random(
+        Model(rng=42).rng.random(
             10,
         )
-        == Model(seed=42).rng.random(
+        == Model(rng=42).rng.random(
             10,
         )
     )
 
 
+def test_seed():
+    """Test seed persistence and generation for various rng inputs."""
+    # Case 1: Explicit Integer
+    model_explicit = Model(rng=42)
+    assert model_explicit._seed == 42
+    assert model_explicit.scenario.rng == 42
+    assert model_explicit._seed == 42
+
+    # Case 2: None
+    # The model should generate a integer seed
+    model_none = Model()
+    assert model_none._seed is not None
+    assert isinstance(model_none._seed, (int, np.integer))
+    assert model_none.scenario.rng == model_none._seed
+
+    # Case 3: Numpy Generator
+    # The model should derive a integer seed from the generator state.
+    gen = np.random.default_rng(42)
+    model_gen = Model(rng=gen)
+    assert model_gen._seed is not None
+    assert isinstance(model_gen._seed, (int, np.integer))
+    assert model_gen.scenario.rng == model_gen._seed
+
+
 def test_reset_randomizer(newseed=42):
     """Test resetting the random seed on the model."""
-    model = Model()
-    oldseed = model._seed
-    model.reset_randomizer()
-    assert model._seed == oldseed
-    model.reset_randomizer(seed=newseed)
-    assert model._seed == newseed
+    with pytest.warns(FutureWarning):
+        model = Model()
+        oldseed = model._seed
+        model.reset_randomizer()
+        assert model._seed == oldseed
+        model.reset_randomizer(seed=newseed)
+        assert model._seed == newseed
 
 
 def test_reset_rng(newseed=42):

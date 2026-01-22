@@ -53,9 +53,9 @@ class SugarscapeG1mt(mesa.Model):
         vision_min=1,
         vision_max=5,
         enable_trade=True,
-        seed=None,
+        rng=None,
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         # Initiate width and height of sugarscape
         self.width = width
         self.height = height
@@ -164,11 +164,11 @@ class SugarscapeG1mt(mesa.Model):
         """
         # Need to remove excess data
         # Create local variable to store trade data
-        agent_trades = self.datacollector._agent_records[self.time]
+        agent_trades = self.datacollector._agent_records[self.steps]
         # Get rid of all None to reduce data storage needs
         agent_trades = [agent for agent in agent_trades if agent[2] is not None]
         # Reassign the dictionary value with lean trade data
-        self.datacollector._agent_records[self.time] = agent_trades
+        self.datacollector._agent_records[self.steps] = agent_trades
 
     def run_model(self, step_count=1000):
         for _ in range(step_count):
