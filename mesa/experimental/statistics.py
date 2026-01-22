@@ -205,11 +205,6 @@ class NumpyAgentDataSet[A: Agent](DataSet):
             name,
             *args,  # fixme: what about unique_id?
         )
-        # fixme since index is now long-lived
-        #    and only changed via compact, there is no need
-        #    for the lookup of the index on every get and set operation inside the agent
-        #    unique id can also take advantage of long lived nature of indices
-        # fixme: update wolfsheep as well to use numpydataset to see impact of agent addition and removal
         self.dtype = dtype
         self._index_in_table = f"_index_datatable_{name}"
 
@@ -264,7 +259,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
                 self._expand_storage()
 
         # Activate the slot
-        setattr(agent, self._index_in_table, index)
+        setattr(agent, self._index_in_table, index) # set row index on agent
         self._is_active[index] = True
         self._agent_to_index[agent] = index
         self._index_to_agent[index] = agent
@@ -292,7 +287,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         del self._index_to_agent[index]
         delattr(agent, self._index_in_table)
 
-        # Add to free list for reuse
+        # Add to list of available indices for reuse
         self._free_indices.append(index)
         self._n_active -= 1
 
@@ -400,6 +395,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     """Generate getter and setter for the specified attribute."""
     # fixme: what if we make this  a method on the data set instead?
+    #     or just pass it along when generating the getter and setter?
     j = table.attribute_to_index[attribute_name]
 
     def getter(obj: Agent):
