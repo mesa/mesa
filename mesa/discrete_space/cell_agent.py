@@ -141,3 +141,77 @@ class Grid2DMovingAgent(CellAgent):
         move_vector = self.DIRECTION_MAP[direction]
         for _ in range(distance):
             self.move_relative(move_vector)
+
+
+class HexGridMovingAgent(CellAgent):
+    """A specialized agent for moving on a HexGrid (Even-R / Pointy-Topped).
+
+    This agent correctly handles the alternating connectivity of the HexGrid
+    defined in mesa.discrete_space.grid, where the Row Index (y) determines parity.
+
+    """
+
+    # For EVEN columns
+    DIRECTION_MAP_EVEN: ClassVar[dict[str, tuple[int, int]]] = {
+        "nw": (0, -1),
+        "northwest": (0, -1),
+        "ne": (1, -1),
+        "northeast": (1, -1),
+        "sw": (0, 1),
+        "southwest": (0, 1),
+        "se": (1, 1),
+        "southeast": (1, 1),
+        "w": (-1, 0),
+        "west": (-1, 0),
+        "e": (1, 0),
+        "east": (1, 0),
+        # Vertical aliases
+        "n": (0, -1),
+        "north": (0, -1),
+        "s": (0, 1),
+        "south": (0, 1),
+    }
+
+    # For ODD columns
+    DIRECTION_MAP_ODD: ClassVar[dict[str, tuple[int, int]]] = {
+        "nw": (-1, -1),
+        "northwest": (-1, -1),
+        "ne": (0, -1),
+        "northeast": (0, -1),
+        "sw": (-1, 1),
+        "southwest": (-1, 1),
+        "se": (0, 1),
+        "southeast": (0, 1),
+        "w": (-1, 0),
+        "west": (-1, 0),
+        "e": (1, 0),
+        "east": (1, 0),
+        # Vertical aliases
+        "n": (-1, -1),
+        "north": (-1, -1),
+        "s": (-1, 1),
+        "south": (-1, 1),
+    }
+
+    def move(self, direction: str, distance: int = 1) -> None:
+        """Move the agent in a hex direction respecting row parity.
+
+        Args:
+            direction: One of 'nw', 'ne', 'sw', 'se', 'w', 'e' (or aliases which are 'n' and 's').
+            distance: Number of steps to take.
+        """
+        direction = direction.lower()
+
+        for _ in range(distance):
+            row_index = self.cell.coordinate[1]
+            offset_map = (
+                self.DIRECTION_MAP_EVEN
+                if row_index % 2 == 0
+                else self.DIRECTION_MAP_ODD
+            )
+
+            if direction not in offset_map:
+                raise ValueError(f"Invalid hex direction: {direction}")
+
+            move_vector = offset_map[direction]
+            self.move_relative(move_vector)

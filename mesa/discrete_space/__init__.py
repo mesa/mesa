@@ -20,6 +20,7 @@ from mesa.discrete_space.cell_agent import (
     CellAgent,
     FixedAgent,
     Grid2DMovingAgent,
+    HexGridMovingAgent,
 )
 from mesa.discrete_space.cell_collection import CellCollection
 from mesa.discrete_space.discrete_space import DiscreteSpace
@@ -42,6 +43,7 @@ __all__ = [
     "Grid",
     "Grid2DMovingAgent",
     "HexGrid",
+    "HexGridMovingAgent",
     "Network",
     "OrthogonalMooreGrid",
     "OrthogonalVonNeumannGrid",
