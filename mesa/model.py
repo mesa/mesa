@@ -98,6 +98,7 @@ class Model[A: Agent, S: Scenario]:
         self.running: bool = True
         self.steps: int = 0
         self.time: float = 0.0
+        self.agent_id_counter: int = 1
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -118,9 +119,12 @@ class Model[A: Agent, S: Scenario]:
                 self.rng.bit_generator.state
             )  # this allows for reproducing the rng
 
-            try:
-                self.random = random.Random(rng)
-            except TypeError:
+            # If rng is an integer, use it directly.
+            # Otherwise (None, Generator, etc.), generate a new integer seed.
+            if isinstance(rng, (int, np.integer)):
+                seed = rng
+                self.random = random.Random(seed)
+            else:
                 seed = int(self.rng.integers(np.iinfo(np.int32).max))
                 self.random = random.Random(seed)
             self._seed = seed  # this allows for reproducing stdlib.random
@@ -211,6 +215,8 @@ class Model[A: Agent, S: Scenario]:
             super in the ``__init__`` method.
         """
         self._agents[agent] = None
+        agent.unique_id = self.agent_id_counter
+        self.agent_id_counter += 1
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled
