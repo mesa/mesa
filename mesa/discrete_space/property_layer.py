@@ -17,6 +17,7 @@ attributes.
 
 import warnings
 from collections.abc import Callable, Sequence
+from itertools import chain
 from typing import Any, TypeVar
 
 import numpy as np
@@ -40,6 +41,17 @@ class PropertyLayer:
     """
 
     propertylayer_experimental_warning_given = False
+
+    @property
+    def data(self):  # noqa: D102
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        # FIXME, in mesa 4, we simply should not allow a setter, forcing people
+        #    to always use data[:]
+        #    this holds even if we drop PropertyLayers in favour of raw numpy arrays.
+        self._data[:] = value
 
     def __init__(
         self, name: str, dimensions: Sequence[int], default_value=0.0, dtype=float
@@ -76,7 +88,7 @@ class PropertyLayer:
             ) from e
 
         # Public attribute exposing the raw data
-        self.data = np.full(self.dimensions, default_value, dtype=dtype)
+        self._data = np.full(self.dimensions, default_value, dtype=dtype)
 
     @classmethod
     def from_data(cls, name: str, data: np.ndarray):
@@ -93,7 +105,7 @@ class PropertyLayer:
             default_value=data.flat[0],
             dtype=data.dtype.type,
         )
-        layer.data = data
+        layer.data = data.copy()
         return layer
 
     def set_cells(self, value, condition: Callable | None = None):
@@ -225,16 +237,23 @@ class HasPropertyLayers:
             )
         if layer.name in self._mesa_property_layers:
             raise ValueError(f"Property layer {layer.name} already exists.")
-        if (
-            layer.name in self.cell_klass.__slots__
-            or layer.name in self.cell_klass.__dict__
+        if layer.name in set(
+            chain.from_iterable(
+                getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
+            )
         ):
             raise ValueError(
                 f"Property layer {layer.name} clashes with existing attribute in {self.cell_klass.__name__}"
             )
 
         self._mesa_property_layers[layer.name] = layer
-        setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+        setattr(
+            self.cell_klass,
+            layer.name,
+            create_property_accessors(
+                layer._data, docstring=f"accessor for {layer.name}"
+            ),
+        )
         self.cell_klass._mesa_properties.add(layer.name)
 
     def remove_property_layer(self, property_name: str):
@@ -242,7 +261,6 @@ class HasPropertyLayers:
 
         Args:
             property_name: the name of the property layer to remove
-            remove_from_cells: whether to remove the property layer from all cells (default: True)
         """
         del self._mesa_property_layers[property_name]
         delattr(self.cell_klass, property_name)
@@ -405,17 +423,16 @@ class HasPropertyLayers:
                 super().__setattr__(key, value)
 
 
-class PropertyDescriptor:
-    """Descriptor for giving cells attribute like access to values defined in property layers."""
+def create_property_accessors(layer, docstring=None):
+    """Helper function for creating accessor for properties on cells."""
 
-    def __init__(self, property_layer: PropertyLayer):  # noqa: D107
-        self.layer: PropertyLayer = property_layer
+    def getter(self):
+        return layer[self.coordinate]
 
-    def __get__(self, instance: Cell, owner):  # noqa: D105
-        return self.layer.data[instance.coordinate]
+    def setter(self, value):
+        layer[self.coordinate] = value
 
-    def __set__(self, instance: Cell, value):  # noqa: D105
-        self.layer.data[instance.coordinate] = value
+    return property(getter, setter, doc=docstring)
 
 
 def ufunc_requires_additional_input(ufunc):  # noqa: D103

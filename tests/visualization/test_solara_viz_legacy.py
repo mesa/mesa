@@ -109,8 +109,8 @@ def test_call_space_drawer_full(mocker):
             super().__init__(model)
 
     class MockModel(mesa.Model):
-        def __init__(self, seed=None):
-            super().__init__(seed=seed)
+        def __init__(self, rng=None):
+            super().__init__(rng=rng)
             layer1 = PropertyLayer(
                 name="sugar", width=10, height=10, default_value=10.0, dtype=float
             )
