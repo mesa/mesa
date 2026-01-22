@@ -86,6 +86,7 @@ def test_seed():
     model_explicit = Model(rng=42)
     assert model_explicit._seed == 42
     assert model_explicit.scenario.rng == 42
+    assert model_explicit.seed == 42
 
     # Case 2: None
     # The model should generate a integer seed
