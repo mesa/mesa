@@ -214,6 +214,9 @@ class Model[A: Agent, S: Scenario]:
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
         """
+        if agent in self._agents:
+            return
+
         self._agents[agent] = None
         agent.unique_id = self.agent_id_counter
         self.agent_id_counter += 1

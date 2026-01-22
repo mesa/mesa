@@ -189,7 +189,7 @@ def create_meta_agent(
         meta_methods (Dict[str, Callable]): methods to be added to the meta-agent.
         """
         if assume_constituting_agent_methods:
-            agent_classes = {type(agent) for agent in agents}
+            agent_classes = list(dict.fromkeys(type(agent) for agent in agents))
             if meta_methods is None:
                 # Initialize meta_methods if not provided
                 meta_methods = {}
