@@ -12,7 +12,7 @@ from matplotlib.colors import to_rgb
 import mesa
 from mesa.discrete_space import DiscreteSpace, Grid
 from mesa.space import ContinuousSpace, PropertyLayer, _Grid
-from mesa.visualization.utils import FigureAltair, update_counter
+from mesa.visualization.utils import update_counter
 
 
 def make_space_altair(*args, **kwargs):  # noqa: D103
@@ -85,7 +85,7 @@ def SpaceAltair(
     if post_process is not None:
         chart = post_process(chart)
 
-    return FigureAltair(chart)
+    solara.FigureAltair(chart)
 
 
 def _portrayal_to_dict(portrayal_result, agent):
@@ -549,4 +549,4 @@ def PlotAltair(model, measure, post_process: Callable | None = None, grid=False)
     if post_process is not None:
         chart = post_process(chart)
 
-    return FigureAltair(chart)
+    return solara.FigureAltair(chart)

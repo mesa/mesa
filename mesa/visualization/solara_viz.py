@@ -45,7 +45,7 @@ from mesa.mesa_logging import create_module_logger, function_logger
 from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.space_renderer import SpaceRenderer
 from mesa.visualization.user_param import Slider
-from mesa.visualization.utils import FigureAltair, force_update, update_counter
+from mesa.visualization.utils import force_update, update_counter
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -329,7 +329,7 @@ def SpaceRendererComponent(
 
         final_chart = final_chart.configure_view(stroke="black", strokeWidth=1.5)
 
-        FigureAltair(final_chart, on_click=None, on_hover=None)
+        solara.FigureAltair(final_chart, on_click=None, on_hover=None)
         return None
 
 
