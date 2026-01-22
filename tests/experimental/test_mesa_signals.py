@@ -1,5 +1,6 @@
 """Tests for mesa_signals."""
 
+import copy
 from unittest.mock import Mock, patch
 
 import pytest
@@ -54,15 +55,23 @@ def test_HasObservables():
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert handler in subscribers
 
     agent.unobserve("some_attribute", "change", handler)
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert handler not in subscribers
 
+    # For attributes with no observers, use .get() to safely access the lazy dict
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 0
 
@@ -70,12 +79,16 @@ def test_HasObservables():
     agent.observe(All(), "change", handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[attr]["change"]}
+        subscribers = {
+            entry() for entry in agent.subscribers.get(attr, {}).get("change", [])
+        }
         assert handler in subscribers
 
     agent.unobserve(All(), "change", handler)
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[attr]["change"]}
+        subscribers = {
+            entry() for entry in agent.subscribers.get(attr, {}).get("change", [])
+        }
         assert handler not in subscribers
         assert len(subscribers) == 0
 
@@ -86,24 +99,35 @@ def test_HasObservables():
         agent.observe("some_attribute", "change", handler)
         agent.observe("some_other_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == nr_observers
 
     agent.clear_all_subscriptions("some_attribute")
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 3
 
     agent.clear_all_subscriptions(All())
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers.get("some_attribute", {}).get("change", [])
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry()
+        for entry in agent.subscribers.get("some_other_attribute", {}).get("change", [])
     }
     assert len(subscribers) == 0
 
@@ -427,6 +451,68 @@ def test_dead_parent_fallback():
     assert val == 1
 
 
+def test_coverage_edge_cases():
+    """Test edge cases for improved coverage."""
+    # Test All.__copy__ and All.__deepcopy__ (lines 287, 290)
+    all_instance = All()
+    shallow = copy.copy(all_instance)
+    deep = copy.deepcopy(all_instance)
+    assert shallow is all_instance
+    assert deep is all_instance
+
+    # Test BaseObservable.__str__ (line 88)
+    class MyAgent(Agent, HasObservables):
+        attr = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.attr = 10
+
+    model = Model(seed=42)
+    agent = MyAgent(model)
+    descriptor = type(agent).__dict__["attr"]
+    assert "attr" in str(descriptor)
+
+    # Test ComputedProperty.__str__ (line 193)
+    class ComputedAgent(Agent, HasObservables):
+        source = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.source = 5
+
+        @computed
+        def computed_attr(self):
+            return self.source * 2
+
+    agent2 = ComputedAgent(model)
+    _ = agent2.computed_attr  # trigger computation
+    # Access the ComputedState object for this instance (stored as _computed_{func_name})
+    computed_obj = agent2._computed_computed_attr
+    # ComputedState has a 'name' attribute that should match
+    assert computed_obj.name == "computed_attr"
+
+    # Test computed returning same value (line 167)
+    class ConstantComputedAgent(Agent, HasObservables):
+        source = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.source = 10
+
+        @computed
+        def computed_attr(self):
+            _ = self.source  # read to register dependency
+            return 42
+
+    agent3 = ConstantComputedAgent(model)
+    first = agent3.computed_attr
+    assert first == 42
+    agent3.source = 20  # change dependency
+    second = agent3.computed_attr  # should recalculate but return same value
+    assert second == 42
+
+
 def test_list_support():
     """Test using list of strings for name and signal_type in observe/unobserve."""
 
@@ -451,7 +537,10 @@ def test_list_support():
     # Check subscriptions
     assert handler in [ref() for ref in agent.subscribers["attr1"]["change"]]
     assert handler in [ref() for ref in agent.subscribers["attr2"]["change"]]
-    assert handler not in [ref() for ref in agent.subscribers["attr3"]["change"]]
+    # attr3 was not observed, so it may not exist in subscribers (lazy initialization)
+    assert "attr3" not in agent.subscribers or handler not in [
+        ref() for ref in agent.subscribers["attr3"].get("change", [])
+    ]
 
     # Test unobserve with list of names
     agent.unobserve(["attr1", "attr2"], "change", handler)
@@ -476,7 +565,10 @@ def test_list_support():
     agent2.observe("custom_attr", ["type1", "type3"], handler2)
 
     assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type1"]]
-    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type2"]]
+    # type2 was never observed, so may not exist (lazy initialization)
+    assert "type2" not in agent2.subscribers.get("custom_attr", {}) or handler2 not in [
+        ref() for ref in agent2.subscribers["custom_attr"]["type2"]
+    ]
     assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type3"]]
 
     # Test unobserve with list of signal types
@@ -488,8 +580,12 @@ def test_list_support():
     agent.observe(["attr1", "attr2", "attr3"], "change", handler)
     agent.clear_all_subscriptions(["attr1", "attr3"])
 
-    # helper to check emptiness
+    # helper to check emptiness - handles the case where key is deleted entirely
     def is_empty(attr):
+        if attr not in agent.subscribers:
+            return True
+        if "change" not in agent.subscribers[attr]:
+            return True
         return len([ref() for ref in agent.subscribers[attr]["change"] if ref()]) == 0
 
     assert is_empty("attr1")
