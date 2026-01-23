@@ -818,10 +818,6 @@ def ModelCreator(
         - The `seed` argument ensures reproducibility by setting the initial seed for the model's random number generator.
         - The component provides an interface for adjusting user-defined parameters and reseeding the model.
     """
-<<<<<<< HEAD
-
-=======
->>>>>>> 8ae8e92a (Refactor SolaraViz to infer scenario parameters)
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
