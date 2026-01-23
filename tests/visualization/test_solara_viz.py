@@ -344,7 +344,9 @@ def test_parameter_splitting_logic():
         scenario_param2: int = 10
 
     class TestModel(mesa.Model):
-        def __init__(self, model_param1=5, model_param2=15, scenario: TestScenario | None = None):
+        def __init__(
+            self, model_param1=5, model_param2=15, scenario: TestScenario | None = None
+        ):
             super().__init__(scenario=scenario)
             self.model_param1 = model_param1
             self.model_param2 = model_param2
@@ -358,7 +360,7 @@ def test_parameter_splitting_logic():
         "model_param1": 15,
         "model_param2": 30,
         "scenario_param1": 0.9,  # Should go to scenario
-        "scenario_param2": 25,   # Should go to scenario
+        "scenario_param2": 25,  # Should go to scenario
     }
 
     # Test the splitting logic (same as in ModelController)
