@@ -104,6 +104,11 @@ class BaseObservable(ABC):
 
     @abstractmethod
     def __set__(self, instance: HasObservables, value):
+        # If no one is listening, Avoid overhead of fetching old value and
+        # creating Message object.
+        if not instance._has_subscribers(self.public_name, SignalType.CHANGE):
+            return
+
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
         instance.notify(
@@ -293,6 +298,21 @@ class HasObservables:
 
         """
         self.observables[name] = signal_types
+
+    def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
+        """Check if there are any subscribers for a given observable and signal type.
+
+        Args:
+            name: name of the Observable
+            signal_type: the type of signal to check for
+
+        Returns:
+            bool: True if there are subscribers, False otherwise
+        """
+        if name not in self.subscribers or signal_type not in self.subscribers[name]:
+            return False
+
+        return len(self.subscribers[name][signal_type]) > 0
 
     def observe(
         self,
