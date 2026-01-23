@@ -259,7 +259,7 @@ class NumpyAgentDataSet[A: Agent](DataSet):
                 self._expand_storage()
 
         # Activate the slot
-        setattr(agent, self._index_in_table, index) # set row index on agent
+        setattr(agent, self._index_in_table, index)  # set row index on agent
         self._is_active[index] = True
         self._agent_to_index[agent] = index
         self._index_to_agent[index] = agent
