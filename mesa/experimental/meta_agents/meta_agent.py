@@ -236,7 +236,10 @@ def create_meta_agent(
     for a in agents:
         if hasattr(a, "meta_agents"):
             for ma in a.meta_agents:
-                if ma.__class__.__name__ == new_agent_class and ma not in existing_meta_agents:
+                if (
+                    ma.__class__.__name__ == new_agent_class
+                    and ma not in existing_meta_agents
+                ):
                     existing_meta_agents.append(ma)
 
     if len(existing_meta_agents) > 0:
