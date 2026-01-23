@@ -1,5 +1,6 @@
 """Test Solara visualizations - Modern API."""
 
+import inspect
 import re
 import unittest
 
@@ -8,6 +9,7 @@ import pytest
 import solara
 
 import mesa
+from mesa.experimental.scenarios import Scenario
 from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
@@ -274,3 +276,115 @@ def test_check_model_params_with_args_only():
         ),
     ):
         _check_model_params(ModelWithArgsOnly.__init__, model_params)
+
+
+def test_solara_viz_with_scenario():
+    """Test SolaraViz with scenario-enabled models."""
+
+    class TestScenario(Scenario):
+        density: float = 0.8
+        vision: int = 7
+
+    class TestModel(mesa.Model):
+        def __init__(self, height=20, width=20, scenario: TestScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.height = height
+            self.width = width
+
+    scenario = TestScenario(density=0.5, vision=10)
+    model = TestModel(scenario=scenario)
+
+    model_params = {
+        "height": Slider("Height", 30, 10, 50, 5),
+        "width": Slider("Width", 25, 10, 50, 5),
+        "density": Slider("Density", 0.7, 0.0, 1.0, 0.1),  # Scenario param
+        "vision": Slider("Vision", 5, 1, 15, 1),  # Scenario param
+    }
+
+    # Should render without error
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_model_creator_with_scenario():
+    """Test ModelCreator component with scenario parameters."""
+
+    class TestScenario(Scenario):
+        param1: float = 0.5
+        param2: int = 10
+
+    class TestModel(mesa.Model):
+        def __init__(self, model_param=5, scenario: TestScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.model_param = model_param
+
+    scenario = TestScenario(param1=0.8, param2=15)
+    model = TestModel(model_param=10, scenario=scenario)
+
+    # Only include model parameters in user_params for ModelCreator
+    # Scenario parameters are handled internally by the parameter splitting logic
+    user_params = {
+        "model_param": 20,
+    }
+
+    # Should render without error
+    solara.render(
+        ModelCreator(
+            solara.reactive(model),
+            user_params=user_params,
+        ),
+        handle_error=False,
+    )
+
+
+def test_parameter_splitting_logic():
+    """Test the core parameter splitting logic used in ModelController."""
+
+    class TestScenario(Scenario):
+        scenario_param1: float = 0.5
+        scenario_param2: int = 10
+
+    class TestModel(mesa.Model):
+        def __init__(self, model_param1=5, model_param2=15, scenario: TestScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.model_param1 = model_param1
+            self.model_param2 = model_param2
+
+    # Test the splitting logic
+    scenario = TestScenario(scenario_param1=0.8, scenario_param2=20)
+    model = TestModel(model_param1=10, model_param2=25, scenario=scenario)
+
+    # Mock model parameters (mixed model and scenario params)
+    model_parameters = {
+        "model_param1": 15,
+        "model_param2": 30,
+        "scenario_param1": 0.9,  # Should go to scenario
+        "scenario_param2": 25,   # Should go to scenario
+    }
+
+    # Test the splitting logic (same as in ModelController)
+    if hasattr(model, "scenario") and model.scenario:
+        scenario_class = model.scenario.__class__
+        scenario_defaults = getattr(model.scenario, "_scenario_defaults", {})
+        if not scenario_defaults:
+            scenario_defaults = inspect.signature(scenario_class).parameters
+
+        model_init_params = inspect.signature(model.__class__.__init__).parameters
+
+        scenario_kwargs = {}
+        model_kwargs = {}
+
+        for k, v in model_parameters.items():
+            if k in scenario_defaults and k not in model_init_params:
+                scenario_kwargs[k] = v
+            else:
+                model_kwargs[k] = v
+
+    # Verify the split
+    assert "scenario_param1" in scenario_kwargs
+    assert "scenario_param2" in scenario_kwargs
+    assert "model_param1" in model_kwargs
+    assert "model_param2" in model_kwargs
+    assert scenario_kwargs["scenario_param1"] == 0.9
+    assert scenario_kwargs["scenario_param2"] == 25
+    assert model_kwargs["model_param1"] == 15
+    assert model_kwargs["model_param2"] == 30

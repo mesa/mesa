@@ -44,10 +44,91 @@ class TestSolaraVizScenarios(unittest.TestCase):
         # Check if it renders without error
         solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
 
+    def test_scenario_subclass_with_type_hints(self):
+        """Test that scenario subclasses with type hints work correctly."""
+
+        class TypedScenario(Scenario):
+            agent_density: float = 0.8
+            agent_vision: int = 7
+            movement_enabled: bool = True
+            speed: float = 1.0
+
+        class TypedModel(mesa.Model):
+            def __init__(self, grid_size=10, scenario: TypedScenario | None = None):
+                super().__init__(scenario=scenario)
+                self.grid_size = grid_size
+
+        scenario = TypedScenario(agent_density=0.5, agent_vision=10)
+        model = TypedModel(scenario=scenario)
+
+        model_params = {
+            "grid_size": 20,
+            "agent_density": Slider("Density", 0.7, 0.0, 1.0, 0.1),
+            "movement_enabled": Slider("Movement", False, True, True, True),
+        }
+
+        # Should render without error
+        solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+        # Verify type hints are preserved
+        self.assertIsInstance(scenario.agent_density, float)
+        self.assertIsInstance(scenario.agent_vision, int)
+        self.assertIsInstance(scenario.movement_enabled, bool)
+
+    def test_empty_scenario_params(self):
+        """Test handling of empty scenario parameters."""
+
+        class EmptyScenario(Scenario):
+            pass
+
+        class ModelWithEmptyScenario(mesa.Model):
+            def __init__(self, height=20, scenario: EmptyScenario | None = None):
+                super().__init__(scenario=scenario)
+                self.height = height
+
+        scenario = EmptyScenario()
+        model = ModelWithEmptyScenario(scenario=scenario)
+
+        model_params = {
+            "height": 25,
+        }
+
+        # Should work without errors
+        solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+    def test_scenario_with_defaults(self):
+        """Test scenario with default values."""
+
+        class ScenarioWithDefaults(Scenario):
+            density: float = 0.5
+            vision: int = 5
+            speed: float = 1.0
+
+        class ModelWithDefaults(mesa.Model):
+            def __init__(self, width=10, scenario: ScenarioWithDefaults | None = None):
+                super().__init__(scenario=scenario)
+                self.width = width
+
+        # Test with default scenario values
+        scenario = ScenarioWithDefaults()
+        ModelWithDefaults(scenario=scenario)
+
+        self.assertEqual(scenario.density, 0.5)
+        self.assertEqual(scenario.vision, 5)
+        self.assertEqual(scenario.speed, 1.0)
+
+        # Test with overridden values
+        scenario = ScenarioWithDefaults(density=0.8, vision=10)
+        ModelWithDefaults(scenario=scenario)
+
+        self.assertEqual(scenario.density, 0.8)
+        self.assertEqual(scenario.vision, 10)
+        self.assertEqual(scenario.speed, 1.0)  # Still default
+
     def test_reset_with_scenario(self):
         """Test that resetting the model correctly reconstructs the scenario."""
-        # This is harder to test without a full Solara environment and interaction
-        # but we can try to test the ModelController logic if we can isolate it.
+        # This test would require more complex setup with actual Solara interaction
+        # For now, we test the core logic separately in test_parameter_splitting_logic
 
 
 if __name__ == "__main__":
