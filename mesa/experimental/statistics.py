@@ -361,7 +361,9 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         # Boolean indexing - returns only active rows
         # self._n_slots is the number of slots that have been handed out
         # some might be inactive now, but there can never be more
-        return self._agent_data[: self._n_slots][self._is_active[: self._n_slots]]
+        # the alternative is to just do self._agent_data[self._is_active]
+        return self._agent_data[:self._n_slots][self._is_active[:self._n_slots]]
+
 
     @property
     def active_agents(self) -> list[A]:
