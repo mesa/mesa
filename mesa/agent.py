@@ -562,6 +562,15 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         """
         del self._agents[agent]
 
+    def difference_update(self, agents: Iterable[A]) -> None:
+        """Remove all elements of another set from this set.
+
+        Args:
+            agents (Iterable[A]): The agents to remove.
+        """
+        for agent in agents:
+            self.discard(agent)
+
     def __getstate__(self):
         """Retrieve the state of the AgentSet for serialization.
 

@@ -236,11 +236,17 @@ def create_meta_agent(
     for a in agents:
         if hasattr(a, "meta_agents"):
             for ma in a.meta_agents:
-                if ma.__class__.__name__ == new_agent_class:
+                if ma.__class__.__name__ == new_agent_class and ma not in existing_meta_agents:
                     existing_meta_agents.append(ma)
 
     if len(existing_meta_agents) > 0:
-        meta_agent = model.random.choice(existing_meta_agents)
+        # TODO: Add way for user to specify how agents join meta-agent
+        # instead of random choice if there are multiple meta-agents of the same class
+        meta_agent = (
+            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+            if len(existing_meta_agents) > 1
+            else existing_meta_agents[0]
+        )
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)
@@ -373,19 +379,21 @@ class MetaAgent(Agent):
             agent.meta_agents.add(self)
             agent.meta_agent = self
 
-    def remove_constituting_agents(self, remove_agents: set[Agent]):
+    def remove_constituting_agents(self, remove_agents: Iterable[Agent]):
         """Remove agents as components.
 
         Args:
-            remove_agents (set[Agent]): The agents to remove from MetaAgent.
+            remove_agents (Iterable[Agent]): The agents to remove from MetaAgent.
         """
+        self._constituting_set.difference_update(remove_agents)
         for agent in remove_agents:
-            self._constituting_set.discard(agent)
             if hasattr(agent, "meta_agents"):
                 agent.meta_agents.discard(self)
-                # Update backward compatibility attribute
+                # Update backward compatibility attribute deterministically
                 if len(agent.meta_agents) > 0:
-                    agent.meta_agent = next(iter(agent.meta_agents))
+                    agent.meta_agent = sorted(
+                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                    )[0]
                 else:
                     agent.meta_agent = None
 
