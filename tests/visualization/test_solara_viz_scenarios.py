@@ -32,18 +32,17 @@ class MyModel(mesa.Model):
 class TestSolaraVizScenarios(unittest.TestCase):
     """Test suite for SolaraViz Scenario support."""
 
-    def test_auto_split_params(self):
-        """Test that parameters are automatically split between model and scenario."""
+    def test_mixed_params_rendering(self):
+        """Test that mixing model and scenario parameters renders correctly."""
         model = MyModel()
         model_params = {
             "height": 50,
-            "density": 0.8,  # Should be moved to scenario
+            "density": Slider("Density", 0.8, 0.1, 1.0, 0.1),  # Scenario param
+            "width": Slider("Width", 40, 10, 100, 10),      # Model param
         }
 
-        # We can't easily check the internal state of SolaraViz components without complex mocks
-        # but we can check if it renders without error
+        # Check if it renders without error
         solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
-
 
     def test_reset_with_scenario(self):
         """Test that resetting the model correctly reconstructs the scenario."""
