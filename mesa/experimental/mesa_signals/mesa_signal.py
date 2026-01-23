@@ -276,7 +276,7 @@ class HasObservables:
 
     # we can't use a weakset here because it does not handle bound methods correctly
     # also, a list is faster for our use case
-    subscribers: dict[tuple[str, str], list]
+    subscribers: dict[tuple[str, str], list]   # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, set[str]]
 
     def __init__(self, *args, **kwargs) -> None:
