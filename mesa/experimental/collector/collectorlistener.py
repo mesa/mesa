@@ -51,13 +51,13 @@ class DatasetConfig:
         interval: Collection frequency in steps
         start: First step to begin collection
         enabled: Whether collection is active
-        next_collection: Internal - next scheduled collection step
+        _next_collection: next scheduled collection step
     """
 
     interval: int = 1
     start: int = 0
     enabled: bool = True
-    next_collection: int = 0
+    _next_collection: int = 0
 
     def __post_init__(self):
         """Validate configuration."""
@@ -65,7 +65,7 @@ class DatasetConfig:
             raise ValueError(f"interval must be >= 1, got {self.interval}")
         if self.start < 0:
             raise ValueError(f"start must be >= 0, got {self.start}")
-        self.next_collection = self.start
+        self._next_collection = self.start
 
 
 @dataclass
@@ -95,7 +95,7 @@ class CollectorListener:
     """Orchestrates data collection from DataRegistry using Observable signals.
 
     Automatically collects data after each model step by subscribing to the
-    model's 'steps' observable. Clean, efficient, no scheduler overhead.
+    model's 'steps' observable.
 
     Responsibilities:
         - Subscribe to model.steps observable
@@ -220,7 +220,7 @@ class CollectorListener:
             # Exit early if not due
             if not storage.config.enabled:
                 continue
-            if current_step < storage.config.next_collection:
+            if current_step < storage.config._next_collection:
                 continue
 
             # Extract data from registry
@@ -232,7 +232,7 @@ class CollectorListener:
                 self._store_data(name, current_step, data_snapshot, storage)
 
                 # Update next collection time
-                storage.config.next_collection = current_step + storage.config.interval
+                storage.config._next_collection = current_step + storage.config.interval
 
             except Exception as e:
                 warnings.warn(
@@ -252,14 +252,14 @@ class CollectorListener:
         for name, storage in self.storage.items():
             if not storage.config.enabled:
                 continue
-            if current_step < storage.config.next_collection:
+            if current_step < storage.config._next_collection:
                 continue
 
             try:
                 dataset = self.registry.datasets[name]
                 data_snapshot = dataset.data
                 self._store_data(name, current_step, data_snapshot, storage)
-                storage.config.next_collection = current_step + storage.config.interval
+                storage.config._next_collection = current_step + storage.config.interval
             except Exception as e:
                 warnings.warn(
                     f"Collection failed: dataset='{name}', step={current_step}: {e}",
