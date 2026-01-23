@@ -1,10 +1,10 @@
-"""High-performance Listener for the DataRegistry Architecture.
+"""CollectorListener for the DataRegistry Architecture.
 
 This module orchestrates data collection from Mesa's DataRegistry, managing
 storage and conversion to analysis-ready formats.
 
 Architecture:
-    DataRegistry (statistics.py) → CollectorListener (this file) → Analysis
+    DataRegistry (statistics.py) → CollectorListener → Analysis
 
     - DataRegistry: Pure extraction (what to collect)
     - CollectorListener: Storage orchestration (efficient accumulation)
@@ -270,7 +270,7 @@ class CollectorListener:
     def _store_data(
         self, name: str, step: int, data: Any, storage: DatasetStorage
     ) -> None:
-        """Store data snapshot efficiently based on type."""
+        """Store data snapshot based on type."""
         added_bytes = 0
 
         # Numpy array (NumpyAgentDataSet) - MUST COPY
