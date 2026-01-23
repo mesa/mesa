@@ -304,7 +304,7 @@ class HasObservables:
 
         Args:
             name: name of the Observable
-            signal_type: the type of signal to check for
+            signal_type: the type of signal on the Observable to check for
 
         Returns:
             bool: True if there are subscribers, False otherwise
