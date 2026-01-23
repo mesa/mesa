@@ -64,7 +64,7 @@ def test_draw_space():
         )
 
     # draw space for hexgrid
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = HexSingleGrid(10, 10, torus=True)
     for _ in range(10):
         agent = Agent(model)
@@ -75,7 +75,7 @@ def test_draw_space():
     draw_space(grid, my_portrayal, ax=ax)
 
     # draw space for voroinoi
-    model = Model(seed=42)
+    model = Model(rng=42)
     coordinates = model.rng.random((100, 2)) * 10
     grid = VoronoiGrid(coordinates.tolist(), random=model.random, capacity=1)
     for _ in range(10):
@@ -87,7 +87,7 @@ def test_draw_space():
     draw_space(grid, my_portrayal, ax=ax)
 
     # draw orthogonal grid
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
     for _ in range(10):
         agent = CellAgent(model)
@@ -99,10 +99,10 @@ def test_draw_space():
     # draw network
     n = 10
     m = 20
-    seed = 42
-    graph = nx.gnm_random_graph(n, m, seed=seed)
+    rng = 42
+    graph = nx.gnm_random_graph(n, m, seed=rng)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = NetworkGrid(graph)
     for _ in range(10):
         agent = Agent(model)
@@ -113,7 +113,7 @@ def test_draw_space():
     draw_space(grid, my_portrayal, ax=ax)
 
     # draw continuous space
-    model = Model(seed=42)
+    model = Model(rng=42)
     space = ContinuousSpace(10, 10, torus=True)
     for _ in range(10):
         x = model.random.random() * 10
@@ -128,7 +128,7 @@ def test_draw_space():
 
 def test_draw_hex_grid():
     """Test drawing hexgrids."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = HexSingleGrid(10, 10, torus=True)
     for _ in range(10):
         agent = Agent(model)
@@ -138,7 +138,7 @@ def test_draw_hex_grid():
     ax = fig.add_subplot()
     draw_hex_grid(grid, agent_portrayal, ax)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = HexGrid((10, 10), torus=True, random=model.random, capacity=1)
     for _ in range(10):
         agent = CellAgent(model)
@@ -151,7 +151,7 @@ def test_draw_hex_grid():
 
 def test_draw_voronoi_grid():
     """Test drawing voronoi grids."""
-    model = Model(seed=42)
+    model = Model(rng=42)
 
     coordinates = model.rng.random((100, 2)) * 10
 
@@ -167,7 +167,7 @@ def test_draw_voronoi_grid():
 
 def test_draw_orthogonal_grid():
     """Test drawing orthogonal grids."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = SingleGrid(10, 10, torus=True)
     for _ in range(10):
         agent = Agent(model)
@@ -177,7 +177,7 @@ def test_draw_orthogonal_grid():
     ax = fig.add_subplot()
     draw_orthogonal_grid(grid, agent_portrayal, ax)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
     for _ in range(10):
         agent = CellAgent(model)
@@ -190,7 +190,7 @@ def test_draw_orthogonal_grid():
 
 def test_draw_continuous_space():
     """Test drawing continuous space."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     space = ContinuousSpace(10, 10, torus=True)
     for _ in range(10):
         x = model.random.random() * 10
@@ -207,10 +207,10 @@ def test_draw_network():
     """Test drawing network."""
     n = 10
     m = 20
-    seed = 42
-    graph = nx.gnm_random_graph(n, m, seed=seed)
+    rng = 42
+    graph = nx.gnm_random_graph(n, m, seed=rng)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = NetworkGrid(graph)
     for _ in range(10):
         agent = Agent(model)
@@ -221,7 +221,7 @@ def test_draw_network():
     ax = fig.add_subplot()
     draw_network(grid, agent_portrayal, ax)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = Network(graph, random=model.random, capacity=1)
     for _ in range(10):
         agent = CellAgent(model)
@@ -234,7 +234,7 @@ def test_draw_network():
 
 def test_draw_property_layers():
     """Test drawing property layers."""
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = SingleGrid(10, 10, torus=True)
     grid.add_property_layer(
         PropertyLayer("test", grid.width, grid.height, 0, dtype=int)
@@ -247,7 +247,7 @@ def test_draw_property_layers():
     ax = fig.add_subplot()
     draw_property_layers(grid, propertylayer_portrayal, ax)
 
-    model = Model(seed=42)
+    model = Model(rng=42)
     grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
     grid.create_property_layer("test", 0.0)
 

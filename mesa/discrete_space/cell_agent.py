@@ -13,7 +13,7 @@ creating custom cell-aware agents.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from mesa.agent import Agent
 
@@ -106,16 +106,15 @@ class FixedAgent(Agent, FixedCell):
         """Remove the agent from the model."""
         super().remove()
 
-        # fixme we leave self._mesa_cell on the original value
-        #  so you cannot hijack remove() to move patches
         self.cell.remove_agent(self)
+        self._mesa_cell = None
 
 
 class Grid2DMovingAgent(CellAgent):
     """Mixin for moving agents in 2D grids."""
 
     # fmt: off
-    DIRECTION_MAP = {
+    DIRECTION_MAP: ClassVar[dict[str, tuple[int, int]]] = {
         "n": (-1, 0), "north": (-1, 0), "up": (-1, 0),
         "s": (1, 0), "south": (1, 0), "down": (1, 0),
         "e": (0, 1), "east": (0, 1), "right": (0, 1),

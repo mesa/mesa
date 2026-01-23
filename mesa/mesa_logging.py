@@ -9,6 +9,7 @@ import inspect
 import logging
 from functools import wraps
 from logging import DEBUG, INFO
+from typing import ClassVar
 
 __all__ = [
     "DEBUG",
@@ -75,7 +76,7 @@ class MESAColorFormatter(logging.Formatter):
         "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]"
     )
 
-    FORMATS = {
+    FORMATS: ClassVar[dict[int, str]] = {
         logging.DEBUG: grey + format + reset,
         logging.INFO: green + format + reset,
         logging.WARNING: yellow + format + reset,

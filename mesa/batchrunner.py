@@ -28,6 +28,7 @@ put the code inside an ``if __name__ == '__main__':`` code black as shown below:
 
 """
 
+import bisect
 import inspect
 import itertools
 import multiprocessing
@@ -41,8 +42,6 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from mesa.model import Model
-
-multiprocessing.set_start_method("spawn", force=True)
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 
@@ -77,6 +76,8 @@ def batch_run(
         batch_run assumes the model has a `datacollector` attribute that has a DataCollector object initialized.
 
     """
+    multiprocessing.set_start_method("spawn", force=True)
+
     if iterations is not None and rng is not None:
         raise ValueError(
             "you cannot use both iterations and rng at the same time. Please only use rng."
@@ -201,15 +202,27 @@ def _model_run_func(
     run_id, iteration, kwargs = run
 
     model = model_cls(**kwargs)
-    while model.running and model.steps <= max_steps:
+    while model.running and model.steps < max_steps:
         model.step()
 
     data = []
 
-    steps = list(range(0, model.steps, data_collection_period))
-    if not steps or steps[-1] != model.steps - 1:
-        steps.append(model.steps - 1)
-
+    # Use the DataCollector's actual history to capture ALL data (including sub-steps)
+    try:
+        recorded_steps = model.datacollector._collection_steps
+    except AttributeError:
+        # Fallback for legacy models without _collection_steps
+        steps = list(range(0, model.steps, data_collection_period))
+        if not steps or steps[-1] != model.steps - 1:
+            steps.append(model.steps - 1)
+    else:
+        match data_collection_period:
+            case -1:
+                steps = [recorded_steps[-1]] if recorded_steps else []
+            case 1:
+                steps = recorded_steps
+            case _:
+                steps = recorded_steps[::data_collection_period]
     for step in steps:
         model_data, all_agents_data = _collect_data(model, step)
 
@@ -253,12 +266,63 @@ def _collect_data(
         )
     dc = model.datacollector
 
-    model_data = {param: values[step] for param, values in dc.model_vars.items()}
+    # Check if modern DataCollector with _collection_steps exists (handles time dilation)
+    if hasattr(dc, "_collection_steps"):
+        idx = bisect.bisect_right(dc._collection_steps, step) - 1
+        if (
+            idx >= 0
+            and idx < len(dc._collection_steps)
+            and dc._collection_steps[idx] == step
+        ):
+            # Exact match found - use the index directly
+            model_data = {param: values[idx] for param, values in dc.model_vars.items()}
+        else:
+            # Step not found in _collection_steps
+            # Use sparse collection logic: find the nearest collected step
+            if idx >= 0 and idx < len(dc._collection_steps):
+                # Use the most recent collected data before this step
+                model_data = {
+                    param: values[idx] for param, values in dc.model_vars.items()
+                }
+            else:
+                # No data collected yet, use first available
+                try:
+                    model_data = {
+                        param: values[0] for param, values in dc.model_vars.items()
+                    }
+                except IndexError:
+                    model_data = {}
+    else:
+        # Legacy DataCollector without _collection_steps
+        # Use sparse collection logic for models that collect data irregularly
+        available_steps = sorted(dc._agent_records.keys())
+        if step not in available_steps:
+            step = max((s for s in available_steps if s <= step), default=0)
+
+        try:
+            collection_index = available_steps.index(step)
+        except ValueError:
+            collection_index = 0
+
+        model_data = {
+            param: values[collection_index] for param, values in dc.model_vars.items()
+        }
 
     all_agents_data = []
+
+    # Collect agent_reporters data
     raw_agent_data = dc._agent_records.get(step, [])
     for data in raw_agent_data:
         agent_dict = {"AgentID": data[1]}
         agent_dict.update(zip(dc.agent_reporters, data[2:]))
         all_agents_data.append(agent_dict)
+
+    # Collect agenttype_reporters data
+    raw_agenttype_data = dc._agenttype_records.get(step, {})
+    for agent_type, agents_data in raw_agenttype_data.items():
+        for data in agents_data:
+            agent_dict = {"AgentID": data[1]}
+            agent_dict.update(zip(dc.agenttype_reporters[agent_type], data[2:]))
+            all_agents_data.append(agent_dict)
+
     return model_data, all_agents_data
