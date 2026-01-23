@@ -132,6 +132,7 @@ class WolfSheep(Model):
 
         # Collect data
         a = self.data_registry["model_data"].data  # fake snapshotting if for now
+        a = self.data_registry["wolf_data"].data  # fake snapshotting if for now
 
 
 if __name__ == "__main__":
