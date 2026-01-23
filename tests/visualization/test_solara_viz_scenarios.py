@@ -38,7 +38,7 @@ class TestSolaraVizScenarios(unittest.TestCase):
         model_params = {
             "height": 50,
             "density": Slider("Density", 0.8, 0.1, 1.0, 0.1),  # Scenario param
-            "width": Slider("Width", 40, 10, 100, 10),      # Model param
+            "width": Slider("Width", 40, 10, 100, 10),  # Model param
         }
 
         # Check if it renders without error
