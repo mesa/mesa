@@ -550,7 +550,9 @@ def ModelController(
                 # Fallback to signature inspection if _scenario_defaults is missing
                 scenario_defaults = inspect.signature(scenario_class).parameters
 
-            model_init_params = inspect.signature(model.value.__class__.__init__).parameters
+            model_init_params = inspect.signature(
+                model.value.__class__.__init__
+            ).parameters
 
             for k, v in model_parameters.value.items():
                 if k in scenario_defaults and k not in model_init_params:
@@ -561,8 +563,7 @@ def ModelController(
             if scenario_kwargs:
                 kwargs["scenario"] = scenario_class(**scenario_kwargs)
         else:
-             kwargs = {**model_parameters.value}
-
+            kwargs = {**model_parameters.value}
 
         model.value = model.value.__class__(**kwargs)
         if renderer is not None:
@@ -625,7 +626,6 @@ def SimulatorController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-
 
     visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
     pause_step_event = solara.use_memo(lambda: threading.Event(), [])
@@ -693,7 +693,6 @@ def SimulatorController(
         visualization_pause_event.clear()
         pause_step_event.clear()
 
-
         kwargs = {}
         scenario_kwargs = {}
 
@@ -704,7 +703,9 @@ def SimulatorController(
             if not scenario_defaults:
                 scenario_defaults = inspect.signature(scenario_class).parameters
 
-            model_init_params = inspect.signature(model.value.__class__.__init__).parameters
+            model_init_params = inspect.signature(
+                model.value.__class__.__init__
+            ).parameters
 
             for k, v in model_parameters.value.items():
                 if k in scenario_defaults and k not in model_init_params:
@@ -715,7 +716,7 @@ def SimulatorController(
             if scenario_kwargs:
                 kwargs["scenario"] = scenario_class(**scenario_kwargs)
         else:
-             kwargs = {**model_parameters.value}
+            kwargs = {**model_parameters.value}
 
         kwargs["simulator"] = simulator
 
