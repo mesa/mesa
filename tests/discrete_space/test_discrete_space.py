@@ -23,6 +23,7 @@ from mesa.discrete_space import (
     PropertyLayer,
     VoronoiGrid,
 )
+from mesa.exceptions import CellFullException
 
 
 def test_orthogonal_grid_neumann():
@@ -602,12 +603,12 @@ def test_cell():
     cell1.add_agent(CellAgent(model))
     assert cell1.is_full
 
-    with pytest.raises(Exception):
+    with pytest.raises(CellFullException):
         cell1.add_agent(CellAgent(model))
 
     # Test capacity=0 (no agents allowed)
     cell_zero = Cell((1,), capacity=0, random=random.Random())
-    with pytest.raises(Exception):
+    with pytest.raises(CellFullException):
         cell_zero.add_agent(CellAgent(model))
 
 

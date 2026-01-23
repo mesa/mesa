@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.exceptions import CellFullException
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
@@ -118,9 +119,7 @@ class Cell:
         self.empty = False
 
         if self.capacity is not None and n >= self.capacity:
-            raise Exception(
-                "ERROR: Cell is full"
-            )  # FIXME we need MESA errors or a proper error
+            raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
 
