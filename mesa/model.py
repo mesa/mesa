@@ -114,7 +114,12 @@ class Model[A: Agent, S: Scenario]:
         if (seed is not None) and (rng is not None):
             raise ValueError("you have to pass either rng or seed, not both")
         elif seed is None:
-            self.rng: np.random.Generator = np.random.default_rng(rng)
+            # If rng is already a Generator, spawn a child generator for isolation
+            # This ensures operations on model.rng don't affect the original generator's state
+            if isinstance(rng, np.random.Generator):
+                self.rng: np.random.Generator = rng.spawn(1)[0]
+            else:
+                self.rng: np.random.Generator = np.random.default_rng(rng)
             self._rng = (
                 self.rng.bit_generator.state
             )  # this allows for reproducing the rng
