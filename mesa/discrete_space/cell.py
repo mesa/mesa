@@ -20,7 +20,11 @@ from typing import TYPE_CHECKING
 
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
-from mesa.exceptions import CellFullException
+from mesa.exceptions import (
+    AgentMissingException,
+    CellFullException,
+    ConnectionMissingException,
+)
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
@@ -104,6 +108,10 @@ class Cell:
 
         """
         keys_to_remove = [k for k, v in self.connections.items() if v == other]
+
+        if not keys_to_remove:
+            raise ConnectionMissingException(self, other)
+
         for key in keys_to_remove:
             del self.connections[key]
         self._clear_cache()
@@ -130,7 +138,11 @@ class Cell:
             agent (CellAgent): agent to remove from this cell
 
         """
-        self._agents.remove(agent)
+        try:
+            self._agents.remove(agent)
+        except ValueError as e:
+            raise AgentMissingException(agent, self.coordinate) from e
+
         self.empty = self.is_empty
 
     @property

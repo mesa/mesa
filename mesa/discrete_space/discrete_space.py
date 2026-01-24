@@ -23,6 +23,7 @@ from typing import TypeVar
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.exceptions import CellMissingException
 
 T = TypeVar("T", bound=Cell)
 
@@ -113,7 +114,12 @@ class DiscreteSpace[T: Cell]:
 
         """
         neighbors = cell.neighborhood
-        self._cells.pop(cell.coordinate)
+
+        try:
+            self._cells.pop(cell.coordinate)
+        except KeyError as e:
+            raise CellMissingException(cell.coordinate) from e
+
         self.__dict__.pop("all_cells", None)
 
         # iterate over all neighbors

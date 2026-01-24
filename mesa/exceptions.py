@@ -16,3 +16,48 @@ class CellFullException(MesaException):
         """
         self.coordinate = coordinate
         super().__init__(f"Cell at coordinate {coordinate} is full.")
+
+
+class AgentMissingException(MesaException):
+    """Raised when attempting to remove an agent that is not in the cell."""
+
+    def __init__(self, agent, coordinate):
+        """Initialize the exception.
+
+        Args:
+            agent: The agent instance that was expected.
+            coordinate: The coordinate tuple of the cell.
+        """
+        self.agent = agent
+        self.coordinate = coordinate
+        super().__init__(f"Agent {agent.unique_id} is not in cell {coordinate}.")
+
+
+class CellMissingException(MesaException):
+    """Raised when attempting to access or remove a cell that does not exist."""
+
+    def __init__(self, coordinate):
+        """Initialize the exception.
+
+        Args:
+            coordinate: The coordinate tuple of the missing cell.
+        """
+        self.coordinate = coordinate
+        super().__init__(f"Cell at coordinate {coordinate} does not exist.")
+
+
+class ConnectionMissingException(MesaException):
+    """Raised when attempting to disconnect a cell that is not connected."""
+
+    def __init__(self, cell, other):
+        """Initialize the exception.
+
+        Args:
+            cell: The source cell instance.
+            other: The target cell instance that was not connected.
+        """
+        self.cell = cell
+        self.other = other
+        super().__init__(
+            f"Connection between {cell.coordinate} and {other.coordinate} does not exist."
+        )
