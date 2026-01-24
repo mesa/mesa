@@ -186,18 +186,18 @@ class Model[A: Agent, S: Scenario]:
             until: The time to advance to
 
         """
-        while not self._event_list.is_empty():
+        while True:
             try:
-                event = self._event_list.peek_ahead(1)[0]
+                event = self._event_list.pop_event()
             except IndexError:
                 break
 
-            if event.time > until:
+            if event.time <= until:
+                self.time = event.time
+                event.execute()
+            else:
+                self._event_list.add_event(event)
                 break
-
-            self._event_list.pop_event()
-            self.time = event.time
-            event.execute()
 
         self.time = until
 
