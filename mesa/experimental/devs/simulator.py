@@ -107,7 +107,7 @@ class Simulator:
     def reset(self):
         """Reset the simulator."""
         if self.model is not None:
-            self.model._event_list.clear()
+            self.event_list.clear()
             self.model._simulator = None
             self.model.time = self.start_time
 
