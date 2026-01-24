@@ -28,6 +28,11 @@ def run_model(model_class, seed, parameters):
         startup time and run time
     """
     uses_simulator = ["WolfSheep"]
+    # Explicitly collect garbage before the run to ensure a clean memory state
+    gc.collect()
+
+    # Disable GC during timed runs to avoid random slowdowns
+    gc.disable()
     start_init = time.perf_counter()
     if model_class.__name__ in uses_simulator:
         simulator = ABMSimulator()
@@ -44,10 +49,13 @@ def run_model(model_class, seed, parameters):
             model.step()
 
     end_run = time.perf_counter()
+    gc.enable()  # Re-enable GC after benchmarking
 
     # Clean up to avoid memory leaks
     model.remove_all_agents()
 
+    # Force a final collection to reclaim memory before the next iteration
+    gc.collect()
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
@@ -60,8 +68,6 @@ def run_experiments(model_class, config):
         config: the benchmark configuration
 
     """
-    # Disable GC during timed runs to avoid random slowdowns
-    gc.disable()
     sys.path.insert(0, os.path.abspath("."))
 
     init_times = []
@@ -74,11 +80,9 @@ def run_experiments(model_class, config):
         # This eliminates cold start penalty
         for _ in range(3):
             run_model(model_class, seed, config["parameters"])
-            gc.collect()  # Manual GC between warm-up runs
 
         # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
-            gc.collect()
             init_time, run_time = run_model(model_class, seed, config["parameters"])
             if init_time < fastest_init:
                 fastest_init = init_time
@@ -86,9 +90,6 @@ def run_experiments(model_class, config):
                 fastest_run = run_time
         init_times.append(fastest_init)
         run_times.append(fastest_run)
-
-    # Re-enable GC after benchmarking
-    gc.enable()
 
     return init_times, run_times
 
