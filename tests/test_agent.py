@@ -261,10 +261,8 @@ def test_agent_create_edge_cases():
 
     # Test 5: Mixed arguments - some matching length, some not
     matching_list = list(range(n))  # length matches n
-    non_matching_list = [99, 88]  # length doesn't match n
-    agents = TestAgent.create_agents(
-        model, n, matching_list, list_attr=non_matching_list
-    )
+    non_matching_list = [99, 88]    # length doesn't match n
+    agents = TestAgent.create_agents(model, n, matching_list, list_attr=non_matching_list)
     for i, agent in enumerate(agents):
         assert agent.value == i  # Should use the matching list
         assert agent.list_attr == [99, 88]  # Should repeat the entire non-matching list
@@ -315,6 +313,36 @@ def test_agent_create_with_pandas():
     for agent in agents:
         # Should repeat the entire series, not individual elements
         assert agent.series_attr.equals(short_series)
+
+
+def test_agent_from_dataframe():
+    """Test create_agents from a pandas DataFrame."""
+
+    class TestAgent(Agent):
+        def __init__(self, model, value=None, list_attr=None, tuple_attr=None, df_value=None):
+            super().__init__(model)
+            self.value = value
+            self.list_attr = list_attr
+            self.tuple_attr = tuple_attr
+            self.df_value = df_value
+
+    model = Model()
+    n = 5
+    data = {
+        "value": range(n),
+        "list_attr": [[i] for i in range(n)],
+        "df_value": [f"df_{i}" for i in range(n)],
+    }
+    df = pd.DataFrame(data)
+
+    agents = TestAgent.from_dataframe(model, df, tuple_attr=(1, 2))
+
+    assert len(agents) == n
+    for i, agent in enumerate(agents):
+        assert agent.value == i
+        assert agent.list_attr == [i]
+        assert agent.df_value == f"df_{i}"
+        assert agent.tuple_attr == (1, 2)
 
 
 def test_agent_add_remove_discard():
