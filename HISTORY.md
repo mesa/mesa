@@ -3,7 +3,29 @@
 ---
 title: Release History
 ---
-# 3.4.1 (2025-01-10)
+# 3.4.2 (2026-01-23)
+## Highlights
+Mesa 3.4.2 is a bugfix release that addresses a critical memory leak affecting all Mesa models.
+
+This release fixes a significant memory leak where model instances could never be garbage collected after agents were created (#3180). The root cause was the `Agent._ids` class attribute: a `defaultdict` that stored references to model instances to ensure `unique_id` values were unique per model. Because this was a class-level attribute persisting across the Python process, any model used as a key maintained a hard reference indefinitely, preventing cleanup of the model and all its associated objects even after going out of scope.
+
+This bug had serious implications for users running multiple simulations or batch experiments, as each model instance would accumulate in RAM rather than being cleaned up, eventually exhausting available memory. The fix moves `unique_id` assignment from the `Agent` class into `Model.register_agent()`, with each model now maintaining its own `agent_id_counter` instance attribute. This eliminates persistent class-level references and allows proper garbage collection of model objects.
+
+This release also includes a fix for `PropertyLayer.from_data()` to prevent unintended side effects (#3122), along with several small documentation improvements (#3104, #3124, #3127), and expanded contribution guidelines detailing Mesa's development philosophy and workflow (#3135).
+
+## What's Changed
+### 🐛 Bugs fixed
+* Ensure PropertyLayer.from_data() does not have side effects by @quaquel in #3122
+* Fix for Memory leak by @quaquel in #3180
+### 📜 Documentation improvements
+* Document `Agent` hashability requirement by @Sonu0305 in #3104
+* Fix `chart_property_layers` docstring by @Sonu0305 in #3124
+* Fix `remove_property_layer` docstring by @Sonu0305 in #3127
+* Add Mesa development process guidelines by @EwoutH in #3135
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.1...v3.4.2
+
+# 3.4.1 (2026-01-10)
 ## Highlights
 Mesa 3.4.1 is a patch release with bug fixes, performance improvements, and documentation enhancements. This release addresses issues affecting data collection, memory management, and grid operations while introducing performance optimizations.
 
