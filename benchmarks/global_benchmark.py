@@ -5,7 +5,6 @@ import os
 import pickle
 import sys
 import time
-import timeit
 
 # making sure we use this version of mesa and not one
 # also installed in site_packages or so.
@@ -29,14 +28,14 @@ def run_model(model_class, seed, parameters):
         startup time and run time
     """
     uses_simulator = ["WolfSheep"]
-    start_init = timeit.default_timer()
+    start_init = time.perf_counter()
     if model_class.__name__ in uses_simulator:
         simulator = ABMSimulator()
         model = model_class(simulator=simulator, rng=seed, **parameters)
     else:
         model = model_class(rng=seed, **parameters)
 
-    end_init_start_run = timeit.default_timer()
+    end_init_start_run = time.perf_counter()
 
     if model_class.__name__ in uses_simulator:
         simulator.run_for(config["steps"])
@@ -44,12 +43,15 @@ def run_model(model_class, seed, parameters):
         for _ in range(config["steps"]):
             model.step()
 
-    end_run = timeit.default_timer()
+    end_run = time.perf_counter()
+
+    # Clean up to avoid memory leaks
+    model.remove_all_agents()
 
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
-# Function to run experiments and save the fastest replication for each seed
+# Function to run experiments and save statistics for each seed
 def run_experiments(model_class, config):
     """Run performance benchmarks.
 
@@ -58,22 +60,40 @@ def run_experiments(model_class, config):
         config: the benchmark configuration
 
     """
-    gc.enable()
+    # Disable GC during timed runs to avoid random slowdowns
+    gc.disable()
     sys.path.insert(0, os.path.abspath("."))
 
     init_times = []
     run_times = []
     for seed in range(1, config["seeds"] + 1):
-        fastest_init = float("inf")
-        fastest_run = float("inf")
+        replication_init_times = []
+        replication_run_times = []
+
+        # Warm-up: run 3 times before starting measurement
+        # This eliminates cold start penalty
+        for _ in range(3):
+            run_model(model_class, seed, config["parameters"])
+            gc.collect()  # Manual GC between warm-up runs
+
+        # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
             init_time, run_time = run_model(model_class, seed, config["parameters"])
-            if init_time < fastest_init:
-                fastest_init = init_time
-            if run_time < fastest_run:
-                fastest_run = run_time
-        init_times.append(fastest_init)
-        run_times.append(fastest_run)
+            replication_init_times.append(init_time)
+            replication_run_times.append(run_time)
+            gc.collect()  # Manual GC between runs
+
+        # Use median to filter outliers
+        replication_init_times.sort()
+        replication_run_times.sort()
+        median_init = replication_init_times[len(replication_init_times) // 2]
+        median_run = replication_run_times[len(replication_run_times) // 2]
+
+        init_times.append(median_init)
+        run_times.append(median_run)
+
+    # Re-enable GC after benchmarking
+    gc.enable()
 
     return init_times, run_times
 
