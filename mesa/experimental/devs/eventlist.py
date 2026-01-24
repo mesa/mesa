@@ -131,15 +131,13 @@ class EventGenerator:
 
     EventGenerator represents a pattern for when things should happen repeatedly.
     Unlike a single SimulationEvent, an EventGenerator is persistent and can be
-    paused, resumed, or stopped.
+    stopped or configured with stop conditions.
 
     Attributes:
         model: The model this generator belongs to
         function: The callable to execute for each generated event
         interval: Time between events (fixed value or callable returning value)
         priority: Priority level for generated events
-        function_args: Arguments passed to the function
-        function_kwargs: Keyword arguments passed to the function
 
     """
 
@@ -149,27 +147,22 @@ class EventGenerator:
         function: Callable,
         interval: float | int | Callable[[Model], float | int],
         priority: Priority = Priority.DEFAULT,
-        function_args: list[Any] | None = None,
-        function_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initialize an EventGenerator.
 
         Args:
             model: The model this generator belongs to
-            function: The callable to execute for each generated event
+            function: The callable to execute for each generated event.
+                     Use functools.partial to bind arguments.
             interval: Time between events. Can be a fixed value or a callable
                      that takes the model and returns the interval.
             priority: Priority level for generated events
-            function_args: Arguments passed to the function
-            function_kwargs: Keyword arguments passed to the function
 
         """
         self.model = model
         self.function = function
         self.interval = interval
         self.priority = priority
-        self.function_args = function_args or []
-        self.function_kwargs = function_kwargs or {}
 
         self._active: bool = False
         self._current_event: SimulationEvent | None = None
@@ -206,8 +199,7 @@ class EventGenerator:
         if not self._active:
             return
 
-        # Execute the function
-        self.function(*self.function_args, **self.function_kwargs)
+        self.function()
         self._execution_count += 1
 
         # Schedule next event if we shouldn't stop
@@ -242,7 +234,7 @@ class EventGenerator:
             Self for method chaining
 
         Raises:
-            ValueError: If both `at` and `after` are specified, or if neither is specified
+            ValueError: If both `at` and `after` are specified
 
         """
         if self._active:
@@ -273,12 +265,12 @@ class EventGenerator:
         after: float | None = None,
         count: int | None = None,
     ) -> EventGenerator:
-        """Set a stop condition for the event generator.
+        """Stop the event generator.
 
         Args:
             at: Absolute time to stop generating events
             after: Relative time from now to stop generating events
-            count: Maximum number of executions before stopping
+            count: Number of additional executions before stopping
 
         Returns:
             Self for method chaining

@@ -1,5 +1,6 @@
 """Tests for experimental Simulator classes."""
 
+from functools import partial
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -389,7 +390,7 @@ def setup():
 class TestEventGenerator:
     """Tests for EventGenerator."""
 
-    def test_init_defaults(self, setup):
+    def test_init(self, setup):
         """Test initialization and default state."""
         model, _sim, fn = setup
         gen = EventGenerator(model, fn, interval=5.0)
@@ -397,26 +398,11 @@ class TestEventGenerator:
         assert gen.model is model
         assert gen.interval == 5.0
         assert gen.priority == Priority.DEFAULT
-        assert gen.function_args == []
-        assert gen.function_kwargs == {}
         assert not gen.is_active
         assert gen.execution_count == 0
 
-    def test_init_with_options(self, setup):
-        """Test initialization with all options."""
-        model, _sim, fn = setup
-        gen = EventGenerator(
-            model,
-            fn,
-            interval=1.0,
-            priority=Priority.HIGH,
-            function_args=["a"],
-            function_kwargs={"k": "v"},
-        )
-
-        assert gen.priority == Priority.HIGH
-        assert gen.function_args == ["a"]
-        assert gen.function_kwargs == {"k": "v"}
+        gen2 = EventGenerator(model, fn, interval=1.0, priority=Priority.HIGH)
+        assert gen2.priority == Priority.HIGH
 
     def test_start_default(self, setup):
         """Test start with defaults (after one interval)."""
@@ -431,43 +417,39 @@ class TestEventGenerator:
         sim.run_for(0.1)
         fn.assert_called_once()
 
-    def test_start_at(self, setup):
-        """Test start at absolute time."""
+    def test_start_at_and_after(self, setup):
+        """Test start at absolute and relative time."""
         model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
-        gen.start(at=5.0)
 
+        # Absolute time
+        gen1 = EventGenerator(model, fn, interval=1.0)
+        gen1.start(at=5.0)
         sim.run_for(4.9)
         fn.assert_not_called()
         sim.run_for(0.1)
         fn.assert_called_once()
 
-    def test_start_after(self, setup):
-        """Test start after relative time."""
-        model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
-        gen.start(after=3.0)
-
+        # Relative time
+        fn2 = MagicMock()
+        gen2 = EventGenerator(model, fn2, interval=1.0)
+        gen2.start(after=3.0)  # model.time is now 5.0
         sim.run_for(2.9)
-        fn.assert_not_called()
+        fn2.assert_not_called()
         sim.run_for(0.1)
-        fn.assert_called_once()
+        fn2.assert_called_once()
 
     def test_start_errors(self, setup):
         """Test start error cases."""
         model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
 
         with pytest.raises(ValueError, match="Cannot specify both"):
-            gen.start(at=1.0, after=1.0)
+            EventGenerator(model, fn, interval=1.0).start(at=1.0, after=1.0)
 
         sim.run_for(10.0)
         with pytest.raises(ValueError, match="Cannot start in the past"):
-            gen.start(at=5.0)
-
-        gen2 = EventGenerator(model, fn, interval=1.0)
+            EventGenerator(model, fn, interval=1.0).start(at=5.0)
         with pytest.raises(ValueError, match="Cannot start in the past"):
-            gen2.start(after=-1.0)
+            EventGenerator(model, fn, interval=1.0).start(after=-1.0)
 
     def test_start_when_active_is_noop(self, setup):
         """Test that starting when active does nothing."""
@@ -483,40 +465,37 @@ class TestEventGenerator:
         """Test immediate stop."""
         model, sim, fn = setup
         gen = EventGenerator(model, fn, interval=1.0)
-        assert gen.start().stop() is gen  # Chaining works
+        assert gen.start().stop() is gen  # Chaining
 
         assert not gen.is_active
         sim.run_for(5.0)
         fn.assert_not_called()
 
-    def test_stop_at(self, setup):
-        """Test stop at absolute time."""
+    def test_stop_conditions(self, setup):
+        """Test stop at/after/count conditions."""
         model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
-        gen.start(at=0.0).stop(at=2.5)
 
+        # Stop at absolute time
+        gen1 = EventGenerator(model, fn, interval=1.0)
+        gen1.start(at=0.0).stop(at=2.5)
         sim.run_for(5.0)
         assert fn.call_count == 3  # t=0, 1, 2
 
-    def test_stop_after(self, setup):
-        """Test stop after relative time."""
-        model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
-        gen.start(at=0.0).stop(after=2.5)
-
+        # Stop after relative time
+        fn2 = MagicMock()
+        gen2 = EventGenerator(model, fn2, interval=1.0)
+        gen2.start(at=5.0).stop(after=2.5)  # model.time=5.0, end=7.5
         sim.run_for(5.0)
-        assert fn.call_count == 3  # t=0, 1, 2
+        assert fn2.call_count == 3  # t=5, 6, 7
 
-    def test_stop_count(self, setup):
-        """Test stop after count."""
-        model, sim, fn = setup
-        gen = EventGenerator(model, fn, interval=1.0)
-        gen.start(at=0.0).stop(count=3)
-
+        # Stop after count
+        fn3 = MagicMock()
+        gen3 = EventGenerator(model, fn3, interval=1.0)
+        gen3.start(at=10.0).stop(count=2)
         sim.run_for(10.0)
-        assert fn.call_count == 3
-        assert gen.execution_count == 3
-        assert not gen.is_active
+        assert fn3.call_count == 2
+        assert gen3.execution_count == 2
+        assert not gen3.is_active
 
     def test_stop_multiple_conditions_error(self, setup):
         """Test error when multiple stop conditions specified."""
@@ -529,7 +508,7 @@ class TestEventGenerator:
             gen.stop(after=5.0, at=3.0)
 
     def test_recurring_execution(self, setup):
-        """Test recurring execution at intervals."""
+        """Test recurring execution and count tracking."""
         model, sim, fn = setup
         gen = EventGenerator(model, fn, interval=2.0)
         gen.start(at=0.0)
@@ -548,16 +527,10 @@ class TestEventGenerator:
         sim.run_for(4.5)
         assert fn.call_count == 4  # t=0, 1, 3, 4
 
-    def test_function_args_passed(self, setup):
-        """Test function arguments passed correctly."""
+    def test_functools_partial(self, setup):
+        """Test using functools.partial for arguments."""
         model, sim, fn = setup
-        gen = EventGenerator(
-            model,
-            fn,
-            interval=1.0,
-            function_args=["a"],
-            function_kwargs={"k": "v"},
-        )
+        gen = EventGenerator(model, partial(fn, "a", k="v"), interval=1.0)
         gen.start(at=0.0)
 
         sim.run_for(0.5)
