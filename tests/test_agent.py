@@ -3,6 +3,7 @@
 import pickle
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from mesa.agent import Agent, AgentSet
@@ -260,10 +261,8 @@ def test_agent_create_edge_cases():
 
     # Test 5: Mixed arguments - some matching length, some not
     matching_list = list(range(n))  # length matches n
-    non_matching_list = [99, 88]  # length doesn't match n
-    agents = TestAgent.create_agents(
-        model, n, matching_list, list_attr=non_matching_list
-    )
+    non_matching_list = [99, 88]    # length doesn't match n
+    agents = TestAgent.create_agents(model, n, matching_list, list_attr=non_matching_list)
     for i, agent in enumerate(agents):
         assert agent.value == i  # Should use the matching list
         assert agent.list_attr == [99, 88]  # Should repeat the entire non-matching list
@@ -286,10 +285,6 @@ def test_agent_create_edge_cases():
 
 def test_agent_create_with_pandas():
     """Test create_agents with pandas Series to improve coverage."""
-    try:
-        import pandas as pd
-    except ImportError:
-        pytest.skip("pandas not available")
 
     class TestAgent(Agent):
         def __init__(self, model, series_attr=None, kw_series_attr=None):
