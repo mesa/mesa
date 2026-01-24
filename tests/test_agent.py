@@ -361,6 +361,7 @@ def test_agent_from_dataframe():
     for i, agent in enumerate(agents):
         assert agent.value == i
 
+
 def test_agent_add_remove_discard():
     """Test adding, removing and discarding agents from AgentSet."""
     model = Model()
