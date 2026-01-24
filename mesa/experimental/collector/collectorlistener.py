@@ -11,16 +11,19 @@ Architecture:
     - Observable-based auto-collection - subscribes to model.steps observable
 
 Key Design Principles:
-    1. Zero-copy where possible (NumpyAgentDataSet already is a view)
-    2. Block storage for efficient memory usage
-    3. Lazy DataFrame conversion (only when requested)
-    4. Observable-based collection - clean signal subscription
-    5. Minimal overhead - O(1) interval checking
+    1. ABC-based design for custom storage backends
+    2. Separation of concerns: BaseCollectorListener(owns config) vs CollectortListener(owns storage)
+    3. Zero-copy where possible (NumpyAgentDataSet already is a view)
+    4. Block storage for efficient memory usage
+    5. Lazy DataFrame conversion (only when requested)
+    6. Observable-based collection - clean signal subscription
+    7. Minimal overhead - O(1) interval checking
 
 """
 
 from __future__ import annotations
 
+import abc
 import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -86,47 +89,28 @@ class DatasetStorage:
 
     blocks: list[tuple[int, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    config: DatasetConfig = field(default_factory=DatasetConfig)
     total_rows: int = 0
     estimated_size_bytes: int = 0
 
 
-class CollectorListener:
-    """Orchestrates data collection from DataRegistry using Observable signals.
+class BaseCollectorListener(abc.ABC):
+    """Abstract base class for data collection listeners.
 
-    Automatically collects data after each model step by subscribing to the
-    model's 'steps' observable.
+    This class defines the interface that all collector listeners must implement,
+    enabling custom storage backends (SQL, Parquet, HDF5, etc.) while reusing
+    the signal handling and collection orchestration logic.
 
-    Responsibilities:
-        - Subscribe to model.steps observable
-        - Collect data snapshots at configured intervals
-        - Store snapshots efficiently in memory
-        - Convert to analysis-ready formats (pandas/polars)
+    Subclasses must implement:
+        - _store_dataset_snapshot: Store a single dataset snapshot
+        - _get_dataset_dataframe: Retrieve stored data as DataFrame
+        - clear: Clear stored data
+        - summary: Return collection status summary
 
-    Usage:
-        # Basic - auto-collect via observable
-        listener = CollectorListener(model)
-
-        # Custom intervals per dataset
-        listener = CollectorListener(
-            model,
-            config={
-                "wealth": {"interval": 1},      # Every step
-                "positions": {"interval": 10},   # Every 10 steps
-                "summary": {"interval": 1, "start": 100}
-            }
-        )
-
-        # Access data after simulation
-        wealth_df = listener.get_table_dataframe("wealth")
-        all_data = listener.get_all_dataframes()
-
-    How It Works:
-        1. Model completes user's step()
-        2. Model._wrapped_step increments self.steps
-        3. steps Observable emits CHANGE signal
-        4. Listener's _on_step_change() is called
-        5. Listener checks intervals and collects if due
+    The base class handles:
+        - Observable subscription and signal handling
+        - Collection interval management
+        - Dataset configuration
+        - Enable/disable logic
     """
 
     def __init__(
@@ -160,16 +144,22 @@ class CollectorListener:
             )
 
         self.registry = model.data_registry
-        self.storage: dict[str, DatasetStorage] = {}
 
-        # Initialize storage for all datasets in registry
-        self._initialize_storage(config or {})
+        # Dataset configurations managed by base class
+        self.configs: dict[str, DatasetConfig] = {}
+
+        # Initialize storage and configs for all datasets in registry
+        self._initialize_datasets(config or {})
 
         # Subscribe to model steps observable
         self._subscribe_to_steps()
 
-    def _initialize_storage(self, user_config: dict[str, dict[str, Any]]) -> None:
-        """Create storage containers for all datasets."""
+    def _initialize_datasets(self, user_config: dict[str, dict[str, Any]]) -> None:
+        """Initialize dataset configurations and call subclass initialization.
+
+        This method is called during __init__ to set up configurations and
+        delegate storage initialization to subclasses.
+        """
         for dataset_name, dataset in self.registry.datasets.items():
             # SKIP TableDataSet: They manage their own history
             if isinstance(dataset, TableDataSet):
@@ -178,10 +168,22 @@ class CollectorListener:
             # Merge user config with defaults
             dataset_config = user_config.get(dataset_name, {})
             config = DatasetConfig(**dataset_config)
+            self.configs[dataset_name] = config
 
-            self.storage[dataset_name] = DatasetStorage(
-                config=config, metadata={"initialized": True}
-            )
+            # Let subclass initialize its storage backend
+            self._initialize_dataset_storage(dataset_name, dataset)
+
+    @abc.abstractmethod
+    def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
+        """Initialize storage for a specific dataset.
+
+        Called once per dataset during initialization. Subclasses should
+        set up their storage backend here (e.g., create tables, open files).
+
+        Args:
+            dataset_name: Name of the dataset
+            dataset: The dataset object from the registry
+        """
 
     def _subscribe_to_steps(self) -> None:
         """Subscribe to model.steps observable for automatic collection.
@@ -213,26 +215,25 @@ class CollectorListener:
         Args:
             signal: The signal object from Observable
         """
-        # Signal.new contains the new step value
         current_step = signal.new
 
-        for name, storage in self.storage.items():
+        for name, config in self.configs.items():
             # Exit early if not due
-            if not storage.config.enabled:
+            if not config.enabled:
                 continue
-            if current_step < storage.config._next_collection:
+            if current_step < config._next_collection:
                 continue
 
-            # Extract data from registry
+            # Extract data from registry and store
             try:
                 dataset = self.registry.datasets[name]
                 data_snapshot = dataset.data
 
-                # Store based on data type
-                self._store_data(name, current_step, data_snapshot, storage)
+                # Delegate storage to subclass
+                self._store_dataset_snapshot(name, current_step, data_snapshot)
 
                 # Update next collection time
-                storage.config._next_collection = current_step + storage.config.interval
+                config._next_collection = current_step + config.interval
 
             except Exception as e:
                 warnings.warn(
@@ -240,6 +241,22 @@ class CollectorListener:
                     RuntimeError,
                     stacklevel=2,
                 )
+
+    @abc.abstractmethod
+    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+        """Store a single dataset snapshot.
+
+        This is the core storage method that subclasses must implement.
+        Called automatically during collection when a dataset is due.
+
+        Args:
+            dataset_name: Name of the dataset being stored
+            step: Current simulation step
+            data: The data snapshot from the dataset
+                  - np.ndarray for NumpyAgentDataSet
+                  - list[dict] for AgentDataSet
+                  - dict for ModelDataSet
+        """
 
     def collect(self) -> None:
         """Manually trigger collection (for manual mode or testing).
@@ -249,17 +266,17 @@ class CollectorListener:
         """
         current_step = self.model.steps
 
-        for name, storage in self.storage.items():
-            if not storage.config.enabled:
+        for name, config in self.configs.items():
+            if not config.enabled:
                 continue
-            if current_step < storage.config._next_collection:
+            if current_step < config._next_collection:
                 continue
 
             try:
                 dataset = self.registry.datasets[name]
                 data_snapshot = dataset.data
-                self._store_data(name, current_step, data_snapshot, storage)
-                storage.config._next_collection = current_step + storage.config.interval
+                self._store_dataset_snapshot(name, current_step, data_snapshot)
+                config._next_collection = current_step + config.interval
             except Exception as e:
                 warnings.warn(
                     f"Collection failed: dataset='{name}', step={current_step}: {e}",
@@ -267,10 +284,113 @@ class CollectorListener:
                     stacklevel=2,
                 )
 
-    def _store_data(
-        self, name: str, step: int, data: Any, storage: DatasetStorage
-    ) -> None:
-        """Store data snapshot based on type."""
+    @abc.abstractmethod
+    def clear(self, dataset_name: str | None = None) -> None:
+        """Clear stored data.
+
+        Args:
+            dataset_name: Specific dataset to clear, or None for all
+        """
+
+    def enable_dataset(self, dataset_name: str) -> None:
+        """Enable collection for a dataset."""
+        if dataset_name not in self.configs:
+            raise KeyError(f"Dataset '{dataset_name}' not found")
+        self.configs[dataset_name].enabled = True
+
+    def disable_dataset(self, dataset_name: str) -> None:
+        """Disable collection for a dataset."""
+        if dataset_name not in self.configs:
+            raise KeyError(f"Dataset '{dataset_name}' not found")
+        self.configs[dataset_name].enabled = False
+
+    @abc.abstractmethod
+    def get_table_dataframe(self, name: str) -> pd.DataFrame:
+        """Convert stored data to pandas DataFrame.
+
+        Args:
+            name: Dataset name
+
+        Returns:
+            pandas DataFrame with all collected data
+
+        Raises:
+            KeyError: If dataset doesn't exist
+        """
+
+    def get_all_dataframes(self) -> dict[str, pd.DataFrame]:
+        """Get DataFrames for all datasets.
+
+        Returns:
+            Dictionary mapping dataset names to DataFrames
+        """
+        return {name: self.get_table_dataframe(name) for name in self.configs}
+
+    @abc.abstractmethod
+    def summary(self) -> dict[str, Any]:
+        """Get collection status summary.
+
+        Returns:
+            Dictionary with summary statistics
+        """
+
+    def __del__(self):
+        """Cleanup when listener is destroyed."""
+        # Unsubscribe from observable
+        if isinstance(self.model, HasObservables):
+            self.model.unobserve("steps", SignalType.CHANGE, self._on_step_change)
+
+
+class CollectorListener(BaseCollectorListener):
+    """In-memory collector listener (default implementation).
+
+    Orchestrates data collection from DataRegistry using Observable signals,
+    storing all data in memory using efficient block storage.
+
+    This is the default implementation that maintains backward compatibility
+
+    Usage:
+        # Basic - auto-collect via observable
+        listener = CollectorListener(model)
+
+        # Custom intervals per dataset
+        listener = CollectorListener(
+            model,
+            config={
+                "wealth": {"interval": 1},      # Every step
+                "positions": {"interval": 10},   # Every 10 steps
+                "summary": {"interval": 1, "start": 100}
+            }
+        )
+
+        # Access data after simulation
+        wealth_df = listener.get_table_dataframe("wealth")
+        all_data = listener.get_all_dataframes()
+    """
+
+    def __init__(
+        self,
+        model: Model,
+        config: dict[str, dict[str, Any]] | None = None,
+    ):
+        """Initialize the listener and subscribe to model observables.
+
+        Args:
+            model: Mesa model instance with data_registry attribute
+            config: Per-dataset configuration {name: {interval, start}}
+        """
+        self.storage: dict[str, DatasetStorage] = {}
+        super().__init__(model, config)
+
+    def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
+        """Initialize in-memory storage for a dataset."""
+        self.storage[dataset_name] = DatasetStorage(
+            config=self.configs[dataset_name], metadata={"initialized": True}
+        )
+
+    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+        """Store data snapshot in memory based on type."""
+        storage = self.storage[dataset_name]
         added_bytes = 0
 
         match data:
@@ -288,7 +408,7 @@ class CollectorListener:
                     storage.metadata["dtype"] = data.dtype
                     # Try to get column names from dataset
                     try:
-                        dataset = self.registry.datasets[name]
+                        dataset = self.registry.datasets[dataset_name]
                         storage.metadata["columns"] = list(dataset._attributes)
                     except (AttributeError, KeyError):
                         # Fallback to generic names
@@ -353,18 +473,6 @@ class CollectorListener:
             storage.blocks.clear()
             storage.total_rows = 0
             storage.estimated_size_bytes = 0
-
-    def enable_dataset(self, dataset_name: str) -> None:
-        """Enable collection for a dataset."""
-        if dataset_name not in self.storage:
-            raise KeyError(f"Dataset '{dataset_name}' not found")
-        self.storage[dataset_name].config.enabled = True
-
-    def disable_dataset(self, dataset_name: str) -> None:
-        """Disable collection for a dataset."""
-        if dataset_name not in self.storage:
-            raise KeyError(f"Dataset '{dataset_name}' not found")
-        self.storage[dataset_name].config.enabled = False
 
     def get_table_dataframe(self, name: str) -> pd.DataFrame:
         """Convert stored data to pandas DataFrame.
@@ -462,14 +570,6 @@ class CollectorListener:
 
         return pd.DataFrame(storage.blocks)
 
-    def get_all_dataframes(self) -> dict[str, pd.DataFrame]:
-        """Get DataFrames for all datasets.
-
-        Returns:
-            Dictionary mapping dataset names to DataFrames
-        """
-        return {name: self.get_table_dataframe(name) for name in self.storage}
-
     def estimate_memory_usage(self) -> float:
         """Estimate current memory usage in MB."""
         total_bytes = sum(s.estimated_size_bytes for s in self.storage.values())
@@ -487,11 +587,11 @@ class CollectorListener:
             "memory_mb": self.estimate_memory_usage(),
             "datasets_detail": {
                 name: {
-                    "enabled": storage.config.enabled,
-                    "interval": storage.config.interval,
+                    "enabled": self.configs[name].enabled,
+                    "interval": self.configs[name].interval,
                     "blocks": len(storage.blocks),
                     "rows": storage.total_rows,
-                    "next_collection": storage.config.next_collection,
+                    "next_collection": self.configs[name]._next_collection,
                     "type": storage.metadata.get("type", "unknown"),
                 }
                 for name, storage in self.storage.items()
@@ -507,9 +607,3 @@ class CollectorListener:
             f"rows={sum(s.total_rows for s in self.storage.values())}, "
             f"memory={memory})"
         )
-
-    def __del__(self):
-        """Cleanup when listener is destroyed."""
-        # Unsubscribe from observable
-        if isinstance(self.model, HasObservables):
-            self.model.unobserve("steps", SignalType.CHANGE, self._on_step_change)
