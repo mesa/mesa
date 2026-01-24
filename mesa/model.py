@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
+from mesa.experimental.devs.eventlist import EventList
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
@@ -106,7 +106,7 @@ class Model[A: Agent, S: Scenario]:
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
 
-        # Internal event list for event-based execution
+        # Event list for event-based execution
         self._event_list: EventList = EventList()
 
         # check if `scenario` is provided
@@ -161,9 +161,6 @@ class Model[A: Agent, S: Scenario]:
         self._user_step = self.step
         self.step = self._wrapped_step
 
-        # Schedule the first step event
-        self._schedule_step_event(1.0)
-
         # setup agent registration data structures
         self._agents: dict[
             A, None
@@ -177,58 +174,33 @@ class Model[A: Agent, S: Scenario]:
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Automatically increments time and steps after calling the user's step method."""
-        # Only use internal event processing if no external simulator is controlling
-        if self._simulator is None:
-            self._advance_time()
-
-        _mesa_logger.info(
-            f"calling model.step for step {self.steps} at time {self.time}"
-        )
-
-        # Call the original user-defined step method
+        self._advance_time(self.time + 1)
         self._user_step(*args, **kwargs)
 
-    def _advance_time(self) -> None:
-        """Advance time by processing events up to and including the next step."""
-        # Process all events up to and including the next time unit
-        next_time = self.time + 1.0
+    def _advance_time(self, until: float) -> None:
+        """Advance time to the given point, processing events along the way.
 
+        Args:
+            until: The time to advance to
+
+        """
         while not self._event_list.is_empty():
             try:
-                events = self._event_list.peek_ahead(1)
-                if not events:
-                    break
-                event = events[0]
-                if event.time <= next_time:
-                    self._event_list.pop_event()
-                    self.time = event.time
-                    event.execute()
-                else:
-                    break
+                event = self._event_list.peek_ahead(1)[0]
             except IndexError:
                 break
 
-        # Ensure time is at next_time and increment steps
-        self.time = next_time
+            if event.time > until:
+                break
+
+            self._event_list.pop_event()
+            self.time = event.time
+            event.execute()
+
+        self.time = until
         self.steps += 1
 
-        # Schedule the next step event
-        self._schedule_step_event(self.time + 1.0)
-
-    def _schedule_step_event(self, time: float) -> None:
-        """Schedule the model step as an event.
-
-        Args:
-            time: The time at which to schedule the step event
-
-        """
-        # Use a no-op function; the actual step logic is in _user_step
-        # This event serves as a marker for time advancement
-        event = SimulationEvent(time, self._step_event_marker, priority=Priority.HIGH)
-        self._event_list.add_event(event)
-
-    def _step_event_marker(self) -> None:
-        """Marker function for step events. Does nothing."""
+        _mesa_logger.info(f"Advanced to step {self.steps} at time {self.time}")
 
     @property
     def agents(self) -> AgentSet[A]:
