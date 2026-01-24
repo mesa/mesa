@@ -59,7 +59,7 @@ def run_model(model_class, seed, parameters):
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
-# Function to run experiments and save statistics for each seed
+# Function to run experiments and save the fastest replication for each seed
 def run_experiments(model_class, config):
     """Run performance benchmarks.
 
