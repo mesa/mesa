@@ -117,7 +117,7 @@ class Agent[M: Model]:
                 if len(arg) == n:
                     arg_iters.append(arg)
                 else:
-                     arg_iters.append(itertools.repeat(arg, n))
+                    arg_iters.append(itertools.repeat(arg, n))
             else:
                 arg_iters.append(itertools.repeat(arg, n))
 
