@@ -751,8 +751,8 @@ def test_strongagentset_checks():
     def kill_scenario(agent):
         if agent is agent_a:
             agent.kill_target(agent_b)  # A kills B
-        elif agent is agent_b:    # pragma: no cover
-            agent.acted = True    # pragma: no cover
+        elif agent is agent_b:  # pragma: no cover
+            agent.acted = True  # pragma: no cover
 
     strong_set.do(kill_scenario)
 
@@ -795,8 +795,8 @@ def test_strongagentset_checks():
         def shuffle_kill(agent):
             if agent is agent_a:
                 agent.kill_target(agent_b)
-            elif agent is agent_b:       # pragma: no cover
-                agent.acted = True       # pragma: no cover
+            elif agent is agent_b:  # pragma: no cover
+                agent.acted = True  # pragma: no cover
 
         strong_set.shuffle_do(shuffle_kill)
 
@@ -821,8 +821,8 @@ def test_strongagentset_checks():
 
         def innocent_return(self, *args):
             # This should NEVER run for the victim
-            self.acted = True           # pragma: no cover
-            return "victim_result"      # pragma: no cover
+            self.acted = True  # pragma: no cover
+            return "victim_result"  # pragma: no cover
 
     agent_a = StringKillerAgent(model)
     agent_b = StringKillerAgent(model)
@@ -852,8 +852,8 @@ def test_strongagentset_checks():
             if self is agent_a:
                 if victim:
                     victim.remove()
-            elif self is agent_b:      # pragma: no cover
-                self.acted = True      # pragma: no cover
+            elif self is agent_b:  # pragma: no cover
+                self.acted = True  # pragma: no cover
 
     agent_a = DoKillerAgent(model)
     agent_b = DoKillerAgent(model)
