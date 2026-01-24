@@ -10,7 +10,6 @@ import contextlib
 import copy
 import itertools
 import operator
-import sys
 import warnings
 import weakref
 from collections import defaultdict
@@ -22,8 +21,6 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from mesa.model import Model
     from mesa.space import Position
 
@@ -108,16 +105,8 @@ class Agent[M: Model]:
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
-            is_pandas_series = False
-            if "pandas" in sys.modules:
-                pd = sys.modules["pandas"]
-                is_pandas_series = isinstance(arg, pd.Series)
-
-            if isinstance(arg, (list, np.ndarray, tuple)) or is_pandas_series:
-                if len(arg) == n:
-                    arg_iters.append(arg)
-                else:
-                    arg_iters.append(itertools.repeat(arg, n))
+            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
+                arg_iters.append(arg)
             else:
                 arg_iters.append(itertools.repeat(arg, n))
 
@@ -125,16 +114,8 @@ class Agent[M: Model]:
         kw_keys = list(kwargs.keys())
         kw_val_iters = []
         for v in kwargs.values():
-            is_pandas_series = False
-            if "pandas" in sys.modules:
-                pd = sys.modules["pandas"]
-                is_pandas_series = isinstance(v, pd.Series)
-
-            if isinstance(v, (list, np.ndarray, tuple)) or is_pandas_series:
-                if len(v) == n:
-                    kw_val_iters.append(v)
-                else:
-                    kw_val_iters.append(itertools.repeat(v, n))
+            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
+                kw_val_iters.append(v)
             else:
                 kw_val_iters.append(itertools.repeat(v, n))
 
@@ -167,7 +148,7 @@ class Agent[M: Model]:
         Returns:
             AgentSet containing the agents created.
         """
-        new_kwargs = {col: df[col] for col in df.columns}
+        new_kwargs = {col: df[col] for col in df.columns if col not in ("model", "n")}
         new_kwargs.update(kwargs)
         return cls.create_agents(model, len(df), **new_kwargs)
 

@@ -348,6 +348,18 @@ def test_agent_from_dataframe():
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
 
+    # Test from_dataframe with reserved column names ('model', 'n')
+    # These should be ignored by from_dataframe to avoid conflicts with create_agents arguments
+    data_with_reserved = {
+        "value": range(n),
+        "model": ["some_model_string"] * n,
+        "n": [999] * n,
+    }
+    df_reserved = pd.DataFrame(data_with_reserved)
+    agents = TestAgent.from_dataframe(model, df_reserved)
+    assert len(agents) == n
+    for i, agent in enumerate(agents):
+        assert agent.value == i
 
 def test_agent_add_remove_discard():
     """Test adding, removing and discarding agents from AgentSet."""
