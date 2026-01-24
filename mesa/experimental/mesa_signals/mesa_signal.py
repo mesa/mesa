@@ -18,7 +18,6 @@ clean separation of concerns.
 
 from __future__ import annotations
 
-import contextlib
 import functools
 import weakref
 from abc import ABC, abstractmethod
@@ -104,6 +103,11 @@ class BaseObservable(ABC):
 
     @abstractmethod
     def __set__(self, instance: HasObservables, value):
+        # If no one is listening, Avoid overhead of fetching old value and
+        # creating Message object.
+        if not instance._has_subscribers(self.public_name, SignalType.CHANGE):
+            return
+
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
         instance.notify(
@@ -272,13 +276,15 @@ class HasObservables:
 
     # we can't use a weakset here because it does not handle bound methods correctly
     # also, a list is faster for our use case
-    subscribers: dict[str, dict[str, list]]
+    subscribers: dict[
+        tuple[str, str], list
+    ]  # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, set[str]]
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasObservables."""
         super().__init__(*args, **kwargs)
-        self.subscribers = defaultdict(functools.partial(defaultdict, list))
+        self.subscribers = defaultdict(list)
         self.observables = dict(descriptor_generator(self))
 
     def _register_signal_emitter(self, name: str, signal_types: set[str]):
@@ -293,6 +299,13 @@ class HasObservables:
 
         """
         self.observables[name] = signal_types
+
+    def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
+        """Check if there are any subscribers for a given observable and signal type."""
+        key = (name, signal_type)
+        if key not in self.subscribers:
+            return False
+        return len(self.subscribers[key]) > 0
 
     def observe(
         self,
@@ -346,7 +359,7 @@ class HasObservables:
 
             ref = create_weakref(handler)
             for st in signal_types:
-                self.subscribers[name][st].append(ref)
+                self.subscribers[(name, st)].append(ref)
 
     def unobserve(
         self, name: str | All, signal_type: str | SignalType | All, handler: Callable
@@ -381,13 +394,18 @@ class HasObservables:
             signal_types = target_signals or self.observables[name]
 
             for st in signal_types:
-                with contextlib.suppress(KeyError):
+                key = (name, st)
+                if key in self.subscribers:
                     remaining = []
-                    for ref in self.subscribers[name][st]:
+                    for ref in self.subscribers[key]:
                         if subscriber := ref():  # noqa: SIM102
                             if subscriber != handler:
                                 remaining.append(ref)
-                    self.subscribers[name][st] = remaining
+
+                    if remaining:
+                        self.subscribers[key] = remaining
+                    else:
+                        del self.subscribers[key]
 
     def clear_all_subscriptions(self, name: str | All):
         """Clears all subscriptions for the observable <name>.
@@ -400,14 +418,17 @@ class HasObservables:
         """
         match name:
             case All():
-                self.subscribers = defaultdict(functools.partial(defaultdict, list))
+                self.subscribers.clear()
             case str():
-                with contextlib.suppress(KeyError):
-                    del self.subscribers[name]
+                # We iterate keys to find matches
+                keys_to_remove = [k for k in self.subscribers if k[0] == name]
+                for k in keys_to_remove:
+                    del self.subscribers[k]
             case _:
                 for n in name:
-                    with contextlib.suppress(KeyError):
-                        del self.subscribers[n]
+                    keys_to_remove = [k for k in self.subscribers if k[0] == n]
+                    for k in keys_to_remove:
+                        del self.subscribers[k]
                     # ignore when unsubscribing to Observables that have no subscription
 
     def notify(
@@ -456,14 +477,23 @@ class HasObservables:
 
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
-        observers = self.subscribers[observable][signal_type]
+        key = (observable, signal_type)
+
+        if key not in self.subscribers:
+            return
+
+        observers = self.subscribers[key]
         active_observers = []
         for observer in observers:
             if active_observer := observer():
                 active_observer(signal)
                 active_observers.append(observer)
-        # use iteration to also remove inactive observers
-        self.subscribers[observable][signal_type] = active_observers
+            # use iteration to also remove inactive observers
+
+        if active_observers:
+            self.subscribers[key] = active_observers
+        else:
+            del self.subscribers[key]
 
 
 def descriptor_generator(obj) -> [str, BaseObservable]:
