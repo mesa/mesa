@@ -67,8 +67,8 @@ def run_experiments(model_class, config):
     init_times = []
     run_times = []
     for seed in range(1, config["seeds"] + 1):
-        replication_init_times = []
-        replication_run_times = []
+        fastest_init = float("inf")
+        fastest_run = float("inf")
 
         # Warm-up: run 3 times before starting measurement
         # This eliminates cold start penalty
@@ -79,18 +79,12 @@ def run_experiments(model_class, config):
         # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
             init_time, run_time = run_model(model_class, seed, config["parameters"])
-            replication_init_times.append(init_time)
-            replication_run_times.append(run_time)
-            gc.collect()  # Manual GC between runs
-
-        # Use median to filter outliers
-        replication_init_times.sort()
-        replication_run_times.sort()
-        median_init = replication_init_times[len(replication_init_times) // 2]
-        median_run = replication_run_times[len(replication_run_times) // 2]
-
-        init_times.append(median_init)
-        run_times.append(median_run)
+            if init_time < fastest_init:
+                fastest_init = init_time
+            if run_time < fastest_run:
+                fastest_run = run_time
+        init_times.append(fastest_init)
+        run_times.append(fastest_run)
 
     # Re-enable GC after benchmarking
     gc.enable()
