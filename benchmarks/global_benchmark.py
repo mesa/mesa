@@ -78,6 +78,7 @@ def run_experiments(model_class, config):
 
         # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
+            gc.collect()
             init_time, run_time = run_model(model_class, seed, config["parameters"])
             if init_time < fastest_init:
                 fastest_init = init_time
