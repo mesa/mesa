@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.devs.eventlist import EventList
+from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
@@ -173,9 +173,11 @@ class Model[A: Agent, S: Scenario]:
         )  # an agenset with all agents
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
-        """Automatically increments time and steps after calling the user's step method."""
+        """Advance time by one unit, processing any scheduled events."""
+        # Schedule step event if not already scheduled (first call or no simulator)
+        if self._event_list.is_empty():
+            self._schedule_step(self.time + 1)
         self._advance_time(self.time + 1)
-        self._user_step(*args, **kwargs)
 
     def _advance_time(self, until: float) -> None:
         """Advance time to the given point, processing events along the way.
@@ -198,9 +200,18 @@ class Model[A: Agent, S: Scenario]:
             event.execute()
 
         self.time = until
-        self.steps += 1
 
-        _mesa_logger.info(f"Advanced to step {self.steps} at time {self.time}")
+    def _schedule_step(self, time: float) -> None:
+        """Schedule a step event at the given time."""
+        event = SimulationEvent(time, self._do_step, priority=Priority.HIGH)
+        self._event_list.add_event(event)
+
+    def _do_step(self) -> None:
+        """Execute one step and schedule the next."""
+        self.steps += 1
+        _mesa_logger.info(f"Step {self.steps} at time {self.time}")
+        self._user_step()
+        self._schedule_step(self.time + 1)
 
     @property
     def agents(self) -> AgentSet[A]:

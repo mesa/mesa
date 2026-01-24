@@ -126,20 +126,7 @@ class Simulator:
                 "Simulator not set up. Call simulator.setup(model) first."
             )
 
-        while not self.event_list.is_empty():
-            try:
-                event = self.event_list.peek_ahead(1)[0]
-            except IndexError:
-                break
-
-            if event.time > end_time:
-                break
-
-            self.event_list.pop_event()
-            self.model.time = event.time
-            event.execute()
-
-        self.model.time = end_time
+        self.model._advance_time(end_time)
 
     def run_next_event(self):
         """Execute the next event.
@@ -317,18 +304,8 @@ class ABMSimulator(Simulator):
 
         """
         super().setup(model)
-        self._schedule_step(1)
-
-    def _schedule_step(self, time: int) -> None:
-        """Schedule the model step at the given time."""
-        event = SimulationEvent(time, self._do_step, priority=Priority.HIGH)
-        self.event_list.add_event(event)
-
-    def _do_step(self) -> None:
-        """Execute one step: call user step, increment steps, schedule next."""
-        self.model.steps += 1
-        self.model._user_step()
-        self._schedule_step(int(self.model.time) + 1)
+        # Schedule the first step event
+        model._schedule_step(1)
 
     def check_time_unit(self, time) -> bool:
         """Check whether the time is of the correct unit.
@@ -382,6 +359,18 @@ class DEVSimulator(Simulator):
     def __init__(self):
         """Initialize a DEVS simulator."""
         super().__init__(float, 0.0)
+
+    def setup(self, model: Model) -> None:
+        """Set up the simulator with the model to simulate.
+
+        Args:
+            model (Model): The model to simulate
+
+        """
+        # For pure DEVS, we don't want automatic step scheduling
+        # Clear any pre-scheduled events
+        model._event_list.clear()
+        super().setup(model)
 
     def check_time_unit(self, time) -> bool:
         """Check whether the time is of the correct unit.
