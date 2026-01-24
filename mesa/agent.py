@@ -10,19 +10,20 @@ import contextlib
 import copy
 import itertools
 import operator
+import sys
 import warnings
 import weakref
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-
-# mypy
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from mesa.model import Model
     from mesa.space import Position
 
@@ -107,8 +108,16 @@ class Agent[M: Model]:
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
-            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
-                arg_iters.append(arg)
+            is_pandas_series = False
+            if "pandas" in sys.modules:
+                pd = sys.modules["pandas"]
+                is_pandas_series = isinstance(arg, pd.Series)
+
+            if isinstance(arg, (list, np.ndarray, tuple)) or is_pandas_series:
+                if len(arg) == n:
+                    arg_iters.append(arg)
+                else:
+                     arg_iters.append(itertools.repeat(arg, n))
             else:
                 arg_iters.append(itertools.repeat(arg, n))
 
@@ -116,8 +125,16 @@ class Agent[M: Model]:
         kw_keys = list(kwargs.keys())
         kw_val_iters = []
         for v in kwargs.values():
-            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
-                kw_val_iters.append(v)
+            is_pandas_series = False
+            if "pandas" in sys.modules:
+                pd = sys.modules["pandas"]
+                is_pandas_series = isinstance(v, pd.Series)
+
+            if isinstance(v, (list, np.ndarray, tuple)) or is_pandas_series:
+                if len(v) == n:
+                    kw_val_iters.append(v)
+                else:
+                    kw_val_iters.append(itertools.repeat(v, n))
             else:
                 kw_val_iters.append(itertools.repeat(v, n))
 
