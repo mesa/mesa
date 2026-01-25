@@ -62,16 +62,9 @@ class Sheep(HasObservables, Animal):
     def __init__(
         self, model, energy=8, p_reproduce=0.04, energy_from_food=4, cell=None
     ):
-        # FIX 1: Pre-initialize subscribers to prevent crash in Animal.__init__
-        # because Animal sets 'energy' before HasObservables initializes itself.
         self.subscribers = {}
-
-        # FIX 2: Initialize MRO chain correctly
         super().__init__(model, energy, p_reproduce, energy_from_food, cell)
-
         self.current_task_event = None
-
-        # Wiring the "Brain"
         self.observe("energy", SignalType.CHANGE, self.on_energy_change)
 
     def on_energy_change(self, signal):
