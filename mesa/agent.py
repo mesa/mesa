@@ -174,6 +174,8 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
     """
 
+    _getitem_warning_emitted: bool = False
+
     def __init__(
         self,
         agents: Iterable[A],
@@ -540,12 +542,14 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             Sequence behavior (indexing/slicing) is deprecated and will be removed in Mesa 4.0.
             Use :meth:`to_list` instead: ``agentset.to_list()[index]`` or ``agentset.to_list()[start:stop]``.
         """
-        warnings.warn(
-            "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
-            "Use AgentSet.to_list()[index] instead.",
-            PendingDeprecationWarning,
-            stacklevel=2,
-        )
+        if not AgentSet._getitem_warning_emitted:
+            warnings.warn(
+                "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
+                "Use AgentSet.to_list()[index] instead.",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            AgentSet._getitem_warning_emitted = True
         return list(self._agents.keys())[item]
 
     def add(self, agent: A):

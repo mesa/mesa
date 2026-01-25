@@ -271,23 +271,24 @@ def test_agentset_to_list():
 
 def test_agentset_get_item():
     """Test integer based access to AgentSet and deprecation warning."""
+    # Reset the warning flag for this test
+    AgentSet._getitem_warning_emitted = False
+
     model = Model()
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
 
-    # Test that __getitem__ raises PendingDeprecationWarning
+    # Test that __getitem__ raises PendingDeprecationWarning (only on first call)
     with pytest.warns(
         PendingDeprecationWarning, match="AgentSet.__getitem__ is deprecated"
     ):
         assert agentset[0] == agents[0]
 
-    with pytest.warns(PendingDeprecationWarning):
-        assert agentset[-1] == agents[-1]
+    # Subsequent calls should not raise warning (flag is set)
+    assert agentset[-1] == agents[-1]
+    assert agentset[1:3] == agents[1:3]
 
-    with pytest.warns(PendingDeprecationWarning):
-        assert agentset[1:3] == agents[1:3]
-
-    with pytest.warns(PendingDeprecationWarning), pytest.raises(IndexError):
+    with pytest.raises(IndexError):
         _ = agentset[20]
 
 
