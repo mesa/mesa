@@ -5,7 +5,6 @@ import os
 import pickle
 import sys
 import time
-import timeit
 
 # making sure we use this version of mesa and not one
 # also installed in site_packages or so.
@@ -29,14 +28,19 @@ def run_model(model_class, seed, parameters):
         startup time and run time
     """
     uses_simulator = ["WolfSheep"]
-    start_init = timeit.default_timer()
+    # Explicitly collect garbage before the run to ensure a clean memory state
+    gc.collect()
+
+    # Disable GC during timed runs to avoid random slowdowns
+    gc.disable()
+    start_init = time.perf_counter()
     if model_class.__name__ in uses_simulator:
         simulator = ABMSimulator()
         model = model_class(simulator=simulator, rng=seed, **parameters)
     else:
         model = model_class(rng=seed, **parameters)
 
-    end_init_start_run = timeit.default_timer()
+    end_init_start_run = time.perf_counter()
 
     if model_class.__name__ in uses_simulator:
         simulator.run_for(config["steps"])
@@ -44,8 +48,14 @@ def run_model(model_class, seed, parameters):
         for _ in range(config["steps"]):
             model.step()
 
-    end_run = timeit.default_timer()
+    end_run = time.perf_counter()
+    gc.enable()  # Re-enable GC after benchmarking
 
+    # Clean up to avoid memory leaks
+    model.remove_all_agents()
+
+    # Force a final collection to reclaim memory before the next iteration
+    gc.collect()
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
@@ -58,7 +68,6 @@ def run_experiments(model_class, config):
         config: the benchmark configuration
 
     """
-    gc.enable()
     sys.path.insert(0, os.path.abspath("."))
 
     init_times = []
@@ -66,6 +75,13 @@ def run_experiments(model_class, config):
     for seed in range(1, config["seeds"] + 1):
         fastest_init = float("inf")
         fastest_run = float("inf")
+
+        # Warm-up: run 3 times before starting measurement
+        # This eliminates cold start penalty
+        for _ in range(3):
+            run_model(model_class, seed, config["parameters"])
+
+        # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
             init_time, run_time = run_model(model_class, seed, config["parameters"])
             if init_time < fastest_init:

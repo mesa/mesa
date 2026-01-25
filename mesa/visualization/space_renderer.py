@@ -272,7 +272,8 @@ class SpaceRenderer:
         if agent_portrayal is not None:
             warnings.warn(
                 "Passing agent_portrayal to draw_agents() is deprecated and will be removed in Mesa 4.0. "
-                "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents().",
+                "Use setup_agents(agent_portrayal, **kwargs) before calling draw_agents()."
+                "See https://mesa.readthedocs.io/latest/migration_guide.html#passing-portrayal-arguments-to-draw-methods",
                 FutureWarning,
                 stacklevel=2,
             )
@@ -314,7 +315,8 @@ class SpaceRenderer:
         if propertylayer_portrayal is not None:
             warnings.warn(
                 "Passing propertylayer_portrayal to draw_propertylayer() is deprecated and will be removed in Mesa 4.0. "
-                "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer().",
+                "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer()."
+                "See https://mesa.readthedocs.io/latest/migration_guide.html#passing-portrayal-arguments-to-draw-methods",
                 FutureWarning,
                 stacklevel=2,
             )
