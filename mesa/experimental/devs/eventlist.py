@@ -125,6 +125,28 @@ class SimulationEvent:
             other.unique_id,
         )
 
+    def __getstate__(self):
+        """Prepare state for pickling."""
+        state = self.__dict__.copy()
+        # Convert weak reference back to strong reference for pickling
+        fn = self.fn() if self.fn is not None else None
+        state["_fn_strong"] = fn
+        state["fn"] = None  # Don't pickle the weak reference
+        return state
+
+    def __setstate__(self, state):
+        """Restore state after unpickling."""
+        fn = state.pop("_fn_strong")
+        self.__dict__.update(state)
+        # Recreate weak reference
+        if fn is not None:
+            if isinstance(fn, MethodType):
+                self.fn = WeakMethod(fn)
+            else:
+                self.fn = ref(fn)
+        else:
+            self.fn = None
+
 
 class EventGenerator:
     """A generator that creates recurring events at specified intervals.

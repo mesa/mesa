@@ -273,6 +273,45 @@ def test_simulation_event():
     assert event1 > event2
 
 
+def test_simulation_event_pickle():
+    """Test pickling and unpickling of SimulationEvent."""
+
+    # Test with regular function
+    def test_fn():
+        return "test"
+
+    event = SimulationEvent(
+        10.0,
+        test_fn,
+        priority=Priority.HIGH,
+        function_args=["arg1"],
+        function_kwargs={"key": "value"},
+    )
+
+    # Pickle and unpickle
+    state = event.__getstate__()
+    assert state["_fn_strong"] is test_fn
+    assert state["fn"] is None
+
+    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event.__setstate__(state)
+
+    assert new_event.time == 10.0
+    assert new_event.priority == Priority.HIGH.value
+    assert new_event.function_args == ["arg1"]
+    assert new_event.function_kwargs == {"key": "value"}
+    assert new_event.fn() is test_fn
+
+    # Test with canceled event
+    event.cancel()
+    state = event.__getstate__()
+    assert state["_fn_strong"] is None
+
+    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event.__setstate__(state)
+    assert new_event.fn is None
+
+
 def test_eventlist():
     """Tests for EventList."""
     event_list = EventList()
