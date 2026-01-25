@@ -542,7 +542,7 @@ def ModelController(
 
         # Check if the model has a scenario and split parameters accordingly
         if getattr(model.value, "scenario", None):
-            scenario_class = model.value.scenario.__class__
+            scenario_class = type(model.value.scenario)
             # We assume scenario parameters are those in scenario class but NOT in model init
             # Check for _scenario_defaults first (Mesa's Scenario mechanism) or fallback to signature
             scenario_defaults = getattr(model.value.scenario, "_scenario_defaults", {})
