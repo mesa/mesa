@@ -54,15 +54,15 @@ def test_HasObservables():
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert handler in subscribers
 
     agent.unobserve("some_attribute", "change", handler)
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert handler not in subscribers
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
     }
     assert len(subscribers) == 0
 
@@ -70,12 +70,12 @@ def test_HasObservables():
     agent.observe(All(), "change", handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[attr]["change"]}
+        subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
         assert handler in subscribers
 
     agent.unobserve(All(), "change", handler)
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[attr]["change"]}
+        subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
         assert handler not in subscribers
         assert len(subscribers) == 0
 
@@ -86,24 +86,24 @@ def test_HasObservables():
         agent.observe("some_attribute", "change", handler)
         agent.observe("some_other_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert len(subscribers) == nr_observers
 
     agent.clear_all_subscriptions("some_attribute")
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
     }
     assert len(subscribers) == 3
 
     agent.clear_all_subscriptions(All())
-    subscribers = {entry() for entry in agent.subscribers["some_attribute"]["change"]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers["some_other_attribute"]["change"]
+        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
     }
     assert len(subscribers) == 0
 
@@ -449,18 +449,18 @@ def test_list_support():
     agent.observe(["attr1", "attr2"], "change", handler)
 
     # Check subscriptions
-    assert handler in [ref() for ref in agent.subscribers["attr1"]["change"]]
-    assert handler in [ref() for ref in agent.subscribers["attr2"]["change"]]
-    assert handler not in [ref() for ref in agent.subscribers["attr3"]["change"]]
+    assert handler in [ref() for ref in agent.subscribers[("attr1", "change")]]
+    assert handler in [ref() for ref in agent.subscribers[("attr2", "change")]]
+    assert handler not in [ref() for ref in agent.subscribers[("attr3", "change")]]
 
     # Test unobserve with list of names
     agent.unobserve(["attr1", "attr2"], "change", handler)
-    assert handler not in [ref() for ref in agent.subscribers["attr1"]["change"]]
-    assert handler not in [ref() for ref in agent.subscribers["attr2"]["change"]]
+    assert handler not in [ref() for ref in agent.subscribers[("attr1", "change")]]
+    assert handler not in [ref() for ref in agent.subscribers[("attr2", "change")]]
 
     # Test observe with list of signal types (though Observable only has 'change' by default,
     # we can register checking error handling or adding custom signals if needed,
-    # but for now Observable only emits 'change', so we can't easily test list of signal types
+    # but for now Observable only emits 'change', so we can't easily test different signal types
     # without a custom observable that emits multiple types. Let's create one.)
 
     class MultiSignalAgent(Agent, HasObservables):
@@ -475,14 +475,20 @@ def test_list_support():
     # Test observe with list of signal types
     agent2.observe("custom_attr", ["type1", "type3"], handler2)
 
-    assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type1"]]
-    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type2"]]
-    assert handler2 in [ref() for ref in agent2.subscribers["custom_attr"]["type3"]]
+    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type1")]]
+    assert handler2 not in [
+        ref() for ref in agent2.subscribers[("custom_attr", "type2")]
+    ]
+    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type3")]]
 
     # Test unobserve with list of signal types
     agent2.unobserve("custom_attr", ["type1", "type3"], handler2)
-    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type1"]]
-    assert handler2 not in [ref() for ref in agent2.subscribers["custom_attr"]["type3"]]
+    assert handler2 not in [
+        ref() for ref in agent2.subscribers[("custom_attr", "type1")]
+    ]
+    assert handler2 not in [
+        ref() for ref in agent2.subscribers[("custom_attr", "type3")]
+    ]
 
     # Test clear_all_subscriptions with list of names
     agent.observe(["attr1", "attr2", "attr3"], "change", handler)
@@ -490,7 +496,7 @@ def test_list_support():
 
     # helper to check emptiness
     def is_empty(attr):
-        return len([ref() for ref in agent.subscribers[attr]["change"] if ref()]) == 0
+        return len([ref() for ref in agent.subscribers[(attr, "change")] if ref()]) == 0
 
     assert is_empty("attr1")
     assert not is_empty("attr2")
