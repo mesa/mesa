@@ -148,9 +148,14 @@ class Agent[M: Model]:
         Returns:
             AgentSet containing the agents created.
         """
-        new_kwargs = {col: df[col] for col in df.columns if col not in ("model", "n")}
-        new_kwargs.update(kwargs)
-        return cls.create_agents(model, len(df), **new_kwargs)
+        agents = []
+        for record in df.to_dict(orient="records"):
+            # Filtering out "model" and "n" to avoid conflicts with Agent constructor
+            for key in ("model", "n"):
+                record.pop(key, None)
+            agents.append(cls(model, **{**record, **kwargs}))
+
+        return AgentSet(agents, random=model.random)
 
     @property
     def random(self) -> Random:
