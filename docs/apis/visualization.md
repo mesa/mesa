@@ -102,9 +102,9 @@ model_params = {
 }
 
 # The model will receive config as:
-# {"learning_rate": 0.01, "batch_size": 32, 
+# {"learning_rate": 0.01, "batch_size": 32,
 #  "optimizer": {"name": "adam", "momentum": 0.9}}
-``` 
+```
 
 ### How It Works
 
