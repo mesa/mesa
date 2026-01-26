@@ -348,18 +348,21 @@ def test_agent_from_dataframe():
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
 
-    # Test from_dataframe with reserved column names ('model', 'n')
-    # These should be ignored by from_dataframe to avoid conflicts with create_agents arguments
-    data_with_reserved = {
-        "value": range(n),
-        "model": ["some_model_string"] * n,
-        "n": [999] * n,
-    }
-    df_reserved = pd.DataFrame(data_with_reserved)
-    agents = TestAgent.from_dataframe(model, df_reserved)
-    assert len(agents) == n
-    for i, agent in enumerate(agents):
-        assert agent.value == i
+    # Test from_dataframe with reserved column name 'model' should raise ValueError
+    df_model = pd.DataFrame({"model": ["some_model_string"] * n})
+    with pytest.raises(ValueError, match="reserved for the Mesa Model instance"):
+        TestAgent.from_dataframe(model, df_model)
+
+    # Test that 'n' is NOT reserved and is passed correctly
+    class TestAgentWithN(Agent):
+        def __init__(self, model, n=None):
+            super().__init__(model)
+            self.n_val = n
+
+    df_n = pd.DataFrame({"n": [999] * n})
+    agents = TestAgentWithN.from_dataframe(model, df_n)
+    for agent in agents:
+        assert agent.n_val == 999
 
 
 def test_agent_add_remove_discard():

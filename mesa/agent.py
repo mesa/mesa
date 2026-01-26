@@ -148,12 +148,14 @@ class Agent[M: Model]:
         Returns:
             AgentSet containing the agents created.
         """
-        agents = []
-        for record in df.to_dict(orient="records"):
-            # Filtering out "model" and "n" to avoid conflicts with Agent constructor
-            for key in ("model", "n"):
-                record.pop(key, None)
-            agents.append(cls(model, **{**record, **kwargs}))
+        if "model" in df.columns:
+            raise ValueError(
+                "The column name 'model' is reserved for the Mesa Model instance and cannot be used in the DataFrame."
+            )
+
+        agents = [
+            cls(model, **{**record, **kwargs}) for record in df.to_dict(orient="records")
+        ]
 
         return AgentSet(agents, random=model.random)
 
