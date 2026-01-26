@@ -12,6 +12,7 @@ import itertools
 import operator
 import warnings
 import weakref
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
@@ -151,27 +152,328 @@ class Agent[M: Model]:
         return self.model.scenario
 
 
-class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
-    """A collection class that represents an ordered set of agents within an agent-based model (ABM).
+class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
+    """Abstract base class for agent collections in Mesa.
 
-    This class extends both MutableSet and Sequence, providing set-like functionality with order preservation and
-    sequence operations.
+    This class defines the minimal interface that all AgentSet implementations must follow.
+    Subclasses are free to override methods with optimized implementations based on their
+    storage mechanism (weak references vs strong references).
 
     Attributes:
-        model (Model): The ABM model instance to which this AgentSet belongs.
+        model (Model): The ABM model instance to which this AbstractAgentSet belongs.
+    """
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """Return the number of agents in the AbstractAgentSet."""
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[A]:
+        """Provide an iterator over the agents in the AbstractAgentSet."""
+        ...
+
+    @abstractmethod
+    def __contains__(self, agent: A) -> bool:
+        """Check if an agent is in the AgentSet."""
+        ...
+
+    @abstractmethod
+    def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
+        """Update the ABstractAgentSet a with new set of agents."""
+        ...
+
+    def select(
+        self,
+        filter_func: Callable[[A], bool] | None = None,
+        at_most: int | float = float("inf"),
+        inplace: bool = False,
+        agent_type: type[A] | None = None,
+    ) -> AbstractAgentSet[A]:
+        """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
+
+        Args:
+            filter_func (Callable[[Agent], bool], optional): A function that takes an Agent and returns True if the
+                agent should be included in the result. Defaults to None, meaning no filtering is applied.
+            at_most (int | float, optional): The maximum amount of agents to select. Defaults to infinity.
+              - If an integer, at most the first number of matching agents are selected.
+              - If a float between 0 and 1, at most that fraction of original the agents are selected.
+            inplace (bool, optional): If True, modifies the current AgentSet; otherwise, returns a new AgentSet. Defaults to False.
+            agent_type (type[Agent], optional): The class type of the agents to select. Defaults to None, meaning no type filtering is applied.
+
+        Returns:
+            AbstractAgentSet: A new AgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
+
+        Notes:
+            - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
+            - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
+        """
+        inf = float("inf")
+        if filter_func is None and agent_type is None and at_most == inf:
+            return self if inplace else copy.copy(self)
+
+        # Check if at_most is of type float
+        if at_most <= 1.0 and isinstance(at_most, float):
+            at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
+
+        def agent_generator(filter_func, agent_type, at_most):
+            count = 0
+            for agent in self:
+                if count >= at_most:
+                    break
+                if (not filter_func or filter_func(agent)) and (
+                    not agent_type or isinstance(agent, agent_type)
+                ):
+                    yield agent
+                    count += 1
+
+        agents = agent_generator(filter_func, agent_type, at_most)
+
+        # Use type(self) to ensure we return the correct subclass (AgentSet vs StrongAgentSet)
+        return self._update(agents) if inplace else type(self)(agents, self.random)
+
+    def agg(
+        self, attribute: str, func: Callable | Iterable[Callable]
+    ) -> Any | list[Any]:
+        """Aggregate an attribute of all agents in the AgentSet using one or more functions.
+
+        Args:
+            attribute (str): The name of the attribute to aggregate.
+            func (Callable | Iterable[Callable]):
+                - If Callable: A single function to apply to the attribute values (e.g., min, max, sum, np.mean)
+                - If Iterable: Multiple functions to apply to the attribute values
+
+        Returns:
+            Any | [Any, ...]: Result of applying the function(s) to the attribute values.
+        """
+        values = self.get(attribute)
+
+        if isinstance(func, Callable):
+            return func(values)
+        else:
+            return [f(values) for f in func]
+
+    @overload
+    def get(
+        self,
+        attr_names: str,
+        handle_missing: Literal["error", "default"] = "error",
+        default_value: Any = None,
+    ) -> list[Any]: ...
+
+    @overload
+    def get(
+        self,
+        attr_names: list[str],
+        handle_missing: Literal["error", "default"] = "error",
+        default_value: Any = None,
+    ) -> list[list[Any]]: ...
+
+    def get(
+        self,
+        attr_names,
+        handle_missing="error",
+        default_value=None,
+    ):
+        """Retrieve the specified attribute(s) from each agent in the AgentSet.
+
+        Args:
+            attr_names (str | list[str]): The name(s) of the attribute(s) to retrieve from each agent.
+            handle_missing (str, optional): How to handle missing attributes. Can be:
+                                            - 'error' (default): raises an AttributeError if attribute is missing.
+                                            - 'default': returns the specified default_value.
+            default_value (Any, optional): The default value to return if 'handle_missing' is set to 'default'
+                                           and the agent does not have the attribute.
+
+        Returns:
+            list[Any]: A list with the attribute value for each agent if attr_names is a str.
+            list[list[Any]]: A list with a lists of attribute values for each agent if attr_names is a list of str.
+
+        Raises:
+            AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
+            ValueError: If an unknown 'handle_missing' option is provided.
+        """
+        is_single_attr = isinstance(attr_names, str)
+
+        if handle_missing == "error":
+            if is_single_attr:
+                return [getattr(agent, attr_names) for agent in self]
+            else:
+                return [[getattr(agent, attr) for attr in attr_names] for agent in self]
+
+        elif handle_missing == "default":
+            if is_single_attr:
+                return [getattr(agent, attr_names, default_value) for agent in self]
+            else:
+                return [
+                    [getattr(agent, attr, default_value) for attr in attr_names]
+                    for agent in self
+                ]
+
+        else:
+            raise ValueError(
+                f"Unknown handle_missing option: {handle_missing}, "
+                "should be one of 'error' or 'default'"
+            )
+
+    def set(self, attr_name: str, value: Any) -> AbstractAgentSet[A]:
+        """Set a specified attribute to a given value for all agents in the AgentSet.
+
+        Args:
+            attr_name (str): The name of the attribute to set.
+            value (Any): The value to set the attribute to.
+
+        Returns:
+            AbstractAgentSet: The AgentSet instance itself, after setting the attribute.
+        """
+        for agent in self:
+            setattr(agent, attr_name, value)
+        return self
+
+    @abstractmethod
+    def add(self, agent: A):
+        """Add an agent to the AgentSet.
+
+        Args:
+            agent (Agent): The agent to add to the set.
+
+        Note:
+            This method is an implementation of the abstract method from MutableSet.
+        """
+        ...
+
+    @abstractmethod
+    def discard(self, agent: A):
+        """Remove an agent from the AgentSet if it exists.
+
+        This method does not raise an error if the agent is not present.
+
+        Args:
+            agent (Agent): The agent to remove from the set.
+
+        Note:
+            This method is an implementation of the abstract method from MutableSet.
+        """
+        ...
+
+    @abstractmethod
+    def remove(self, agent: A):
+        """Remove an agent from the AbstractAgentSet.
+
+        Raises:
+            An Exception if the agent is not present.
+
+        Args:
+            agent (Agent): The agent to remove from the set.
+
+        Note:
+            This method is an implementation of the abstract method from MutableSet.
+        """
+        ...
+
+    @overload
+    def __getitem__(self, item: int) -> A: ...
+
+    @overload
+    def __getitem__(self, item: slice) -> list[A]: ...
+
+    def __getitem__(self, item):
+        """Retrieve an agent or a slice of agents from the AgentSet.
+
+        Args:
+            item (int | slice): The index or slice for selecting agents.
+
+        Returns:
+            Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
+        """
+
+    def groupby(self, by: Callable | str, as_list: bool = False) -> GroupBy:
+        """Group agents by the specified attribute or return from the callable.
+
+        Args:
+            by (Callable, str): used to determine what to group agents by
+
+                                * if ``by`` is a callable, it will be called for each agent and the return is used
+                                  for grouping
+                                * if ``by`` is a str, it should refer to an attribute on the agent and the value
+                                  of this attribute will be used for grouping
+
+            as_list (bool, optional): If True, the groups will be lists of agents.
+                                      If False (default), the groups will be AgentSets.
+
+        Returns:
+            GroupBy
+
+        Notes:
+            There might be performance benefits to using `as_list=True` if you don't need the advanced functionality.
+        """
+        groups = defaultdict(list)
+
+        if isinstance(by, Callable):
+            for agent in self:
+                groups[by(agent)].append(agent)
+        else:
+            for agent in self:
+                groups[getattr(agent, by)].append(agent)
+
+        if as_list:
+            return GroupBy(groups)
+        else:
+            return GroupBy(
+                {k: type(self)(v, random=self.random) for k, v in groups.items()}
+            )
+
+    # Performance-critical methods are left abstract
+
+    @abstractmethod
+    def shuffle(self, inplace: bool = False) -> AbstractAgentSet[A]:
+        """Randomly shuffle the order of agents in the AgentSet."""
+        ...
+
+    @abstractmethod
+    def sort(
+        self,
+        key: Callable[[A], Any] | str,
+        ascending: bool = False,
+        inplace: bool = False,
+    ) -> AbstractAgentSet[A]:
+        """Sort the agents in the AbstractAgentSet based on a specified attribute or custom function."""
+        ...
+
+    @abstractmethod
+    def do(self, method: str | Callable, *args, **kwargs) -> AbstractAgentSet[A]:
+        """Invoke a method or function on each agent in the AbstractAgentSet."""
+        ...
+
+    @abstractmethod
+    def shuffle_do(
+        self, method: str | Callable, *args, **kwargs
+    ) -> AbstractAgentSet[A]:
+        """Shuffle the agents in the AbstractAgentSet and then invoke a method or function on each agent."""
+        ...
+
+    @abstractmethod
+    def map(self, method: str | Callable, *args, **kwargs) -> list[Any]:
+        """Invoke a method or function on each agent in the AbstractAgentSet and return the results."""
+        ...
+
+
+class AgentSet[A: Agent](AbstractAgentSet[A]):
+    """A collection class that represents an ordered set of agents using weak references.
+
+    This implementation uses weak references to agents, allowing for efficient management
+    of agent lifecycles without preventing garbage collection.
+
+    Attributes:
+        random (Random): The random number generator for this agent set.
 
     Notes:
-        The AgentSet maintains weak references to agents, allowing for efficient management of agent lifecycles
-        without preventing garbage collection. It is associated with a specific model instance, enabling
-        interactions with the model's environment and other agents.The implementation uses a WeakKeyDictionary to store agents,
-        which means that agents not referenced elsewhere in the program may be automatically removed from the AgentSet.
+        The AgentSet maintains weak references to agents, which means that agents not
+        referenced elsewhere in the program may be automatically removed from the AgentSet.
+        This is the default implementation for most use cases where automatic cleanup is desired.
 
-    Notes:
-        If random is None then the random number generator in the model of the first agent is used.
-        If the agents list is empty and random is also None a user warning is issued and the AgentSet
-        is an empty list and a default random number generator.  This can make models non-reproducible.
-        If your code may create an AgentSet with no agents please pass a random number generator explicitly.
-
+        Performance-critical methods are optimized to work directly with weak references,
+        avoiding the overhead of creating strong references during iteration.
     """
 
     def __init__(
@@ -179,11 +481,11 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         agents: Iterable[A],
         random: Random | None = None,
     ):
-        """Initializes the AgentSet with a collection of agents and a reference to the model.
+        """Initialize the AgentSet with weak references to agents.
 
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
-            random (Random | np.random.Generator | None): the random number generator
+            random (Random | None): The random number generator for this agent set.
         """
         self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
         if (len(self._agents) == 0) and random is None:
@@ -212,54 +514,6 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
     def __contains__(self, agent: A) -> bool:
         """Check if an agent is in the AgentSet. Can be used like `agent in agentset`."""
         return agent in self._agents
-
-    def select(
-        self,
-        filter_func: Callable[[A], bool] | None = None,
-        at_most: int | float = float("inf"),
-        inplace: bool = False,
-        agent_type: type[A] | None = None,
-    ) -> AgentSet[A]:
-        """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
-
-        Args:
-            filter_func (Callable[[Agent], bool], optional): A function that takes an Agent and returns True if the
-                agent should be included in the result. Defaults to None, meaning no filtering is applied.
-            at_most (int | float, optional): The maximum amount of agents to select. Defaults to infinity.
-              - If an integer, at most the first number of matching agents are selected.
-              - If a float between 0 and 1, at most that fraction of original the agents are selected.
-            inplace (bool, optional): If True, modifies the current AgentSet; otherwise, returns a new AgentSet. Defaults to False.
-            agent_type (type[Agent], optional): The class type of the agents to select. Defaults to None, meaning no type filtering is applied.
-
-        Returns:
-            AgentSet: A new AgentSet containing the selected agents, unless inplace is True, in which case the current AgentSet is updated.
-
-        Notes:
-            - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
-            - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
-        """
-        inf = float("inf")
-        if filter_func is None and agent_type is None and at_most == inf:
-            return self if inplace else copy.copy(self)
-
-        # Check if at_most is of type float
-        if at_most <= 1.0 and isinstance(at_most, float):
-            at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
-
-        def agent_generator(filter_func, agent_type, at_most):
-            count = 0
-            for agent in self:
-                if count >= at_most:
-                    break
-                if (not filter_func or filter_func(agent)) and (
-                    not agent_type or isinstance(agent, agent_type)
-                ):
-                    yield agent
-                    count += 1
-
-        agents = agent_generator(filter_func, agent_type, at_most)
-
-        return AgentSet(agents, self.random) if not inplace else self._update(agents)
 
     def shuffle(self, inplace: bool = False) -> AgentSet[A]:
         """Randomly shuffle the order of agents in the AgentSet.
@@ -333,7 +587,7 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             **kwargs: Arbitrary keyword arguments passed to the callable being called.
 
         Returns:
-            AgentSet | list[Any]: The results of the callable calls if return_results is True, otherwise the AgentSet itself.
+            AgentSet: The AgentSet instance itself.
         """
         # we iterate over the actual weakref keys and check if weakref is alive before calling the method
         if isinstance(method, str):
@@ -396,122 +650,6 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             ]
 
         return res
-
-    def agg(
-        self, attribute: str, func: Callable | Iterable[Callable]
-    ) -> Any | list[Any]:
-        """Aggregate an attribute of all agents in the AgentSet using one or more functions.
-
-        Args:
-            attribute (str): The name of the attribute to aggregate.
-            func (Callable | Iterable[Callable]):
-                - If Callable: A single function to apply to the attribute values (e.g., min, max, sum, np.mean)
-                - If Iterable: Multiple functions to apply to the attribute values
-
-        Returns:
-            Any | [Any, ...]: Result of applying the function(s) to the attribute values.
-
-        Examples:
-            # Single function
-            avg_energy = model.agents.agg("energy", np.mean)
-
-            # Multiple functions
-            min_wealth, max_wealth, total_wealth = model.agents.agg("wealth", [min, max, sum])
-        """
-        values = self.get(attribute)
-
-        if isinstance(func, Callable):
-            return func(values)
-        else:
-            return [f(values) for f in func]
-
-    @overload
-    def get(
-        self,
-        attr_names: str,
-        handle_missing: Literal["error", "default"] = "error",
-        default_value: Any = None,
-    ) -> list[Any]: ...
-
-    @overload
-    def get(
-        self,
-        attr_names: list[str],
-        handle_missing: Literal["error", "default"] = "error",
-        default_value: Any = None,
-    ) -> list[list[Any]]: ...
-
-    def get(
-        self,
-        attr_names,
-        handle_missing="error",
-        default_value=None,
-    ):
-        """Retrieve the specified attribute(s) from each agent in the AgentSet.
-
-        Args:
-            attr_names (str | list[str]): The name(s) of the attribute(s) to retrieve from each agent.
-            handle_missing (str, optional): How to handle missing attributes. Can be:
-                                            - 'error' (default): raises an AttributeError if attribute is missing.
-                                            - 'default': returns the specified default_value.
-            default_value (Any, optional): The default value to return if 'handle_missing' is set to 'default'
-                                           and the agent does not have the attribute.
-
-        Returns:
-            list[Any]: A list with the attribute value for each agent if attr_names is a str.
-            list[list[Any]]: A list with a lists of attribute values for each agent if attr_names is a list of str.
-
-        Raises:
-            AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
-            ValueError: If an unknown 'handle_missing' option is provided.
-        """
-        is_single_attr = isinstance(attr_names, str)
-
-        if handle_missing == "error":
-            if is_single_attr:
-                return [getattr(agent, attr_names) for agent in self._agents]
-            else:
-                return [
-                    [getattr(agent, attr) for attr in attr_names]
-                    for agent in self._agents
-                ]
-
-        elif handle_missing == "default":
-            if is_single_attr:
-                return [
-                    getattr(agent, attr_names, default_value) for agent in self._agents
-                ]
-            else:
-                return [
-                    [getattr(agent, attr, default_value) for attr in attr_names]
-                    for agent in self._agents
-                ]
-
-        else:
-            raise ValueError(
-                f"Unknown handle_missing option: {handle_missing}, "
-                "should be one of 'error' or 'default'"
-            )
-
-    def set(self, attr_name: str, value: Any) -> AgentSet[A]:
-        """Set a specified attribute to a given value for all agents in the AgentSet.
-
-        Args:
-            attr_name (str): The name of the attribute to set.
-            value (Any): The value to set the attribute to.
-
-        Returns:
-            AgentSet: The AgentSet instance itself, after setting the attribute.
-        """
-        for agent in self:
-            setattr(agent, attr_name, value)
-        return self
-
-    @overload
-    def __getitem__(self, item: int) -> A: ...
-
-    @overload
-    def __getitem__(self, item: slice) -> list[A]: ...
 
     def __getitem__(self, item):
         """Retrieve an agent or a slice of agents from the AgentSet.
@@ -579,47 +717,6 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         self.random = state["random"]
         self._update(state["agents"])
 
-    def groupby(self, by: Callable | str, result_type: str = "agentset") -> GroupBy:
-        """Group agents by the specified attribute or return from the callable.
-
-        Args:
-            by (Callable, str): used to determine what to group agents by
-
-                                * if ``by`` is a callable, it will be called for each agent and the return is used
-                                  for grouping
-                                * if ``by`` is a str, it should refer to an attribute on the agent and the value
-                                  of this attribute will be used for grouping
-            result_type (str, optional): The datatype for the resulting groups {"agentset", "list"}
-
-        Returns:
-            GroupBy
-
-
-        Notes:
-        There might be performance benefits to using `result_type='list'` if you don't need the advanced functionality
-        of an AgentSet.
-
-        """
-        groups = defaultdict(list)
-
-        if isinstance(by, Callable):
-            for agent in self:
-                groups[by(agent)].append(agent)
-        else:
-            for agent in self:
-                groups[getattr(agent, by)].append(agent)
-
-        if result_type == "agentset":
-            return GroupBy(
-                {k: AgentSet(v, random=self.random) for k, v in groups.items()}
-            )
-        else:
-            return GroupBy(groups)
-
-    # consider adding for performance reasons
-    # for Sequence: __reversed__, index, and count
-    # for MutableSet clear, pop, remove, __ior__, __iand__, __ixor__, and __isub__
-
 
 class GroupBy:
     """Helper class for AgentSet.groupby.
@@ -629,14 +726,14 @@ class GroupBy:
 
     """
 
-    def __init__(self, groups: dict[Any, list | AgentSet]):
+    def __init__(self, groups: dict[Any, list | AbstractAgentSet]):
         """Initialize a GroupBy instance.
 
         Args:
             groups (dict): A dictionary with the group_name as key and group as values
 
         """
-        self.groups: dict[Any, list | AgentSet] = groups
+        self.groups: dict[Any, list | AbstractAgentSet] = groups
 
     def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
         """Apply the specified callable to each group and return the results.
