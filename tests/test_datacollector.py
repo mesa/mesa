@@ -88,7 +88,7 @@ class MockModel(Model):
         if input2 > 0:
             return (self.model_val * input1) / input2
         else:
-            assert ValueError
+            # Return None for invalid input (input2 must be positive for division)
             return None
 
     def step(self):  # noqa: D102
