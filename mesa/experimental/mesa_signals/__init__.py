@@ -17,12 +17,12 @@ from .mesa_signal import (
     SignalType,
     computed,
 )
-from .observable_collections import ListSignalType, ObservableList
+from .observable_collections import ListSignals, ObservableList
 
 __all__ = [
     "All",
     "HasObservables",
-    "ListSignalType",
+    "ListSignals",
     "Observable",
     "ObservableList",
     "SignalType",

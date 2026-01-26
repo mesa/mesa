@@ -16,6 +16,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from enum import Enum
+from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType
+
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
@@ -30,9 +33,13 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 
 _mesa_logger = create_module_logger()
 
+class ModelSignals(SignalType):
+    AGENT_ADDED = "agent_added"
+    AGENT_REMOVED = "agent_removed"
+
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required
-class Model[A: Agent, S: Scenario]:
+class Model[A: Agent, S: Scenario](HasObservables):
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
@@ -58,6 +65,8 @@ class Model[A: Agent, S: Scenario]:
         composition of this AgentSet, ensure you operate on a copy.
 
     """
+    # fixme how can we declare that "agents" is observable?
+    time = Observable()  # we can now just subscribe to change events on the observable time
 
     @property
     def scenario(self) -> S:
@@ -102,6 +111,11 @@ class Model[A: Agent, S: Scenario]:
         self.steps: int = 0
         self.time: float = 0.0
         self.agent_id_counter: int = 1
+
+
+        # hacky fixme
+        for element in ModelSignals:
+            self.observables[("agents", element)] = set()
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -264,6 +278,7 @@ class Model[A: Agent, S: Scenario]:
             )
 
         self._all_agents.add(agent)
+        self.notify("agents", None, agent, ModelSignals.AGENT_ADDED)
         _mesa_logger.debug(
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
@@ -281,6 +296,7 @@ class Model[A: Agent, S: Scenario]:
         del self._agents[agent]
         self._agents_by_type[type(agent)].remove(agent)
         self._all_agents.remove(agent)
+        self.notify("agents", agent, None, ModelSignals.AGENT_REMOVED)
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
 
     def run_model(self) -> None:

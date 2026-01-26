@@ -5,7 +5,7 @@ lists. Observable collections emit signals when items are added, removed, or mod
 allowing other components to react to changes in the collection's contents.
 
 The module provides:
-- ListSignalType: Enum defining signal types for list collections
+- ListSignals: Enum defining signal types for list collections
 - ObservableList: A list descriptor that emits signals on modifications
 - SignalingList: The underlying list implementation that manages signal emission
 
@@ -17,15 +17,15 @@ from collections.abc import Iterable, MutableSequence
 from enum import Enum
 from typing import Any
 
-from .mesa_signal import BaseObservable, HasObservables
+from .mesa_signal import BaseObservable, HasObservables, SignalType
 
 __all__ = [
-    "ListSignalType",
+    "ListSignals",
     "ObservableList",
 ]
 
 
-class ListSignalType(str, Enum):
+class ListSignals(SignalType):
     """Enumeration of signal types that observable lists can emit.
 
     Provides list-specific signal types with IDE autocomplete and type safety.
@@ -47,14 +47,14 @@ class ListSignalType(str, Enum):
         REPLACE: Emitted when an item is replaced/modified in the list.
 
     Examples:
-        >>> from mesa.experimental.mesa_signals import ObservableList, HasObservables, ListSignalType
+        >>> from mesa.experimental.mesa_signals import ObservableList, HasObservables, ListSignals
         >>> class MyModel(HasObservables):
         ...     items = ObservableList()
         ...     def __init__(self):
         ...         super().__init__()
         ...         self.items = []
         >>> model = MyModel()
-        >>> model.observe("items", ListSignalType.INSERT, lambda s: print(f"Inserted {s.new}"))
+        >>> model.observe("items", ListSignals.INSERT, lambda s: print(f"Inserted {s.new}"))
         >>> model.items.insert(0, "first")
         Inserted first
 
@@ -81,8 +81,8 @@ class ObservableList(BaseObservable):
     def __init__(self):
         """Initialize the ObservableList."""
         super().__init__()
-        # Use all members of ListSignalType enum
-        self.signal_types: set = set(ListSignalType)
+        # Use all members of ListSignals enum
+        self.signal_types: set = set(ListSignals)
         self.fallback_value = []
 
     def __set__(self, instance: "HasObservables", value: Iterable):
@@ -130,7 +130,7 @@ class SignalingList(MutableSequence[Any]):
         old_value = self.data[index]
         self.data[index] = value
         self.owner.notify(
-            self.name, old_value, value, ListSignalType.REPLACE, index=index
+            self.name, old_value, value, ListSignals.REPLACE, index=index
         )
 
     def __delitem__(self, index: int) -> None:
@@ -143,7 +143,7 @@ class SignalingList(MutableSequence[Any]):
         old_value = self.data
         del self.data[index]
         self.owner.notify(
-            self.name, old_value, None, ListSignalType.REMOVE, index=index
+            self.name, old_value, None, ListSignals.REMOVE, index=index
         )
 
     def __getitem__(self, index) -> Any:
@@ -170,7 +170,7 @@ class SignalingList(MutableSequence[Any]):
 
         """
         self.data.insert(index, value)
-        self.owner.notify(self.name, None, value, ListSignalType.INSERT, index=index)
+        self.owner.notify(self.name, None, value, ListSignals.INSERT, index=index)
 
     def append(self, value):
         """Insert value at index.
@@ -182,7 +182,7 @@ class SignalingList(MutableSequence[Any]):
         """
         index = len(self.data)
         self.data.append(value)
-        self.owner.notify(self.name, None, value, ListSignalType.APPEND, index=index)
+        self.owner.notify(self.name, None, value, ListSignals.APPEND, index=index)
 
     def __str__(self):
         return self.data.__str__()

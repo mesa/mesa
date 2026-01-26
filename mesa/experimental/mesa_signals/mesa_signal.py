@@ -22,16 +22,26 @@ import functools
 import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Callable
-from enum import Enum
+from collections.abc import Callable, Generator
+from enum import StrEnum
 from typing import Any
 
 from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
-__all__ = ["All", "HasObservables", "Observable", "SignalType", "computed"]
+__all__ = [
+    "All",
+    "BaseObservable",
+    "HasObservables",
+    "Observable",
+    "SignalType",
+    "computed",
+]
 
 
-class SignalType(str, Enum):
+class SignalType(StrEnum):
+    """Root class for all signal type enums."""
+
+class ObservableSignals(SignalType):
     """Enumeration of signal types that observables can emit.
 
     This enum provides type-safe signal type definitions with IDE autocomplete support.
@@ -48,7 +58,7 @@ class SignalType(str, Enum):
         ...         super().__init__()
         ...         self._value = 0
         >>> model = MyModel()
-        >>> model.observe("value", SignalType.CHANGE, lambda s: print(s.new))
+        >>> model.observe("value", ObservableSignals.CHANGE, lambda s: print(s.new))
         >>> model.value = 10
         10
 
@@ -105,7 +115,7 @@ class BaseObservable(ABC):
     def __set__(self, instance: HasObservables, value):
         # If no one is listening, Avoid overhead of fetching old value and
         # creating Message object.
-        if not instance._has_subscribers(self.public_name, SignalType.CHANGE):
+        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGE):
             return
 
         # this only emits an on change signal, subclasses need to specify
@@ -114,7 +124,7 @@ class BaseObservable(ABC):
             self.public_name,
             getattr(instance, self.private_name, self.fallback_value),
             value,
-            SignalType.CHANGE,
+            ObservableSignals.CHANGE,
         )
 
     def __str__(self):
@@ -129,7 +139,7 @@ class Observable(BaseObservable):
         super().__init__(fallback_value=fallback_value)
 
         self.signal_types: set[SignalType | str] = {
-            SignalType.CHANGE,
+            ObservableSignals.CHANGE,
         }
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
@@ -166,7 +176,7 @@ class ComputedState:
     def _set_dirty(self, signal):
         if not self.is_dirty:
             self.is_dirty = True
-            self.owner.notify(self.name, self.value, None, SignalType.CHANGE)
+            self.owner.notify(self.name, self.value, None, ObservableSignals.CHANGE)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any
@@ -277,7 +287,7 @@ class HasObservables:
     # we can't use a weakset here because it does not handle bound methods correctly
     # also, a list is faster for our use case
     subscribers: dict[
-        tuple[str, str], list
+        tuple[str, SignalType], list
     ]  # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, set[str]]
 
@@ -449,6 +459,13 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
+        # because we are using a list of subscribers
+        # we should update this list to subscribers that are still alive
+        key = (observable, signal_type)
+
+        if key not in self.subscribers:
+            return
+
         signal = Message(
             name=observable,
             old=old_value,
@@ -474,13 +491,7 @@ class HasObservables:
         # than the default ones in notify.
         observable = signal.name
         signal_type = signal.signal_type
-
-        # because we are using a list of subscribers
-        # we should update this list to subscribers that are still alive
         key = (observable, signal_type)
-
-        if key not in self.subscribers:
-            return
 
         observers = self.subscribers[key]
         active_observers = []
@@ -496,7 +507,11 @@ class HasObservables:
             del self.subscribers[key]
 
 
-def descriptor_generator(obj) -> [str, BaseObservable]:
+def descriptor_generator(
+    obj,
+) -> Generator[
+    tuple[str, set[SignalType | str]] | tuple[str, set[SignalType]], Any, None
+]:
     """Yield the name and signal_types for each Observable defined on obj.
 
     This handles both legacy BaseObservable descriptors and new @computed properties.
@@ -508,4 +523,4 @@ def descriptor_generator(obj) -> [str, BaseObservable]:
                 yield entry.public_name, entry.signal_types
             elif isinstance(entry, ComputedProperty):
                 # Computed properties imply a CHANGE signal
-                yield name, {SignalType.CHANGE}
+                yield name, {ObservableSignals.CHANGE}

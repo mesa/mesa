@@ -8,7 +8,7 @@ from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
     All,
     HasObservables,
-    ListSignalType,
+    ListSignals,
     Observable,
     ObservableList,
     computed,
@@ -145,7 +145,7 @@ def test_ObservableList():
             name="my_list",
             new=1,
             old=None,
-            signal_type=ListSignalType.APPEND,
+            signal_type=ListSignals.APPEND,
             owner=agent,
             additional_kwargs={"index": 0},
         )
