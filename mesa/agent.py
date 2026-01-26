@@ -180,7 +180,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
     @abstractmethod
     def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
-        """Update the ABstractAgentSet a with new set of agents."""
+        """Update the AbstractAgentSet a with new set of agents."""
         ...
 
     def select(
