@@ -83,6 +83,23 @@ def propertylayer_portrayal(layer):
 
 * Ref: [PR #2786](https://github.com/mesa/mesa/pull/2786)
 
+### Passing portrayal arguments to draw methods
+Passing portrayal arguments directly to `draw_agents()` and `draw_propertylayer()` is deprecated. Use the `setup_agents()` and `setup_propertylayer()` methods before calling the draw methods.
+
+```python
+# Old
+renderer.draw_agents(agent_portrayal=agent_portrayal)
+renderer.draw_propertylayer(propertylayer_portrayal)
+
+# New
+renderer.setup_agents(agent_portrayal).draw_agents()
+renderer.setup_propertylayer(propertylayer_portrayal).draw_propertylayer()
+```
+
+This change allows for better method chaining and separates the configuration phase from the rendering phase.
+
+* Ref: [PR #2893](https://github.com/mesa/mesa/pull/2893)
+
 ### Default Space Visualization
 While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
 
