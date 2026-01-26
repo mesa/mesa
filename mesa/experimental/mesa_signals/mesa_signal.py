@@ -93,7 +93,7 @@ class BaseObservable(ABC):
         self.signal_types: set[SignalType | str] = set()
         self.fallback_value = fallback_value
 
-    def __get__(self, instance: HasObservables, owner): # noqa: D105
+    def __get__(self, instance: HasObservables, owner):  # noqa: D105
         value = getattr(instance, self.private_name)
 
         if CURRENT_COMPUTED is not None:
@@ -107,13 +107,13 @@ class BaseObservable(ABC):
 
         return value
 
-    def __set_name__(self, owner: HasObservables, name: str): # noqa: D105
+    def __set_name__(self, owner: HasObservables, name: str):  # noqa: D105
         self.public_name = name
         self.private_name = f"_{name}"
         # owner.register_observable(self)
 
     @abstractmethod
-    def __set__(self, instance: HasObservables, value): # noqa: D105
+    def __set__(self, instance: HasObservables, value):  # noqa: D105
         # If no one is listening, Avoid overhead of fetching old value and
         # creating Message object.
         if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGE):
@@ -128,7 +128,7 @@ class BaseObservable(ABC):
             ObservableSignals.CHANGE,
         )
 
-    def __str__(self): # noqa: D105
+    def __str__(self):  # noqa: D105
         return f"{self.__class__.__name__}: {self.public_name}"
 
 
