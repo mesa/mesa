@@ -507,6 +507,20 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             setattr(agent, attr_name, value)
         return self
 
+    def to_list(self) -> list[A]:
+        """Convert the AgentSet to a list.
+
+        Returns:
+            list[Agent]: A list containing all agents in the AgentSet.
+
+        Notes:
+            This method provides an explicit way to convert the AgentSet to a list.
+            It is the recommended approach when list operations (indexing, slicing)
+            are needed, as direct sequence operations on AgentSet are deprecated
+            and will be removed in Mesa 4.0.
+        """
+        return list(self._agents.keys())
+
     @overload
     def __getitem__(self, item: int) -> A: ...
 
@@ -521,7 +535,17 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
         Returns:
             Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
+
+        .. deprecated::
+            Sequence behavior (indexing/slicing) is deprecated and will be removed in Mesa 4.0.
+            Use :meth:`to_list` instead: ``agentset.to_list()[index]`` or ``agentset.to_list()[start:stop]``.
         """
+        warnings.warn(
+            "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
+            "Use AgentSet.to_list()[index] instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         return list(self._agents.keys())[item]
 
     def add(self, agent: A):
