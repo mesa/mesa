@@ -348,9 +348,9 @@ def test_agent_from_dataframe():
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
 
-    # Test from_dataframe with reserved column name 'model' should raise ValueError
+    # Test from_dataframe with reserved column name 'model' should raise TypeError
     df_model = pd.DataFrame({"model": ["some_model_string"] * n})
-    with pytest.raises(ValueError, match="reserved for the Mesa Model instance"):
+    with pytest.raises(TypeError, match="got multiple values for argument 'model'"):
         TestAgent.from_dataframe(model, df_model)
 
     # Test that 'n' is NOT reserved and is passed correctly
