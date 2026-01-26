@@ -94,7 +94,7 @@ def test_devs_simulator():
     # simulator reset
     simulator.reset()
     assert len(simulator.event_list) == 0
-    assert simulator.model is None
+    assert simulator.model is model
 
     # run_for without setup
     simulator = DEVSimulator()
@@ -115,10 +115,8 @@ def test_devs_simulator():
 
     # setup with event scheduled
     simulator = DEVSimulator()
-    model = Model()
-    simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
-    with pytest.raises(ValueError):
-        simulator.setup(model)
+    with pytest.raises(RuntimeError, match="Simulator not set up"):
+        simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
 
 
 def test_abm_simulator():
@@ -415,6 +413,21 @@ def test_eventlist():
     # clear
     event_list.clear()
     assert len(event_list) == 0
+
+
+def test_simulator_uses_model_event_list():
+    """Test that simulator uses model's internal event list."""
+    model = Model()
+    simulator = DEVSimulator()
+    simulator.setup(model)
+
+    # Simulator's event_list property should return model's event list
+    assert simulator.event_list is model._event_list
+
+    # Events scheduled through simulator appear in model's event list
+    fn = MagicMock()
+    simulator.schedule_event_absolute(fn, 1.0)
+    assert len(model._event_list) == 1
 
 
 @pytest.fixture
