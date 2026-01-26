@@ -674,18 +674,18 @@ def test_agentset_groupby():
         assert len(group) == 5
         assert group_name in {True, False}
 
-    sizes = agentset.groupby("even", as_list=True).map(len)
+    sizes = agentset.groupby("even", result_type="list").map(len)
     assert sizes == {True: 5, False: 5}
 
-    attributes = agentset.groupby("even", as_list=False).map("get", "even")
+    attributes = agentset.groupby("even", result_type="agentset").map("get", "even")
     for group_name, group in attributes.items():
         assert all(group_name == entry for entry in group)
 
-    groups = agentset.groupby("even", as_list=False)
+    groups = agentset.groupby("even", result_type="agentset")
     another_ref_to_groups = groups.do("do", "step")
     assert groups == another_ref_to_groups
 
-    groups = agentset.groupby("even", as_list=False)
+    groups = agentset.groupby("even", result_type="agentset")
     another_ref_to_groups = groups.do(lambda x: x.do("step"))
     assert groups == another_ref_to_groups
 

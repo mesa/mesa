@@ -152,8 +152,8 @@ class Agent[M: Model]:
         return self.model.scenario
 
 
-class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
-    """Abstract base class for agent collections in Mesa.
+class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
+    """An abstract base collection class that represents an ordered set of agents within an agent-based model (ABM).
 
     This class defines the minimal interface that all AgentSet implementations must follow.
     Subclasses are free to override methods with optimized implementations based on their
@@ -190,7 +190,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
         inplace: bool = False,
         agent_type: type[A] | None = None,
     ) -> AbstractAgentSet[A]:
-        """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
+        """Select a subset of agents from the AbstractAgentSet based on a filter function and/or quantity limit.
 
         Args:
             filter_func (Callable[[Agent], bool], optional): A function that takes an Agent and returns True if the
@@ -198,11 +198,11 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
             at_most (int | float, optional): The maximum amount of agents to select. Defaults to infinity.
               - If an integer, at most the first number of matching agents are selected.
               - If a float between 0 and 1, at most that fraction of original the agents are selected.
-            inplace (bool, optional): If True, modifies the current AgentSet; otherwise, returns a new AgentSet. Defaults to False.
+            inplace (bool, optional): If True, modifies the current AbstractAgentSet; otherwise, returns a new AbstractAgentSet. Defaults to False.
             agent_type (type[Agent], optional): The class type of the agents to select. Defaults to None, meaning no type filtering is applied.
 
         Returns:
-            AbstractAgentSet: A new AgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
+            AbstractAgentSet: A new AbstractAgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
 
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
@@ -235,7 +235,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
     def agg(
         self, attribute: str, func: Callable | Iterable[Callable]
     ) -> Any | list[Any]:
-        """Aggregate an attribute of all agents in the AgentSet using one or more functions.
+        """Aggregate an attribute of all agents in the AbstractAgentSet using one or more functions.
 
         Args:
             attribute (str): The name of the attribute to aggregate.
@@ -275,7 +275,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
         handle_missing="error",
         default_value=None,
     ):
-        """Retrieve the specified attribute(s) from each agent in the AgentSet.
+        """Retrieve the specified attribute(s) from each agent in the AbstractAgentSet.
 
         Args:
             attr_names (str | list[str]): The name(s) of the attribute(s) to retrieve from each agent.
@@ -317,14 +317,14 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
             )
 
     def set(self, attr_name: str, value: Any) -> AbstractAgentSet[A]:
-        """Set a specified attribute to a given value for all agents in the AgentSet.
+        """Set a specified attribute to a given value for all agents in the AbstractAgentSet.
 
         Args:
             attr_name (str): The name of the attribute to set.
             value (Any): The value to set the attribute to.
 
         Returns:
-            AbstractAgentSet: The AgentSet instance itself, after setting the attribute.
+            AbstractAgentSet: The AbstractAgentSet instance itself, after setting the attribute.
         """
         for agent in self:
             setattr(agent, attr_name, value)
@@ -332,7 +332,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
 
     @abstractmethod
     def add(self, agent: A):
-        """Add an agent to the AgentSet.
+        """Add an agent to the AbstractAgentSet.
 
         Args:
             agent (Agent): The agent to add to the set.
@@ -344,7 +344,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
 
     @abstractmethod
     def discard(self, agent: A):
-        """Remove an agent from the AgentSet if it exists.
+        """Remove an agent from the AbstractAgentSet if it exists.
 
         This method does not raise an error if the agent is not present.
 
@@ -371,23 +371,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
         """
         ...
 
-    @overload
-    def __getitem__(self, item: int) -> A: ...
-
-    @overload
-    def __getitem__(self, item: slice) -> list[A]: ...
-
-    def __getitem__(self, item):
-        """Retrieve an agent or a slice of agents from the AgentSet.
-
-        Args:
-            item (int | slice): The index or slice for selecting agents.
-
-        Returns:
-            Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
-        """
-
-    def groupby(self, by: Callable | str, as_list: bool = False) -> GroupBy:
+    def groupby(
+        self, by: Callable | str, result_type: Literal["agentset", "list"] = "agentset"
+    ) -> GroupBy:
         """Group agents by the specified attribute or return from the callable.
 
         Args:
@@ -398,14 +384,15 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
                                 * if ``by`` is a str, it should refer to an attribute on the agent and the value
                                   of this attribute will be used for grouping
 
-            as_list (bool, optional): If True, the groups will be lists of agents.
-                                      If False (default), the groups will be AgentSets.
+            result_type (str, optional): The datatype for the resulting groups {"agentset", "list"}
 
         Returns:
             GroupBy
 
+
         Notes:
-            There might be performance benefits to using `as_list=True` if you don't need the advanced functionality.
+            There might be performance benefits to using `result_type='list'` if you don't need the advanced functionality
+            of an AbstractAgentSet.
         """
         groups = defaultdict(list)
 
@@ -416,18 +403,18 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
             for agent in self:
                 groups[getattr(agent, by)].append(agent)
 
-        if as_list:
-            return GroupBy(groups)
-        else:
+        if result_type == "agentset":
             return GroupBy(
                 {k: type(self)(v, random=self.random) for k, v in groups.items()}
             )
+        else:
+            return GroupBy(groups)
 
     # Performance-critical methods are left abstract
 
     @abstractmethod
     def shuffle(self, inplace: bool = False) -> AbstractAgentSet[A]:
-        """Randomly shuffle the order of agents in the AgentSet."""
+        """Randomly shuffle the order of agents in the AbstractAgentSet."""
         ...
 
     @abstractmethod
@@ -458,7 +445,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A], Sequence[A]):
         ...
 
 
-class AgentSet[A: Agent](AbstractAgentSet[A]):
+class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
     """A collection class that represents an ordered set of agents using weak references.
 
     This implementation uses weak references to agents, allowing for efficient management
