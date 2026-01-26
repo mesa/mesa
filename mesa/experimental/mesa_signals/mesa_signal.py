@@ -41,6 +41,7 @@ __all__ = [
 class SignalType(StrEnum):
     """Root class for all signal type enums."""
 
+
 class ObservableSignals(SignalType):
     """Enumeration of signal types that observables can emit.
 

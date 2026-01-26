@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from enum import Enum
 from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType
 
 if TYPE_CHECKING:
@@ -32,6 +31,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 
 
 _mesa_logger = create_module_logger()
+
 
 class ModelSignals(SignalType):
     AGENT_ADDED = "agent_added"
@@ -65,8 +65,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
         composition of this AgentSet, ensure you operate on a copy.
 
     """
+
     # fixme how can we declare that "agents" is observable?
-    time = Observable()  # we can now just subscribe to change events on the observable time
+    time = (
+        Observable()
+    )  # we can now just subscribe to change events on the observable time
 
     @property
     def scenario(self) -> S:
@@ -111,7 +114,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self.steps: int = 0
         self.time: float = 0.0
         self.agent_id_counter: int = 1
-
 
         # hacky fixme
         for element in ModelSignals:
