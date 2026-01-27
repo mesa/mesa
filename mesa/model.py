@@ -116,8 +116,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self.agent_id_counter: int = 1
 
         # hacky fixme
-        for element in ModelSignals:
-            self.observables[("agents", element)] = set()
+        self.observables["agents"] = ModelSignals
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None

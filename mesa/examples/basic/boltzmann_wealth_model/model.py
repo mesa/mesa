@@ -11,6 +11,7 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
+from mesa.experimental.mesa_signals.mesa_signal import computed_property
 
 
 class BoltzmannWealth(Model):
@@ -43,7 +44,7 @@ class BoltzmannWealth(Model):
 
         # Set up data collection
         self.datacollector = DataCollector(
-            model_reporters={"Gini": self.compute_gini},
+            model_reporters={"Gini": "gini"},
             agent_reporters={"Wealth": "wealth"},
         )
         MoneyAgent.create_agents(
@@ -59,7 +60,8 @@ class BoltzmannWealth(Model):
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.datacollector.collect(self)  # Collect data
 
-    def compute_gini(self):
+    @computed_property
+    def gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
 
         The Gini coefficient is a measure of inequality in distributions.

@@ -1,7 +1,8 @@
 from mesa.discrete_space import CellAgent
+from mesa.experimental.mesa_signals import HasObservables, Observable
 
 
-class MoneyAgent(CellAgent):
+class MoneyAgent(CellAgent, HasObservables):
     """An agent with fixed initial wealth.
 
     Each agent starts with 1 unit of wealth and can give 1 unit to other agents
@@ -10,6 +11,7 @@ class MoneyAgent(CellAgent):
     Attributes:
         wealth (int): The agent's current wealth (starts at 1)
     """
+    wealth = Observable()
 
     def __init__(self, model, cell):
         """Create a new agent.

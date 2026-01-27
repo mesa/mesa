@@ -35,7 +35,7 @@ __all__ = [
     "HasObservables",
     "Observable",
     "SignalType",
-    "computed",
+    "computed_property",
 ]
 
 
@@ -210,13 +210,14 @@ class ComputedProperty(property):
     """A custom property class to identify computed properties."""
 
 
-def computed(func: Callable) -> property:
+def computed_property(func: Callable) -> property:
     """Decorator to create a computed property.
 
     Acts like @property, but automatically tracks dependencies (Observables)
     accessed during the function execution.
     """
     key = f"_computed_{func.__name__}"
+
 
     @functools.wraps(func)
     def wrapper(self: HasObservables):
@@ -291,7 +292,7 @@ class HasObservables:
     subscribers: dict[
         tuple[str, SignalType], list
     ]  # (observable_name, signal_type) -> list of weakref subscribers
-    observables: dict[str, set[str]]
+    observables: dict[str, type[SignalType]]
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasObservables."""
@@ -511,28 +512,23 @@ class HasObservables:
 
 def descriptor_generator(
     obj,
-) -> Generator[
-    tuple[str, set[SignalType | str]] | tuple[str, set[SignalType]], Any, None
-]:
+) -> Generator[tuple[str, type[SignalType]]]:
     """Yield the name and signal_types for each Observable defined on obj.
 
     This handles both legacy BaseObservable descriptors and new @computed properties.
     """
-    a = inspect.getmembers(obj, inspect.ismethod)
-    b = inspect.getmembers(obj, lambda o: inspect.is)
-    print(a)
-
+    a = inspect.getmembers(obj)
     for base in type(obj).__mro__:
         base_dict = vars(base)
-
+        b = dir(base)
 
         for name, entry in base_dict.items():
             match entry:
                 case ComputedProperty():
                     # Computed properties imply a CHANGE signal
-                    yield name, {ObservableSignals.CHANGE}
+                    yield name, ObservableSignals
                 case BaseObservable():
-                    yield entry.public_name, entry.signal_types
+                    yield entry.public_name,ObservableSignals
                 case _:
                     continue
 
@@ -542,6 +538,8 @@ def emit_signal(observable_name, signal_to_emit, when:Literal["before", "after"]
         """
            do operations with func
         """
+        setattr(func, "_mesa_signal_emitter", (observable_name, signal_to_emit))
+
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if when == "before":
