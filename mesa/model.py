@@ -16,7 +16,12 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType, emit_signal
+from mesa.experimental.mesa_signals import (
+    HasObservables,
+    Observable,
+    SignalType,
+    emit_signal,
+)
 
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator

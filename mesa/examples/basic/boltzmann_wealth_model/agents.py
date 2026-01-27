@@ -11,6 +11,7 @@ class MoneyAgent(CellAgent, HasObservables):
     Attributes:
         wealth (int): The agent's current wealth (starts at 1)
     """
+
     wealth = Observable()
 
     def __init__(self, model, cell):

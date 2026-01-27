@@ -19,8 +19,8 @@ clean separation of concerns.
 from __future__ import annotations
 
 import functools
-import weakref
 import inspect
+import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator
@@ -217,7 +217,6 @@ def computed_property(func: Callable) -> property:
     accessed during the function execution.
     """
     key = f"_computed_{func.__name__}"
-
 
     @functools.wraps(func)
     def wrapper(self: HasObservables):
@@ -528,17 +527,17 @@ def descriptor_generator(
                     # Computed properties imply a CHANGE signal
                     yield name, ObservableSignals
                 case BaseObservable():
-                    yield entry.public_name,ObservableSignals
+                    yield entry.public_name, ObservableSignals
                 case _:
                     continue
 
 
-def emit_signal(observable_name, signal_to_emit, when:Literal["before", "after"]= "after"):
+def emit_signal(
+    observable_name, signal_to_emit, when: Literal["before", "after"] = "after"
+):
     def inner(func):
-        """
-           do operations with func
-        """
-        setattr(func, "_mesa_signal_emitter", (observable_name, signal_to_emit))
+        """Do operations with func"""
+        func._mesa_signal_emitter = observable_name, signal_to_emit
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):

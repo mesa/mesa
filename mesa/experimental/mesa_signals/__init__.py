@@ -28,5 +28,5 @@ __all__ = [
     "ObservableList",
     "SignalType",
     "computed_property",
-    "emit_signal"
+    "emit_signal",
 ]
