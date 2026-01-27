@@ -519,6 +519,7 @@ def descriptor_generator(
     This handles both legacy BaseObservable descriptors and new @computed properties.
     """
     a = inspect.getmembers(obj, inspect.ismethod)
+    b = inspect.getmembers(obj, lambda o: inspect.is)
     print(a)
 
     for base in type(obj).__mro__:
