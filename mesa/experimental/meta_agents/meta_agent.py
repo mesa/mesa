@@ -382,14 +382,14 @@ class MetaAgent(Agent):
             agent.meta_agents.add(self)
             agent.meta_agent = self
 
-    def remove_constituting_agents(self, remove_agents: Iterable[Agent]):
+    def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
 
         Args:
-            remove_agents (Iterable[Agent]): The agents to remove from MetaAgent.
+            remove_agents (set[Agent]): The agents to remove.
         """
-        self._constituting_set.difference_update(remove_agents)
         for agent in remove_agents:
+            self._constituting_set.discard(agent)
             if hasattr(agent, "meta_agents"):
                 agent.meta_agents.discard(self)
                 # Update backward compatibility attribute deterministically

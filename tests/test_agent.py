@@ -66,7 +66,7 @@ def test_agentset():
 
     assert agents[0] in agentset
     assert len(agentset) == len(agents)
-    assert all(a1 == a2 for a1, a2 in zip(agentset[0:5], agents[0:5]))
+    assert all(a1 == a2 for a1, a2 in zip(agentset.to_list()[0:5], agents[0:5]))
 
     for a1, a2 in zip(agentset, agents):
         assert a1 == a2
@@ -85,7 +85,9 @@ def test_agentset():
     assert len(agentset.select(test_function, inplace=True)) == 5
     assert agentset.select(inplace=True) == agentset
     assert all(a1 == a2 for a1, a2 in zip(agentset.select(), agentset))
-    assert all(a1 == a2 for a1, a2 in zip(agentset.select(at_most=5), agentset[:5]))
+    assert all(
+        a1 == a2 for a1, a2 in zip(agentset.select(at_most=5), agentset.to_list()[:5])
+    )
 
     assert len(agentset.shuffle(inplace=False).select(at_most=5)) == 5
 
@@ -94,11 +96,15 @@ def test_agentset():
 
     assert all(
         a1 == a2
-        for a1, a2 in zip(agentset.sort(test_function, ascending=False), agentset[::-1])
+        for a1, a2 in zip(
+            agentset.sort(test_function, ascending=False), agentset.to_list()[::-1]
+        )
     )
     assert all(
         a1 == a2
-        for a1, a2 in zip(agentset.sort("unique_id", ascending=False), agentset[::-1])
+        for a1, a2 in zip(
+            agentset.sort("unique_id", ascending=False), agentset.to_list()[::-1]
+        )
     )
 
     assert all(
@@ -239,18 +245,46 @@ def test_agent_add_remove_discard():
         agentset.remove(agent)
 
 
-def test_agentset_get_item():
-    """Test integer based access to AgentSet."""
+def test_agentset_to_list():
+    """Test AgentSet.to_list method."""
     model = Model()
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
 
-    assert agentset[0] == agents[0]
-    assert agentset[-1] == agents[-1]
-    assert agentset[1:3] == agents[1:3]
+    # Test that to_list returns a list
+    agent_list = agentset.to_list()
+    assert isinstance(agent_list, list)
+    assert len(agent_list) == len(agents)
 
-    with pytest.raises(IndexError):
-        _ = agentset[20]
+    # Test that the list contains the same agents in the same order
+    assert agent_list == agents
+
+    # Test indexing on the returned list
+    assert agent_list[0] == agents[0]
+    assert agent_list[-1] == agents[-1]
+    assert agent_list[1:3] == agents[1:3]
+
+    # Test that modifying the list doesn't affect the AgentSet
+    agent_list.pop()
+    assert len(agentset) == 10
+
+
+def test_agentset_get_item():
+    """Test integer based access to AgentSet and deprecation warning."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # Test that __getitem__ raises PendingDeprecationWarning
+    with pytest.warns(
+        PendingDeprecationWarning, match="AgentSet.__getitem__ is deprecated"
+    ):
+        assert agentset[0] == agents[0]
+        assert agentset[-1] == agents[-1]
+        assert agentset[1:3] == agents[1:3]
+
+    with pytest.warns(PendingDeprecationWarning), pytest.raises(IndexError):
+        agentset[20]
 
 
 def test_agentset_do_str():
