@@ -16,7 +16,7 @@ from .mesa_signal import (
     Observable,
     SignalType,
     computed,
-    observable,
+    emit_signal,
 )
 from .observable_collections import ListSignals, ObservableList
 
@@ -28,5 +28,5 @@ __all__ = [
     "ObservableList",
     "SignalType",
     "computed",
-    "observable"
+    "emit_signal"
 ]

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import functools
 import weakref
+import inspect
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator
@@ -517,17 +518,25 @@ def descriptor_generator(
 
     This handles both legacy BaseObservable descriptors and new @computed properties.
     """
+    a = inspect.getmembers(obj, inspect.ismethod)
+    print(a)
+
     for base in type(obj).__mro__:
         base_dict = vars(base)
+
+
         for name, entry in base_dict.items():
-            if isinstance(entry, BaseObservable):
-                yield entry.public_name, entry.signal_types
-            elif isinstance(entry, ComputedProperty):
-                # Computed properties imply a CHANGE signal
-                yield name, {ObservableSignals.CHANGE}
+            match entry:
+                case ComputedProperty():
+                    # Computed properties imply a CHANGE signal
+                    yield name, {ObservableSignals.CHANGE}
+                case BaseObservable():
+                    yield entry.public_name, entry.signal_types
+                case _:
+                    continue
 
 
-def observable(observable_name, signal_to_emit, when:Literal["before", "after"]="after"):
+def emit_signal(observable_name, signal_to_emit, when:Literal["before", "after"]= "after"):
     def inner(func):
         """
            do operations with func
@@ -536,10 +545,10 @@ def observable(observable_name, signal_to_emit, when:Literal["before", "after"]=
         def wrapper(self, *args, **kwargs):
             if when == "before":
                 self.notify(observable_name, None, None, signal_to_emit)
-            func(self, *args, **kwargs)
+            ret = func(self, *args, **kwargs)
             if when == "after":
                 self.notify(observable_name, None, None, signal_to_emit)
-
+            return ret
 
         return wrapper
 
