@@ -174,5 +174,8 @@ class DiscreteSpace[T: Cell]:
         self.__dict__ = state
 
         for cell in self._cells.values():
-            connections = {coordinate:self._cells[coordinate] for coordinate in cell.connections.keys()}
+            connections = {
+                coordinate: self._cells[coordinate]
+                for coordinate in cell.connections.keys()
+            }
             cell.connections = connections
