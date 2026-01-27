@@ -176,6 +176,6 @@ class DiscreteSpace[T: Cell]:
         for cell in self._cells.values():
             connections = {
                 coordinate: self._cells[coordinate]
-                for coordinate in cell.connections.keys()
+                for coordinate in cell.connections
             }
             cell.connections = connections
