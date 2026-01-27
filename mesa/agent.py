@@ -586,7 +586,6 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
         """
         del self._agents[agent]
 
-
     def __getstate__(self):
         """Retrieve the state of the AgentSet for serialization.
 
