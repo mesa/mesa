@@ -533,8 +533,8 @@ def descriptor_generator(
                     yield entry.public_name, ObservableSignals
                 case Callable():
                     if hasattr(entry, "_mesa_signal_emitter"):
-                        name, signal = entry._mesa_signal_emitter
-                        emitters[name] = {
+                        observable_name, signal = entry._mesa_signal_emitter
+                        emitters[observable_name] = {
                             signal,
                         }
                 case _:
@@ -545,8 +545,16 @@ def descriptor_generator(
 
 
 def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "after"):
+    """Decorator to emit a signal before or after the call to func.
+
+    Args:
+        observable_name: the name of the observable that emits the signal
+        signal_to_emit: the signal to emit
+        when: whether to emit the signal before or after the function call.
+
+    """
     def inner(func):
-        """Do operations with func"""
+        """Wrap func."""
         func._mesa_signal_emitter = observable_name, signal_to_emit
 
         @functools.wraps(func)
