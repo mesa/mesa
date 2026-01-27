@@ -8,6 +8,7 @@ import pytest
 import solara
 
 import mesa
+import mesa.visualization.solara_viz as solara_viz_module
 from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
@@ -22,7 +23,7 @@ from mesa.visualization.solara_viz import (
     register_param_extractor,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
-import mesa.visualization.solara_viz as solara_viz_module
+
 
 @pytest.fixture(autouse=True)
 def reset_param_extractors():
@@ -32,6 +33,7 @@ def reset_param_extractors():
     yield
     solara_viz_module._param_extractors.clear()
     solara_viz_module._param_extractors.update(original_extractors)
+
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
     def test_unsupported_type(self):  # noqa: D102
@@ -316,11 +318,12 @@ class TestExtractDefaultValue:
 
     def test_extract_with_custom_extractor(self):
         """Test that custom extractors are used when registered."""
+
         def custom_extractor(spec):
             return spec.get("custom_field", "default")
 
         register_param_extractor("CustomType", custom_extractor)
-        
+
         param_spec = {"type": "CustomType", "custom_field": "custom_value"}
         assert extract_default_value(param_spec) == "custom_value"
 
@@ -335,6 +338,7 @@ class TestRegisterParamExtractor:
 
     def test_register_simple_extractor(self):
         """Test registering a simple extractor."""
+
         def my_extractor(spec):
             return spec.get("my_value")
 
@@ -344,6 +348,7 @@ class TestRegisterParamExtractor:
 
     def test_register_multiple_extractors(self):
         """Test registering multiple extractors."""
+
         def extractor1(spec):
             return spec.get("value1")
 
@@ -359,6 +364,7 @@ class TestRegisterParamExtractor:
 
     def test_overwrite_extractor(self):
         """Test that registering the same type overwrites the previous extractor."""
+
         def extractor1(spec):
             return "first"
 
@@ -377,6 +383,7 @@ class TestNestedDictExtractor:
     @pytest.fixture
     def dict_extractor(self):
         """Fixture providing a nested dict extractor."""
+
         def extract_dict_param(spec):
             entries = spec.get("entries", {})
             result = {}
@@ -388,7 +395,7 @@ class TestNestedDictExtractor:
                 else:
                     result[key] = value
             return result
-        
+
         register_param_extractor("Dict", extract_dict_param)
         return extract_dict_param
 
@@ -399,10 +406,10 @@ class TestNestedDictExtractor:
             "entries": {
                 "param1": {"value": 10},
                 "param2": {"value": "test"},
-                "param3": {"value": True}
-            }
+                "param3": {"value": True},
+            },
         }
-        
+
         result = extract_default_value(param_spec)
         assert result == {"param1": 10, "param2": "test", "param3": True}
 
@@ -415,34 +422,24 @@ class TestNestedDictExtractor:
                 "optimizer": {
                     "name": {"value": "adam"},
                     "beta1": {"value": 0.9},
-                    "beta2": {"value": 0.999}
-                }
-            }
+                    "beta2": {"value": 0.999},
+                },
+            },
         }
-        
+
         result = extract_default_value(param_spec)
         assert result == {
             "learning_rate": 0.01,
-            "optimizer": {
-                "name": "adam",
-                "beta1": 0.9,
-                "beta2": 0.999
-            }
+            "optimizer": {"name": "adam", "beta1": 0.9, "beta2": 0.999},
         }
 
     def test_deeply_nested_dict(self, dict_extractor):
         """Test extracting a deeply nested dictionary."""
         param_spec = {
             "type": "Dict",
-            "entries": {
-                "level1": {
-                    "level2": {
-                        "level3": {"value": "deep"}
-                    }
-                }
-            }
+            "entries": {"level1": {"level2": {"level3": {"value": "deep"}}}},
         }
-        
+
         result = extract_default_value(param_spec)
         assert result == {"level1": {"level2": {"level3": "deep"}}}
 
@@ -459,12 +456,13 @@ class TestMatrixExtractor:
     @pytest.fixture
     def matrix_extractor(self):
         """Fixture providing a matrix extractor."""
+
         def extract_matrix_param(spec):
             rows = spec.get("rows", 3)
             cols = spec.get("cols", 3)
             default_value = spec.get("default_value", 0)
             return [[default_value for _ in range(cols)] for _ in range(rows)]
-        
+
         register_param_extractor("Matrix", extract_matrix_param)
         return extract_matrix_param
 
@@ -500,7 +498,11 @@ class TestBackwardCompatibility:
 
     def test_choice_param(self):
         """Test that Choice parameters work unchanged."""
-        param_spec = {"type": "Choice", "value": "option1", "choices": ["option1", "option2"]}
+        param_spec = {
+            "type": "Choice",
+            "value": "option1",
+            "choices": ["option1", "option2"],
+        }
         assert extract_default_value(param_spec) == "option1"
 
     def test_fixed_param(self):
@@ -519,27 +521,30 @@ class TestEdgeCases:
 
     def test_extractor_raises_exception(self):
         """Test that exceptions in extractors propagate."""
+
         def bad_extractor(spec):
             raise ValueError("Intentional error")
 
         register_param_extractor("BadType", bad_extractor)
-        
+
         param_spec = {"type": "BadType"}
         with pytest.raises(ValueError, match="Intentional error"):
             extract_default_value(param_spec)
 
     def test_extractor_returns_none(self):
         """Test that extractors can return None."""
+
         def none_extractor(spec):
             return None
 
         register_param_extractor("NoneType", none_extractor)
-        
+
         param_spec = {"type": "NoneType"}
         assert extract_default_value(param_spec) is None
 
     def test_complex_nested_structure(self):
         """Test a complex nested structure with mixed types."""
+
         def complex_extractor(spec):
             data = spec.get("data", {})
             result = {}
@@ -553,23 +558,15 @@ class TestEdgeCases:
             return result
 
         register_param_extractor("Complex", complex_extractor)
-        
+
         param_spec = {
             "type": "Complex",
             "data": {
                 "simple": {"value": 42},
-                "list": [
-                    {"value": 1},
-                    {"value": 2},
-                    {"value": 3}
-                ],
-                "direct": "string"
-            }
+                "list": [{"value": 1}, {"value": 2}, {"value": 3}],
+                "direct": "string",
+            },
         }
-        
+
         result = extract_default_value(param_spec)
-        assert result == {
-            "simple": 42,
-            "list": [1, 2, 3],
-            "direct": "string"
-        }
+        assert result == {"simple": 42, "list": [1, 2, 3], "direct": "string"}
