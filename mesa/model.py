@@ -20,7 +20,7 @@ from mesa.experimental.mesa_signals import (
     HasObservables,
     Observable,
     SignalType,
-    emit_signal,
+    emit,
 )
 
 if TYPE_CHECKING:
@@ -256,7 +256,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
         return self._agents_by_type
 
-    @emit_signal("agents", ModelSignals.AGENT_ADDED)
+    @emit("agents", ModelSignals.AGENT_ADDED)
     def register_agent(self, agent: A):
         """Register the agent with the model.
 
@@ -285,12 +285,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
             )
 
         self._all_agents.add(agent)
-        self.notify("agents", None, agent, ModelSignals.AGENT_ADDED)
         _mesa_logger.debug(
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
-    @emit_signal("agents", ModelSignals.AGENT_REMOVED)
+    @emit("agents", ModelSignals.AGENT_REMOVED)
     def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
 
@@ -304,7 +303,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         del self._agents[agent]
         self._agents_by_type[type(agent)].remove(agent)
         self._all_agents.remove(agent)
-        self.notify("agents", agent, None, ModelSignals.AGENT_REMOVED)
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
 
     def run_model(self) -> None:

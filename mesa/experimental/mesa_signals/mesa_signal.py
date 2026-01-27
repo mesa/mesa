@@ -36,6 +36,7 @@ __all__ = [
     "Observable",
     "SignalType",
     "computed_property",
+    "emit"
 ]
 
 
@@ -514,13 +515,15 @@ def descriptor_generator(
 ) -> Generator[tuple[str, type[SignalType]]]:
     """Yield the name and signal_types for each Observable defined on obj.
 
-    This handles both legacy BaseObservable descriptors and new @computed properties.
+    This handles both legacy BaseObservable descriptors and new @computed_properties.
     """
-    methods = inspect.getmembers(obj, inspect.ismethod)
-    attributes = {entry: type(obj).__dict__.get(entry, None) for entry in dir(obj)}
+    # fixme can we specify the relevant signals on the property
+    #    instead of specifying it here?
+    # fixme can we use single dispatch here instead of this
+    #    match statement?
+    emitters = {}
     for base in type(obj).__mro__:
         base_dict = vars(base)
-        b = dir(base)
 
         for name, entry in base_dict.items():
             match entry:
@@ -529,11 +532,18 @@ def descriptor_generator(
                     yield name, ObservableSignals
                 case BaseObservable():
                     yield entry.public_name, ObservableSignals
+                case Callable():
+                    if hasattr(entry, "_mesa_signal_emitter"):
+                        name, signal = entry._mesa_signal_emitter
+                        emitters[name] = {signal,}
                 case _:
                     continue
 
+    for name, signals in emitters.items():
+        yield name, signals
 
-def emit_signal(
+
+def emit(
     observable_name, signal_to_emit, when: Literal["before", "after"] = "after"
 ):
     def inner(func):
@@ -543,12 +553,12 @@ def emit_signal(
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if when == "before":
-                self.notify(observable_name, None, None, signal_to_emit)
+                self.notify(observable_name, None, None, signal_to_emit, args=args,**kwargs)
             ret = func(self, *args, **kwargs)
             if when == "after":
-                self.notify(observable_name, None, None, signal_to_emit)
+                self.notify(observable_name, None, None, signal_to_emit, args=args,**kwargs)
             return ret
 
         return wrapper
 
-    return inner  # this is the fun_obj mentioned in the above content
+    return inner
