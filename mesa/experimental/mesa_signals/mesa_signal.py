@@ -19,7 +19,6 @@ clean separation of concerns.
 from __future__ import annotations
 
 import functools
-import inspect
 import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
@@ -36,7 +35,7 @@ __all__ = [
     "Observable",
     "SignalType",
     "computed_property",
-    "emit"
+    "emit",
 ]
 
 
@@ -535,7 +534,9 @@ def descriptor_generator(
                 case Callable():
                     if hasattr(entry, "_mesa_signal_emitter"):
                         name, signal = entry._mesa_signal_emitter
-                        emitters[name] = {signal,}
+                        emitters[name] = {
+                            signal,
+                        }
                 case _:
                     continue
 
@@ -543,9 +544,7 @@ def descriptor_generator(
         yield name, signals
 
 
-def emit(
-    observable_name, signal_to_emit, when: Literal["before", "after"] = "after"
-):
+def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "after"):
     def inner(func):
         """Do operations with func"""
         func._mesa_signal_emitter = observable_name, signal_to_emit
@@ -553,10 +552,14 @@ def emit(
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             if when == "before":
-                self.notify(observable_name, None, None, signal_to_emit, args=args,**kwargs)
+                self.notify(
+                    observable_name, None, None, signal_to_emit, args=args, **kwargs
+                )
             ret = func(self, *args, **kwargs)
             if when == "after":
-                self.notify(observable_name, None, None, signal_to_emit, args=args,**kwargs)
+                self.notify(
+                    observable_name, None, None, signal_to_emit, args=args, **kwargs
+                )
             return ret
 
         return wrapper
