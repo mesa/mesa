@@ -21,9 +21,20 @@ from mesa.visualization.solara_viz import (
     UserInputs,
     _build_model_init_kwargs,
     _check_model_params,
+    extract_default_value,
+    register_param_extractor,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
+import mesa.visualization.solara_viz as solara_viz_module
 
+@pytest.fixture(autouse=True)
+def reset_param_extractors():
+    """Reset the parameter extractors registry before each test."""
+    original_extractors = solara_viz_module._param_extractors.copy()
+    solara_viz_module._param_extractors.clear()
+    yield
+    solara_viz_module._param_extractors.clear()
+    solara_viz_module._param_extractors.update(original_extractors)
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
     def test_unsupported_type(self):  # noqa: D102
