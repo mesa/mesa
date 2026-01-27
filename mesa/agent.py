@@ -136,21 +136,26 @@ class Agent[M: Model]:
 
     @classmethod
     def from_dataframe[T: Agent](
-        cls: type[T], model: Model, df: pd.DataFrame, **kwargs
+        cls: type[T], model: Model, df: pd.DataFrame
     ) -> AgentSet[T]:
         """Create agents from a pandas DataFrame.
+
+        Each row of the DataFrame represents one agent. The DataFrame columns are
+        mapped to the agent's constructor as keyword arguments.
+
+        Note:
+            If you need to pass constant values or sequences not in your original data,
+            add them as columns to the DataFrame before calling this method.
 
         Args:
             model: The model instance.
             df: The pandas DataFrame. Each row represents an agent.
-            kwargs: Additional keyword arguments to pass to the agent constructor.
 
         Returns:
             AgentSet containing the agents created.
         """
         agents = [
-            cls(model, **{**record, **kwargs})
-            for record in df.to_dict(orient="records")
+            cls(model, **record) for record in df.to_dict(orient="records")
         ]
 
         return AgentSet(agents, random=model.random)
@@ -527,6 +532,20 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
             setattr(agent, attr_name, value)
         return self
 
+    def to_list(self) -> list[A]:
+        """Convert the AgentSet to a list.
+
+        Returns:
+            list[Agent]: A list containing all agents in the AgentSet.
+
+        Notes:
+            This method provides an explicit way to convert the AgentSet to a list.
+            It is the recommended approach when list operations (indexing, slicing)
+            are needed, as direct sequence operations on AgentSet are deprecated
+            and will be removed in Mesa 4.0.
+        """
+        return list(self._agents.keys())
+
     @overload
     def __getitem__(self, item: int) -> A: ...
 
@@ -541,7 +560,17 @@ class AgentSet[A: Agent](MutableSet[A], Sequence[A]):
 
         Returns:
             Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
+
+        .. deprecated::
+            Sequence behavior (indexing/slicing) is deprecated and will be removed in Mesa 4.0.
+            Use :meth:`to_list` instead: ``agentset.to_list()[index]`` or ``agentset.to_list()[start:stop]``.
         """
+        warnings.warn(
+            "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
+            "Use AgentSet.to_list()[index] instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         return list(self._agents.keys())[item]
 
     def add(self, agent: A):
