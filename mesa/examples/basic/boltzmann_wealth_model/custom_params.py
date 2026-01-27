@@ -78,7 +78,7 @@ def DictInput(name, options, on_change):
 
     # Render as expansion panel
     with solara.v.ExpansionPanels(v_model=[0], multiple=True):
-        with solara.v.ExpansionPanel():
+        with solara.v.ExpansionPanel(): # noqa: SIM117
             with solara.v.ExpansionPanelHeader():
                 solara.Text(f"{label}")
             with solara.v.ExpansionPanelContent():

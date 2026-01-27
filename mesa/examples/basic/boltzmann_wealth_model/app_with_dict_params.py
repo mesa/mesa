@@ -112,4 +112,5 @@ page = SolaraViz(
     model_params=model_params,
     name="Boltzmann Wealth Model (Custom Dict Parameters)",
 )
-page
+
+page # noqa: F841
