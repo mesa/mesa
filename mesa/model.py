@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType
+from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType, observable
 
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
@@ -252,6 +252,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
         return self._agents_by_type
 
+    @observable("agents", ModelSignals.AGENT_ADDED)
     def register_agent(self, agent: A):
         """Register the agent with the model.
 
@@ -285,6 +286,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
+    @observable("agents", ModelSignals.AGENT_REMOVED)
     def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
 

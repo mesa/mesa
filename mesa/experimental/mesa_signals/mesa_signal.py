@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
 
@@ -525,3 +525,22 @@ def descriptor_generator(
             elif isinstance(entry, ComputedProperty):
                 # Computed properties imply a CHANGE signal
                 yield name, {ObservableSignals.CHANGE}
+
+
+def observable(observable_name, signal_to_emit, when:Literal["before", "after"]="after"):
+    def inner(func):
+        """
+           do operations with func
+        """
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if when == "before":
+                self.notify(observable_name, None, None, signal_to_emit)
+            func(self, *args, **kwargs)
+            if when == "after":
+                self.notify(observable_name, None, None, signal_to_emit)
+
+
+        return wrapper
+
+    return inner  # this is the fun_obj mentioned in the above content
