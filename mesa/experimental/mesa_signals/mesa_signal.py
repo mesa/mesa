@@ -553,6 +553,7 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
         when: whether to emit the signal before or after the function call.
 
     """
+
     def inner(func):
         """Wrap func."""
         func._mesa_signal_emitter = observable_name, signal_to_emit
