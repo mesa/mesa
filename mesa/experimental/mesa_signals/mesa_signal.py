@@ -22,25 +22,28 @@ import functools
 import weakref
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
-from collections.abc import Callable, Generator
-from enum import StrEnum
+from collections.abc import Callable, Generator, Iterable
 from typing import Any, Literal
 
-from mesa.experimental.mesa_signals.signals_util import Message, create_weakref
+from mesa.experimental.mesa_signals.signals_util import (
+    Message,
+    SignalType,
+    _AllSentinel,
+    create_weakref,
+)
 
 __all__ = [
-    "All",
+    "ALL",
     "BaseObservable",
     "HasObservables",
     "Observable",
-    "SignalType",
     "computed_property",
     "emit",
 ]
+ALL = _AllSentinel()
 
-
-class SignalType(StrEnum):
-    """Root class for all signal type enums."""
+ObservableName = str | _AllSentinel | Iterable[str]
+SignalSpec = str | SignalType | _AllSentinel | Iterable[str | SignalType]
 
 
 class ObservableSignals(SignalType):
@@ -137,6 +140,8 @@ class BaseObservable(ABC):
 class Observable(BaseObservable):
     """Observable class."""
 
+    # fixme: when we go to 3.13, we might explore changing this into a property
+    #    instead of descriptor, which is likely to be more performant
     signal_types = ObservableSignals
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
@@ -186,7 +191,7 @@ class ComputedState:
             current_value: the current value of the Observable
 
         """
-        parent.observe(name, All(), self._set_dirty)
+        parent.observe(name, ALL, self._set_dirty)
 
         try:
             self.parents[parent][name] = current_value
@@ -197,7 +202,7 @@ class ComputedState:
         """Remove all parent Observables."""
         # we can unsubscribe from everything on each parent
         for parent in self.parents:
-            parent.unobserve(All(), All(), self._set_dirty)
+            parent.unobserve(ALL, ALL, self._set_dirty)
         self.parents.clear()
 
 
@@ -267,20 +272,6 @@ def computed_property(func: Callable) -> property:
     return ComputedProperty(wrapper)
 
 
-# fixme turn into a singleton
-class All:
-    """Helper constant to subscribe to all Observables."""
-
-    def __init__(self):  # noqa: D107
-        self.name = "all"
-
-    def __copy__(self):  # noqa: D105
-        return self
-
-    def __deepcopy__(self, memo):  # noqa: D105
-        return self
-
-
 class HasObservables:
     """HasObservables class.
 
@@ -295,7 +286,7 @@ class HasObservables:
     # we can't use a weakset here because it does not handle bound methods correctly
     # also, a list is faster for our use case
     subscribers: dict[
-        tuple[str, SignalType], list
+        tuple[str, SignalType], list[weakref.ref]
     ]  # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, type[SignalType] | set[SignalType]]
 
@@ -314,8 +305,8 @@ class HasObservables:
 
     def observe(
         self,
-        name: str | All,
-        signal_type: str | SignalType | All,
+        name: ObservableName,
+        signal_type: SignalSpec,
         handler: Callable,
     ):
         """Subscribe to the Observable <name> for signal_type.
@@ -330,27 +321,14 @@ class HasObservables:
             does not emit the given signal_type
 
         """
-        match name:
-            case All():
-                names = self.observables.keys()
-            case str():
-                names = [name]
-            case _:
-                names = name
+        names = self._process_name(name)
+        target_signals = self._process_signal_type(signal_type)
 
         for n in names:
             if n not in self.observables:
                 raise ValueError(
                     f"you are trying to subscribe to {n}, but this Observable is not known"
                 )
-
-        match signal_type:
-            case All():
-                target_signals = None
-            case str():
-                target_signals = [signal_type]
-            case _:
-                target_signals = signal_type
 
         for name in names:
             signal_types = target_signals or self.observables[name]
@@ -367,7 +345,7 @@ class HasObservables:
                 self.subscribers[(name, st)].append(ref)
 
     def unobserve(
-        self, name: str | All, signal_type: str | SignalType | All, handler: Callable
+        self, name: ObservableName, signal_type: SignalSpec, handler: Callable
     ):
         """Unsubscribe to the Observable <name> for signal_type.
 
@@ -377,21 +355,8 @@ class HasObservables:
             handler: the handler that is unsubscribing
 
         """
-        match name:
-            case All():
-                names = self.observables.keys()
-            case str():
-                names = [name]
-            case _:
-                names = name
-
-        match signal_type:
-            case All():
-                target_signals = None
-            case str():
-                target_signals = [signal_type]
-            case _:
-                target_signals = signal_type
+        names = self._process_name(name)
+        target_signals = self._process_signal_type(signal_type)
 
         for name in names:
             # we need to do this here because signal types might
@@ -412,7 +377,7 @@ class HasObservables:
                     else:
                         del self.subscribers[key]
 
-    def clear_all_subscriptions(self, name: str | All):
+    def clear_all_subscriptions(self, name: ObservableName):
         """Clears all subscriptions for the observable <name>.
 
         if name is All, all subscriptions are removed
@@ -421,20 +386,18 @@ class HasObservables:
             name: name of the Observable to unsubscribe for all signal types
 
         """
-        match name:
-            case All():
-                self.subscribers.clear()
-            case str():
-                # We iterate keys to find matches
-                keys_to_remove = [k for k in self.subscribers if k[0] == name]
+        if name is ALL:
+            self.subscribers.clear()
+        elif isinstance(name, str):
+            keys_to_remove = [k for k in self.subscribers if k[0] == name]
+            for k in keys_to_remove:
+                del self.subscribers[k]
+        else:
+            for n in name:
+                keys_to_remove = [k for k in self.subscribers if k[0] == n]
                 for k in keys_to_remove:
                     del self.subscribers[k]
-            case _:
-                for n in name:
-                    keys_to_remove = [k for k in self.subscribers if k[0] == n]
-                    for k in keys_to_remove:
-                        del self.subscribers[k]
-                    # ignore when unsubscribing to Observables that have no subscription
+                # ignore when unsubscribing to Observables that have no subscription
 
     def notify(
         self,
@@ -500,6 +463,26 @@ class HasObservables:
             self.subscribers[key] = active_observers
         else:
             del self.subscribers[key]
+
+    def _process_name(self, name: ObservableName) -> Iterable[str]:
+        """Convert name to an iterable of observable names."""
+        if name is ALL:
+            return self.observables.keys()
+        elif isinstance(name, str):
+            return [name]
+        else:
+            return name
+
+    def _process_signal_type(
+        self, signal_type: SignalSpec
+    ) -> Iterable[SignalType] | None:
+        """Convert signal_type to an iterable of signal types."""
+        if signal_type is ALL:
+            return None  # None is used to indicate all signal types
+        elif isinstance(signal_type, str):
+            return [signal_type]
+        else:
+            return signal_type
 
 
 def descriptor_generator(

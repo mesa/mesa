@@ -6,7 +6,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
-    All,
+    ALL,
     HasObservables,
     ListSignals,
     Observable,
@@ -66,14 +66,13 @@ def test_HasObservables():
     }
     assert len(subscribers) == 0
 
-    # testing All()
-    agent.observe(All(), "change", handler)
+    agent.observe(ALL, "change", handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
         subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
         assert handler in subscribers
 
-    agent.unobserve(All(), "change", handler)
+    agent.unobserve(ALL, "change", handler)
     for attr in ["some_attribute", "some_other_attribute"]:
         subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
         assert handler not in subscribers
@@ -98,7 +97,7 @@ def test_HasObservables():
     }
     assert len(subscribers) == 3
 
-    agent.clear_all_subscriptions(All())
+    agent.clear_all_subscriptions(ALL)
     subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
     assert len(subscribers) == 0
 
