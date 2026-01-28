@@ -11,7 +11,7 @@ from mesa.experimental.mesa_signals import (
     ListSignals,
     Observable,
     ObservableList,
-    computed_property,
+    computed_property, ObservableSignals,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 
@@ -54,7 +54,7 @@ def test_HasObservables():
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
     assert handler in subscribers
 
     agent.unobserve("some_attribute", "change", handler)
@@ -142,11 +142,9 @@ def test_ObservableList():
     handler.assert_called_once_with(
         Message(
             name="my_list",
-            new=1,
-            old=None,
             signal_type=ListSignals.APPEND,
             owner=agent,
-            additional_kwargs={"index": 0},
+            additional_kwargs={"index": 0, "new":1},
         )
     )
     agent.unobserve("my_list", "append", handler)
@@ -228,13 +226,13 @@ def test_Message():
     def on_change(signal: Message):
         assert signal.name == "some_attribute"
         assert signal.signal_type == "change"
-        assert signal.old == 10
-        assert signal.new == 5
+        assert signal.additional_kwargs["old"] == 10
+        assert signal.additional_kwargs["new"] == 5
         assert signal.owner == agent
-        assert signal.additional_kwargs == {}
+        assert signal.additional_kwargs == {"old": 10, "new": 5,}
 
         items = dir(signal)
-        for entry in ["name", "signal_type", "old", "new", "owner"]:
+        for entry in ["name", "signal_type", "owner", "additional_kwargs"]:
             assert entry in items
 
     model = Model(rng=42)

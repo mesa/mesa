@@ -127,7 +127,7 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data[index]
         self.data[index] = value
-        self.owner.notify(self.name, old_value, value, ListSignals.REPLACE, index=index)
+        self.owner.notify(self.name, ListSignals.REPLACE, index=index, old=old_value, new=value)
 
     def __delitem__(self, index: int) -> None:
         """Delete item at index.
@@ -138,7 +138,7 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data
         del self.data[index]
-        self.owner.notify(self.name, old_value, None, ListSignals.REMOVE, index=index)
+        self.owner.notify(self.name, ListSignals.REMOVE, index=index, old=old_value)
 
     def __getitem__(self, index) -> Any:
         """Get item at index.
@@ -164,19 +164,18 @@ class SignalingList(MutableSequence[Any]):
 
         """
         self.data.insert(index, value)
-        self.owner.notify(self.name, None, value, ListSignals.INSERT, index=index)
+        self.owner.notify(self.name, ListSignals.INSERT, index=index, new=value)
 
     def append(self, value):
         """Insert value at index.
 
         Args:
-            index: the index to insert value into
-            value: the value to insert
+            value: the value to append
 
         """
         index = len(self.data)
         self.data.append(value)
-        self.owner.notify(self.name, None, value, ListSignals.APPEND, index=index)
+        self.owner.notify(self.name, ListSignals.APPEND, index=index, new=value)
 
     def __str__(self):
         return self.data.__str__()

@@ -127,10 +127,11 @@ class BaseObservable(ABC):
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
         instance.notify(
-            self.public_name,
-            getattr(instance, self.private_name, self.fallback_value),
-            value,
+            self.public_name,           
             ObservableSignals.CHANGE,
+            old=getattr(instance, self.private_name, self.fallback_value),
+            new=value,
+            
         )
 
     def __str__(self):  # noqa: D105
@@ -178,7 +179,7 @@ class ComputedState:
     def _set_dirty(self, signal):
         if not self.is_dirty:
             self.is_dirty = True
-            self.owner.notify(self.name, self.value, None, ObservableSignals.CHANGE)
+            self.owner.notify(self.name, ObservableSignals.CHANGE, old=self.value)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any
@@ -345,10 +346,7 @@ class HasObservables:
                 self.subscribers[(name, st)].append(ref)
 
     def unobserve(
-        self,
-        observable_name: ObservableName,
-        signal_type: SignalSpec,
-        handler: Callable,
+        self, observable_name: ObservableName, signal_type: SignalSpec, handler: Callable
     ):
         """Unsubscribe to the Observable <name> for signal_type.
 
@@ -405,8 +403,6 @@ class HasObservables:
     def notify(
         self,
         observable: str,
-        old_value: Any,
-        new_value: Any,
         signal_type: str | SignalType,
         **kwargs,
     ):
@@ -414,8 +410,6 @@ class HasObservables:
 
         Args:
             observable: the public name of the observable emitting the signal
-            old_value: the old value of the observable
-            new_value: the new value of the observable
             signal_type: the type of signal to emit
             kwargs: additional keyword arguments to include in the signal
 
@@ -429,8 +423,6 @@ class HasObservables:
 
         signal = Message(
             name=observable,
-            old=old_value,
-            new=new_value,
             owner=self,
             signal_type=signal_type,
             additional_kwargs=kwargs,
@@ -541,12 +533,12 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
         def wrapper(self, *args, **kwargs):
             if when == "before":
                 self.notify(
-                    observable_name, None, None, signal_to_emit, args=args, **kwargs
+                    observable_name, signal_to_emit, args=args, **kwargs
                 )
             ret = method(self, *args, **kwargs)
             if when == "after":
                 self.notify(
-                    observable_name, None, None, signal_to_emit, args=args, **kwargs
+                    observable_name, signal_to_emit, args=args, **kwargs
                 )
             return ret
 
