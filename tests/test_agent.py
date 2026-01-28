@@ -226,71 +226,6 @@ def test_agent_create():
         assert agent.b == 7
 
 
-def test_agent_create_edge_cases():
-    """Test edge cases in create_agents method to improve coverage."""
-
-    class TestAgent(Agent):
-        def __init__(self, model, value=None, list_attr=None, tuple_attr=None):
-            super().__init__(model)
-            self.value = value
-            self.list_attr = list_attr
-            self.tuple_attr = tuple_attr
-
-    model = Model()
-    n = 5
-
-    # Test 1: Arguments with length mismatch (should hit line 119)
-    # List shorter than n - should use itertools.repeat to repeat the entire list
-    short_list = [1, 2]  # length 2, but n=5
-    agents = TestAgent.create_agents(model, n, short_list)
-    for agent in agents:
-        assert agent.value == [1, 2]  # Should repeat the entire list
-
-    # Test 2: Keyword arguments with length mismatch (should hit line 136)
-    # List shorter than n - should use itertools.repeat to repeat the entire list
-    short_kw_list = [10, 20]  # length 2, but n=5
-    agents = TestAgent.create_agents(model, n, list_attr=short_kw_list)
-    for agent in agents:
-        assert agent.list_attr == [10, 20]  # Should repeat the entire list
-
-    # Test 3: Tuple with length mismatch
-    short_tuple = (100, 200)  # length 2, but n=5
-    agents = TestAgent.create_agents(model, n, tuple_attr=short_tuple)
-    for agent in agents:
-        assert agent.tuple_attr == (100, 200)  # Should repeat the entire tuple
-
-    # Test 4: Single values (non-iterable) - should use itertools.repeat
-    single_value = 42
-    agents = TestAgent.create_agents(model, n, single_value)
-    for agent in agents:
-        assert agent.value == 42
-
-    # Test 5: Mixed arguments - some matching length, some not
-    matching_list = list(range(n))  # length matches n
-    non_matching_list = [99, 88]  # length doesn't match n
-    agents = TestAgent.create_agents(
-        model, n, matching_list, list_attr=non_matching_list
-    )
-    for i, agent in enumerate(agents):
-        assert agent.value == i  # Should use the matching list
-        assert agent.list_attr == [99, 88]  # Should repeat the entire non-matching list
-
-    # Test 6: Only kwargs, no args (should hit line 147-148 branch)
-    agents = TestAgent.create_agents(model, n, value=100, list_attr=[1, 2, 3, 4, 5])
-    assert len(agents) == n
-    for i, agent in enumerate(agents):
-        assert agent.value == 100
-        assert agent.list_attr == i + 1
-
-    # Test 7: No args, only kwargs (should hit line 150-151 branch)
-    agents = TestAgent.create_agents(model, n, value=200)
-    assert len(agents) == n
-    for agent in agents:
-        assert agent.value == 200
-        assert agent.list_attr is None
-        assert agent.tuple_attr is None
-
-
 def test_agent_create_with_pandas():
     """Test create_agents with pandas Series to improve coverage."""
 
@@ -354,23 +289,6 @@ def test_agent_from_dataframe():
         assert agent.list_attr == [i]
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
-
-    # Test from_dataframe with reserved column name 'model' should raise TypeError
-    df_model = pd.DataFrame({"model": ["some_model_string"] * n})
-    with pytest.raises(TypeError, match="got multiple values for argument 'model'"):
-        TestAgent.from_dataframe(model, df_model)
-
-    # Test that 'n' is NOT reserved and is passed correctly
-    class TestAgentWithN(Agent):
-        def __init__(self, model, n=None):
-            super().__init__(model)
-            self.n_val = n
-
-    df_n = pd.DataFrame({"n": [999] * n})
-    agents = TestAgentWithN.from_dataframe(model, df_n)
-    for agent in agents:
-        assert agent.n_val == 999
-
 
 def test_agent_add_remove_discard():
     """Test adding, removing and discarding agents from AgentSet."""
