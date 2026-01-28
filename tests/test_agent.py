@@ -290,6 +290,7 @@ def test_agent_from_dataframe():
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
 
+
 def test_agent_add_remove_discard():
     """Test adding, removing and discarding agents from AgentSet."""
     model = Model()
