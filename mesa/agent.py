@@ -685,7 +685,8 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         """
         warnings.warn(
             "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
-            "Use AgentSet.to_list()[index] instead.",
+            "Use AgentSet.to_list()[index] instead. "
+            "See https://mesa.readthedocs.io/latest/migration_guide.html#AgentSet-sequence-behavior",
             PendingDeprecationWarning,
             stacklevel=2,
         )

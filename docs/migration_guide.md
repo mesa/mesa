@@ -3,6 +3,34 @@ This guide contains breaking changes between major Mesa versions and how to reso
 
 Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
 
+## Mesa 3.5.0
+
+### AgentSet sequence behavior
+The Sequence behavior (indexing and slicing) on `AgentSet` is deprecated and will be removed in Mesa 4.0. Use the new `to_list()` method instead.
+
+```python
+# Old (deprecated)
+first_agent = model.agents[0]
+some_agents = model.agents[1:5]
+last_agent = model.agents[-1]
+
+# New
+first_agent = model.agents.to_list()[0]
+some_agents = model.agents.to_list()[1:5]
+last_agent = model.agents.to_list()[-1]
+```
+
+For multiple list operations, convert once and reuse:
+
+```python
+agent_list = model.agents.to_list()
+first = agent_list[0]
+last = agent_list[-1]
+subset = agent_list[2:8]
+```
+
+- Ref: [PR #3208](https://github.com/mesa/mesa/pull/3208)
+
 ## Mesa 3.4.0
 
 ### batch run
