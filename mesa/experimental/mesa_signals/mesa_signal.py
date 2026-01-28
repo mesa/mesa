@@ -84,6 +84,7 @@ PROCESSING_SIGNALS: set[tuple[str,]] = set()
 
 class BaseObservable(ABC):
     """Abstract base class for all Observables."""
+
     signal_types: type[SignalType] = SignalType
 
     def __init__(self, fallback_value=None):
@@ -135,6 +136,7 @@ class BaseObservable(ABC):
 
 class Observable(BaseObservable):
     """Observable class."""
+
     signal_types = ObservableSignals
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
@@ -201,6 +203,7 @@ class ComputedState:
 
 class ComputedProperty(property):
     """A custom property class to identify computed properties."""
+
     signal_types = ObservableSignals
 
 
@@ -294,7 +297,7 @@ class HasObservables:
     subscribers: dict[
         tuple[str, SignalType], list
     ]  # (observable_name, signal_type) -> list of weakref subscribers
-    observables: dict[str, type[SignalType]|set[SignalType]]
+    observables: dict[str, type[SignalType] | set[SignalType]]
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasObservables."""

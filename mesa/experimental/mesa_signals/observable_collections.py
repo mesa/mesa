@@ -76,6 +76,7 @@ class ListSignals(SignalType):
 
 class ObservableList(BaseObservable):
     """An ObservableList that emits signals on changes to the underlying list."""
+
     signal_types: type[SignalType] = ListSignals
 
     def __init__(self):
