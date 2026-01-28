@@ -19,7 +19,7 @@ import numpy as np
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
-from mesa.agent import Agent, AgentSet
+from mesa.agent import Agent, AgentSet, _HardKeyAgentSet
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
@@ -166,9 +166,9 @@ class Model[A: Agent, S: Scenario]:
             A, None
         ] = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
-            type[A], AgentSet[A]
+            type[A], _HardKeyAgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents: AgentSet[A] = AgentSet(
+        self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents
 
