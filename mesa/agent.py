@@ -752,9 +752,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
     """A collection class that represents an ordered set of agents using strong references.
 
     This implementation uses strong references (hard keys) to agents, preventing them
-    from being garbage collected as long as they remain in the set. This is useful
-    for model-level agent tracking where agents should persist for the lifetime of
-    the model.
+    from being garbage collected as long as they remain in the set. This eliminates WeakKeyDictionary overhead for Model-managed collections where lifecycle is explicitly controlled.
 
     CRITICAL SAFETY FEATURE:
         To prevent "Zombie Agents" (memory leaks), any operation that creates a
