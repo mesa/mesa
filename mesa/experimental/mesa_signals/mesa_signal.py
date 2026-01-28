@@ -82,7 +82,7 @@ class ObservableSignals(SignalType):
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
-PROCESSING_SIGNALS: set[_hashable_signal = set()
+PROCESSING_SIGNALS: set[_hashable_signal] = set()
 
 
 class BaseObservable(ABC):
