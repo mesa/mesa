@@ -127,11 +127,10 @@ class BaseObservable(ABC):
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
         instance.notify(
-            self.public_name,           
+            self.public_name,
             ObservableSignals.CHANGE,
             old=getattr(instance, self.private_name, self.fallback_value),
             new=value,
-            
         )
 
     def __str__(self):  # noqa: D105
@@ -346,7 +345,10 @@ class HasObservables:
                 self.subscribers[(name, st)].append(ref)
 
     def unobserve(
-        self, observable_name: ObservableName, signal_type: SignalSpec, handler: Callable
+        self,
+        observable_name: ObservableName,
+        signal_type: SignalSpec,
+        handler: Callable,
     ):
         """Unsubscribe to the Observable <name> for signal_type.
 
@@ -532,14 +534,10 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
             if when == "before":
-                self.notify(
-                    observable_name, signal_to_emit, args=args, **kwargs
-                )
+                self.notify(observable_name, signal_to_emit, args=args, **kwargs)
             ret = method(self, *args, **kwargs)
             if when == "after":
-                self.notify(
-                    observable_name, signal_to_emit, args=args, **kwargs
-                )
+                self.notify(observable_name, signal_to_emit, args=args, **kwargs)
             return ret
 
         return wrapper

@@ -127,7 +127,9 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data[index]
         self.data[index] = value
-        self.owner.notify(self.name, ListSignals.REPLACE, index=index, old=old_value, new=value)
+        self.owner.notify(
+            self.name, ListSignals.REPLACE, index=index, old=old_value, new=value
+        )
 
     def __delitem__(self, index: int) -> None:
         """Delete item at index.

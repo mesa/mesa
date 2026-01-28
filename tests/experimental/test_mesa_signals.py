@@ -11,7 +11,8 @@ from mesa.experimental.mesa_signals import (
     ListSignals,
     Observable,
     ObservableList,
-    computed_property, ObservableSignals,
+    ObservableSignals,
+    computed_property,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 
@@ -54,7 +55,10 @@ def test_HasObservables():
     agent = MyAgent(model, 10)
     agent.observe("some_attribute", "change", handler)
 
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]
+    }
     assert handler in subscribers
 
     agent.unobserve("some_attribute", "change", handler)
@@ -144,7 +148,7 @@ def test_ObservableList():
             name="my_list",
             signal_type=ListSignals.APPEND,
             owner=agent,
-            additional_kwargs={"index": 0, "new":1},
+            additional_kwargs={"index": 0, "new": 1},
         )
     )
     agent.unobserve("my_list", "append", handler)
@@ -229,7 +233,10 @@ def test_Message():
         assert signal.additional_kwargs["old"] == 10
         assert signal.additional_kwargs["new"] == 5
         assert signal.owner == agent
-        assert signal.additional_kwargs == {"old": 10, "new": 5,}
+        assert signal.additional_kwargs == {
+            "old": 10,
+            "new": 5,
+        }
 
         items = dir(signal)
         for entry in ["name", "signal_type", "owner", "additional_kwargs"]:
