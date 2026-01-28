@@ -82,7 +82,7 @@ class ObservableSignals(SignalType):
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
-PROCESSING_SIGNALS: set[tuple[str,]] = set()
+PROCESSING_SIGNALS: set[_hashable_signal = set()
 
 
 class BaseObservable(ABC):
@@ -305,14 +305,14 @@ class HasObservables:
 
     def observe(
         self,
-        name: ObservableName,
+        observable_name: ObservableName,
         signal_type: SignalSpec,
         handler: Callable,
     ):
         """Subscribe to the Observable <name> for signal_type.
 
         Args:
-            name: name of the Observable to subscribe to
+            observable_name: name of the Observable to subscribe to
             signal_type: the type of signal on the Observable to subscribe to
             handler: the handler to call
 
@@ -321,7 +321,7 @@ class HasObservables:
             does not emit the given signal_type
 
         """
-        names = self._process_name(name)
+        names = self._process_name(observable_name)
         target_signals = self._process_signal_type(signal_type)
 
         for n in names:
@@ -345,17 +345,17 @@ class HasObservables:
                 self.subscribers[(name, st)].append(ref)
 
     def unobserve(
-        self, name: ObservableName, signal_type: SignalSpec, handler: Callable
+        self, observable_name: ObservableName, signal_type: SignalSpec, handler: Callable
     ):
         """Unsubscribe to the Observable <name> for signal_type.
 
         Args:
-            name: name of the Observable to unsubscribe from
+            observable_name: name of the Observable to unsubscribe from
             signal_type: the type of signal on the Observable to unsubscribe to
             handler: the handler that is unsubscribing
 
         """
-        names = self._process_name(name)
+        names = self._process_name(observable_name)
         target_signals = self._process_signal_type(signal_type)
 
         for name in names:
@@ -487,7 +487,7 @@ class HasObservables:
 
 def descriptor_generator(
     obj,
-) -> Generator[tuple[str, type[SignalType]]]:
+) -> Generator[tuple[str, type[SignalType] | set[SignalType]]]:
     """Yield the name and signal_types for each Observable defined on obj.
 
     This handles both legacy BaseObservable descriptors and new @computed_properties.
@@ -496,7 +496,7 @@ def descriptor_generator(
     #    instead of specifying it here?
     # fixme can we use single dispatch here instead of this
     #    match statement?
-    emitters = {}
+    emitters = defaultdict(set)
     for base in type(obj).__mro__:
         base_dict = vars(base)
 
@@ -510,9 +510,7 @@ def descriptor_generator(
                 case Callable():
                     if hasattr(entry, "_mesa_signal_emitter"):
                         observable_name, signal = entry._mesa_signal_emitter
-                        emitters[observable_name] = {
-                            signal,
-                        }
+                        emitters[observable_name].add(signal)
                 case _:
                     continue
 
@@ -521,26 +519,28 @@ def descriptor_generator(
 
 
 def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "after"):
-    """Decorator to emit a signal before or after the call to func.
+    """Decorator to emit a signal before or after the call to method.
 
     Args:
         observable_name: the name of the observable that emits the signal
         signal_to_emit: the signal to emit
         when: whether to emit the signal before or after the function call.
 
+    This only works on HasObservables subclasses.
+
     """
 
-    def inner(func):
+    def inner(method):
         """Wrap func."""
-        func._mesa_signal_emitter = observable_name, signal_to_emit
+        method._mesa_signal_emitter = observable_name, signal_to_emit
 
-        @functools.wraps(func)
+        @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
             if when == "before":
                 self.notify(
                     observable_name, None, None, signal_to_emit, args=args, **kwargs
                 )
-            ret = func(self, *args, **kwargs)
+            ret = method(self, *args, **kwargs)
             if when == "after":
                 self.notify(
                     observable_name, None, None, signal_to_emit, args=args, **kwargs
