@@ -649,7 +649,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
             ]
 
         return res
-      
+
     def to_list(self) -> list[A]:
         """Convert the AgentSet to a list.
 
@@ -663,7 +663,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
             and will be removed in Mesa 4.0.
         """
         return list(self._agents.keys())
-      
+
     @overload
     def __getitem__(self, item: int) -> A: ...
 
