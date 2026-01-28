@@ -40,6 +40,7 @@ _mesa_logger = create_module_logger()
 
 class ModelSignals(SignalType):
     """Signal types for model-level events."""
+
     AGENT_ADDED = "agent_added"
     AGENT_REMOVED = "agent_removed"
 

@@ -18,12 +18,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-__all__ = [
-    "Message",
-    "SignalType",
-    "_AllSentinel",
-    "create_weakref"
-]
+__all__ = ["Message", "SignalType", "_AllSentinel", "create_weakref"]
 
 if TYPE_CHECKING:
     from mesa.experimental.mesa_signals import ListSignals, SignalType
@@ -40,8 +35,10 @@ class Message:
     signal_type: SignalType | ListSignals
     additional_kwargs: dict
 
+
 class SignalType(StrEnum):
     """Root class for all signal type enums."""
+
 
 def create_weakref(item, callback=None):
     """Helper function to create a correct weakref for any item."""
