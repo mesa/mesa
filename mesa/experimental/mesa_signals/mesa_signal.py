@@ -84,19 +84,19 @@ PROCESSING_SIGNALS: set[tuple[str,]] = set()
 
 class BaseObservable(ABC):
     """Abstract base class for all Observables."""
+    signal_types: type[SignalType] = SignalType
 
-    @abstractmethod
     def __init__(self, fallback_value=None):
         """Initialize a BaseObservable."""
         super().__init__()
         self.public_name: str
         self.private_name: str
-        self.signal_types: set[SignalType | str] = set()
         self.fallback_value = fallback_value
 
     def __get__(self, instance: HasObservables, owner):  # noqa: D105
         value = getattr(instance, self.private_name)
 
+        # fixme this makes signaling list part of computed
         if CURRENT_COMPUTED is not None:
             # there is a computed dependent on this Observable, so let's add
             # this Observable as a parent
@@ -135,14 +135,7 @@ class BaseObservable(ABC):
 
 class Observable(BaseObservable):
     """Observable class."""
-
-    def __init__(self, fallback_value=None):
-        """Initialize an Observable."""
-        super().__init__(fallback_value=fallback_value)
-
-        self.signal_types: set[SignalType | str] = {
-            ObservableSignals.CHANGE,
-        }
+    signal_types = ObservableSignals
 
     def __set__(self, instance: HasObservables, value):  # noqa D103
         if (
@@ -208,6 +201,7 @@ class ComputedState:
 
 class ComputedProperty(property):
     """A custom property class to identify computed properties."""
+    signal_types = ObservableSignals
 
 
 def computed_property(func: Callable) -> property:
@@ -270,6 +264,7 @@ def computed_property(func: Callable) -> property:
     return ComputedProperty(wrapper)
 
 
+# fixme turn into a singleton
 class All:
     """Helper constant to subscribe to all Observables."""
 
@@ -284,33 +279,28 @@ class All:
 
 
 class HasObservables:
-    """HasObservables class."""
+    """HasObservables class.
+
+    Attributes:
+        subscribers: mapping of observables/emitters and signal type to subscribers
+        observables: mappping of observables/emitters to their available signal types
+
+    HasObservables automatically discovers the observables/emitters defined on the class.
+
+    """
 
     # we can't use a weakset here because it does not handle bound methods correctly
     # also, a list is faster for our use case
     subscribers: dict[
         tuple[str, SignalType], list
     ]  # (observable_name, signal_type) -> list of weakref subscribers
-    observables: dict[str, type[SignalType]]
+    observables: dict[str, type[SignalType]|set[SignalType]]
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasObservables."""
         super().__init__(*args, **kwargs)
         self.subscribers = defaultdict(list)
         self.observables = dict(descriptor_generator(self))
-
-    def _register_signal_emitter(self, name: str, signal_types: set[str]):
-        """Helper function to register an Observable.
-
-        This method can be used to register custom signals that are emitted by
-        the class for a given attribute, but which cannot be covered by the Observable descriptor
-
-        Args:
-            name: the name of the signal emitter
-            signal_types: the set of signals that might be emitted
-
-        """
-        self.observables[name] = signal_types
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -528,9 +518,9 @@ def descriptor_generator(
             match entry:
                 case ComputedProperty():
                     # Computed properties imply a CHANGE signal
-                    yield name, ObservableSignals
+                    yield name, entry.signal_types
                 case BaseObservable():
-                    yield entry.public_name, ObservableSignals
+                    yield entry.public_name, entry.signal_types
                 case Callable():
                     if hasattr(entry, "_mesa_signal_emitter"):
                         observable_name, signal = entry._mesa_signal_emitter

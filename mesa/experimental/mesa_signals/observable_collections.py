@@ -76,13 +76,11 @@ class ListSignals(SignalType):
 
 class ObservableList(BaseObservable):
     """An ObservableList that emits signals on changes to the underlying list."""
+    signal_types: type[SignalType] = ListSignals
 
     def __init__(self):
         """Initialize the ObservableList."""
-        super().__init__()
-        # Use all members of ListSignals enum
-        self.signal_types: set = set(ListSignals)
-        self.fallback_value = []
+        super().__init__(fallback_value=[])
 
     def __set__(self, instance: "HasObservables", value: Iterable):
         """Set the value of the descriptor attribute.

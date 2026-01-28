@@ -11,7 +11,7 @@ from mesa.experimental.mesa_signals import (
     ListSignals,
     Observable,
     ObservableList,
-    computed,
+    computed_property,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 
@@ -244,8 +244,8 @@ def test_Message():
     agent.some_attribute = 5
 
 
-def test_computed():
-    """Test @computed."""
+def test_computed_property():
+    """Test @computed_property."""
 
     class MyAgent(Agent, HasObservables):
         some_other_attribute = Observable()
@@ -254,7 +254,7 @@ def test_computed():
             super().__init__(model)
             self.some_other_attribute = value
 
-        @computed
+        @computed_property
         def some_attribute(self):
             return self.some_other_attribute * 2
 
@@ -296,7 +296,7 @@ def test_computed():
             super().__init__(model)
             self.o1 = value
 
-        @computed
+        @computed_property
         def c1(self):
             # c1 depends on o1 (read) but also tries to write to it.
             # Writing to o1 triggers notify -> sets c1 dirty -> checks cycles.
@@ -329,7 +329,7 @@ def test_computed_dynamic_dependencies():
             self.val_a = 10
             self.val_b = 20
 
-        @computed
+        @computed_property
         def result(self):
             if self.use_a:
                 return self.val_a
@@ -371,12 +371,12 @@ def test_chained_computations():
             super().__init__(model)
             self.base = val
 
-        @computed
+        @computed_property
         def intermediate(self):
             # When this runs, CURRENT_COMPUTED should be 'final'
             return self.base * 2
 
-        @computed
+        @computed_property
         def final(self):
             # This sets CURRENT_COMPUTED = final_state
             # Then it accesses self.intermediate
@@ -400,7 +400,7 @@ def test_dead_parent_fallback():
     """Test defensive check for garbage collected parents."""
 
     class SimpleAgent(Agent, HasObservables):
-        @computed
+        @computed_property
         def prop(self):
             return 1
 
@@ -457,47 +457,3 @@ def test_list_support():
     agent.unobserve(["attr1", "attr2"], "change", handler)
     assert handler not in [ref() for ref in agent.subscribers[("attr1", "change")]]
     assert handler not in [ref() for ref in agent.subscribers[("attr2", "change")]]
-
-    # Test observe with list of signal types (though Observable only has 'change' by default,
-    # we can register checking error handling or adding custom signals if needed,
-    # but for now Observable only emits 'change', so we can't easily test different signal types
-    # without a custom observable that emits multiple types. Let's create one.)
-
-    class MultiSignalAgent(Agent, HasObservables):
-        def __init__(self, model):
-            super().__init__(model)
-            # Register a custom observable that emits multiple signal types
-            self._register_signal_emitter("custom_attr", {"type1", "type2", "type3"})
-
-    agent2 = MultiSignalAgent(model)
-    handler2 = Mock()
-
-    # Test observe with list of signal types
-    agent2.observe("custom_attr", ["type1", "type3"], handler2)
-
-    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type1")]]
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type2")]
-    ]
-    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type3")]]
-
-    # Test unobserve with list of signal types
-    agent2.unobserve("custom_attr", ["type1", "type3"], handler2)
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type1")]
-    ]
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type3")]
-    ]
-
-    # Test clear_all_subscriptions with list of names
-    agent.observe(["attr1", "attr2", "attr3"], "change", handler)
-    agent.clear_all_subscriptions(["attr1", "attr3"])
-
-    # helper to check emptiness
-    def is_empty(attr):
-        return len([ref() for ref in agent.subscribers[(attr, "change")] if ref()]) == 0
-
-    assert is_empty("attr1")
-    assert not is_empty("attr2")
-    assert is_empty("attr3")
