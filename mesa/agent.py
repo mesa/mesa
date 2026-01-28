@@ -232,10 +232,10 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         # Use type(self) to ensure we return the correct subclass (AgentSet vs StrongAgentSet)
         return self._update(agents) if inplace else type(self)(agents, self.random)
 
-    def agg(
+        def agg(
         self, attribute: str, func: Callable | Iterable[Callable]
     ) -> Any | list[Any]:
-        """Aggregate an attribute of all agents in the AbstractAgentSet using one or more functions.
+        """Aggregate an attribute of all agents in the AgentSet using one or more functions.
 
         Args:
             attribute (str): The name of the attribute to aggregate.
@@ -245,6 +245,13 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Returns:
             Any | [Any, ...]: Result of applying the function(s) to the attribute values.
+
+        Examples:
+            # Single function
+            avg_energy = model.agents.agg("energy", np.mean)
+
+            # Multiple functions
+            min_wealth, max_wealth, total_wealth = model.agents.agg("wealth", [min, max, sum])
         """
         values = self.get(attribute)
 
@@ -275,7 +282,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         handle_missing="error",
         default_value=None,
     ):
-        """Retrieve the specified attribute(s) from each agent in the AbstractAgentSet.
+        """Retrieve the specified attribute(s) from each agent in the AgentSet.
 
         Args:
             attr_names (str | list[str]): The name(s) of the attribute(s) to retrieve from each agent.
@@ -297,17 +304,22 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         if handle_missing == "error":
             if is_single_attr:
-                return [getattr(agent, attr_names) for agent in self]
+                return [getattr(agent, attr_names) for agent in self._agents]
             else:
-                return [[getattr(agent, attr) for attr in attr_names] for agent in self]
+                return [
+                    [getattr(agent, attr) for attr in attr_names]
+                    for agent in self._agents
+                ]
 
         elif handle_missing == "default":
             if is_single_attr:
-                return [getattr(agent, attr_names, default_value) for agent in self]
+                return [
+                    getattr(agent, attr_names, default_value) for agent in self._agents
+                ]
             else:
                 return [
                     [getattr(agent, attr, default_value) for attr in attr_names]
-                    for agent in self
+                    for agent in self._agents
                 ]
 
         else:
@@ -316,15 +328,15 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                 "should be one of 'error' or 'default'"
             )
 
-    def set(self, attr_name: str, value: Any) -> AbstractAgentSet[A]:
-        """Set a specified attribute to a given value for all agents in the AbstractAgentSet.
+    def set(self, attr_name: str, value: Any) -> AgentSet[A]:
+        """Set a specified attribute to a given value for all agents in the AgentSet.
 
         Args:
             attr_name (str): The name of the attribute to set.
             value (Any): The value to set the attribute to.
 
         Returns:
-            AbstractAgentSet: The AbstractAgentSet instance itself, after setting the attribute.
+            AgentSet: The AgentSet instance itself, after setting the attribute.
         """
         for agent in self:
             setattr(agent, attr_name, value)
@@ -637,6 +649,26 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
             ]
 
         return res
+      
+    def to_list(self) -> list[A]:
+        """Convert the AgentSet to a list.
+
+        Returns:
+            list[Agent]: A list containing all agents in the AgentSet.
+
+        Notes:
+            This method provides an explicit way to convert the AgentSet to a list.
+            It is the recommended approach when list operations (indexing, slicing)
+            are needed, as direct sequence operations on AgentSet are deprecated
+            and will be removed in Mesa 4.0.
+        """
+        return list(self._agents.keys())
+      
+    @overload
+    def __getitem__(self, item: int) -> A: ...
+
+    @overload
+    def __getitem__(self, item: slice) -> list[A]: ...
 
     def __getitem__(self, item):
         """Retrieve an agent or a slice of agents from the AgentSet.
@@ -646,7 +678,17 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Returns:
             Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
+
+        .. deprecated::
+            Sequence behavior (indexing/slicing) is deprecated and will be removed in Mesa 4.0.
+            Use :meth:`to_list` instead: ``agentset.to_list()[index]`` or ``agentset.to_list()[start:stop]``.
         """
+        warnings.warn(
+            "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
+            "Use AgentSet.to_list()[index] instead.",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         return list(self._agents.keys())[item]
 
     def add(self, agent: A):
