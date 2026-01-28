@@ -277,7 +277,7 @@ class HasObservables:
 
     Attributes:
         subscribers: mapping of observables/emitters and signal type to subscribers
-        observables: mappping of observables/emitters to their available signal types
+        observables: mapping of observables/emitters to their available signal types
 
     HasObservables automatically discovers the observables/emitters defined on the class.
 
