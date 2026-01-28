@@ -794,15 +794,15 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
                 self.random = Random()
 
     def __len__(self) -> int:
-        """Return the number of agents in the AgentSet."""
+        """Return the number of agents in the _HardKeyAgentSet."""
         return len(self._agents)
 
     def __iter__(self) -> Iterator[A]:
-        """Provide an iterator over the agents in the AgentSet."""
+        """Provide an iterator over the agents in the _HardKeyAgentSet."""
         return iter(self._agents.keys())
 
     def __contains__(self, agent: A) -> bool:
-        """Check if an agent is in the AgentSet. Can be used like `agent in agentset`."""
+        """Check if an agent is in the _HardKeyAgentSet. Can be used like `agent in agentset`."""
         return agent in self._agents
 
     def _update(self, agents: Iterable[A]):
@@ -814,16 +814,16 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         return self.to_list()[item]
 
     def add(self, agent: A):
-        """Add an agent to the AgentSet."""
+        """Add an agent to the _HardKeyAgentSet."""
         self._agents[agent] = None
 
     def discard(self, agent: A):
-        """Remove an agent from the AgentSet if it exists."""
+        """Remove an agent from the _HardKeyAgentSet if it exists."""
         with contextlib.suppress(KeyError):
             del self._agents[agent]
 
     def remove(self, agent: A):
-        """Remove an agent from the AgentSet. Raises KeyError if not present."""
+        """Remove an agent from the _HardKeyAgentSet. Raises KeyError if not present."""
         del self._agents[agent]
 
     # These methods ensure that views returned to the user do not hold strong refs.
