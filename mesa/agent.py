@@ -154,9 +154,7 @@ class Agent[M: Model]:
         Returns:
             AgentSet containing the agents created.
         """
-        agents = [
-            cls(model, **record) for record in df.to_dict(orient="records")
-        ]
+        agents = [cls(model, **record) for record in df.to_dict(orient="records")]
 
         return AgentSet(agents, random=model.random)
 
