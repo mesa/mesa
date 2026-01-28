@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import functools
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator, Iterable
 from typing import Any, Literal
@@ -122,7 +122,9 @@ class BaseObservable(ABC):
         # creating Message object.
         if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGE):
             return
-        change_signal = self.signal_types("change")  # look up "change" in the descriptor's enum
+        change_signal = self.signal_types(
+            "change"
+        )  # look up "change" in the descriptor's enum
 
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
@@ -524,16 +526,19 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
     def inner(method):
         """Wrap func."""
         if when == "before":
+
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return method(self, *args, **kwargs)
         else:
+
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
                 ret = method(self, *args, **kwargs)
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return ret
+
         wrapper._mesa_signal_emitter = observable_name, signal_to_emit
 
         return wrapper

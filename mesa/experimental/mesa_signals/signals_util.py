@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 __all__ = ["Message", "SignalType", "_AllSentinel", "create_weakref"]
 
 if TYPE_CHECKING:
-    from mesa.experimental.mesa_signals import ListSignals, SignalType
+    from mesa.experimental.mesa_signals import SignalType
 
 
 @dataclass(frozen=True, slots=True)

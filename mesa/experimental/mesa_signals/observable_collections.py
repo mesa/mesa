@@ -62,6 +62,7 @@ class ListSignals(SignalType):
         >>> model.observe("items", "insert", handler)  # Still works
         Also compatible with SignalType.CHANGE since both equal "change" as strings.
     """
+
     SET = "set"
     INSERT = "insert"
     APPEND = "append"
@@ -101,7 +102,6 @@ class ObservableList(BaseObservable):
             old=getattr(instance, self.private_name, self.fallback_value),
             new=value,
         )
-
 
 
 class SignalingList(MutableSequence[Any]):

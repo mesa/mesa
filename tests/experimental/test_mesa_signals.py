@@ -174,7 +174,7 @@ def test_ObservableList():
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
     handler.assert_called()
-    agent.unobserve("my_list",  ListSignals.SET, handler)
+    agent.unobserve("my_list", ListSignals.SET, handler)
 
     # pop
     handler = Mock()
