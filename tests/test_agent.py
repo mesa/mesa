@@ -304,7 +304,20 @@ def test_agent_from_dataframe():
         with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
             TestAgent.from_dataframe(model, df, list_attr=bad)
 
+    # kwargs should override DataFrame columns on key collision
+    agents = TestAgent.from_dataframe(model, df, value=999)
+    assert all(a.value == 999 for a in agents)
 
+    # empty DataFrame should create an empty AgentSet
+    empty_df = pd.DataFrame(columns=list(df.columns))
+    agents = TestAgent.from_dataframe(model, empty_df, extra_attr=5)
+    assert len(agents) == 0
+
+    # DataFrame index should be ignored
+    df_with_index = df.copy()
+    df_with_index.index = range(100, 100 + n)
+    agents = TestAgent.from_dataframe(model, df_with_index, extra_attr=5)
+    assert [a.value for a in agents] == list(range(n))
 def test_agent_add_remove_discard():
     """Test adding, removing and discarding agents from AgentSet."""
     model = Model()
