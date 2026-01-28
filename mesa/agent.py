@@ -232,7 +232,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         # Use type(self) to ensure we return the correct subclass (AgentSet vs StrongAgentSet)
         return self._update(agents) if inplace else type(self)(agents, self.random)
 
-        def agg(
+    def agg(
         self, attribute: str, func: Callable | Iterable[Callable]
     ) -> Any | list[Any]:
         """Aggregate an attribute of all agents in the AgentSet using one or more functions.
