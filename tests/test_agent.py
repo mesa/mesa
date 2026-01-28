@@ -263,13 +263,20 @@ def test_agent_from_dataframe():
 
     class TestAgent(Agent):
         def __init__(
-            self, model, value=None, list_attr=None, tuple_attr=None, df_value=None
+            self,
+            model,
+            value=None,
+            list_attr=None,
+            tuple_attr=None,
+            df_value=None,
+            extra_attr=None,
         ):
             super().__init__(model)
             self.value = value
             self.list_attr = list_attr
             self.tuple_attr = tuple_attr
             self.df_value = df_value
+            self.extra_attr = extra_attr
 
     model = Model()
     n = 5
@@ -281,7 +288,8 @@ def test_agent_from_dataframe():
     }
     df = pd.DataFrame(data)
 
-    agents = TestAgent.from_dataframe(model, df)
+    # Test with constant (non-sequence) override via **kwargs
+    agents = TestAgent.from_dataframe(model, df, extra_attr=5)
 
     assert len(agents) == n
     for i, agent in enumerate(agents):
@@ -289,6 +297,11 @@ def test_agent_from_dataframe():
         assert agent.list_attr == [i]
         assert agent.df_value == f"df_{i}"
         assert agent.tuple_attr == (1, 2)
+        assert agent.extra_attr == 5
+
+    # Test that passing a sequence in kwargs raises TypeError
+    with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
+        TestAgent.from_dataframe(model, df, list_attr=[1, 2, 3])
 
 
 def test_agent_add_remove_discard():

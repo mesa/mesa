@@ -137,25 +137,39 @@ class Agent[M: Model]:
 
     @classmethod
     def from_dataframe[T: Agent](
-        cls: type[T], model: Model, df: pd.DataFrame
+        cls: type[T], model: Model, df: pd.DataFrame, **kwargs
     ) -> AgentSet[T]:
         """Create agents from a pandas DataFrame.
 
         Each row of the DataFrame represents one agent. The DataFrame columns are
-        mapped to the agent's constructor as keyword arguments.
+        mapped to the agent's constructor as keyword arguments. Additional keyword
+        arguments (`**kwargs`) can be used to set constant attributes for all agents.
 
         Args:
             model: The model instance.
             df: The pandas DataFrame. Each row represents an agent.
+            **kwargs: Constant values to pass to every agent's constructor.
+                Only non-sequence data is allowed in kwargs to avoid ambiguity
+                with DataFrame columns.
 
         Returns:
             AgentSet containing the agents created.
 
         Note:
-            If you need to pass constant values or sequences not in your original data,
-            add them as columns to the DataFrame before calling this method.
+            If you need to pass variable data or sequences, add them as columns
+            to the DataFrame before calling this method.
         """
-        agents = [cls(model, **record) for record in df.to_dict(orient="records")]
+        for key, value in kwargs.items():
+            if isinstance(value, (list, np.ndarray, tuple, pd.Series)):
+                raise TypeError(
+                    f"from_dataframe does not support sequence data in kwargs ('{key}'). "
+                    "Please add this data to the DataFrame before calling from_dataframe."
+                )
+
+        agents = [
+            cls(model, **{**record, **kwargs})
+            for record in df.to_dict(orient="records")
+        ]
 
         return AgentSet(agents, random=model.random)
 
@@ -708,7 +722,8 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         """
         warnings.warn(
             "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
-            "Use AgentSet.to_list()[index] instead.",
+            "Use AgentSet.to_list()[index] instead. "
+            "See https://mesa.readthedocs.io/latest/migration_guide.html#AgentSet-sequence-behavior",
             PendingDeprecationWarning,
             stacklevel=2,
         )
