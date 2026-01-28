@@ -331,7 +331,7 @@ class HasObservables:
         for name in names:
             if name not in self.observables:
                 raise ValueError(
-                    f"you are trying to subscribe to {n}, but this Observable is not known"
+                    f"you are trying to subscribe to {name}, but this Observable is not known"
                 )
 
             signal_types = target_signals or self.observables[name]

@@ -138,7 +138,7 @@ def test_ObservableList():
 
     # add
     handler = Mock()
-    agent.observe("my_list", "append", handler)
+    agent.observe("my_list", ListSignals.APPEND, handler)
 
     agent.my_list.append(1)
     assert len(agent.my_list) == 1
@@ -151,22 +151,22 @@ def test_ObservableList():
             additional_kwargs={"index": 0, "new": 1},
         )
     )
-    agent.unobserve("my_list", "append", handler)
+    agent.unobserve("my_list", ListSignals.APPEND, handler)
 
     # remove
     handler = Mock()
-    agent.observe("my_list", "remove", handler)
+    agent.observe("my_list", ListSignals.REMOVE, handler)
 
     agent.my_list.remove(1)
     assert len(agent.my_list) == 0
     handler.assert_called_once()
 
-    agent.unobserve("my_list", "remove", handler)
+    agent.unobserve("my_list", ListSignals.APPEND, handler)
 
     # overwrite the existing list
     a_list = [1, 2, 3, 4, 5]
     handler = Mock()
-    agent.observe("my_list", "change", handler)
+    agent.observe("my_list", ListSignals.SET, handler)
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
     handler.assert_called_once()
@@ -174,7 +174,7 @@ def test_ObservableList():
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
     handler.assert_called()
-    agent.unobserve("my_list", "change", handler)
+    agent.unobserve("my_list",  ListSignals.SET, handler)
 
     # pop
     handler = Mock()
@@ -185,26 +185,26 @@ def test_ObservableList():
     assert entry == a_list.pop(index)
     assert len(agent.my_list) == len(a_list)
     handler.assert_called_once()
-    agent.unobserve("my_list", "remove", handler)
+    agent.unobserve("my_list", ListSignals.INSERT, handler)
 
     # insert
     handler = Mock()
-    agent.observe("my_list", "insert", handler)
+    agent.observe("my_list", ListSignals.INSERT, handler)
     agent.my_list.insert(0, 5)
     handler.assert_called()
-    agent.unobserve("my_list", "insert", handler)
+    agent.unobserve("my_list", ListSignals.INSERT, handler)
 
     # overwrite
     handler = Mock()
-    agent.observe("my_list", "replace", handler)
+    agent.observe("my_list", ListSignals.REPLACE, handler)
     agent.my_list[0] = 10
     assert agent.my_list[0] == 10
     handler.assert_called_once()
-    agent.unobserve("my_list", "replace", handler)
+    agent.unobserve("my_list", ListSignals.REPLACE, handler)
 
     # combine two lists
     handler = Mock()
-    agent.observe("my_list", "append", handler)
+    agent.observe("my_list", ListSignals.APPEND, handler)
     a_list = [1, 2, 3, 4, 5]
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
