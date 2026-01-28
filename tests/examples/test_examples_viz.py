@@ -58,7 +58,10 @@ def run_model_test(
 
         # Run the model for specified number of steps
         for _ in range(steps):
-            model.step()
+            if hasattr(model, "simulator") and model.simulator:
+                model.simulator.run_for(1)
+            else:
+                model.step()
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
