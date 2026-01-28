@@ -300,8 +300,9 @@ def test_agent_from_dataframe():
         assert agent.extra_attr == 5
 
     # Test that passing a sequence in kwargs raises TypeError
-    with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
-        TestAgent.from_dataframe(model, df, list_attr=[1, 2, 3])
+    for bad in ([1, 2, 3], (1, 2, 3), np.array([1, 2, 3]), pd.Series([1, 2, 3])):
+        with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
+            TestAgent.from_dataframe(model, df, list_attr=bad)
 
 
 def test_agent_add_remove_discard():
