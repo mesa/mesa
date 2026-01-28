@@ -62,8 +62,7 @@ class ListSignals(SignalType):
         >>> model.observe("items", "insert", handler)  # Still works
         Also compatible with SignalType.CHANGE since both equal "change" as strings.
     """
-
-    CHANGE = "change"
+    SET = "set"
     INSERT = "insert"
     APPEND = "append"
     REMOVE = "remove"
@@ -91,12 +90,18 @@ class ObservableList(BaseObservable):
             value: The value to set the attribute to.
 
         """
-        super().__set__(instance, value)
         setattr(
             instance,
             self.private_name,
             SignalingList(value, instance, self.public_name),
         )
+        instance.notify(
+            self.public_name,
+            ListSignals.SET,
+            old=getattr(instance, self.private_name, self.fallback_value),
+            new=value,
+        )
+
 
 
 class SignalingList(MutableSequence[Any]):
@@ -138,7 +143,7 @@ class SignalingList(MutableSequence[Any]):
             index: The index of the item to remove
 
         """
-        old_value = self.data
+        old_value = self.data[index]
         del self.data[index]
         self.owner.notify(self.name, ListSignals.REMOVE, index=index, old=old_value)
 

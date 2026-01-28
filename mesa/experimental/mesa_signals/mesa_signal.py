@@ -117,18 +117,18 @@ class BaseObservable(ABC):
         self.private_name = f"_{name}"
         # owner.register_observable(self)
 
-    @abstractmethod
     def __set__(self, instance: HasObservables, value):  # noqa: D105
         # If no one is listening, Avoid overhead of fetching old value and
         # creating Message object.
         if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGE):
             return
+        change_signal = self.signal_types("change")  # look up "change" in the descriptor's enum
 
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
         instance.notify(
             self.public_name,
-            ObservableSignals.CHANGE,
+            change_signal,
             old=getattr(instance, self.private_name, self.fallback_value),
             new=value,
         )
@@ -288,13 +288,17 @@ class HasObservables:
     subscribers: dict[
         tuple[str, SignalType], list[weakref.ref]
     ]  # (observable_name, signal_type) -> list of weakref subscribers
-    observables: dict[str, type[SignalType] | set[SignalType]]
+    observables: dict[str, type[SignalType] | frozenset[SignalType]]
+
+    def __init_subclass__(cls, **kwargs):
+        """Initialize a HasObservables subclass."""
+        super().__init_subclass__(**kwargs)
+        cls.observables = dict(descriptor_generator(cls))
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasObservables."""
         super().__init__(*args, **kwargs)
         self.subscribers = defaultdict(list)
-        self.observables = dict(descriptor_generator(self))
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -324,13 +328,12 @@ class HasObservables:
         names = self._process_name(observable_name)
         target_signals = self._process_signal_type(signal_type)
 
-        for n in names:
-            if n not in self.observables:
+        for name in names:
+            if name not in self.observables:
                 raise ValueError(
                     f"you are trying to subscribe to {n}, but this Observable is not known"
                 )
 
-        for name in names:
             signal_types = target_signals or self.observables[name]
 
             for st in signal_types:
@@ -483,36 +486,27 @@ class HasObservables:
 
 
 def descriptor_generator(
-    obj,
-) -> Generator[tuple[str, type[SignalType] | set[SignalType]]]:
-    """Yield the name and signal_types for each Observable defined on obj.
+    cls,
+) -> Generator[tuple[str, type[SignalType] | frozenset[SignalType]]]:
+    """Yield the name and signal_types for each Observable defined on cls.
 
     This handles both legacy BaseObservable descriptors and new @computed_properties.
     """
-    # fixme can we specify the relevant signals on the property
-    #    instead of specifying it here?
-    # fixme can we use single dispatch here instead of this
-    #    match statement?
     emitters = defaultdict(set)
-    for base in type(obj).__mro__:
+    for base in cls.__mro__:
         base_dict = vars(base)
 
         for name, entry in base_dict.items():
-            match entry:
-                case ComputedProperty():
-                    # Computed properties imply a CHANGE signal
-                    yield name, entry.signal_types
-                case BaseObservable():
-                    yield entry.public_name, entry.signal_types
-                case Callable():
-                    if hasattr(entry, "_mesa_signal_emitter"):
-                        observable_name, signal = entry._mesa_signal_emitter
-                        emitters[observable_name].add(signal)
-                case _:
-                    continue
+            if isinstance(entry, ComputedProperty):
+                yield name, entry.signal_types
+            elif isinstance(entry, BaseObservable):
+                yield entry.public_name, entry.signal_types
+            elif hasattr(entry, "_mesa_signal_emitter"):
+                observable_name, signal = entry._mesa_signal_emitter
+                emitters[observable_name].add(signal)
 
     for name, signals in emitters.items():
-        yield name, signals
+        yield name, frozenset(signals)
 
 
 def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "after"):
@@ -529,16 +523,18 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
 
     def inner(method):
         """Wrap func."""
-        method._mesa_signal_emitter = observable_name, signal_to_emit
-
-        @functools.wraps(method)
-        def wrapper(self, *args, **kwargs):
-            if when == "before":
+        if when == "before":
+            @functools.wraps(method)
+            def wrapper(self, *args, **kwargs):
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
-            ret = method(self, *args, **kwargs)
-            if when == "after":
+                return method(self, *args, **kwargs)
+        else:
+            @functools.wraps(method)
+            def wrapper(self, *args, **kwargs):
+                ret = method(self, *args, **kwargs)
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
-            return ret
+                return ret
+        wrapper._mesa_signal_emitter = observable_name, signal_to_emit
 
         return wrapper
 
