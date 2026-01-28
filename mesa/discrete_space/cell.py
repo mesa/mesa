@@ -244,7 +244,9 @@ class Cell:
         """Return state of the Cell with connections set to empty."""
         state = super().__getstate__()
         # Replace connections with empty dict to avoid infinite recursion error in pickle/deepcopy
-        state[1]["connections"] = {}
+        state[1]["connections"] = {
+            cell.coordinate: None for cell in self.connections.values()
+        }
         return state
 
     def _clear_cache(self):

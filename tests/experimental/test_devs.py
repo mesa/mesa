@@ -1,11 +1,17 @@
 """Tests for experimental Simulator classes."""
 
+from functools import partial
 from unittest.mock import MagicMock, Mock
 
 import pytest
 
 from mesa import Model
-from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
+from mesa.experimental.devs.eventlist import (
+    EventGenerator,
+    EventList,
+    Priority,
+    SimulationEvent,
+)
 from mesa.experimental.devs.simulator import ABMSimulator, DEVSimulator
 
 
@@ -88,7 +94,7 @@ def test_devs_simulator():
     # simulator reset
     simulator.reset()
     assert len(simulator.event_list) == 0
-    assert simulator.model is None
+    assert simulator.model is model
 
     # run_for without setup
     simulator = DEVSimulator()
@@ -109,10 +115,8 @@ def test_devs_simulator():
 
     # setup with event scheduled
     simulator = DEVSimulator()
-    model = Model()
-    simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
-    with pytest.raises(ValueError):
-        simulator.setup(model)
+    with pytest.raises(RuntimeError, match="Simulator not set up"):
+        simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
 
 
 def test_abm_simulator():
@@ -267,6 +271,45 @@ def test_simulation_event():
     assert event1 > event2
 
 
+def test_simulation_event_pickle():
+    """Test pickling and unpickling of SimulationEvent."""
+
+    # Test with regular function
+    def test_fn():
+        return "test"
+
+    event = SimulationEvent(
+        10.0,
+        test_fn,
+        priority=Priority.HIGH,
+        function_args=["arg1"],
+        function_kwargs={"key": "value"},
+    )
+
+    # Pickle and unpickle
+    state = event.__getstate__()
+    assert state["_fn_strong"] is test_fn
+    assert state["fn"] is None
+
+    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event.__setstate__(state)
+
+    assert new_event.time == 10.0
+    assert new_event.priority == Priority.HIGH.value
+    assert new_event.function_args == ["arg1"]
+    assert new_event.function_kwargs == {"key": "value"}
+    assert new_event.fn() is test_fn
+
+    # Test with canceled event
+    event.cancel()
+    state = event.__getstate__()
+    assert state["_fn_strong"] is None
+
+    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event.__setstate__(state)
+    assert new_event.fn is None
+
+
 def test_eventlist():
     """Tests for EventList."""
     event_list = EventList()
@@ -370,3 +413,195 @@ def test_eventlist():
     # clear
     event_list.clear()
     assert len(event_list) == 0
+
+
+def test_simulator_uses_model_event_list():
+    """Test that simulator uses model's internal event list."""
+    model = Model()
+    simulator = DEVSimulator()
+    simulator.setup(model)
+
+    # Simulator's event_list property should return model's event list
+    assert simulator.event_list is model._event_list
+
+    # Events scheduled through simulator appear in model's event list
+    fn = MagicMock()
+    simulator.schedule_event_absolute(fn, 1.0)
+    assert len(model._event_list) == 1
+
+
+@pytest.fixture
+def setup():
+    """Create a model with simulator and mock function."""
+    model = Model()
+    simulator = DEVSimulator()
+    simulator.setup(model)
+    return model, simulator, MagicMock()
+
+
+class TestEventGenerator:
+    """Tests for EventGenerator."""
+
+    def test_init(self, setup):
+        """Test initialization and default state."""
+        model, _sim, fn = setup
+        gen = EventGenerator(model, fn, interval=5.0)
+
+        assert gen.model is model
+        assert gen.interval == 5.0
+        assert gen.priority == Priority.DEFAULT
+        assert not gen.is_active
+        assert gen.execution_count == 0
+
+        gen2 = EventGenerator(model, fn, interval=1.0, priority=Priority.HIGH)
+        assert gen2.priority == Priority.HIGH
+
+    def test_start_default(self, setup):
+        """Test start with defaults (after one interval)."""
+        model, sim, fn = setup
+        gen = EventGenerator(model, fn, interval=2.0)
+
+        assert gen.start() is gen  # Returns self
+        assert gen.is_active
+
+        sim.run_for(1.9)
+        fn.assert_not_called()
+        sim.run_for(0.1)
+        fn.assert_called_once()
+
+    def test_start_at_and_after(self, setup):
+        """Test start at absolute and relative time."""
+        model, sim, fn = setup
+
+        # Absolute time
+        gen1 = EventGenerator(model, fn, interval=1.0)
+        gen1.start(at=5.0)
+        sim.run_for(4.9)
+        fn.assert_not_called()
+        sim.run_for(0.1)
+        fn.assert_called_once()
+
+        # Relative time
+        fn2 = MagicMock()
+        gen2 = EventGenerator(model, fn2, interval=1.0)
+        gen2.start(after=3.0)  # model.time is now 5.0
+        sim.run_for(2.9)
+        fn2.assert_not_called()
+        sim.run_for(0.1)
+        fn2.assert_called_once()
+
+    def test_start_errors(self, setup):
+        """Test start error cases."""
+        model, sim, fn = setup
+
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            EventGenerator(model, fn, interval=1.0).start(at=1.0, after=1.0)
+
+        sim.run_for(10.0)
+        with pytest.raises(ValueError, match="Cannot start in the past"):
+            EventGenerator(model, fn, interval=1.0).start(at=5.0)
+        with pytest.raises(ValueError, match="Cannot start in the past"):
+            EventGenerator(model, fn, interval=1.0).start(after=-1.0)
+
+    def test_start_when_active_is_noop(self, setup):
+        """Test that starting when active does nothing."""
+        model, sim, fn = setup
+        gen = EventGenerator(model, fn, interval=1.0)
+        gen.start()
+        count = len(sim.event_list)
+
+        gen.start()  # No-op
+        assert len(sim.event_list) == count
+
+    def test_stop_immediate(self, setup):
+        """Test immediate stop."""
+        model, sim, fn = setup
+        gen = EventGenerator(model, fn, interval=1.0)
+        assert gen.start().stop() is gen  # Chaining
+
+        assert not gen.is_active
+        sim.run_for(5.0)
+        fn.assert_not_called()
+
+    def test_stop_conditions(self, setup):
+        """Test stop at/after/count conditions."""
+        model, sim, fn = setup
+
+        # Stop at absolute time
+        gen1 = EventGenerator(model, fn, interval=1.0)
+        gen1.start(at=0.0).stop(at=2.5)
+        sim.run_for(5.0)
+        assert fn.call_count == 3  # t=0, 1, 2
+
+        # Stop after relative time
+        fn2 = MagicMock()
+        gen2 = EventGenerator(model, fn2, interval=1.0)
+        gen2.start(at=5.0).stop(after=2.5)  # model.time=5.0, end=7.5
+        sim.run_for(5.0)
+        assert fn2.call_count == 3  # t=5, 6, 7
+
+        # Stop after count
+        fn3 = MagicMock()
+        gen3 = EventGenerator(model, fn3, interval=1.0)
+        gen3.start(at=10.0).stop(count=2)
+        sim.run_for(10.0)
+        assert fn3.call_count == 2
+        assert gen3.execution_count == 2
+        assert not gen3.is_active
+
+    def test_stop_multiple_conditions_error(self, setup):
+        """Test error when multiple stop conditions specified."""
+        model, _sim, fn = setup
+        gen = EventGenerator(model, fn, interval=1.0)
+
+        with pytest.raises(ValueError, match="Can only specify one"):
+            gen.stop(at=5.0, count=3)
+        with pytest.raises(ValueError, match="Can only specify one"):
+            gen.stop(after=5.0, at=3.0)
+
+    def test_recurring_execution(self, setup):
+        """Test recurring execution and count tracking."""
+        model, sim, fn = setup
+        gen = EventGenerator(model, fn, interval=2.0)
+        gen.start(at=0.0)
+
+        sim.run_for(7.0)
+        assert fn.call_count == 4  # t=0, 2, 4, 6
+        assert gen.execution_count == 4
+
+    def test_callable_interval(self, setup):
+        """Test callable intervals evaluated each time."""
+        model, sim, fn = setup
+        intervals = iter([1.0, 2.0, 1.0, 1.0])
+        gen = EventGenerator(model, fn, interval=lambda m: next(intervals))
+        gen.start(at=0.0)
+
+        sim.run_for(4.5)
+        assert fn.call_count == 4  # t=0, 1, 3, 4
+
+    def test_functools_partial(self, setup):
+        """Test using functools.partial for arguments."""
+        model, sim, fn = setup
+        gen = EventGenerator(model, partial(fn, "a", k="v"), interval=1.0)
+        gen.start(at=0.0)
+
+        sim.run_for(0.5)
+        fn.assert_called_once_with("a", k="v")
+
+    def test_priority_ordering(self, setup):
+        """Test priority affects execution order."""
+        model, sim, _ = setup
+        order = []
+
+        high = EventGenerator(
+            model, lambda: order.append("H"), interval=1.0, priority=Priority.HIGH
+        )
+        low = EventGenerator(
+            model, lambda: order.append("L"), interval=1.0, priority=Priority.LOW
+        )
+
+        low.start(at=1.0)
+        high.start(at=1.0)
+
+        sim.run_for(1.5)
+        assert order == ["H", "L"]

@@ -172,4 +172,9 @@ class DiscreteSpace[T: Cell]:
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""
         self.__dict__ = state
-        self._connect_cells()
+
+        for cell in self._cells.values():
+            connections = {
+                coordinate: self._cells[coordinate] for coordinate in cell.connections
+            }
+            cell.connections = connections
