@@ -16,11 +16,10 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-
-# mypy
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -107,7 +106,7 @@ class Agent[M: Model]:
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
-            if isinstance(arg, (list, np.ndarray, tuple)) and len(arg) == n:
+            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
                 arg_iters.append(arg)
             else:
                 arg_iters.append(itertools.repeat(arg, n))
@@ -116,7 +115,7 @@ class Agent[M: Model]:
         kw_keys = list(kwargs.keys())
         kw_val_iters = []
         for v in kwargs.values():
-            if isinstance(v, (list, np.ndarray, tuple)) and len(v) == n:
+            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
                 kw_val_iters.append(v)
             else:
                 kw_val_iters.append(itertools.repeat(v, n))
@@ -133,6 +132,44 @@ class Agent[M: Model]:
         else:
             for _, p_args in zip(range(n), pos_iter):
                 agents.append(cls(model, *p_args))
+
+        return AgentSet(agents, random=model.random)
+
+    @classmethod
+    def from_dataframe[T: Agent](
+        cls: type[T], model: Model, df: pd.DataFrame, **kwargs
+    ) -> AgentSet[T]:
+        """Create agents from a pandas DataFrame.
+
+        Each row of the DataFrame represents one agent. The DataFrame columns are
+        mapped to the agent's constructor as keyword arguments. Additional keyword
+        arguments (`**kwargs`) can be used to set constant attributes for all agents.
+
+        Args:
+            model: The model instance.
+            df: The pandas DataFrame. Each row represents an agent.
+            **kwargs: Constant values to pass to every agent's constructor.
+                Only non-sequence data is allowed in kwargs to avoid ambiguity
+                with DataFrame columns.
+
+        Returns:
+            AgentSet containing the agents created.
+
+        Note:
+            If you need to pass variable data or sequences, add them as columns
+            to the DataFrame before calling this method.
+        """
+        for key, value in kwargs.items():
+            if isinstance(value, (list, np.ndarray, tuple, pd.Series)):
+                raise TypeError(
+                    f"from_dataframe does not support sequence data in kwargs ('{key}'). "
+                    "Please add this data to the DataFrame before calling from_dataframe."
+                )
+
+        agents = [
+            cls(model, **{**record, **kwargs})
+            for record in df.to_dict(orient="records")
+        ]
 
         return AgentSet(agents, random=model.random)
 

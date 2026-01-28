@@ -3,6 +3,7 @@
 import pickle
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from mesa.agent import Agent, AgentSet
@@ -223,6 +224,100 @@ def test_agent_create():
         assert agent.some_default_value == 5
         assert agent.a == a_i
         assert agent.b == 7
+
+
+def test_agent_create_with_pandas():
+    """Test create_agents with pandas Series to improve coverage."""
+
+    class TestAgent(Agent):
+        def __init__(self, model, series_attr=None, kw_series_attr=None):
+            super().__init__(model)
+            self.series_attr = series_attr
+            self.kw_series_attr = kw_series_attr
+
+    model = Model()
+    n = 5
+
+    # Test pandas Series as positional argument (should hit pandas detection logic)
+    series_data = pd.Series([10, 20, 30, 40, 50])
+    agents = TestAgent.create_agents(model, n, series_data)
+    for i, agent in enumerate(agents):
+        assert agent.series_attr == series_data.iloc[i]
+
+    # Test pandas Series as keyword argument
+    kw_series_data = pd.Series([100, 200, 300, 400, 500])
+    agents = TestAgent.create_agents(model, n, kw_series_attr=kw_series_data)
+    for i, agent in enumerate(agents):
+        assert agent.kw_series_attr == kw_series_data.iloc[i]
+
+    # Test pandas Series with length mismatch
+    short_series = pd.Series([1, 2])  # length 2, but n=5
+    agents = TestAgent.create_agents(model, n, short_series)
+    for agent in agents:
+        # Should repeat the entire series, not individual elements
+        assert agent.series_attr.equals(short_series)
+
+
+def test_agent_from_dataframe():
+    """Test create_agents from a pandas DataFrame."""
+
+    class TestAgent(Agent):
+        def __init__(
+            self,
+            model,
+            value=None,
+            list_attr=None,
+            tuple_attr=None,
+            df_value=None,
+            extra_attr=None,
+        ):
+            super().__init__(model)
+            self.value = value
+            self.list_attr = list_attr
+            self.tuple_attr = tuple_attr
+            self.df_value = df_value
+            self.extra_attr = extra_attr
+
+    model = Model()
+    n = 5
+    data = {
+        "value": range(n),
+        "list_attr": [[i] for i in range(n)],
+        "df_value": [f"df_{i}" for i in range(n)],
+        "tuple_attr": [(1, 2)] * n,
+    }
+    df = pd.DataFrame(data)
+
+    # Test with constant (non-sequence) override via **kwargs
+    agents = TestAgent.from_dataframe(model, df, extra_attr=5)
+
+    assert len(agents) == n
+    for i, agent in enumerate(agents):
+        assert agent.value == i
+        assert agent.list_attr == [i]
+        assert agent.df_value == f"df_{i}"
+        assert agent.tuple_attr == (1, 2)
+        assert agent.extra_attr == 5
+
+    # Test that passing a sequence in kwargs raises TypeError
+    for bad in ([1, 2, 3], (1, 2, 3), np.array([1, 2, 3]), pd.Series([1, 2, 3])):
+        with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
+            TestAgent.from_dataframe(model, df, list_attr=bad)
+
+    # kwargs should override DataFrame columns on key collision
+    agents = TestAgent.from_dataframe(model, df, value=999)
+    assert all(a.value == 999 for a in agents)
+
+    # empty DataFrame should create an empty AgentSet
+    empty_df = pd.DataFrame(columns=list(df.columns))
+    agents = TestAgent.from_dataframe(model, empty_df, extra_attr=5)
+    assert len(agents) == 0
+
+    # DataFrame index should be ignored
+    df_with_index = df.copy()
+    df_with_index.index = range(100, 100 + n)
+    agents = TestAgent.from_dataframe(model, df_with_index, extra_attr=5)
+    assert [a.value for a in agents] == list(range(n))
 
 
 def test_agent_add_remove_discard():
