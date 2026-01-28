@@ -30,7 +30,7 @@ class Message:
 
     name: str
     owner: Any
-    signal_type: SignalType | ListSignals
+    signal_type: SignalType
     additional_kwargs: dict
 
 
