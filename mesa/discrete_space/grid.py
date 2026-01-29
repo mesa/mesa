@@ -196,10 +196,15 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
         self.__dict__ = state
-        self._connect_cells()  # using super fails for this for some reason, so we repeat ourselves
+
+        # Rebuild connections from state (preserving manual changes)
+        for cell in self._cells.values():
+            cell.connections = {
+                key: self._cells[coord] for key, coord in cell.connections.items()
+            }
 
         self.cell_klass = type(
-            self._cells[(0, 0)]
+            next(iter(self._cells.values()))
         )  # the __reduce__ function handles this for us nicely
         for layer in self._mesa_property_layers.values():
             setattr(
