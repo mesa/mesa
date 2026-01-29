@@ -16,9 +16,10 @@ from __future__ import annotations
 import weakref
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 __all__ = ["Message", "SignalType", "_AllSentinel", "create_weakref"]
+
 
 @dataclass(frozen=True, slots=True)
 class Message:
