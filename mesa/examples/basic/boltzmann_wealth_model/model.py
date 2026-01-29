@@ -43,7 +43,7 @@ class BoltzmannWealth(Model):
 
         # Set up data collection
         self.datacollector = DataCollector(
-            model_reporters={"Gini": "gini"},
+            model_reporters={"Gini": self.compute_gini},
             agent_reporters={"Wealth": "wealth"},
         )
         MoneyAgent.create_agents(
@@ -59,7 +59,7 @@ class BoltzmannWealth(Model):
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.datacollector.collect(self)  # Collect data
 
-    def gini(self):
+    def compute_gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
 
         The Gini coefficient is a measure of inequality in distributions.
