@@ -498,11 +498,7 @@ def test_emit():
             name="test",
             signal_type=TestSignals.BEFORE,
             owner=model,
-            additional_kwargs={
-                "args": (
-                    10,
-                )
-            },
+            additional_kwargs={"args": (10,)},
         )
     )
     handler_after.assert_not_called()
@@ -513,7 +509,6 @@ def test_emit():
             name="test",
             signal_type=TestSignals.AFTER,
             owner=model,
-            additional_kwargs={"args":(),
-                "some_value": 10},
+            additional_kwargs={"args": (), "some_value": 10},
         )
     )
