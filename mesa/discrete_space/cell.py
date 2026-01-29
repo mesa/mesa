@@ -240,7 +240,6 @@ class Cell:
 
         return neighborhood
 
-
     def __getstate__(self):
         """Return state of the Cell, replacing neighbor objects with coordinates to break recursion."""
         state = super().__getstate__()
