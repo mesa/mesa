@@ -1,5 +1,4 @@
 from mesa.discrete_space import CellAgent
-from mesa.experimental.mesa_signals import HasObservables, Observable
 
 
 class MoneyAgent(CellAgent):

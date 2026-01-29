@@ -11,7 +11,6 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.mesa_signals.mesa_signal import computed_property
 
 
 class BoltzmannWealth(Model):
