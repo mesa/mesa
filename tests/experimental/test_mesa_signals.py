@@ -12,7 +12,9 @@ from mesa.experimental.mesa_signals import (
     Observable,
     ObservableList,
     ObservableSignals,
+    SignalType,
     computed_property,
+    emit,
 )
 from mesa.experimental.mesa_signals.signals_util import Message
 
@@ -461,3 +463,57 @@ def test_list_support():
     agent.unobserve(["attr1", "attr2"], "change", handler)
     assert handler not in [ref() for ref in agent.subscribers[("attr1", "change")]]
     assert handler not in [ref() for ref in agent.subscribers[("attr2", "change")]]
+
+
+def test_emit():
+    """Test emit decorator."""
+
+    class TestSignals(SignalType):
+        BEFORE = "before"
+        AFTER = "after"
+
+    class MyModel(Model):
+        def __init__(self, rng=42):
+            super().__init__(rng=rng)
+
+        @emit("test", TestSignals.BEFORE, when="before")
+        def test_before(self, value):
+            pass
+
+        @emit("test", TestSignals.AFTER, when="after")
+        def test_after(self, some_value=None):
+            pass
+
+    model = MyModel()
+
+    handler_before = Mock()
+    model.observe("test", signal_type=TestSignals.BEFORE, handler=handler_before)
+
+    handler_after = Mock()
+    model.observe("test", signal_type=TestSignals.AFTER, handler=handler_after)
+
+    model.test_before(10)
+    handler_before.assert_called_once_with(
+        Message(
+            name="test",
+            signal_type=TestSignals.BEFORE,
+            owner=model,
+            additional_kwargs={
+                "args": (
+                    10,
+                )
+            },
+        )
+    )
+    handler_after.assert_not_called()
+
+    model.test_after(some_value=10)
+    handler_after.assert_called_once_with(
+        Message(
+            name="test",
+            signal_type=TestSignals.AFTER,
+            owner=model,
+            additional_kwargs={"args":(),
+                "some_value": 10},
+        )
+    )
