@@ -1,6 +1,7 @@
 """Test the DataCollector."""
 
 import unittest
+from functools import partial
 
 import pandas as pd
 
@@ -671,6 +672,28 @@ class TestMethodReporterValidation(unittest.TestCase):
 
         # Validation call + actual collect call = at least 1
         self.assertGreaterEqual(model.call_count, 1)
+
+
+class TestPartialReporterValidation(unittest.TestCase):
+    """Tests for partial function model reporters."""
+
+    def test_partial_model_reporter(self):
+        """Test that partial model reporters receive the model argument."""
+
+        def count_agents(model, multiplier):
+            return len(model.agents) * multiplier
+
+        model = Model()
+        for _ in range(3):
+            Agent(model)
+
+        dc = DataCollector(
+            model_reporters={"AgentsTimesTwo": partial(count_agents, multiplier=2)}
+        )
+        dc.collect(model)
+
+        data = dc.get_model_vars_dataframe()
+        self.assertEqual(data["AgentsTimesTwo"][0], 6)
 
 
 def test_mutable_data_independence():

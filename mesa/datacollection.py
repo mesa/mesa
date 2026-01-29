@@ -64,9 +64,10 @@ class DataCollector:
 
         Both model_reporters, agent_reporters, and agenttype_reporters accept a
         dictionary mapping a variable name to either an attribute name, a function,
-        a method of a class/instance, or a function with parameters placed in a list.
+        a method of a class/instance, a partial function, or a function with
+        parameters placed in a list.
 
-        Model reporters can take four types of arguments:
+        Model reporters can take five types of arguments:
         1. Lambda function:
            {"agent_count": lambda m: len(m.agents)}
         2. Method of a class/instance:
@@ -74,7 +75,9 @@ class DataCollector:
            {"agent_count": Model.get_agent_count} # Model here is a class
         3. Class attributes of a model:
            {"model_attribute": "model_attribute"}
-        4. Functions with parameters that have been placed in a list:
+        4. Partial function:
+           {"agent_count": functools.partial(count_agents, multiplier=2)}
+        5. Functions with parameters that have been placed in a list:
            {"Model_Function": [function, [param_1, param_2]]}
 
         Agent reporters can similarly take:
@@ -85,7 +88,9 @@ class DataCollector:
         3. Method of an agent class/instance:
            {"agent_action": self.do_action} # self here is an agent class instance
            {"agent_action": Agent.do_action} # Agent here is a class
-        4. Functions with parameters placed in a list:
+        4. Partial function:
+           {"energy": functools.partial(get_energy, scale=2)}
+        5. Functions with parameters placed in a list:
            {"Agent_Function": [function, [param_1, param_2]]}
 
         Agenttype reporters take a dictionary mapping agent types to dictionaries
@@ -156,8 +161,8 @@ class DataCollector:
         """
         self._validated = True  # put the change of signal firstly avoid losing efficacy
 
-        # Type 1: Lambda function
-        if isinstance(reporter, types.LambdaType):
+        # Type 1: Lambda function or partial
+        if isinstance(reporter, (types.LambdaType, partial)):
             try:
                 reporter(model)
             except Exception as e:
@@ -167,7 +172,7 @@ class DataCollector:
                 ) from e
 
         # Type 2: Method of class/instance (bound methods are callable)
-        if callable(reporter) and not isinstance(reporter, types.LambdaType):
+        if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
             try:
                 reporter()  # Call without args for bound methods
             except Exception as e:
