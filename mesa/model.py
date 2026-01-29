@@ -19,7 +19,7 @@ import numpy as np
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
-from mesa.agent import Agent, _HardKeyAgentSet
+from mesa.agent import Agent, AgentSet
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
@@ -166,9 +166,9 @@ class Model[A: Agent, S: Scenario]:
             A, None
         ] = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
-            type[A], _HardKeyAgentSet[A]
+            type[A], AgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
+        self._all_agents: AgentSet[A] = AgentSet(
             [], random=self.random
         )  # an agenset with all agents
 
@@ -214,7 +214,7 @@ class Model[A: Agent, S: Scenario]:
         self._schedule_step(self.time + 1)
 
     @property
-    def agents(self) -> _HardKeyAgentSet[A]:
+    def agents(self) -> AgentSet[A]:
         """Provides an AgentSet of all agents in the model, combining agents from all types."""
         return self._all_agents
 
@@ -232,7 +232,7 @@ class Model[A: Agent, S: Scenario]:
         return list(self._agents_by_type.keys())
 
     @property
-    def agents_by_type(self) -> dict[type[A], _HardKeyAgentSet[A]]:
+    def agents_by_type(self) -> dict[type[A], AgentSet[A]]:
         """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
         return self._agents_by_type
 
@@ -256,7 +256,7 @@ class Model[A: Agent, S: Scenario]:
         try:
             self._agents_by_type[type(agent)].add(agent)
         except KeyError:
-            self._agents_by_type[type(agent)] = _HardKeyAgentSet(
+            self._agents_by_type[type(agent)] = AgentSet(
                 [
                     agent,
                 ],
