@@ -1,5 +1,6 @@
 """Agent.py related tests."""
 
+import copy
 import pickle
 
 import numpy as np
@@ -855,6 +856,8 @@ def test_hardkeyagentset_init():
     model = Model()
     agents = [AgentTest(model) for _ in range(5)]
 
+    with pytest.warns(UserWarning):
+        _ = _HardKeyAgentSet([])
     hard_set = _HardKeyAgentSet(agents, model.random)
 
     assert len(hard_set) == 5
@@ -862,6 +865,9 @@ def test_hardkeyagentset_init():
     assert hard_set.random == model.random
 
     assert hard_set[0] == agents[0]
+
+    hard_set.discard(agents[0])
+    assert agents[0] not in hard_set
 
 
 def test_hardkeyagentset_downgrade():
@@ -888,6 +894,11 @@ def test_hardkeyagentset_downgrade():
     assert isinstance(copied, AgentSet)
     assert not isinstance(copied, _HardKeyAgentSet)
     assert len(copied) == 10
+
+    new_copied = copy.copy(hard_set)
+    assert isinstance(new_copied, AgentSet)
+    assert not isinstance(new_copied, _HardKeyAgentSet)
+    assert len(new_copied) == 10
 
     sorted_view = hard_set.sort("unique_id")
     assert isinstance(sorted_view, AgentSet)
@@ -925,7 +936,20 @@ def test_hardkeyagentset_inplace():
     assert res_shuffle is hard_set
 
 
-def test_hardkeyagentset_map_and_shuffledo():
+def test_hardkeyagentset_str():
+    """Test _HardKeyAgentSet with strings."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    with pytest.raises(AttributeError):
+        hard_set.do("non_existing_method")
+
+    results = hard_set.map("get_unique_identifier")
+    assert all(i == entry for i, entry in zip(results, range(1, 11)))
+
+
+def test_hardkeyagentset_map_do_shuffledo():
     """Test map and shuffle_do overrides on _HardKeyAgentSet."""
     model = Model()
     agents = [AgentTest(model) for _ in range(5)]
@@ -939,9 +963,11 @@ def test_hardkeyagentset_map_and_shuffledo():
 
     for a in agents:
         a.touched = False
+    hard_set.do(lambda a: setattr(a, "touched", True))
+    assert all(a.touched for a in agents)
 
-    res = hard_set.shuffle_do(lambda a: setattr(a, "touched", True))
+    res = hard_set.shuffle_do(lambda a: setattr(a, "touched", False))
 
     assert isinstance(res, _HardKeyAgentSet)
     assert res is hard_set
-    assert all(a.touched for a in agents)
+    assert all(not a.touched for a in agents)
