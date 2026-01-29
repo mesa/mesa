@@ -64,23 +64,33 @@ def test_HasObservables():
     assert handler in subscribers
 
     agent.unobserve("some_attribute", ObservableSignals.CHANGE, handler)
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]
+    }
     assert handler not in subscribers
 
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", ObservableSignals.CHANGE)]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGE)
+        ]
     }
     assert len(subscribers) == 0
 
     agent.observe(ALL, ObservableSignals.CHANGE, handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGE)]}
+        subscribers = {
+            entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGE)]
+        }
         assert handler in subscribers
 
     agent.unobserve(ALL, ObservableSignals.CHANGE, handler)
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGE)]}
+        subscribers = {
+            entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGE)]
+        }
         assert handler not in subscribers
         assert len(subscribers) == 0
 
@@ -92,25 +102,40 @@ def test_HasObservables():
         agent.observe("some_attribute", ObservableSignals.CHANGE, handler)
         agent.observe("some_other_attribute", ObservableSignals.CHANGE, handler)
 
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]
+    }
     assert len(subscribers) == nr_observers
 
     agent.clear_all_subscriptions("some_attribute")
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]
+    }
     assert len(subscribers) == 0
 
     ## test All
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", ObservableSignals.CHANGE)]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGE)
+        ]
     }
     assert len(subscribers) == 3
 
     agent.clear_all_subscriptions(ALL)
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGE)]
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", ObservableSignals.CHANGE)]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGE)
+        ]
     }
     assert len(subscribers) == 0
 
@@ -122,13 +147,15 @@ def test_HasObservables():
         agent.observe("some_other_attribute", ObservableSignals.CHANGE, handler)
 
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", ObservableSignals.CHANGE)]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGE)
+        ]
     }
     assert len(subscribers) == 3
 
     agent.clear_all_subscriptions(["some_attribute", "some_other_attribute"])
     assert len(agent.subscribers) == 0
-
 
     # test raises
     with pytest.raises(ValueError):
@@ -473,14 +500,24 @@ def test_list_support():
     agent.observe(["attr1", "attr2"], ObservableSignals.CHANGE, handler)
 
     # Check subscriptions
-    assert handler in [ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGE)]]
-    assert handler in [ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGE)]]
-    assert handler not in [ref() for ref in agent.subscribers[("attr3", ObservableSignals.CHANGE)]]
+    assert handler in [
+        ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGE)]
+    ]
+    assert handler in [
+        ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGE)]
+    ]
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr3", ObservableSignals.CHANGE)]
+    ]
 
     # Test unobserve with list of names
     agent.unobserve(["attr1", "attr2"], ObservableSignals.CHANGE, handler)
-    assert handler not in [ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGE)]]
-    assert handler not in [ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGE)]]
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGE)]
+    ]
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGE)]
+    ]
 
 
 def test_emit():
