@@ -241,15 +241,18 @@ class Cell:
         return neighborhood
 
     def __getstate__(self):
-        """Return state of the Cell, replacing neighbor objects with coordinates to break recursion."""
+        """Return state of the Cell.
+
+        Neighbors are replaced with their coordinates to avoid deep recursion
+        while preserving the connection keys.
+        """
         state = super().__getstate__()
         # Replace neighbor objects with their coordinates to avoid deep recursion
         # while preserving the connection keys.
-        slots = state[1].copy()
-        slots["connections"] = {
+        state[1]["connections"] = {
             key: neighbor.coordinate for key, neighbor in self.connections.items()
         }
-        return (state[0], slots)
+        return state
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
