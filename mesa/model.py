@@ -20,7 +20,9 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, AgentSet
+from mesa.experimental.devs import Simulator
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
+from mesa.experimental.mesa_signals import HasObservables, Observable
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
@@ -32,7 +34,7 @@ _mesa_logger = create_module_logger()
 
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required
-class Model[A: Agent, S: Scenario]:
+class Model[A: Agent, S: Scenario](HasObservables):
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
@@ -58,6 +60,9 @@ class Model[A: Agent, S: Scenario]:
         composition of this AgentSet, ensure you operate on a copy.
 
     """
+
+    steps = Observable(fallback_value=0)
+    time = Observable(fallback_value=0.0)
 
     @property
     def scenario(self) -> S:
@@ -97,11 +102,14 @@ class Model[A: Agent, S: Scenario]:
             you have to pass either seed or rng, but not both.
 
         """
+        HasObservables.__init__(self)
         super().__init__(*args, **kwargs)
         self.running: bool = True
-        self.steps: int = 0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
+
+        # Initialize Observable values
+        self.steps = 0
+        self.time = 0.0
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
