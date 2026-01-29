@@ -5,7 +5,11 @@ class MesaException(Exception):  # noqa: N818
     """Base class for all Mesa-specific exceptions."""
 
 
-class CellFullException(MesaException):
+class DiscreteSpaceException(MesaException):
+    """Base exception for errors in the discrete_space module."""
+
+
+class CellFullException(DiscreteSpaceException):
     """Raised when attempting to add an agent to a cell with no available capacity."""
 
     def __init__(self, coordinate):
@@ -18,7 +22,7 @@ class CellFullException(MesaException):
         super().__init__(f"Cell at coordinate {coordinate} is full.")
 
 
-class AgentMissingException(MesaException):
+class AgentMissingException(DiscreteSpaceException):
     """Raised when attempting to remove an agent that is not in the cell."""
 
     def __init__(self, agent, coordinate):
@@ -33,7 +37,7 @@ class AgentMissingException(MesaException):
         super().__init__(f"Agent {agent.unique_id} is not in cell {coordinate}.")
 
 
-class CellMissingException(MesaException):
+class CellMissingException(DiscreteSpaceException):
     """Raised when attempting to access or remove a cell that does not exist."""
 
     def __init__(self, coordinate):
@@ -46,7 +50,7 @@ class CellMissingException(MesaException):
         super().__init__(f"Cell at coordinate {coordinate} does not exist.")
 
 
-class ConnectionMissingException(MesaException):
+class ConnectionMissingException(DiscreteSpaceException):
     """Raised when attempting to disconnect a cell that is not connected."""
 
     def __init__(self, cell, other):
@@ -61,3 +65,15 @@ class ConnectionMissingException(MesaException):
         super().__init__(
             f"Connection between {cell.coordinate} and {other.coordinate} does not exist."
         )
+
+
+class DimensionException(MesaException, ValueError):  # noqa: N818
+    """Raised when spatial dimensions do not match expectations or are invalid."""
+
+    def __init__(self, message):
+        """Initialize the exception.
+
+        Args:
+            message: The error message describing the dimension mismatch.
+        """
+        super().__init__(message)

@@ -27,6 +27,7 @@ from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
     ConnectionMissingException,
+    DimensionException,
 )
 
 
@@ -935,7 +936,7 @@ def test_property_layer():
     elevation.set_cells(np.ones((5, 5)))
     assert np.all(elevation.data == 1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DimensionException):
         elevation.set_cells(np.ones((6, 6)))
 
     data = np.random.default_rng(42).random((5, 5))
