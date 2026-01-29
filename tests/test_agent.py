@@ -857,7 +857,8 @@ def test_hardkeyagentset_init():
     agents = [AgentTest(model) for _ in range(5)]
 
     with pytest.warns(UserWarning):
-        _ = _HardKeyAgentSet([])
+        _ = _HardKeyAgentSet([], random=None)
+        _ = _HardKeyAgentSet(agents, random=None)
     hard_set = _HardKeyAgentSet(agents, model.random)
 
     assert len(hard_set) == 5
@@ -948,6 +949,43 @@ def test_hardkeyagentset_str():
     results = hard_set.map("get_unique_identifier")
     assert all(i == entry for i, entry in zip(results, range(1, 11)))
 
+    class ShrinkingAgent(Agent):
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.ran = False
+
+        def run(self):
+            # If "Killer" runs, they remove "Victim" from the set
+            if self.name == "Killer":  # pragma: no cover
+                victim = next(a for a in self.model.hard_set if a.name == "Victim")
+                self.model.hard_set.remove(victim)
+
+            self.ran = True
+
+    success = False
+    # We iterate a few seeds to ensure we find a case where "Killer" is shuffled
+    # BEFORE "Victim". This guarantees we exercise the safety check.
+    for seed in range(20):  # pragma: no cover
+        model = Model(rng=seed)
+        killer = ShrinkingAgent(model, "Killer")
+        victim = ShrinkingAgent(model, "Victim")
+
+        hard_set = _HardKeyAgentSet([killer, victim], model.random)
+        model.hard_set = hard_set
+
+        assert killer in hard_set
+        assert victim in hard_set
+
+        hard_set.shuffle_do("run")
+
+        if killer.ran and not victim.ran:  # pragma: no cover
+            assert victim not in hard_set
+            success = True
+            break
+
+    assert success
+
 
 def test_hardkeyagentset_map_do_shuffledo():
     """Test map and shuffle_do overrides on _HardKeyAgentSet."""
@@ -971,3 +1009,22 @@ def test_hardkeyagentset_map_do_shuffledo():
     assert isinstance(res, _HardKeyAgentSet)
     assert res is hard_set
     assert all(not a.touched for a in agents)
+
+
+def test_hardkeyagentset_add_remove():
+    """Test explicit add and remove on _HardKeyAgentSet."""
+    model = Model()
+    agent = AgentTest(model)
+    hard_set = _HardKeyAgentSet([], model.random)
+
+    hard_set.add(agent)
+    assert agent in hard_set
+    assert len(hard_set) == 1
+    assert hard_set[0] == agent
+
+    hard_set.remove(agent)
+    assert agent not in hard_set
+    assert len(hard_set) == 0
+
+    with pytest.raises(KeyError):
+        hard_set.remove(agent)
