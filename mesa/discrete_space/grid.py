@@ -197,9 +197,6 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
         super().__setstate__(state)
 
-        self.cell_klass = type(
-            next(iter(self._cells.values()))
-        )  # the __reduce__ function handles this for us nicely
         for layer in self._mesa_property_layers.values():
             setattr(
                 self.cell_klass,

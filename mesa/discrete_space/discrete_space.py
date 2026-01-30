@@ -173,6 +173,9 @@ class DiscreteSpace[T: Cell]:
         """Set the state of the discrete space and rebuild the connections."""
         self.__dict__ = state
 
+        if self._cells:
+            self.cell_klass = type(next(iter(self._cells.values())))
+
         for cell in self._cells.values():
             cell.connections = {
                 key: self._cells[coord] for key, coord in cell.connections.items()
