@@ -16,7 +16,7 @@ from mesa.experimental.mesa_signals import (
     computed_property,
     emit,
 )
-from mesa.experimental.mesa_signals.signals_util import Message
+from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 
 
 def test_observables():
@@ -567,3 +567,18 @@ def test_emit():
             additional_kwargs={"args": (), "some_value": 10},
         )
     )
+
+def test_all_sentinel():
+    """Test the ALL sentinel."""
+    import pickle  # noqa: PLC0415
+
+    sentinel = _AllSentinel()
+
+    assert sentinel == ALL
+    assert sentinel is ALL
+    assert str(sentinel) == str(ALL)
+    assert repr(sentinel) == repr(ALL)
+    assert hash(sentinel) == hash(ALL)
+
+    a = pickle.loads(pickle.dumps(sentinel)) # noqa: S301
+    assert a is ALL
