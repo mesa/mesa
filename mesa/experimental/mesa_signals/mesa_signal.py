@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import functools
 import weakref
-from abc import ABC
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator, Iterable
 from typing import Any, Literal
@@ -85,8 +84,8 @@ CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is ev
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
 
 
-class BaseObservable(ABC):
-    """Abstract base class for all Observables."""
+class BaseObservable:
+    """Base class for all Observables."""
 
     signal_types: type[SignalType] = SignalType
 
