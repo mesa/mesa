@@ -28,22 +28,23 @@ from typing import Any, Literal
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     SignalType,
-    _AllSentinel,
+    ALL,
     create_weakref,
 )
 
 __all__ = [
-    "ALL",
     "BaseObservable",
     "HasObservables",
     "Observable",
     "computed_property",
     "emit",
+    "ObservableSignals"
 ]
-ALL = _AllSentinel()
 
-ObservableName = str | _AllSentinel | Iterable[str]
-SignalSpec = str | SignalType | _AllSentinel | Iterable[str | SignalType]
+
+
+ObservableName = str | type(ALL) | Iterable[str]
+SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
 
 
 class ObservableSignals(SignalType):

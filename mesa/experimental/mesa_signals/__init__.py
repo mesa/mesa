@@ -11,7 +11,6 @@ when modified.
 """
 
 from .mesa_signal import (
-    ALL,
     HasObservables,
     Observable,
     ObservableSignals,
@@ -19,7 +18,7 @@ from .mesa_signal import (
     emit,
 )
 from .observable_collections import ListSignals, ObservableList
-from .signals_util import Message, SignalType
+from .signals_util import Message, SignalType, ALL
 
 __all__ = [
     "ALL",

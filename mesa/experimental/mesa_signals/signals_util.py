@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-__all__ = ["Message", "SignalType", "_AllSentinel", "create_weakref"]
+__all__ = ["Message", "SignalType", "create_weakref", "ALL"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,12 +45,29 @@ def create_weakref(item, callback=None):
 
 
 class _AllSentinel:
-    """Helper class for subscribing to all signals or all observables."""
+    """Sentinel for subscribing to all signals or all observables."""
 
     __slots__ = ()
+    _instance: "_AllSentinel | None" = None
+
+    def __new__(cls) -> "_AllSentinel":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __repr__(self) -> str:
-        return "All"
+        return "ALL"
 
     def __str__(self) -> str:
         return "all"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _AllSentinel)
+
+    def __hash__(self) -> int:
+        return hash(_AllSentinel)
+
+    def __reduce__(self) -> tuple:
+        # Ensure unpickling returns the singleton
+        return (_AllSentinel, ())
+ALL = _AllSentinel()
