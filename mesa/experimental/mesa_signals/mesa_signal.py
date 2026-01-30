@@ -26,9 +26,9 @@ from collections.abc import Callable, Generator, Iterable
 from typing import Any, Literal
 
 from mesa.experimental.mesa_signals.signals_util import (
+    ALL,
     Message,
     SignalType,
-    ALL,
     create_weakref,
 )
 
@@ -36,11 +36,10 @@ __all__ = [
     "BaseObservable",
     "HasObservables",
     "Observable",
+    "ObservableSignals",
     "computed_property",
     "emit",
-    "ObservableSignals"
 ]
-
 
 
 ObservableName = str | type(ALL) | Iterable[str]

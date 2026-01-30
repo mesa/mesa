@@ -18,7 +18,7 @@ from .mesa_signal import (
     emit,
 )
 from .observable_collections import ListSignals, ObservableList
-from .signals_util import Message, SignalType, ALL
+from .signals_util import ALL, Message, SignalType
 
 __all__ = [
     "ALL",
