@@ -568,6 +568,7 @@ def test_emit():
         )
     )
 
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415
@@ -580,5 +581,5 @@ def test_all_sentinel():
     assert repr(sentinel) == repr(ALL)
     assert hash(sentinel) == hash(ALL)
 
-    a = pickle.loads(pickle.dumps(sentinel)) # noqa: S301
+    a = pickle.loads(pickle.dumps(sentinel))  # noqa: S301
     assert a is ALL
