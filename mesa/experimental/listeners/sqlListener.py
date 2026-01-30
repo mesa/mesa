@@ -5,12 +5,13 @@ by subclassing BaseCollectorListener.
 """
 
 import sqlite3
+import warnings
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from .collectorlistener import BaseCollectorListener
+from .baseCollectorListener import BaseCollectorListener
 
 
 class SQLListener(BaseCollectorListener):
@@ -28,13 +29,13 @@ class SQLListener(BaseCollectorListener):
 
         # Query with SQL
         avg_wealth = listener.query(
-            "SELECT step, AVG(wealth) as avg_wealth FROM wealth GROUP BY step ORDER BY step"
+            "SELECT time, AVG(wealth) as avg_wealth FROM wealth GROUP BY time ORDER BY time"
         )
         print(avg_wealth.head())
 
         # Filter data efficiently
         recent_wealthy = listener.query(
-            "SELECT * FROM wealth WHERE step > 150 AND wealth > 5"
+            "SELECT * FROM wealth WHERE time > 150 AND wealth > 5"
         )
 
         # Or get full DataFrame
@@ -66,19 +67,21 @@ class SQLListener(BaseCollectorListener):
         # We'll create the table on first insert when we know the schema
         self.metadata[dataset_name] = {"table_created": False, "columns": None}
 
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Store snapshot in SQL table."""
         match data:
             case np.ndarray() if data.size > 0:
-                self._store_numpy_data(dataset_name, step, data)
+                self._store_numpy_data(dataset_name, time, data)
 
             case list() if data:
-                self._store_list_data(dataset_name, step, data)
+                self._store_list_data(dataset_name, time, data)
 
             case dict():
-                self._store_dict_data(dataset_name, step, data)
+                self._store_dict_data(dataset_name, time, data)
 
-    def _store_numpy_data(self, dataset_name: str, step: int, data: np.ndarray):
+    def _store_numpy_data(self, dataset_name: str, time: int | float, data: np.ndarray):
         """Store numpy array as SQL records."""
         # Get column names from dataset
         try:
@@ -90,48 +93,75 @@ class SQLListener(BaseCollectorListener):
 
         # Create table on first insert
         if not self.metadata[dataset_name]["table_created"]:
-            col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+            # IMPORTANT: Quote column names to handle reserved words
+            col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+            create_sql = f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})'
+            self.conn.execute(create_sql)
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
         # Convert to DataFrame and insert
         df = pd.DataFrame(data, columns=columns)
-        df["step"] = step
+        df["time"] = time
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
-    def _store_list_data(self, dataset_name: str, step: int, data: list[dict]):
+    def _store_list_data(self, dataset_name: str, time: int | float, data: list[dict]):
         """Store list of dicts as SQL records."""
         if not self.metadata[dataset_name]["table_created"]:
             # Infer schema from first record
             columns = list(data[0].keys())
-            col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+
+            # IMPORTANT: Quote column names and check for 'time' conflict
+            if "time" in columns:
+                raise ValueError(
+                    f"Dataset '{dataset_name}' already contains 'time' column. "
+                    "Remove 'time' from tracked attributes - it's added automatically."
+                )
+
+            col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+            create_sql = f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})'
+            self.conn.execute(create_sql)
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
-        # Add step to each record
-        rows = [{**row, "step": step} for row in data]
+        # Add time to each record
+        rows = [{**row, "time": time} for row in data]
         df = pd.DataFrame(rows)
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
-    def _store_dict_data(self, dataset_name: str, step: int, data: dict):
+    def _store_dict_data(self, dataset_name: str, time: int | float, data: dict):
         """Store single dict as SQL record."""
         if not self.metadata[dataset_name]["table_created"]:
             columns = list(data.keys())
-            col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+
+            # Check if 'time' already exists in the data
+            if "time" in columns:
+                # Remove 'time' from columns - we'll add it separately
+                columns = [c for c in columns if c != "time"]
+
+                warnings.warn(
+                    f"Dataset '{dataset_name}' contains 'time' attribute. "
+                    "Using listener's time instead of model's time attribute.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
+            # Create table with time column first
+            if columns:
+                col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+                create_sql = f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})'
+            else:
+                create_sql = f'CREATE TABLE "{dataset_name}" (time REAL)'
+
+            self.conn.execute(create_sql)
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
-        row = {**data, "step": step}
-        df = pd.DataFrame([row])
+        # Build row, removing 'time' if it exists in data
+        row_data = {k: v for k, v in data.items() if k != "time"}
+        row_data["time"] = time  # Use listener's time
+
+        df = pd.DataFrame([row_data])
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
     def get_table_dataframe(self, name: str) -> pd.DataFrame:
@@ -143,7 +173,9 @@ class SQLListener(BaseCollectorListener):
             # Table not created yet - no data collected
             return pd.DataFrame()
 
-        return pd.read_sql(f'SELECT * FROM "{name}"', self.conn)  # noqa: S608
+        # Use parameterized query to avoid SQL injection
+        query = f'SELECT * FROM "{name}"'  # noqa: S608
+        return pd.read_sql(query, self.conn)
 
     def query(self, sql: str) -> pd.DataFrame:
         """Execute arbitrary SQL query.
@@ -155,7 +187,13 @@ class SQLListener(BaseCollectorListener):
             Query results as DataFrame
 
         Example:
-            df = listener.query("SELECT AVG(wealth) as avg_wealth FROM wealth GROUP BY step")
+            df = listener.query(
+                "SELECT time, AVG(wealth) as avg_wealth FROM wealth GROUP BY time"
+            )
+
+        Warning:
+            Be careful with user-provided SQL to avoid injection attacks.
+            This is safe for trusted queries only.
         """
         return pd.read_sql(sql, self.conn)
 
@@ -164,13 +202,15 @@ class SQLListener(BaseCollectorListener):
         if dataset_name is None:
             # Clear all tables
             for name in self.metadata:
-                self.conn.execute(f'DROP TABLE IF EXISTS "{name}"')
+                drop_sql = f'DROP TABLE IF EXISTS "{name}"'
+                self.conn.execute(drop_sql)
                 self.metadata[name]["table_created"] = False
         else:
             if dataset_name not in self.metadata:
                 raise KeyError(f"Dataset '{dataset_name}' not found")
 
-            self.conn.execute(f'DROP TABLE IF EXISTS "{dataset_name}"')
+            drop_sql = f'DROP TABLE IF EXISTS "{dataset_name}"'
+            self.conn.execute(drop_sql)
             self.metadata[dataset_name]["table_created"] = False
 
         self.conn.commit()
@@ -181,7 +221,8 @@ class SQLListener(BaseCollectorListener):
 
         for name, meta in self.metadata.items():
             if meta["table_created"]:
-                cursor = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"')  # noqa: S608
+                count_sql = f'SELECT COUNT(*) FROM "{name}"'  # noqa: S608
+                cursor = self.conn.execute(count_sql)
                 row_count = cursor.fetchone()[0]
             else:
                 row_count = 0

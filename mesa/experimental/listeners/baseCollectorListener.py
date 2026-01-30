@@ -36,21 +36,21 @@ class DatasetConfig:
     """Configuration for dataset collection behavior.
 
     Attributes:
-        interval: Collection frequency in steps
-        start: First step to begin collection
+        interval: Collection frequency in time units
+        start: First time to begin collection
         enabled: Whether collection is active
-        _next_collection: next scheduled collection step
+        _next_collection: next scheduled collection time
     """
 
-    interval: int = 1
-    start: int = 0
+    interval: int | float = 1
+    start: int | float = 0
     enabled: bool = True
-    _next_collection: int = 0
+    _next_collection: int | float = 0
 
     def __post_init__(self):
         """Validate configuration."""
-        if self.interval < 1:
-            raise ValueError(f"interval must be >= 1, got {self.interval}")
+        if self.interval <= 0:
+            raise ValueError(f"interval must be > 0, got {self.interval}")
         if self.start < 0:
             raise ValueError(f"start must be >= 0, got {self.start}")
         self._next_collection = self.start
@@ -102,8 +102,8 @@ class BaseCollectorListener(ABC):
         # Initialize storage and configs for all datasets in registry
         self._initialize_datasets(config or {})
 
-        # Subscribe to model steps observable
-        self._subscribe_to_steps()
+        # Subscribe to model time observable
+        self._subscribe_to_time()
 
     def _initialize_datasets(self, user_config: dict[str, dict[str, Any]]) -> None:
         """Initialize dataset configurations and call subclass initialization.
@@ -136,18 +136,18 @@ class BaseCollectorListener(ABC):
             dataset: The dataset object from the registry
         """
 
-    def _subscribe_to_steps(self) -> None:
-        """Subscribe to model.steps observable for automatic collection.
+    def _subscribe_to_time(self) -> None:
+        """Subscribe to model.time observable for automatic collection.
 
-        This subscribes to the 'steps' observable on the model. When steps
-        changes (after each step completes), our handler is called and we
-        check if any datasets are due for collection.
+        This subscribes to the 'time' observable on the model. When time
+        changes, the handler is called and we check
+        if any datasets are due for collection.
 
         Falls back gracefully if model doesn't have observables.
         """
         if isinstance(self.model, HasObservables):
-            # Subscribe to steps observable
-            self.model.observe("steps", SignalType.CHANGE, self._on_step_change)
+            # Subscribe to time observable
+            self.model.observe("time", SignalType.CHANGE, self._on_time_change)
         else:
             warnings.warn(
                 "Model does not inherit from HasObservables. "
@@ -157,22 +157,22 @@ class BaseCollectorListener(ABC):
                 stacklevel=2,
             )
 
-    def _on_step_change(self, signal) -> None:
-        """Handle step change signal.
+    def _on_time_change(self, signal) -> None:
+        """Handle time change signal.
 
-        Called automatically when model.steps changes.
+        Called automatically when model.time changes.
         Checks intervals and collects data for due datasets.
 
         Args:
             signal: The signal object from Observable
         """
-        current_step = signal.new
+        current_time = signal.new
 
         for name, config in self.configs.items():
             # Exit early if not due
             if not config.enabled:
                 continue
-            if current_step < config._next_collection:
+            if current_time < config._next_collection:
                 continue
 
             # Extract data from registry and store
@@ -181,20 +181,22 @@ class BaseCollectorListener(ABC):
                 data_snapshot = dataset.data
 
                 # Delegate storage to subclass
-                self._store_dataset_snapshot(name, current_step, data_snapshot)
+                self._store_dataset_snapshot(name, current_time, data_snapshot)
 
                 # Update next collection time
-                config._next_collection = current_step + config.interval
+                config._next_collection = current_time + config.interval
 
             except Exception as e:
                 warnings.warn(
-                    f"Collection failed: dataset='{name}', step={current_step}: {e}",
-                    RuntimeError,
+                    f"Collection failed: dataset='{name}', time={current_time}: {e}",
+                    RuntimeWarning,
                     stacklevel=2,
                 )
 
     @abstractmethod
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Store a single dataset snapshot.
 
         This is the core storage method that subclasses must implement.
@@ -202,7 +204,7 @@ class BaseCollectorListener(ABC):
 
         Args:
             dataset_name: Name of the dataset being stored
-            step: Current simulation step
+            time: Current simulation time
             data: The data snapshot from the dataset
                   - np.ndarray for NumpyAgentDataSet
                   - list[dict] for AgentDataSet
@@ -215,22 +217,22 @@ class BaseCollectorListener(ABC):
         Normally you don't need to call this - it's handled via observables.
         But you can call it manually if needed.
         """
-        current_step = self.model.steps
+        current_time = self.model.time
 
         for name, config in self.configs.items():
             if not config.enabled:
                 continue
-            if current_step < config._next_collection:
+            if current_time < config._next_collection:
                 continue
 
             try:
                 dataset = self.registry.datasets[name]
                 data_snapshot = dataset.data
-                self._store_dataset_snapshot(name, current_step, data_snapshot)
-                config._next_collection = current_step + config.interval
+                self._store_dataset_snapshot(name, current_time, data_snapshot)
+                config._next_collection = current_time + config.interval
             except Exception as e:
                 warnings.warn(
-                    f"Collection failed: dataset='{name}', step={current_step}: {e}",
+                    f"Collection failed: dataset='{name}', time={current_time}: {e}",
                     RuntimeError,
                     stacklevel=2,
                 )
@@ -289,4 +291,4 @@ class BaseCollectorListener(ABC):
         """Cleanup when listener is destroyed."""
         # Unsubscribe from observable
         if isinstance(self.model, HasObservables):
-            self.model.unobserve("steps", SignalType.CHANGE, self._on_step_change)
+            self.model.unobserve("time", SignalType.CHANGE, self._on_time_change)

@@ -8,7 +8,7 @@ Architecture:
 
     - DataRegistry: Pure extraction (what to collect)
     - CollectorListener: Storage orchestration (efficient accumulation) derived from BaseCollectorListener
-    - Observable-based auto-collection - subscribes to model.steps observable
+    - Observable-based auto-collection - subscribes to model.time observable
 
 """
 
@@ -44,7 +44,7 @@ class DatasetStorage:
     - Dicts/lists: accumulated in blocks, converted to DataFrame on demand
 
     Attributes:
-        blocks: List of (step, data) tuples
+        blocks: List of (time, data) tuples
         metadata: Dataset information (type, columns, dtype)
         total_rows: Total data points collected
         estimated_size_bytes: Approximate memory usage
@@ -71,9 +71,9 @@ class CollectorListener(BaseCollectorListener):
         listener = CollectorListener(
             model,
             config={
-                "wealth": {"interval": 1},      # Every step
-                "positions": {"interval": 10},   # Every 10 steps
-                "summary": {"interval": 1, "start": 100} # Every step starting from step=100
+                "wealth": {"interval": 1},      # Every time unit
+                "positions": {"interval": 10},   # Every 10 time units
+                "summary": {"interval": 1, "start": 100} # Every time unit starting from time=100
             }
         )
 
@@ -102,7 +102,9 @@ class CollectorListener(BaseCollectorListener):
         """Initialize in-memory storage for a dataset."""
         self.storage[dataset_name] = DatasetStorage(metadata={"initialized": True})
 
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Store data snapshot in memory based on type."""
         storage = self.storage[dataset_name]
         added_bytes = 0
@@ -112,7 +114,7 @@ class CollectorListener(BaseCollectorListener):
             case np.ndarray() if data.size > 0:
                 # CRITICAL: Copy to prevent mutation
                 data_copy = data.copy()
-                storage.blocks.append((step, data_copy))
+                storage.blocks.append((time, data_copy))
                 storage.total_rows += len(data_copy)
                 added_bytes = data_copy.nbytes
 
@@ -133,7 +135,7 @@ class CollectorListener(BaseCollectorListener):
 
             # List of dicts (AgentDataSet)
             case list() if data:
-                storage.blocks.append((step, data))
+                storage.blocks.append((time, data))
                 storage.total_rows += len(data)
                 added_bytes = len(data) * 100  # Estimate
 
@@ -143,15 +145,15 @@ class CollectorListener(BaseCollectorListener):
 
             # Single dict (ModelDataSet)
             case dict():
-                # Add step directly to dict
-                row = {**data, "step": step}
+                # Add time directly to dict
+                row = {**data, "time": time}
                 storage.blocks.append(row)
                 storage.total_rows += 1
                 added_bytes = 100  # Estimate
 
                 if "type" not in storage.metadata:
                     storage.metadata["type"] = "modeldataset"
-                    storage.metadata["columns"] = [*list(data.keys()), "step"]
+                    storage.metadata["columns"] = [*list(data.keys()), "time"]
 
             # Handle empty containers explicitly to prevent falling through to fallback
             case np.ndarray() | list():
@@ -159,7 +161,7 @@ class CollectorListener(BaseCollectorListener):
 
             # Fallback for custom types
             case _:
-                storage.blocks.append((step, data))
+                storage.blocks.append((time, data))
                 storage.total_rows += 1
                 added_bytes = 100
 
@@ -235,13 +237,13 @@ class CollectorListener(BaseCollectorListener):
 
         # Build list of DataFrames
         dfs = []
-        for step, array in storage.blocks:
+        for time, array in storage.blocks:
             df = pd.DataFrame(array, columns=columns)
-            df["step"] = step
+            df["time"] = time
             dfs.append(df)
 
         if not dfs:
-            return pd.DataFrame(columns=[*columns, "step"])
+            return pd.DataFrame(columns=[*columns, "time"])
 
         # Concatenate efficiently
         return pd.concat(dfs, ignore_index=True)
@@ -251,25 +253,25 @@ class CollectorListener(BaseCollectorListener):
         # Use Polars if available for better performance
         if HAS_POLARS:
             rows = []
-            for step, block in storage.blocks:
+            for time, block in storage.blocks:
                 for row in block:
-                    rows.append({**row, "step": step})
+                    rows.append({**row, "time": time})
 
             if not rows:
                 return pd.DataFrame(
-                    columns=[*storage.metadata.get("columns", []), "step"]
+                    columns=[*storage.metadata.get("columns", []), "time"]
                 )
 
             return pl.DataFrame(rows).to_pandas()
 
         # Fallback to pandas
         rows = []
-        for step, block in storage.blocks:
+        for time, block in storage.blocks:
             for row in block:
-                rows.append({**row, "step": step})
+                rows.append({**row, "time": time})
 
         if not rows:
-            return pd.DataFrame(columns=[*storage.metadata.get("columns", []), "step"])
+            return pd.DataFrame(columns=[*storage.metadata.get("columns", []), "time"])
 
         return pd.DataFrame(rows)
 
@@ -278,7 +280,7 @@ class CollectorListener(BaseCollectorListener):
         if not storage.blocks:
             return pd.DataFrame(columns=storage.metadata.get("columns", []))
 
-        # Model dicts already have 'step' added
+        # Model dicts already have 'time' added
         if HAS_POLARS:
             return pl.DataFrame(storage.blocks).to_pandas()
 
