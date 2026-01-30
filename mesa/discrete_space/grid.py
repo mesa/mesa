@@ -120,6 +120,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             coord: self.cell_klass(coord, capacity, random=self.random)
             for coord in coordinates
         }
+        self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
 
@@ -151,10 +152,13 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+        random = self.random
+        cells = self._celllist
+
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
-                cell = self.all_cells.select_random_cell()
+                cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
