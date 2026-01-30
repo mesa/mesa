@@ -1,11 +1,13 @@
 """Agent.py related tests."""
 
+import copy
 import pickle
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from mesa.agent import Agent, AgentSet
+from mesa.agent import Agent, AgentSet, _HardKeyAgentSet
 from mesa.model import Model
 
 
@@ -223,6 +225,100 @@ def test_agent_create():
         assert agent.some_default_value == 5
         assert agent.a == a_i
         assert agent.b == 7
+
+
+def test_agent_create_with_pandas():
+    """Test create_agents with pandas Series to improve coverage."""
+
+    class TestAgent(Agent):
+        def __init__(self, model, series_attr=None, kw_series_attr=None):
+            super().__init__(model)
+            self.series_attr = series_attr
+            self.kw_series_attr = kw_series_attr
+
+    model = Model()
+    n = 5
+
+    # Test pandas Series as positional argument (should hit pandas detection logic)
+    series_data = pd.Series([10, 20, 30, 40, 50])
+    agents = TestAgent.create_agents(model, n, series_data)
+    for i, agent in enumerate(agents):
+        assert agent.series_attr == series_data.iloc[i]
+
+    # Test pandas Series as keyword argument
+    kw_series_data = pd.Series([100, 200, 300, 400, 500])
+    agents = TestAgent.create_agents(model, n, kw_series_attr=kw_series_data)
+    for i, agent in enumerate(agents):
+        assert agent.kw_series_attr == kw_series_data.iloc[i]
+
+    # Test pandas Series with length mismatch
+    short_series = pd.Series([1, 2])  # length 2, but n=5
+    agents = TestAgent.create_agents(model, n, short_series)
+    for agent in agents:
+        # Should repeat the entire series, not individual elements
+        assert agent.series_attr.equals(short_series)
+
+
+def test_agent_from_dataframe():
+    """Test create_agents from a pandas DataFrame."""
+
+    class TestAgent(Agent):
+        def __init__(
+            self,
+            model,
+            value=None,
+            list_attr=None,
+            tuple_attr=None,
+            df_value=None,
+            extra_attr=None,
+        ):
+            super().__init__(model)
+            self.value = value
+            self.list_attr = list_attr
+            self.tuple_attr = tuple_attr
+            self.df_value = df_value
+            self.extra_attr = extra_attr
+
+    model = Model()
+    n = 5
+    data = {
+        "value": range(n),
+        "list_attr": [[i] for i in range(n)],
+        "df_value": [f"df_{i}" for i in range(n)],
+        "tuple_attr": [(1, 2)] * n,
+    }
+    df = pd.DataFrame(data)
+
+    # Test with constant (non-sequence) override via **kwargs
+    agents = TestAgent.from_dataframe(model, df, extra_attr=5)
+
+    assert len(agents) == n
+    for i, agent in enumerate(agents):
+        assert agent.value == i
+        assert agent.list_attr == [i]
+        assert agent.df_value == f"df_{i}"
+        assert agent.tuple_attr == (1, 2)
+        assert agent.extra_attr == 5
+
+    # Test that passing a sequence in kwargs raises TypeError
+    for bad in ([1, 2, 3], (1, 2, 3), np.array([1, 2, 3]), pd.Series([1, 2, 3])):
+        with pytest.raises(TypeError, match="does not support sequence data in kwargs"):
+            TestAgent.from_dataframe(model, df, list_attr=bad)
+
+    # kwargs should override DataFrame columns on key collision
+    agents = TestAgent.from_dataframe(model, df, value=999)
+    assert all(a.value == 999 for a in agents)
+
+    # empty DataFrame should create an empty AgentSet
+    empty_df = pd.DataFrame(columns=list(df.columns))
+    agents = TestAgent.from_dataframe(model, empty_df, extra_attr=5)
+    assert len(agents) == 0
+
+    # DataFrame index should be ignored
+    df_with_index = df.copy()
+    df_with_index.index = range(100, 100 + n)
+    agents = TestAgent.from_dataframe(model, df_with_index, extra_attr=5)
+    assert [a.value for a in agents] == list(range(n))
 
 
 def test_agent_add_remove_discard():
@@ -753,3 +849,182 @@ def test_agentset_groupby():
     assert custom_result[False] == custom_agg(
         [agent.value for agent in agents if not agent.even]
     )
+
+
+def test_hardkeyagentset_init():
+    """Test _HardKeyAgentSet initialization and storage."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+
+    with pytest.warns(UserWarning):
+        _ = _HardKeyAgentSet([], random=None)
+        _ = _HardKeyAgentSet(agents, random=None)
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    assert len(hard_set) == 5
+    assert all(a in hard_set for a in agents)
+    assert hard_set.random == model.random
+
+    assert hard_set[0] == agents[0]
+
+    hard_set.discard(agents[0])
+    assert agents[0] not in hard_set
+
+
+def test_hardkeyagentset_downgrade():
+    """Test that _HardKeyAgentSet downgrades to AgentSet on views to prevent memory leaks."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    view = hard_set.select(at_most=5)
+    assert isinstance(view, AgentSet)
+    assert not isinstance(view, _HardKeyAgentSet)
+    assert len(view) == 5
+
+    same_set = hard_set.select(inplace=True)
+    assert isinstance(same_set, _HardKeyAgentSet)
+    assert same_set is hard_set
+    assert len(same_set) == 10
+
+    shuffled_view = hard_set.shuffle(inplace=False)
+    assert isinstance(shuffled_view, AgentSet)
+    assert not isinstance(shuffled_view, _HardKeyAgentSet)
+
+    copied = hard_set.copy()
+    assert isinstance(copied, AgentSet)
+    assert not isinstance(copied, _HardKeyAgentSet)
+    assert len(copied) == 10
+
+    new_copied = copy.copy(hard_set)
+    assert isinstance(new_copied, AgentSet)
+    assert not isinstance(new_copied, _HardKeyAgentSet)
+    assert len(new_copied) == 10
+
+    sorted_view = hard_set.sort("unique_id")
+    assert isinstance(sorted_view, AgentSet)
+
+    groups = hard_set.groupby(lambda a: a.unique_id % 2 == 0)
+    for group in groups.groups.values():
+        assert isinstance(group, AgentSet)
+        assert not isinstance(group, _HardKeyAgentSet)
+
+    groups_list = hard_set.groupby(lambda a: a.unique_id % 2 == 0, result_type="list")
+    for group in groups_list.groups.values():
+        assert isinstance(group, list)
+
+
+def test_hardkeyagentset_inplace():
+    """Test inplace sort and shuffle on _HardKeyAgentSet (should NOT downgrade)."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    # Give them IDs out of order to test sorting
+    for i, a in enumerate(agents):
+        a.unique_id = 10 - i
+
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    # Sort Inplace
+    res_sort = hard_set.sort("unique_id", inplace=True)
+
+    assert isinstance(res_sort, _HardKeyAgentSet)
+    assert res_sort is hard_set
+    assert next(iter(hard_set)).unique_id == 10
+
+    # Shuffle Inplace
+    res_shuffle = hard_set.shuffle(inplace=True)
+    assert isinstance(res_shuffle, _HardKeyAgentSet)
+    assert res_shuffle is hard_set
+
+
+def test_hardkeyagentset_str():
+    """Test _HardKeyAgentSet with strings."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    with pytest.raises(AttributeError):
+        hard_set.do("non_existing_method")
+
+    results = hard_set.map("get_unique_identifier")
+    assert all(i == entry for i, entry in zip(results, range(1, 11)))
+
+    class ShrinkingAgent(Agent):
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.ran = False
+
+        def run(self):
+            # If "Killer" runs, they remove "Victim" from the set
+            if self.name == "Killer":  # pragma: no cover
+                victim = next(a for a in self.model.hard_set if a.name == "Victim")
+                self.model.hard_set.remove(victim)
+
+            self.ran = True
+
+    success = False
+    # We iterate a few seeds to ensure we find a case where "Killer" is shuffled
+    # BEFORE "Victim". This guarantees we exercise the safety check.
+    for seed in range(20):  # pragma: no cover
+        model = Model(rng=seed)
+        killer = ShrinkingAgent(model, "Killer")
+        victim = ShrinkingAgent(model, "Victim")
+
+        hard_set = _HardKeyAgentSet([killer, victim], model.random)
+        model.hard_set = hard_set
+
+        assert killer in hard_set
+        assert victim in hard_set
+
+        hard_set.shuffle_do("run")
+
+        if killer.ran and not victim.ran:  # pragma: no cover
+            assert victim not in hard_set
+            success = True
+            break
+
+    assert success
+
+
+def test_hardkeyagentset_map_do_shuffledo():
+    """Test map and shuffle_do overrides on _HardKeyAgentSet."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    ids = hard_set.map(lambda a: a.unique_id)
+
+    assert isinstance(ids, list)
+    assert len(ids) == 5
+    assert all(i in [a.unique_id for a in agents] for i in ids)
+
+    for a in agents:
+        a.touched = False
+    hard_set.do(lambda a: setattr(a, "touched", True))
+    assert all(a.touched for a in agents)
+
+    res = hard_set.shuffle_do(lambda a: setattr(a, "touched", False))
+
+    assert isinstance(res, _HardKeyAgentSet)
+    assert res is hard_set
+    assert all(not a.touched for a in agents)
+
+
+def test_hardkeyagentset_add_remove():
+    """Test explicit add and remove on _HardKeyAgentSet."""
+    model = Model()
+    agent = AgentTest(model)
+    hard_set = _HardKeyAgentSet([], model.random)
+
+    hard_set.add(agent)
+    assert agent in hard_set
+    assert len(hard_set) == 1
+    assert hard_set[0] == agent
+
+    hard_set.remove(agent)
+    assert agent not in hard_set
+    assert len(hard_set) == 0
+
+    with pytest.raises(KeyError):
+        hard_set.remove(agent)
