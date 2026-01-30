@@ -427,15 +427,16 @@ def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     # fixme: what if we make this  a method on the data set instead?
     #     or just pass it along when generating the getter and setter?
     j = table.attribute_to_index[attribute_name]
+    index_attr = table._index_in_table
 
     def getter(obj: Agent):
         i = getattr(
-            obj, table._index_in_table
+            obj, index_attr
         )  # should just exist because of registration in Agent.__init__
         return table._agent_data[i, j]
 
     def setter(obj: Agent, value):
-        i = getattr(obj, table._index_in_table)
+        i = getattr(obj, index_attr)
         table._agent_data[i, j] = value
 
     return getter, setter
@@ -452,21 +453,23 @@ class DataRegistry:
         """Add a dataset to the registry."""
         self.datasets[dataset.name] = dataset
 
-    def create_dataset(self, dataset_type, name, *args, **kwargs):
+    def create_dataset(self, dataset_type, name, *args, **kwargs) -> DataSet:
         """Create a dataset of the specified type and add it to the registry."""
-        self.datasets[name] = dataset_type(name, *args, **kwargs)
+        dataset = dataset_type(name, *args, **kwargs)
+        self.datasets[name] = dataset
+        return dataset
 
     def track_agents(
         self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None
     ):
         """Track the specified fields for the agents in the AgentSet."""
-        self.create_dataset(
+        return self.create_dataset(
             AgentDataSet, name, agents, *args, select_kwargs=select_kwargs
         )
 
     def track_model(self, model: Model, name: str, *args):
         """Track the specified fields in the model."""
-        self.create_dataset(ModelDataSet, name, model, *args)
+        return self.create_dataset(ModelDataSet, name, model, *args)
 
     def close_all(self):
         """Close all datasets."""

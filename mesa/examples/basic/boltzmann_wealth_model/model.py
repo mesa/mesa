@@ -41,7 +41,7 @@ class BoltzmannWealth(Model):
         super().__init__(rng=rng)
 
         self.data_registry = DataRegistry()
-        self.data_registry.create_dataset(
+        self.agent_wealth = self.data_registry.create_dataset(
             NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=n, dtype=float
         )
         self.data_registry.track_model(self, "model_data", "gini")
@@ -64,7 +64,6 @@ class BoltzmannWealth(Model):
         # mimic data collector by just accessing data fields.
         a = self.data_registry["wealth"].data
         b = self.data_registry["model_data"].data
-        c = 1
 
     @property
     def gini(self):
@@ -74,9 +73,7 @@ class BoltzmannWealth(Model):
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        agent_wealths = self.data_registry[
-            "wealth"
-        ].data  # fixme agent_id is currently not included
+        agent_wealths = self.agent_wealth.data  # fixme agent_id is currently not included
         sorted_x = np.sort(agent_wealths)
         n = len(agent_wealths)
         cumx = np.cumsum(sorted_x, dtype=float)
