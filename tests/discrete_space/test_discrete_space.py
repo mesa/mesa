@@ -1086,7 +1086,7 @@ def test_patch():  # noqa: D103
         agent.cell = cell2
 
     agent.remove()
-    assert agent not in model._agents
+    assert agent not in model._all_agents
 
 
 def test_copying_discrete_spaces():  # noqa: D103
