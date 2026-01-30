@@ -208,32 +208,37 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
     # Constants
     _GROWTH_FACTOR = 2.0  # Double size when full
     _MIN_GROWTH = 100  # Minimum rows to add
-    _COMPACT_THRESHOLD = 0.3  # when to reindex everything for memory reasons
 
     def __init__(
-        self,
-        name: str,
-        agent_type: type[A],
-        *args,
-        n=100,  # just for initial sizing of the inner numpy array
-        dtype=np.float64,
+            self,
+            name: str,
+            agent_type: type[A],
+            *args,
+            n=100,
+            # just for initial sizing of the inner numpy array
+            dtype=np.float64,
     ):
         """Init."""
         super().__init__(
             name,
-            *args,  # fixme: what about unique_id?
+            *args,
         )
         self.dtype = dtype
         self._index_in_table = f"_index_datatable_{name}"
 
         # Core data storage
         self._agent_data: np.ndarray = np.empty((n, len(self._attributes)), dtype=dtype)
-        self._is_active: np.ndarray = np.zeros(n, dtype=bool)
 
         # Agent tracking
         self._n_slots = 0  # Total slots used (including tombstones)
         self._n_active = 0  # Number of active agents
-        self._free_indices: list[int] = []  # Recycled tombstone indices
+        self._free_indices: list[
+            int] = []  # Recycled tombstone indices
+
+        # Active indices tracking - for fast data access via integer indexing
+        self._active_indices: np.ndarray = np.empty(n, dtype=np.intp)
+        # Map: data row index -> position in _active_indices (for O(1) removal)
+        self._index_to_active_pos: dict[int, int] = {}
 
         # Mappings
         self._index_to_agent: dict[int, A] = {}
@@ -244,11 +249,13 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
 
         # Install properties on the agent class
         self.agent_type = agent_type
-        if not hasattr(agent_type, '_datasets'):
+        if not hasattr(agent_type, "_datasets"):
             agent_type._datasets = set()
         agent_type._datasets.add(self.name)
         for attr in args:
-            setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
+            setattr(
+                agent_type, attr, property(*generate_getter_and_setter(self, attr))
+            )
 
     def _expand_storage(self) -> None:
         """Expand the internal arrays when out of space."""
@@ -261,13 +268,14 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         new_data[:current_size] = self._agent_data
         self._agent_data = new_data
 
-        # Expand active mask
-        new_mask = np.zeros(new_size, dtype=bool)
-        new_mask[:current_size] = self._is_active
-        self._is_active = new_mask
+        # Expand active indices array
+        new_active = np.empty(new_size, dtype=np.intp)
+        new_active[: len(self._active_indices)] = self._active_indices
+        self._active_indices = new_active
 
     def add_agent(self, agent: A) -> int:
-        # New agent - try to reuse a freed slot first
+        """Add an agent to the dataset."""
+        # Get a slot index - try to reuse a freed slot first
         if self._free_indices:
             index = self._free_indices.pop()
         else:
@@ -275,15 +283,21 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
             index = self._n_slots
             self._n_slots += 1
 
-            # Expand array if necessary
+            # Expand arrays if necessary
             if index >= self._agent_data.shape[0]:
                 self._expand_storage()
 
-        # Activate the slot
-        setattr(agent, self._index_in_table, index)  # set row index on agent
-        self._is_active[index] = True
+                # Store the data row index on the agent
+        setattr(agent, self._index_in_table, index)
+
+        # Update mappings
         self._agent_to_index[agent] = index
         self._index_to_agent[index] = agent
+
+        # Add to active indices array (append at end)
+        active_pos = self._n_active
+        self._active_indices[active_pos] = index
+        self._index_to_active_pos[index] = active_pos
         self._n_active += 1
 
         return index
@@ -291,32 +305,38 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
     def remove_agent(self, agent: A) -> None:
         """Remove an agent from the dataset in O(1) time.
 
-        Uses tombstone marking - the slot is marked inactive but not deleted.
-        The slot can be reused when new agents are added.
-
-        Automatically compacts if fragmentation exceeds threshold.
+        Uses swap-with-last for the active indices array to maintain O(1) removal.
         """
         index = getattr(agent, self._index_in_table, None)
         if index is None:
             return  # Not in dataset
 
-        # Mark as tombstone
-        self._is_active[index] = False
+        # Remove from active indices using swap-with-last (O(1))
+        active_pos = self._index_to_active_pos[index]
+        last_pos = self._n_active - 1
 
-        # Clean up mappings
+        if active_pos != last_pos:
+            # Swap with last element
+            last_index = self._active_indices[last_pos]
+            self._active_indices[active_pos] = last_index
+            self._index_to_active_pos[last_index] = active_pos
+
+        del self._index_to_active_pos[index]
+        self._n_active -= 1
+
+        # Add to free list for reuse
+        self._free_indices.append(index)
+
+        # Clean up other mappings
         del self._agent_to_index[agent]
         del self._index_to_agent[index]
         delattr(agent, self._index_in_table)
-
-        # Add to list of available indices for reuse
-        self._free_indices.append(index)
-        self._n_active -= 1
 
     def _reset(self) -> None:
         """Reset the dataset to an empty state."""
         self._agent_to_index.clear()
         self._index_to_agent.clear()
-        self._is_active[:] = False
+        self._index_to_active_pos.clear()
         self._n_slots = 0
         self._n_active = 0
         self._free_indices.clear()
@@ -326,43 +346,43 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
 
         This is an O(n) operation that eliminates fragmentation by removing
         dead slots and reassigning indices to active agents sequentially.
-
-        Call this manually or let it happen automatically when fragmentation
-        exceeds the threshold.
         """
         if not self._free_indices:
             return  # Already compact
 
-        # Get all active indices in order
-        active_indices = np.where(self._is_active[: self._n_slots])[0]
-        n_active = len(active_indices)
-
-        if n_active == 0:
-            # No active agents - reset everything
+        if self._n_active == 0:
             self._reset()
             return
 
-        # Create a new compacted data array
+            # Get current active indices
+        active_indices = self._active_indices[: self._n_active].copy()
+
+        # Sort to maintain original order (optional - remove if order doesn't matter)
+        active_indices.sort()
+
+        # Create compacted data
         new_data = self._agent_data[active_indices]
 
-        # Rebuild mappings with new sequential indices
+        # Rebuild all mappings with new sequential indices
         new_agent_to_index = {}
         new_index_to_agent = {}
+        new_index_to_active_pos = {}
 
         for new_index, old_index in enumerate(active_indices):
             agent = self._index_to_agent[old_index]
             new_agent_to_index[agent] = new_index
             new_index_to_agent[new_index] = agent
+            new_index_to_active_pos[new_index] = new_index
             setattr(agent, self._index_in_table, new_index)
+            self._active_indices[new_index] = new_index
 
-        # Update state
+            # Update state
+        n_active = self._n_active
         self._agent_data[:n_active] = new_data
         self._agent_to_index = new_agent_to_index
         self._index_to_agent = new_index_to_agent
-        self._is_active[:n_active] = True
-        self._is_active[n_active:] = False
+        self._index_to_active_pos = new_index_to_active_pos
         self._n_slots = n_active
-        self._n_active = n_active
         self._free_indices.clear()
 
     @property
@@ -372,24 +392,33 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         if self._n_active == 0:
             return np.empty((0, len(self._attributes)), dtype=self.dtype)
 
-        # Auto-compact if too fragmented
-        # we do it via data to avoid compacting when there are
-        # many deletions in a single step
-        fragmentation = len(self._free_indices) / max(self._n_slots, 1)
-        if fragmentation > self._COMPACT_THRESHOLD:
+            # Integer fancy indexing - faster than boolean indexing
+        return self._agent_data[self._active_indices[: self._n_active]]
+
+    @property
+    def data_compact(self) -> np.ndarray:
+        """Return a contiguous view of active data after compaction.
+
+        This compacts if needed, then returns a view (not a copy).
+        Use this when you need repeated access without copying.
+        """
+        self._check_closed()
+        if self._n_active == 0:
+            return np.empty((0, len(self._attributes)), dtype=self.dtype)
+
+        if self._free_indices:
             self.compact()
 
-        # Boolean indexing - returns only active rows
-        # self._n_slots is the number of slots that have been handed out
-        # some might be inactive now, but there can never be more
-        # the alternative is to just do self._agent_data[self._is_active]
-        return self._agent_data[: self._n_slots][self._is_active[: self._n_slots]]
+            # After compaction, data is contiguous - return a view
+        return self._agent_data[: self._n_active]
 
     @property
     def active_agents(self) -> list[A]:
         """Return list of all active agents."""
-        active_indices = np.where(self._is_active[: self._n_slots])[0]
-        return [self._index_to_agent[i] for i in active_indices]
+        return [
+            self._index_to_agent[self._active_indices[i]]
+            for i in range(self._n_active)
+        ]
 
     @property
     def fragmentation(self) -> float:
