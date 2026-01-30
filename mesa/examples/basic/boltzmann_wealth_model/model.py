@@ -12,7 +12,8 @@ import numpy as np
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.data_collection.dataset import DataRegistry, NumpyAgentDataSet
+from mesa.experimental.data_collection import NumpyAgentDataSet
+from mesa.experimental.data_collection.dataset import DataRegistry
 
 
 class BoltzmannWealth(Model):
@@ -41,9 +42,8 @@ class BoltzmannWealth(Model):
         super().__init__(rng=rng)
 
         self.data_registry = DataRegistry()
-        self.agent_wealth = self.data_registry.create_dataset(
-            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth", n=n, dtype=float
-        )
+        # self.agent_wealth = self.data_registry.track_agents(self.agents, "wealth", "wealth")
+        self.agent_wealth = self.data_registry.create_dataset(NumpyAgentDataSet, "wealth", MoneyAgent, "wealth")
         self.data_registry.track_model(self, "model_data", "gini")
 
         self.num_agents = n
@@ -73,7 +73,8 @@ class BoltzmannWealth(Model):
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        agent_wealths = self.agent_wealth.data  # fixme agent_id is currently not included
+        # agent_wealths = [a.wealth for a in self.agents]
+        agent_wealths = self.agent_wealth.data
         sorted_x = np.sort(agent_wealths)
         n = len(agent_wealths)
         cumx = np.cumsum(sorted_x, dtype=float)

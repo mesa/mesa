@@ -39,7 +39,6 @@ class SchellingAgent(CellAgent):
             self.happy = False
         else:
             self.happy = True
-            self.model.happy += 1
 
     def step(self) -> None:
         # Move if unhappy

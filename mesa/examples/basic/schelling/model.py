@@ -2,7 +2,9 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.schelling.agents import SchellingAgent
+from mesa.experimental.data_collection.dataset import DataRegistry, NumpyAgentDataSet
 
+import numpy as np
 
 class Schelling(Model):
     """Model class for the Schelling segregation model."""
@@ -37,27 +39,11 @@ class Schelling(Model):
         # Initialize grid
         self.grid = OrthogonalMooreGrid((width, height), random=self.random, capacity=1)
 
-        # Track happiness
-        self.happy = 0
-
         # Set up data collection
-        self.datacollector = DataCollector(
-            model_reporters={
-                "happy": "happy",
-                "pct_happy": lambda m: (m.happy / len(m.agents)) * 100
-                if len(m.agents) > 0
-                else 0,
-                "population": lambda m: len(m.agents),
-                "minority_pct": lambda m: (
-                    sum(1 for agent in m.agents if agent.type == 1)
-                    / len(m.agents)
-                    * 100
-                    if len(m.agents) > 0
-                    else 0
-                ),
-            },
-            agent_reporters={"agent_type": "type"},
-        )
+        self.data_registry = DataRegistry()
+        self.data_registry.track_model(self, "model_data", "happy", "pct_happy")
+        self.agents_happy = self.data_registry.create_dataset(NumpyAgentDataSet, "happy", SchellingAgent, "happy", dtype=bool)
+        self.agents_type= self.data_registry.create_dataset(NumpyAgentDataSet, "agent_data", SchellingAgent, "agent_type", dtype=int)
 
         # Create agents and place them on the grid
         for cell in self.grid.all_cells:
@@ -69,12 +55,18 @@ class Schelling(Model):
 
         # Collect initial state
         self.agents.do("assign_state")
-        self.datacollector.collect(self)
+
+    @property
+    def happy(self):
+        return np.sum(self.agents_happy.data)
+
+    @property
+    def pct_happy(self):
+        data = self.agents_happy.data
+        return np.sum(data)/data.shape[0]
 
     def step(self):
         """Run one step of the model."""
-        self.happy = 0  # Reset counter of happy agents
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.agents.do("assign_state")
-        self.datacollector.collect(self)  # Collect data
         self.running = self.happy < len(self.agents)  # Continue until everyone is happy
