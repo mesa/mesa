@@ -501,3 +501,105 @@ def test_list_support():
     assert is_empty("attr1")
     assert not is_empty("attr2")
     assert is_empty("attr3")
+
+
+def test_suppress_context():
+    """Test suppress context manager."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", "change", handler)
+
+    # Normal operation
+    agent.value = 1
+    handler.assert_called_once()
+    assert handler.call_args[0][0].new == 1
+    handler.reset_mock()
+
+    # Suppressed
+    with agent.suppress():
+        agent.value = 2
+        agent.value = 3
+
+    handler.assert_not_called()
+    assert agent.value == 3
+
+    # Normal operation resumes
+    agent.value = 4
+    handler.assert_called_once()
+    assert handler.call_args[0][0].new == 4
+
+
+def test_batch_context():
+    """Test batch context manager with deduplication."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", "change", handler)
+
+    with agent.batch():
+        agent.value = 1
+        agent.value = 2
+        agent.value = 3
+        handler.assert_not_called()
+
+    # On exit, should be called once with final value
+    handler.assert_called_once()
+    assert handler.call_args[0][0].new == 3
+
+
+def test_batch_mixed_signals():
+    """Test nested batch and mixed signal types."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+            self._register_signal_emitter("custom", {"alert"})
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    val_handler = Mock()
+    custom_handler = Mock()
+
+    agent.observe("value", "change", val_handler)
+    agent.observe("custom", "alert", custom_handler)
+
+    with agent.batch():
+        agent.value = 1
+        with agent.batch():
+            agent.notify("custom", None, "A", "alert")
+            agent.value = 2
+
+        # Outer batch still active, no flush yet
+        val_handler.assert_not_called()
+        custom_handler.assert_not_called()
+
+        agent.value = 3
+
+    # Flush happened
+    # value: 1, 2, 3 -> deduplicated to just 3 (last one wins for 'change')
+    val_handler.assert_called_once()
+    assert val_handler.call_args[0][0].new == 3
+
+    # custom: 'A' -> preserved
+    custom_handler.assert_called_once()
+    assert custom_handler.call_args[0][0].new == "A"

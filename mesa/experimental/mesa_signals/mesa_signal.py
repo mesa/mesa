@@ -18,6 +18,7 @@ clean separation of concerns.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import weakref
 from abc import ABC, abstractmethod
@@ -287,6 +288,11 @@ class HasObservables:
         self.subscribers = defaultdict(list)
         self.observables = dict(descriptor_generator(self))
 
+        # New state for signal management
+        self._silenced = False
+        self._batching = False
+        self._signal_buffer = []
+
     def _register_signal_emitter(self, name: str, signal_types: set[str]):
         """Helper function to register an Observable.
 
@@ -449,6 +455,9 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
+        if self._silenced:
+            return
+
         signal = Message(
             name=observable,
             old=old_value,
@@ -457,6 +466,10 @@ class HasObservables:
             signal_type=signal_type,
             additional_kwargs=kwargs,
         )
+
+        if self._batching:
+            self._signal_buffer.append(signal)
+            return
 
         self._mesa_notify(signal)
 
@@ -494,6 +507,103 @@ class HasObservables:
             self.subscribers[key] = active_observers
         else:
             del self.subscribers[key]
+
+    @contextlib.contextmanager
+    def suppress(self):
+        """Context manager to temporarily disable all signal emissions.
+
+        While this context is active, any call to `notify()` will return immediately
+        without creating a `Message` or notifying subscribers. This is useful for
+        performance optimization during bulk initialization or heavy state modifications
+        where intermediate signals are unnecessary.
+
+        Examples:
+            >>> model = MyModel()
+            >>> with model.suppress():
+            ...     model.value = 1  # No signal emitted
+            ...     model.value = 2  # No signal emitted
+            >>> model.value = 3  # Signal emitted normally
+
+        """
+        original_silenced = self._silenced
+        self._silenced = True
+        try:
+            yield
+        finally:
+            self._silenced = original_silenced
+
+    @contextlib.contextmanager
+    def batch(self):
+        """Context manager to accumulate signals and emit them on exit.
+
+        This manager buffers all signals emitted within the context. Upon exiting
+        the context, it flushes the buffer.
+
+        For `SignalType.CHANGE` signals, it performs optimization/deduplication:
+        only the *last* change signal for a specific observable is emitted. This
+        prevents redundant updates (e.g., UI redraws) when a value changes multiple
+        times in a single operation. Other signal types are preserved in order.
+
+        If a batch context is nested within another batch context, the inner
+        context yields to the outer one, and flushing only occurs when the
+        outermost context exits.
+
+        Examples:
+            >>> model = MyModel()
+            >>> with model.batch():
+            ...     model.value = 1  # Buffered
+            ...     model.value = 2  # Buffered (will overwrite previous 'value' signal)
+            ...     model.list.append(1) # Buffered
+            >>> # On exit: Emits change(value=2) and append(1)
+
+        """
+        if self._batching:
+            yield
+            return
+
+        self._batching = True
+        self._signal_buffer = []
+        try:
+            yield
+        finally:
+            self._batching = False
+            self._flush_buffer()
+
+    def _flush_buffer(self):
+        """Process and emit buffered signals.
+
+        Internal method called by `batch` on exit. It iterates through the
+        signal buffer and constructs a final queue of signals to emit.
+
+        Optimization logic:
+        - `SignalType.CHANGE`: Only the last instance for a given observable name
+          is kept. Its position in the queue corresponds to its first occurrence,
+          but the payload is updated to the latest value.
+        - Other signals: All instances are preserved in their original order.
+
+        After processing, the `_signal_buffer` is cleared.
+        """
+        if not self._signal_buffer:
+            return
+
+        final_queue = []
+        change_signals = {}
+
+        for signal in self._signal_buffer:
+            if signal.signal_type == SignalType.CHANGE:
+                if signal.name in change_signals:
+                    idx = change_signals[signal.name]
+                    final_queue[idx] = signal
+                else:
+                    change_signals[signal.name] = len(final_queue)
+                    final_queue.append(signal)
+            else:
+                final_queue.append(signal)
+
+        for signal in final_queue:
+            self._mesa_notify(signal)
+
+        self._signal_buffer = []
 
 
 def descriptor_generator(obj) -> [str, BaseObservable]:
