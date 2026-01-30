@@ -1,26 +1,49 @@
 """Helper classes for collecting statistics."""
+from __future__ import annotations
 
 import abc
 import operator
-from typing import Any
+from typing import Any, Protocol, runtime_checkable, TYPE_CHECKING
 
 import numpy as np
 
 from mesa.agent import Agent, AgentSet
-from mesa.model import Model
 
-__all__ = ["AgentDataSet", "DataRegistry", "DataSet", "ModelDataSet", "TableDataSet"]
+if TYPE_CHECKING:
+    from mesa.model import Model
+
+__all__ = [
+    "AgentDataSet",
+    "DataRegistry",
+    "DataSet",
+    "ModelDataSet",
+    "TableDataSet",
+    "NumpyAgentDataSet",
+]
 
 
-class DataSet(abc.ABC):
+@runtime_checkable
+class DataSet(Protocol):
+    """Protocol for all data collection classes."""
+
+    name: str
+
+    @property
+    def data(self) -> Any:
+        """Return collected data."""
+        ...
+
+    def close(self):
+        """Close the dataset."""
+        ...
+
+
+class BaseDataSet(abc.ABC):
     """Abstract base class for data sets.
 
     Args:
        name: the name of the data set
-       kwargs: key value pairs specifying the fields to collect
-               a value must be either a string (for attributes) or a
-               callable.
-
+       args: the fields to collect
 
     """
 
@@ -29,6 +52,7 @@ class DataSet(abc.ABC):
         self.name = name
         self._attributes = args
         self._collector = operator.attrgetter(*self._attributes)
+        self._closed = False
 
     @property
     @abc.abstractmethod
@@ -36,19 +60,27 @@ class DataSet(abc.ABC):
         """Return the data of the table."""
         ...
 
+    def _check_closed(self):
+        """Check to see if the data set has been closed."""
+        if self._closed:
+            raise RuntimeError(f"DataSet '{self.name}' has been closed")
 
-class AgentDataSet[A: Agent](DataSet):
+    def close(self):
+        """Cleanup and close the data set."""
+        self._collector = None
+        self._closed = True
+
+
+class AgentDataSet[A: Agent](BaseDataSet):
     """Data set for agents data.
 
     Args:
         name: the name of the data set
         agents: the agents to collect data from
+        args: fields to collect
         select_kwargs : dict of valid keyword arguments for agentset.select
                         is passed, the agentset will be filtered before gathering
                         the data
-        kwargs: key value pairs specifying the fields to collect.
-                a value must be either a string (for attributes) or a
-                callable.
 
 
     """
@@ -61,36 +93,40 @@ class AgentDataSet[A: Agent](DataSet):
         select_kwargs: dict | None = None,
     ):
         """Init."""
-        super().__init__(name, *["unique_id", *args])
+        super().__init__(name, "unique_id", *args)
         self.agents = agents
         self.select_kwargs = select_kwargs
 
     @property
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the table."""
+        self._check_closed()
         # gets the data for the fields from the agents
         data: list[dict[str, Any]] = []
 
         agents = (
             self.agents
             if self.select_kwargs is None
-            else self.agents.select(*self.select_kwargs)
+            else self.agents.select(**self.select_kwargs)
         )
 
         for agent in agents:
             data.append(dict(zip(self._attributes, self._collector(agent))))
         return data
 
+    def close(self):
+        """Close the data set."""
+        super().close()
+        self.agents = None
 
-class ModelDataSet[M: Model](DataSet):
+
+class ModelDataSet[M: Model](BaseDataSet):
     """Data set for model data.
 
     Args:
         name: the name of the data set
         model: the model to collect data from
-        kwargs: key value pairs specifying the fields to collect.
-                a value must be either a string (for attributes) or a
-                callable.
+        args: the fields to collect.
 
     """
 
@@ -102,15 +138,21 @@ class ModelDataSet[M: Model](DataSet):
     @property
     def data(self) -> dict[str, Any]:
         """Return the data of the table."""
+        self._check_closed()
         # gets the data for the fields from the agents
         values = self._collector(self.model)
-        try:
-            return dict(zip(self._attributes, values))
-        except TypeError:
+        if len(self._attributes) == 1:
             return {self._attributes[0]: values}
+        else:
+            return dict(zip(self._attributes, values))
+
+    def close(self):
+        """Close the data set."""
+        super().close()
+        self.model = None
 
 
-class TableDataSet(DataSet):
+class TableDataSet:
     """A Table DataSet.
 
     Args:
@@ -125,54 +167,30 @@ class TableDataSet(DataSet):
 
     def __init__(self, name, fields: str | list[str]):
         """Init."""
-        super().__init__(name)
-        self.fields = fields
+        self.name = name
+        self.fields = fields if isinstance(fields, list) else [fields]
         self.rows = []
 
     def add_row(self, row: dict[str, Any]):
         """Add a row to the table."""
+        if self.rows is None:
+            raise RuntimeError(f"DataSet '{self.name}' has been closed")
         self.rows.append({k: row[k] for k in self.fields})
 
     @property
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the table."""
+        if self.rows is None:
+            raise RuntimeError(f"DataSet '{self.name}' has been closed")
         # gets the data for the fields from the agents
         return self.rows
 
-
-class DataRegistry[M: Model]:
-    """A registry for data sets."""
-
-    def __init__(self):
-        """Init."""
-        self.datasets = {}
-
-    def add_dataset(self, dataset: DataSet):
-        """Add a dataset to the registry."""
-        self.datasets[dataset.name] = dataset
-
-    def create_dataset(self, dataset_type, name, *args, **kwargs):
-        """Create a dataset of the specified type and add it to the registry."""
-        self.datasets[name] = dataset_type(name, *args, **kwargs)
-
-    def track_agents(
-        self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None
-    ):
-        """Track the specified fields for the agents in the AgentSet."""
-        self.create_dataset(
-            AgentDataSet, name, agents, *args, select_kwargs=select_kwargs
-        )
-
-    def track_model(self, model: M, name: str, *args):
-        """Track the specified fields in the model."""
-        self.create_dataset(ModelDataSet, name, model, *args)
-
-    def __getitem__(self, name: str):
-        """Get a dataset by name."""
-        return self.datasets[name]
+    def close(self):
+        """Close the data set."""
+        self.rows = None
 
 
-class NumpyAgentDataSet[A: Agent](DataSet):
+class NumpyAgentDataSet[A: Agent](BaseDataSet):
     """A NumPy array data set for storing agent data.
 
     Args:
@@ -225,6 +243,9 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         }
 
         # Install properties on the agent class
+        self.agent_type = agent_type
+        if not hasattr(agent_type, '_datasets'):
+            agent_type._datasets = set()
         agent_type._datasets.add(self.name)
         for attr in args:
             setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
@@ -291,11 +312,6 @@ class NumpyAgentDataSet[A: Agent](DataSet):
         self._free_indices.append(index)
         self._n_active -= 1
 
-        # Auto-compact if too fragmented
-        fragmentation = len(self._free_indices) / max(self._n_slots, 1)
-        if fragmentation > self._COMPACT_THRESHOLD:
-            self.compact()
-
     def _reset(self) -> None:
         """Reset the dataset to an empty state."""
         self._agent_to_index.clear()
@@ -351,12 +367,17 @@ class NumpyAgentDataSet[A: Agent](DataSet):
 
     @property
     def data(self) -> np.ndarray:
-        """Return only active agent data as a numpy array.
-
-        Returns a view (not a copy) when possible for efficiency.
-        """
+        """Return only active agent data as a numpy array."""
+        self._check_closed()
         if self._n_active == 0:
             return np.empty((0, len(self._attributes)), dtype=self.dtype)
+
+        # Auto-compact if too fragmented
+        # we do it via data to avoid compacting when there are
+        # many deletions in a single step
+        fragmentation = len(self._free_indices) / max(self._n_slots, 1)
+        if fragmentation > self._COMPACT_THRESHOLD:
+            self.compact()
 
         # Boolean indexing - returns only active rows
         # self._n_slots is the number of slots that have been handed out
@@ -392,6 +413,14 @@ class NumpyAgentDataSet[A: Agent](DataSet):
             f"fragmentation={self.fragmentation:.1%})"
         )
 
+    def close(self):
+        """Close the dataset."""
+        super().close()
+        self._reset()
+        for attr in self._attributes:
+            delattr(self.agent_type, attr)
+        self.agent_type._datasets.discard(self.name)
+
 
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     """Generate getter and setter for the specified attribute."""
@@ -412,16 +441,53 @@ def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     return getter, setter
 
 
+class DataRegistry:
+    """A registry for data sets."""
+
+    def __init__(self):
+        """Init."""
+        self.datasets = {}
+
+    def add_dataset(self, dataset: DataSet):
+        """Add a dataset to the registry."""
+        self.datasets[dataset.name] = dataset
+
+    def create_dataset(self, dataset_type, name, *args, **kwargs):
+        """Create a dataset of the specified type and add it to the registry."""
+        self.datasets[name] = dataset_type(name, *args, **kwargs)
+
+    def track_agents(
+        self, agents: AgentSet, name: str, *args, select_kwargs: dict | None = None
+    ):
+        """Track the specified fields for the agents in the AgentSet."""
+        self.create_dataset(
+            AgentDataSet, name, agents, *args, select_kwargs=select_kwargs
+        )
+
+    def track_model(self, model: Model, name: str, *args):
+        """Track the specified fields in the model."""
+        self.create_dataset(ModelDataSet, name, model, *args)
+
+    def close_all(self):
+        """Close all datasets."""
+        for dataset in self.datasets.values():
+            dataset.close()
+
+    def __getitem__(self, name: str):
+        """Get a dataset by name."""
+        return self.datasets[name]
+
+
 if __name__ == "__main__":
     from mesa.examples import BoltzmannWealth
 
     model = BoltzmannWealth()
     model.test = 5
     agent_data = AgentDataSet("wealth", model.agents, "wealth")
-    model_data = ModelDataSet("gini", model, "test", gini=model.compute_gini)
+    # model_data = ModelDataSet("gini", model, "test", gini=model.compute_gini)
     data = []
     for _ in range(5):
         model.step()
         data.append(agent_data.data)
-        data.append(model_data.data)
+        # data.append(model_data.data)
     print("blaat")
