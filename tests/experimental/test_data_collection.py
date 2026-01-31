@@ -1,14 +1,13 @@
-import pytest
 import numpy as np
+import pytest
+
+from mesa import Agent, Model
 from mesa.experimental.data_collection import (
-    DataRegistry,
     AgentDataSet,
+    DataRegistry,
     NumpyAgentDataSet,
-    ModelDataSet,
     TableDataSet,
 )
-
-from mesa import Model, Agent
 
 
 def test_data_registry():
@@ -94,13 +93,13 @@ def test_numpy_agent_dataset():
 
 def test_model_dataset():
     """Test ModelDataSet."""
+
     class MyAgent(Agent):
         def __init__(self, model, value):
             super().__init__(model)
             self.test = value
 
     class MyModel(Model):
-
         @property
         def mean_value(self):
             data = self.agents.get("test")
@@ -108,7 +107,11 @@ def test_model_dataset():
 
         def __init__(self, rng=42, n=100):
             super().__init__(rng=rng)
-            self.data_registry.track_model(self, "model_data", "mean_value", )
+            self.data_registry.track_model(
+                self,
+                "model_data",
+                "mean_value",
+            )
             MyAgent.create_agents(
                 self,
                 n,

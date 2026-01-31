@@ -3,7 +3,6 @@ import numpy as np
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.schelling.agents import SchellingAgent
-from mesa.experimental.data_collection.dataset import DataRegistry
 
 
 class Schelling(Model):
