@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from mesa.agent import AbstractAgentSet, Agent
+from mesa.agent import Agent, AbstractAgentSet
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -68,6 +68,8 @@ class BaseDataSet(abc.ABC):
 
     def close(self):
         """Cleanup and close the data set."""
+        if self._closed:
+            return
         self._collector = None
         self._closed = True
 
@@ -140,7 +142,6 @@ class ModelDataSet[M: Model](BaseDataSet):
     def data(self) -> dict[str, Any]:
         """Return the data of the table."""
         self._check_closed()
-        # gets the data for the fields from the agents
         values = self._collector(self.model)
         if len(self._attributes) == 1:
             return {self._attributes[0]: values}
@@ -183,7 +184,6 @@ class TableDataSet:
         """Return the data of the table."""
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
-        # gets the data for the fields from the agents
         return self.rows
 
     def close(self):
@@ -191,10 +191,15 @@ class TableDataSet:
         self.rows = None
 
 
-class NumpyAgentDataSet[A: Agent](BaseDataSet):
+class NumpyAgentDataSet[A: Agent]:
     """A NumPy array data set for storing agent data.
 
     Uses swap-with-last removal to keep data contiguous, allowing views.
+
+    Note:
+        This class does not inherit from BaseDataSet because it doesn't
+        use the attrgetter-based collection mechanism.
+
     """
 
     _GROWTH_FACTOR = 2.0
@@ -204,12 +209,26 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         self,
         name: str,
         agent_type: type[A],
-        *args,
-        n=100,
-        dtype=np.float64,
+        *args: str,
+        n: int = 100,
+        dtype: np.dtype | type = np.float64,
     ):
-        """Init."""
-        super().__init__(name, *args)
+        """Initialize the dataset.
+
+        Args:
+            name: Name of the dataset
+            agent_type: The agent class to install properties on
+            args: Attribute names to track
+            n: Initial capacity
+            dtype: NumPy dtype for the array
+
+        """
+        if not args:
+            raise ValueError("At least one attribute must be specified")
+
+        self.name = name
+        self._attributes = args
+        self._closed = False
         self.dtype = dtype
         self._index_in_table = f"_index_datatable_{name}"
 
@@ -220,7 +239,7 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         # Mappings - index is always position in _agent_data
         self._index_to_agent: dict[int, A] = {}
         self._agent_to_index: dict[A, int] = {}
-        self.attribute_to_index: dict[str, int] = {
+        self._attribute_to_index: dict[str, int] = {
             attr: i for i, attr in enumerate(args)
         }
 
@@ -229,8 +248,29 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         if not hasattr(agent_type, "_datasets"):
             agent_type._datasets = set()
         agent_type._datasets.add(self.name)
-        for attr in args:
-            setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
+
+        self._install_properties()
+
+    def _make_getter_setter(self, attribute_name: str):
+        """Generate getter and setter for the specified attribute."""
+        j = self._attribute_to_index[attribute_name]
+        index_attr = self._index_in_table
+        data = self._agent_data
+
+        def getter(agent: A):
+            return data[agent.__dict__[index_attr], j]
+
+        def setter(agent: A, value):
+            data[agent.__dict__[index_attr], j] = value
+
+        return getter, setter
+
+    def _install_properties(self) -> None:
+        """Install properties on the agent class for all attributes."""
+        for attr in self._attributes:
+            setattr(
+                self.agent_type, attr, property(*self._make_getter_setter(attr))
+            )
 
     def _expand_storage(self) -> None:
         """Expand the internal array when out of space."""
@@ -242,16 +282,35 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         new_data[:current_size] = self._agent_data
         self._agent_data = new_data
 
+        # Reinstall properties to capture new array reference
+        self._install_properties()
+
+    def _check_closed(self) -> None:
+        """Raise if dataset has been closed."""
+        if self._closed:
+            raise RuntimeError(f"DataSet '{self.name}' has been closed")
+
     def add_agent(self, agent: A) -> int:
-        """Add an agent to the dataset. O(1)."""
+        """Add an agent to the dataset.
+
+        Args:
+            agent: The agent to add
+
+        Returns:
+            The index assigned to the agent
+
+        Complexity: O(1) amortized
+
+        """
+        self._check_closed()
         index = self._n_active
 
         # Expand if necessary
         if index >= self._agent_data.shape[0]:
             self._expand_storage()
 
-            # Store index on agent
-        setattr(agent, self._index_in_table, index)
+        # Store index on agent
+        agent.__dict__[self._index_in_table] = index
 
         # Update mappings
         self._agent_to_index[agent] = index
@@ -261,8 +320,16 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         return index
 
     def remove_agent(self, agent: A) -> None:
-        """Remove an agent from the dataset. O(1) using swap-with-last."""
-        index = getattr(agent, self._index_in_table, None)
+        """Remove an agent from the dataset using swap-with-last.
+
+        Args:
+            agent: The agent to remove
+
+        Complexity: O(1)
+
+        """
+        self._check_closed()
+        index = agent.__dict__.get(self._index_in_table)
         if index is None:
             return  # Not in dataset
 
@@ -274,21 +341,23 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
 
             # Update the swapped agent's index
             swapped_agent = self._index_to_agent[last_index]
-            setattr(swapped_agent, self._index_in_table, index)
+            swapped_agent.__dict__[self._index_in_table] = index
             self._agent_to_index[swapped_agent] = index
             self._index_to_agent[index] = swapped_agent
 
-            # Remove the agent
+        # Remove the agent
         del self._agent_to_index[agent]
         del self._index_to_agent[last_index]
-        delattr(agent, self._index_in_table)
+        agent.__dict__.pop(self._index_in_table, None)
         self._n_active -= 1
 
     @property
     def data(self) -> np.ndarray:
         """Return active agent data as a VIEW (no copy).
 
-        WARNING: Modifying the returned array modifies the underlying data.
+        Warning:
+            Modifying the returned array modifies the underlying data.
+
         """
         self._check_closed()
         return self._agent_data[: self._n_active]
@@ -302,6 +371,7 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
     @property
     def active_agents(self) -> list[A]:
         """Return list of all active agents (order matches data rows)."""
+        self._check_closed()
         return [self._index_to_agent[i] for i in range(self._n_active)]
 
     def _reset(self) -> None:
@@ -315,39 +385,26 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         return self._n_active
 
     def __repr__(self) -> str:
+        """Return string representation."""
         return (
             f"NumpyAgentDataSet(name={self.name!r}, "
             f"active={self._n_active}, "
             f"capacity={self._agent_data.shape[0]})"
         )
 
-    def close(self):
-        """Close the dataset."""
-        super().close()
+    def close(self) -> None:
+        """Close the dataset and remove properties from agent class."""
+        if self._closed:
+            return
+
         self._reset()
+
+        # Remove properties from agent class
         for attr in self._attributes:
-            delattr(self.agent_type, attr)
-        self.agent_type._datasets.discard(self.name)
-
-
-def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
-    """Generate getter and setter for the specified attribute."""
-    # fixme: what if we make this  a method on the data set instead?
-    #     or just pass it along when generating the getter and setter?
-    j = table.attribute_to_index[attribute_name]
-    index_attr = table._index_in_table
-
-    def getter(obj: Agent):
-        i = getattr(
-            obj, index_attr
-        )  # should just exist because of registration in Agent.__init__
-        return table._agent_data[i, j]
-
-    def setter(obj: Agent, value):
-        i = getattr(obj, index_attr)
-        table._agent_data[i, j] = value
-
-    return getter, setter
+            try:
+                delattr(self.agent_type, attr)
+            except AttributeError:
+                pass
 
 
 class DataRegistry:
@@ -383,14 +440,47 @@ class DataRegistry:
         """Track the specified fields in the model."""
         return self.create_dataset(ModelDataSet, name, model, *args)
 
+    def track_numpy_agents(
+        self,
+        agent_type: type[Agent],
+        name: str,
+        *args,
+        n: int = 100,
+        dtype: np.dtype | type = np.float64,
+    ) -> NumpyAgentDataSet:
+        """Track agent fields using NumPy storage.
+
+        Args:
+            agent_type: The agent class to install properties on
+            name: Name of the dataset
+            args: Attribute names to track
+            n: Initial capacity
+            dtype: NumPy dtype for the array
+
+        Returns:
+            The created NumpyAgentDataSet
+
+        """
+        dataset = NumpyAgentDataSet(name, agent_type, *args, n=n, dtype=dtype)
+        self.datasets[name] = dataset
+        return dataset
+
     def close_all(self):
         """Close all datasets."""
         for dataset in self.datasets.values():
             dataset.close()
 
-    def __getitem__(self, name: str):
+    def __getitem__(self, name: str) -> DataSet:
         """Get a dataset by name."""
         return self.datasets[name]
+
+    def __contains__(self, name: str) -> bool:
+        """Check if a dataset exists."""
+        return name in self.datasets
+
+    def get(self, name: str, default: DataSet | None = None) -> DataSet | None:
+        """Get a dataset by name, or default if not found."""
+        return self.datasets.get(name, default)
 
 
 if __name__ == "__main__":
