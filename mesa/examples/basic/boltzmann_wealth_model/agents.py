@@ -10,9 +10,6 @@ class MoneyAgent(CellAgent):
     Attributes:
         wealth (int): The agent's current wealth (starts at 1)
     """
-
-    # wealth = DataField("wealth", "wealth")
-
     def __init__(self, model, cell):
         """Create a new agent.
 
