@@ -1,10 +1,10 @@
+import numpy as np
+
 from mesa import Model
-from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.schelling.agents import SchellingAgent
 from mesa.experimental.data_collection.dataset import DataRegistry, NumpyAgentDataSet
 
-import numpy as np
 
 class Schelling(Model):
     """Model class for the Schelling segregation model."""
@@ -42,8 +42,12 @@ class Schelling(Model):
         # Set up data collection
         self.data_registry = DataRegistry()
         self.data_registry.track_model(self, "model_data", "happy", "pct_happy")
-        self.agents_happy = self.data_registry.create_dataset(NumpyAgentDataSet, "happy", SchellingAgent, "happy", dtype=bool)
-        self.agents_type= self.data_registry.create_dataset(NumpyAgentDataSet, "agent_data", SchellingAgent, "agent_type", dtype=int)
+        self.agents_happy = self.data_registry.create_dataset(
+            NumpyAgentDataSet, "happy", SchellingAgent, "happy", dtype=bool
+        )
+        self.agents_type = self.data_registry.create_dataset(
+            NumpyAgentDataSet, "agent_data", SchellingAgent, "agent_type", dtype=int
+        )
 
         # Create agents and place them on the grid
         for cell in self.grid.all_cells:
@@ -63,7 +67,7 @@ class Schelling(Model):
     @property
     def pct_happy(self):
         data = self.agents_happy.data
-        return np.sum(data)/data.shape[0]
+        return np.sum(data) / data.shape[0]
 
     def step(self):
         """Run one step of the model."""

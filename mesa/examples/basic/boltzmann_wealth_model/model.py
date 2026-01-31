@@ -43,7 +43,9 @@ class BoltzmannWealth(Model):
 
         self.data_registry = DataRegistry()
         # self.agent_wealth = self.data_registry.track_agents(self.agents, "wealth", "wealth")
-        self.agent_wealth = self.data_registry.create_dataset(NumpyAgentDataSet, "wealth", MoneyAgent, "wealth")
+        self.agent_wealth = self.data_registry.create_dataset(
+            NumpyAgentDataSet, "wealth", MoneyAgent, "wealth"
+        )
         self.data_registry.track_model(self, "model_data", "gini")
 
         self.num_agents = n

@@ -1,13 +1,14 @@
 """Helper classes for collecting statistics."""
+
 from __future__ import annotations
 
 import abc
 import operator
-from typing import Any, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from mesa.agent import Agent, AgentSet, AbstractAgentSet
+from mesa.agent import AbstractAgentSet, Agent
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -17,8 +18,8 @@ __all__ = [
     "DataRegistry",
     "DataSet",
     "ModelDataSet",
-    "TableDataSet",
     "NumpyAgentDataSet",
+    "TableDataSet",
 ]
 
 
@@ -200,12 +201,12 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
     _MIN_GROWTH = 100
 
     def __init__(
-            self,
-            name: str,
-            agent_type: type[A],
-            *args,
-            n=100,
-            dtype=np.float64,
+        self,
+        name: str,
+        agent_type: type[A],
+        *args,
+        n=100,
+        dtype=np.float64,
     ):
         """Init."""
         super().__init__(name, *args)
@@ -229,9 +230,7 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
             agent_type._datasets = set()
         agent_type._datasets.add(self.name)
         for attr in args:
-            setattr(
-                agent_type, attr, property(*generate_getter_and_setter(self, attr))
-            )
+            setattr(agent_type, attr, property(*generate_getter_and_setter(self, attr)))
 
     def _expand_storage(self) -> None:
         """Expand the internal array when out of space."""
@@ -292,13 +291,13 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         WARNING: Modifying the returned array modifies the underlying data.
         """
         self._check_closed()
-        return self._agent_data[:self._n_active]
+        return self._agent_data[: self._n_active]
 
     @property
     def data_copy(self) -> np.ndarray:
         """Return a copy of active agent data."""
         self._check_closed()
-        return self._agent_data[:self._n_active].copy()
+        return self._agent_data[: self._n_active].copy()
 
     @property
     def active_agents(self) -> list[A]:
@@ -329,6 +328,7 @@ class NumpyAgentDataSet[A: Agent](BaseDataSet):
         for attr in self._attributes:
             delattr(self.agent_type, attr)
         self.agent_type._datasets.discard(self.name)
+
 
 def generate_getter_and_setter(table: NumpyAgentDataSet, attribute_name: str):
     """Generate getter and setter for the specified attribute."""
@@ -368,7 +368,11 @@ class DataRegistry:
         return dataset
 
     def track_agents(
-        self, agents: AbstractAgentSet, name: str, *args, select_kwargs: dict | None = None
+        self,
+        agents: AbstractAgentSet,
+        name: str,
+        *args,
+        select_kwargs: dict | None = None,
     ):
         """Track the specified fields for the agents in the AgentSet."""
         return self.create_dataset(
