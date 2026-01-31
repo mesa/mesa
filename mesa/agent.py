@@ -41,6 +41,7 @@ class Agent[M: Model]:
         unique_id is unique relative to a model instance and starts from 1
 
     """
+
     _datasets = set()
 
     def __init_subclass__(cls, **kwargs):
