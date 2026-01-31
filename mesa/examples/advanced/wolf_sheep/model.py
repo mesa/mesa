@@ -12,10 +12,15 @@ Replication of the model found in NetLogo:
 import math
 
 from mesa import Model
-from mesa.datacollection import DataCollector
+
+# from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
 from mesa.experimental.devs import ABMSimulator
+from mesa.experimental.listeners.collectorlistener import (
+    CollectorListener,
+    DatasetConfig,
+)
 
 
 class WolfSheep(Model):
@@ -27,6 +32,20 @@ class WolfSheep(Model):
     description = (
         "A model for simulating wolf and sheep (predator-prey) ecosystem modelling."
     )
+
+    @property
+    def num_wolves(self):
+        return len(self.agents_by_type[Wolf])
+
+    @property
+    def num_sheep(self):
+        return len(self.agents_by_type[Sheep])
+
+    @property
+    def num_grass(self):
+        if not self.grass:
+            return 0
+        return len(self.agents_by_type[GrassPatch].select(lambda a: a.fully_grown))
 
     def __init__(
         self,
@@ -77,17 +96,17 @@ class WolfSheep(Model):
             random=self.random,
         )
 
-        # Set up data collection
-        model_reporters = {
-            "Wolves": lambda m: len(m.agents_by_type[Wolf]),
-            "Sheep": lambda m: len(m.agents_by_type[Sheep]),
-        }
+        model_vars = ["num_wolves", "num_sheep"]
         if grass:
-            model_reporters["Grass"] = lambda m: len(
-                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
-            )
+            model_vars.append("num_grass")
 
-        self.datacollector = DataCollector(model_reporters)
+        # Register the model dataset
+        self.data_registry.track_model(self, "model_stats", *model_vars)
+
+        config = {
+            "model_stats": DatasetConfig(interval=1, start=0),
+        }
+        self.listener = CollectorListener(self, config=config)
 
         # Create sheep:
         Sheep.create_agents(
@@ -118,15 +137,10 @@ class WolfSheep(Model):
                 )
                 GrassPatch(self, countdown, grass_regrowth_time, cell)
 
-        # Collect initial data
         self.running = True
-        self.datacollector.collect(self)
 
     def step(self):
         """Execute one step of the model."""
         # First activate all sheep, then all wolves, both in random order
         self.agents_by_type[Sheep].shuffle_do("step")
         self.agents_by_type[Wolf].shuffle_do("step")
-
-        # Collect data
-        self.datacollector.collect(self)

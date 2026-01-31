@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from mesa.experimental.data_collection.dataset import DataRegistry
+
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
@@ -176,6 +178,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents
+        self.data_registry = DataRegistry()
 
     def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
         """Advance time by one unit, processing any scheduled events."""
@@ -379,6 +382,8 @@ class Model[A: Agent, S: Scenario](HasObservables):
             near where you are calling this method.
 
         """
+        self.data_registry.close()  # this is needed to ensure GC works properly
+
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
         for agent in list(self._all_agents):
             agent.remove()
