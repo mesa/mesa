@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -42,17 +42,6 @@ class Agent[M: Model]:
 
     """
 
-    _datasets: ClassVar = set()
-
-    def __init_subclass__(cls, **kwargs):
-        """Called when DatasetTrackedAgent is subclassed."""
-        super().__init_subclass__(**kwargs)
-        # Each subclass gets its own dataset set
-        # we use strings on this to avoid memory leaks
-        # and ensure the retrieved dataset belongs to the same
-        # model instance as the agent
-        cls._datasets = set()
-
     def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
@@ -72,9 +61,6 @@ class Agent[M: Model]:
         self.pos: Position | None = None
         self.model.register_agent(self)
 
-        for dataset in self._datasets:
-            self.model.data_registry[dataset].add_agent(self)
-
     def remove(self) -> None:
         """Remove and delete the agent from the model.
 
@@ -85,10 +71,6 @@ class Agent[M: Model]:
         """
         with contextlib.suppress(KeyError):
             self.model.deregister_agent(self)
-
-        # ensures models are also removed from datasets
-        for dataset in self._datasets:
-            self.model.data_registry[dataset].remove_agent(self)
 
     def step(self) -> None:
         """A single step of the agent."""

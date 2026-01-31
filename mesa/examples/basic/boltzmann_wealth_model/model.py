@@ -10,6 +10,7 @@ when they occupy the same cell.
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
+from mesa.experimental.data_collection import DataRegistry
 from mesa.experimental.listeners import CollectorListener
 from mesa.experimental.listeners.baseCollectorListener import DatasetConfig
 
@@ -41,19 +42,19 @@ class BoltzmannWealth(Model):
 
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
+
+        self.data_registry = DataRegistry()
+        self.data_registry.track_agents(
+            self.agents,
+            "agents_wealth",
+            "wealth",
+        )
+        self.data_registry.track_model(self, "model_data", "gini")
         MoneyAgent.create_agents(
             self,
             self.num_agents,
             self.random.choices(self.grid.all_cells.cells, k=self.num_agents),
         )
-
-        self.data_registry.track_agents_numpy(
-            self.agents,
-            "agents_wealth",
-            "wealth",
-            n=self.num_agents,
-        )
-        self.data_registry.track_model(self, "model_data", "gini")
 
         self.running = True
         config = {
