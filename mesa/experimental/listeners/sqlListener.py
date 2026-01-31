@@ -53,7 +53,9 @@ class SQLListener(BaseCollectorListener):
 
         if not self.metadata[dataset_name]["table_created"]:
             col_defs = ", ".join([f'"{col}" REAL' for col in columns])
-            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
+            self.conn.execute(
+                f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
+            )
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
@@ -73,7 +75,9 @@ class SQLListener(BaseCollectorListener):
         if not self.metadata[dataset_name]["table_created"]:
             columns = [k for k in data[0] if k != "time"]
             col_defs = ", ".join([f'"{col}" REAL' for col in columns])
-            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
+            self.conn.execute(
+                f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
+            )
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
@@ -86,7 +90,9 @@ class SQLListener(BaseCollectorListener):
         if not self.metadata[dataset_name]["table_created"]:
             columns = [k for k in data if k != "time"]
             col_defs = ", ".join([f'"{col}" REAL' for col in columns])
-            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
+            self.conn.execute(
+                f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
+            )
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
