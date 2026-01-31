@@ -71,7 +71,7 @@ class CollectorListener(BaseCollectorListener):
         listener = CollectorListener(
             model,
             config={
-                "wealth": {"interval": 1},      # Every time unit
+                "wealth": {"interval": 1},      # Every time
                 "positions": {"interval": 10},   # Every 10 time units
                 "summary": {"interval": 1, "start": 100} # Every time unit starting from time=100
             }

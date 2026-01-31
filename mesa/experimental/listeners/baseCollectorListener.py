@@ -42,15 +42,15 @@ class DatasetConfig:
         _next_collection: next scheduled collection time
     """
 
-    interval: int | float = 1
-    start: int | float = 0
+    interval: int = 1
+    start: int = 0
     enabled: bool = True
-    _next_collection: int | float = 0
+    _next_collection: int = 0
 
     def __post_init__(self):
         """Validate configuration."""
-        if self.interval <= 0:
-            raise ValueError(f"interval must be > 0, got {self.interval}")
+        if self.interval < 1:
+            raise ValueError(f"interval must be >= 1, got {self.interval}")
         if self.start < 0:
             raise ValueError(f"start must be >= 0, got {self.start}")
         self._next_collection = self.start
@@ -102,7 +102,7 @@ class BaseCollectorListener(ABC):
         # Initialize storage and configs for all datasets in registry
         self._initialize_datasets(config or {})
 
-        # Subscribe to model time observable
+        # Subscribe to model time units observable
         self._subscribe_to_time()
 
     def _initialize_datasets(self, user_config: dict[str, dict[str, Any]]) -> None:
@@ -140,13 +140,13 @@ class BaseCollectorListener(ABC):
         """Subscribe to model.time observable for automatic collection.
 
         This subscribes to the 'time' observable on the model. When time
-        changes, the handler is called and we check
-        if any datasets are due for collection.
+        changes (after each time completes), our handler is called and we
+        check if any datasets are due for collection.
 
         Falls back gracefully if model doesn't have observables.
         """
         if isinstance(self.model, HasObservables):
-            # Subscribe to time observable
+            # Subscribe to time units observable
             self.model.observe("time", SignalType.CHANGE, self._on_time_change)
         else:
             warnings.warn(
@@ -160,7 +160,7 @@ class BaseCollectorListener(ABC):
     def _on_time_change(self, signal) -> None:
         """Handle time change signal.
 
-        Called automatically when model.time changes.
+        Called automatically when model.times changes.
         Checks intervals and collects data for due datasets.
 
         Args:
@@ -189,7 +189,7 @@ class BaseCollectorListener(ABC):
             except Exception as e:
                 warnings.warn(
                     f"Collection failed: dataset='{name}', time={current_time}: {e}",
-                    RuntimeWarning,
+                    RuntimeError,
                     stacklevel=2,
                 )
 
