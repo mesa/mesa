@@ -104,8 +104,6 @@ class AgentDataSet[A: Agent](BaseDataSet):
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the table."""
         self._check_closed()
-        # gets the data for the fields from the agents
-        data: list[dict[str, Any]] = []
 
         agents = (
             self.agents
@@ -113,9 +111,10 @@ class AgentDataSet[A: Agent](BaseDataSet):
             else self.agents.select(**self.select_kwargs)
         )
 
-        for agent in agents:
-            data.append(dict(zip(self._attributes, self._collector(agent))))
-        return data
+        return [
+            dict(zip(self._attributes, self._collector(agent)))
+            for agent in agents
+        ]
 
     def close(self):
         """Close the data set."""
@@ -440,7 +439,7 @@ class DataRegistry:
         """Track the specified fields in the model."""
         return self.create_dataset(ModelDataSet, name, model, *args)
 
-    def track_numpy_agents(
+    def track_agents_numpy(
         self,
         agent_type: type[Agent],
         name: str,
@@ -481,6 +480,9 @@ class DataRegistry:
     def get(self, name: str, default: DataSet | None = None) -> DataSet | None:
         """Get a dataset by name, or default if not found."""
         return self.datasets.get(name, default)
+
+    def __iter__(self):
+        return iter(self.datasets.values())
 
 
 if __name__ == "__main__":

@@ -42,12 +42,9 @@ class Schelling(Model):
         # Set up data collection
         self.data_registry = DataRegistry()
         self.data_registry.track_model(self, "model_data", "happy", "pct_happy")
-        self.agents_happy = self.data_registry.create_dataset(
-            NumpyAgentDataSet, "happy", SchellingAgent, "happy", dtype=bool
-        )
-        self.agents_type = self.data_registry.create_dataset(
-            NumpyAgentDataSet, "agent_data", SchellingAgent, "agent_type", dtype=int
-        )
+        # self.agent_data = self.data_registry.track_agents(self.agents, "agent_data", "happy", "type")
+        self.agents_happy = self.data_registry.track_agents_numpy(SchellingAgent, "happy", "happy",dtype=bool)
+        self.agents_type = self.data_registry.track_agents_numpy(SchellingAgent, "agent_type", "type", dtype=int)
 
         # Create agents and place them on the grid
         for cell in self.grid.all_cells:
@@ -62,15 +59,20 @@ class Schelling(Model):
 
     @property
     def happy(self):
-        return np.sum(self.agents_happy.data)
+        data = self.agents_happy.data
+        return data.sum()
 
     @property
     def pct_happy(self):
         data = self.agents_happy.data
-        return np.sum(data) / data.shape[0]
+        return data.sum()/data.shape[0] * 100
 
     def step(self):
         """Run one step of the model."""
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.agents.do("assign_state")
         self.running = self.happy < len(self.agents)  # Continue until everyone is happy
+
+        for table in self.data_registry:
+            table.data
+
