@@ -379,4 +379,4 @@ class Model[A: Agent, S: Scenario]:
         for agent in list(self._all_agents):
             agent.remove()
 
-        self.data_registry.close_all()  # this is needed to ensure GC works properly
+        self.data_registry.close()  # this is needed to ensure GC works properly
