@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-from typing import TYPE_CHECKING, Any, Literal, overload, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 import numpy as np
 import pandas as pd
