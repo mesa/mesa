@@ -13,13 +13,25 @@ To run the model interactively, in this directory, run the following command
 ```
     $ solara run app.py
 ```
-
-
 ## Files
 
 * ``model.py``: Final version of the model.
 * ``agents.py``: Final version of the agent.
 * ``app.py``: Code for the interactive visualization.
+
+## How the Model Is Structured
+
+This example follows Mesa’s standard separation of concerns:
+
+- Individual agent behavior is defined independently from system-level rules.
+- The model coordinates agent activation, space, and data collection.
+- Visualization code is kept separate so that changing the UI does not affect the simulation logic.
+
+The visualization displays the state of the model but does not influence how agents behave or how the system evolves over time.
+
+## Understanding the Output
+
+The **Gini coefficient** shown in the visualization measures wealth inequality, ranging from 0 (perfect equality) to 1 (perfect inequality). It is computed in `model.py` using Mesa's `DataCollector` at each simulation step.
 
 ## Optional
 
@@ -36,7 +48,6 @@ Then, you can run the Streamlit app using the following command:
 ```
     $ streamlit run st_app.py
 ```
-
 ## Further Reading
 
 This model is drawn from econophysics and presents a statistical mechanics approach to wealth distribution. Some examples of further reading on the topic can be found at:
