@@ -196,7 +196,10 @@ def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
         # no y-axis label
         "y": alt.Y("y", axis=None, type=x_y_type),
         "tooltip": [
-            alt.Tooltip(key, type=alt.utils.infer_vegalite_type_for_pandas([value]))
+            alt.Tooltip(
+                key,
+                type="quantitative" if isinstance(value, (int, float)) else "nominal",
+            )
             for key, value in all_agent_data[0].items()
             if key not in invalid_tooltips
         ],
