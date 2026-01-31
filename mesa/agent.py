@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class Agent[M: Model]:
 
     """
 
-    _datasets = set()
+    _datasets: ClassVar = set()
 
     def __init_subclass__(cls, **kwargs):
         """Called when DatasetTrackedAgent is subclassed."""
