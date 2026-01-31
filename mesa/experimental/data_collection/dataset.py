@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+from contextlib import suppress
 import operator
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -394,10 +395,8 @@ class NumpyAgentDataSet[A: Agent]:
         self._reset()
         # Remove properties from agent class
         for attr in self._attributes:
-            try:
+            with suppress(AttributeError):
                 delattr(self.agent_type, attr)
-            except AttributeError:
-                pass
         self._closed = True
 
 
@@ -477,6 +476,7 @@ class DataRegistry:
         return self.datasets.get(name, default)
 
     def __iter__(self):
+        """Iterate over datasets."""
         return iter(self.datasets.values())
 
 
