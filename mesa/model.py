@@ -19,7 +19,7 @@ import numpy as np
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
-from mesa.agent import Agent, AgentSet
+from mesa.agent import Agent, _HardKeyAgentSet
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
@@ -162,13 +162,10 @@ class Model[A: Agent, S: Scenario]:
         self.step = self._wrapped_step
 
         # setup agent registration data structures
-        self._agents: dict[
-            A, None
-        ] = {}  # the hard references to all agents in the model
         self._agents_by_type: dict[
-            type[A], AgentSet[A]
+            type[A], _HardKeyAgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
-        self._all_agents: AgentSet[A] = AgentSet(
+        self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents
 
@@ -214,8 +211,29 @@ class Model[A: Agent, S: Scenario]:
         self._schedule_step(self.time + 1)
 
     @property
-    def agents(self) -> AgentSet[A]:
-        """Provides an AgentSet of all agents in the model, combining agents from all types."""
+    def agents(self) -> _HardKeyAgentSet[A]:
+        """Provides a _HardKeyAgentSet of all agents in the model, combining agents from all types.
+
+        Returns:
+            _HardKeyAgentSet: The agent set containing all agents with strong references.
+
+        Warning:
+            This returns the actual internal _HardKeyAgentSet used by Mesa for agent registration
+            and tracking. It uses strong references to prevent premature garbage collection and reduce performance overhead
+            caused by weak reference management.
+
+            **Do not modify this AgentSet directly** (e.g., by adding or removing agents manually).
+            Direct modifications can break the model's agent tracking system and cause unexpected
+            behavior. Instead:
+
+            - Use ``Agent()`` to create new agents (automatically registers them)
+            - Use ``agent.remove()`` to remove agents (automatically deregisters them)
+            - For read-only operations or transformations, work on a copy: ``model.agents.copy()``
+
+        Notes:
+            This is Mesa's core agent registration system. All agents created via ``Agent.__init__``
+            are automatically registered here.
+        """
         return self._all_agents
 
     @agents.setter
@@ -232,8 +250,27 @@ class Model[A: Agent, S: Scenario]:
         return list(self._agents_by_type.keys())
 
     @property
-    def agents_by_type(self) -> dict[type[A], AgentSet[A]]:
-        """A dictionary where the keys are agent types and the values are the corresponding AgentSets."""
+    def agents_by_type(self) -> dict[type[A], _HardKeyAgentSet[A]]:
+        """A dictionary where keys are agent types and values are the corresponding _HardKeyAgentSets.
+
+        Returns:
+            dict[type[A], _HardKeyAgentSet[A]]: Dictionary mapping agent types to their AgentSets.
+
+        Warning:
+            Each AgentSet in this dictionary is a _HardKeyAgentSet with strong references,
+            forming part of Mesa's core agent registration system.
+
+            **Do not modify these AgentSets directly**. Direct modifications can break agent
+            tracking and cause unexpected behavior. Instead:
+
+            - Use ``Agent()`` to create new agents (automatically registers them)
+            - Use ``agent.remove()`` to remove agents (automatically deregisters them)
+            - For read-only operations, work on copies: ``model.agents_by_type[AgentType].copy()``
+
+        Notes:
+            This is part of Mesa's core agent registration system. All agents are automatically
+            registered in the appropriate type-specific AgentSet when created via ``Agent.__init__``.
+        """
         return self._agents_by_type
 
     def register_agent(self, agent: A):
@@ -247,7 +284,8 @@ class Model[A: Agent, S: Scenario]:
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
         """
-        self._agents[agent] = None
+        # Add to main storage
+        self._all_agents.add(agent)
         agent.unique_id = self.agent_id_counter
         self.agent_id_counter += 1
 
@@ -256,14 +294,11 @@ class Model[A: Agent, S: Scenario]:
         try:
             self._agents_by_type[type(agent)].add(agent)
         except KeyError:
-            self._agents_by_type[type(agent)] = AgentSet(
-                [
-                    agent,
-                ],
+            self._agents_by_type[type(agent)] = _HardKeyAgentSet(
+                [agent],
                 random=self.random,
             )
 
-        self._all_agents.add(agent)
         _mesa_logger.debug(
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
@@ -278,9 +313,9 @@ class Model[A: Agent, S: Scenario]:
             This method is called automatically by ``Agent.remove``
 
         """
-        del self._agents[agent]
         self._agents_by_type[type(agent)].remove(agent)
         self._all_agents.remove(agent)
+
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
 
     def run_model(self) -> None:
@@ -337,5 +372,5 @@ class Model[A: Agent, S: Scenario]:
 
         """
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
-        for agent in list(self._agents.keys()):
+        for agent in list(self._all_agents):
             agent.remove()
