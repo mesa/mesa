@@ -12,9 +12,9 @@ Replication of the model found in NetLogo:
 import math
 
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
-from mesa.experimental.data_collection.dataset import DataRegistry, NumpyAgentDataSet
 from mesa.experimental.devs import ABMSimulator
 
 
@@ -78,11 +78,16 @@ class WolfSheep(Model):
         )
 
         # Set up data collection
-        self.data_registry = DataRegistry()
-        self.data_registry.track_model(self, "model_data", "n_wolves", "n_sheep")
-        self.data_registry.create_dataset(
-            NumpyAgentDataSet, "wolf_data", Wolf, "energy"
-        )
+        model_reporters = {
+            "Wolves": lambda m: len(m.agents_by_type[Wolf]),
+            "Sheep": lambda m: len(m.agents_by_type[Sheep]),
+        }
+        if grass:
+            model_reporters["Grass"] = lambda m: len(
+                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
+            )
+
+        self.datacollector = DataCollector(model_reporters)
 
         # Create sheep:
         Sheep.create_agents(
@@ -115,14 +120,7 @@ class WolfSheep(Model):
 
         # Collect initial data
         self.running = True
-
-    @property
-    def n_wolves(self):
-        return len(self.agents_by_type[Wolf])
-
-    @property
-    def n_sheep(self):
-        return len(self.agents_by_type[Sheep])
+        self.datacollector.collect(self)
 
     def step(self):
         """Execute one step of the model."""
@@ -131,13 +129,4 @@ class WolfSheep(Model):
         self.agents_by_type[Wolf].shuffle_do("step")
 
         # Collect data
-        a = self.data_registry["model_data"].data  # fake snapshotting if for now
-        a = self.data_registry["wolf_data"].data  # fake snapshotting if for now
-
-
-if __name__ == "__main__":
-    simulator = ABMSimulator()
-    model = WolfSheep(simulator=simulator)
-    simulator.run_for(10)
-
-    print()
+        self.datacollector.collect(self)
