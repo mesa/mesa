@@ -1,5 +1,17 @@
 """New style data collection."""
 
-from .dataset import AgentDataSet, ModelDataSet, NumpyAgentDataSet, TableDataSet
+from .dataset import (
+    AgentDataSet,
+    DataRegistry,
+    ModelDataSet,
+    NumpyAgentDataSet,
+    TableDataSet,
+)
 
-__all__ = ["AgentDataSet", "ModelDataSet", "NumpyAgentDataSet", "TableDataSet"]
+__all__ = [
+    "AgentDataSet",
+    "DataRegistry",
+    "ModelDataSet",
+    "NumpyAgentDataSet",
+    "TableDataSet",
+]

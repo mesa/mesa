@@ -392,13 +392,13 @@ class NumpyAgentDataSet[A: Agent]:
             return
 
         self._reset()
-
         # Remove properties from agent class
         for attr in self._attributes:
             try:
                 delattr(self.agent_type, attr)
             except AttributeError:
                 pass
+        self._closed = True
 
 
 class DataRegistry:
@@ -459,7 +459,7 @@ class DataRegistry:
         self.datasets[name] = dataset
         return dataset
 
-    def close_all(self):
+    def close(self):
         """Close all datasets."""
         for dataset in self.datasets.values():
             dataset.close()
