@@ -65,7 +65,9 @@ class ParquetListener(BaseCollectorListener):
         """Initialize buffer for dataset."""
         self.buffers[dataset_name] = []
 
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Buffer data and write to Parquet when buffer is full."""
         buffer = self.buffers[dataset_name]
 
@@ -80,14 +82,14 @@ class ParquetListener(BaseCollectorListener):
                     columns = [f"col_{i}" for i in range(n_cols)]
 
                 df = pd.DataFrame(data, columns=columns)
-                df["step"] = step
+                df["time"] = time
                 buffer.extend(df.to_dict("records"))
 
             case list() if data:
-                buffer.extend([{**row, "step": step} for row in data])
+                buffer.extend([{**row, "time": time} for row in data])
 
             case dict():
-                buffer.append({**data, "step": step})
+                buffer.append({**data, "time": time})
 
         # Flush to disk if buffer is full
         if len(buffer) >= self.buffer_size:

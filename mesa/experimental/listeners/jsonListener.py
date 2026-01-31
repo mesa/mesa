@@ -47,13 +47,15 @@ class JSONListener(BaseCollectorListener):
         """Initialize empty list for dataset."""
         self.data[dataset_name] = []
 
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Store snapshot as dict."""
         match data:
             case np.ndarray():
-                self.data[dataset_name].append({"step": step, "data": data.tolist()})
+                self.data[dataset_name].append({"time": time, "data": data.tolist()})
             case list() | dict():
-                self.data[dataset_name].append({"step": step, "data": data})
+                self.data[dataset_name].append({"time": time, "data": data})
 
     def get_table_dataframe(self, name: str) -> pd.DataFrame:
         """Convert JSON data to DataFrame."""
@@ -64,13 +66,13 @@ class JSONListener(BaseCollectorListener):
         # FIXME Make it smarter
         records = []
         for snapshot in self.data[name]:
-            step = snapshot["step"]
+            time = snapshot["time"]
             data = snapshot["data"]
             if isinstance(data, list) and data and isinstance(data[0], dict):
                 for row in data:
-                    records.append({**row, "step": step})
+                    records.append({**row, "time": time})
             elif isinstance(data, dict):
-                records.append({**data, "step": step})
+                records.append({**data, "time": time})
 
         return pd.DataFrame(records) if records else pd.DataFrame()
 

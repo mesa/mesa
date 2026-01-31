@@ -28,13 +28,13 @@ class SQLListener(BaseCollectorListener):
 
         # Query with SQL
         avg_wealth = listener.query(
-            "SELECT step, AVG(wealth) as avg_wealth FROM wealth GROUP BY step ORDER BY step"
+            "SELECT time, AVG(wealth) as avg_wealth FROM wealth GROUP BY time ORDER BY time"
         )
         print(avg_wealth.head())
 
         # Filter data efficiently
         recent_wealthy = listener.query(
-            "SELECT * FROM wealth WHERE step > 150 AND wealth > 5"
+            "SELECT * FROM wealth WHERE time > 150 AND wealth > 5"
         )
 
         # Or get full DataFrame
@@ -66,19 +66,21 @@ class SQLListener(BaseCollectorListener):
         # We'll create the table on first insert when we know the schema
         self.metadata[dataset_name] = {"table_created": False, "columns": None}
 
-    def _store_dataset_snapshot(self, dataset_name: str, step: int, data: Any) -> None:
+    def _store_dataset_snapshot(
+        self, dataset_name: str, time: int | float, data: Any
+    ) -> None:
         """Store snapshot in SQL table."""
         match data:
             case np.ndarray() if data.size > 0:
-                self._store_numpy_data(dataset_name, step, data)
+                self._store_numpy_data(dataset_name, time, data)
 
             case list() if data:
-                self._store_list_data(dataset_name, step, data)
+                self._store_list_data(dataset_name, time, data)
 
             case dict():
-                self._store_dict_data(dataset_name, step, data)
+                self._store_dict_data(dataset_name, time, data)
 
-    def _store_numpy_data(self, dataset_name: str, step: int, data: np.ndarray):
+    def _store_numpy_data(self, dataset_name: str, time: int | float, data: np.ndarray):
         """Store numpy array as SQL records."""
         # Get column names from dataset
         try:
@@ -91,46 +93,40 @@ class SQLListener(BaseCollectorListener):
         # Create table on first insert
         if not self.metadata[dataset_name]["table_created"]:
             col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
         # Convert to DataFrame and insert
         df = pd.DataFrame(data, columns=columns)
-        df["step"] = step
+        df["time"] = time
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
-    def _store_list_data(self, dataset_name: str, step: int, data: list[dict]):
+    def _store_list_data(self, dataset_name: str, time: int | float, data: list[dict]):
         """Store list of dicts as SQL records."""
         if not self.metadata[dataset_name]["table_created"]:
             # Infer schema from first record
             columns = list(data[0].keys())
             col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
-        # Add step to each record
-        rows = [{**row, "step": step} for row in data]
+        # Add time to each record
+        rows = [{**row, "time": time} for row in data]
         df = pd.DataFrame(rows)
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
-    def _store_dict_data(self, dataset_name: str, step: int, data: dict):
+    def _store_dict_data(self, dataset_name: str, time: int | float, data: dict):
         """Store single dict as SQL record."""
         if not self.metadata[dataset_name]["table_created"]:
             columns = list(data.keys())
             col_defs = ", ".join([f"{col} REAL" for col in columns])
-            self.conn.execute(
-                f'CREATE TABLE "{dataset_name}" (step INTEGER, {col_defs})'
-            )
+            self.conn.execute(f'CREATE TABLE "{dataset_name}" (time REAL, {col_defs})')
             self.metadata[dataset_name]["table_created"] = True
             self.metadata[dataset_name]["columns"] = columns
 
-        row = {**data, "step": step}
+        row = {**data, "time": time}
         df = pd.DataFrame([row])
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
@@ -155,7 +151,7 @@ class SQLListener(BaseCollectorListener):
             Query results as DataFrame
 
         Example:
-            df = listener.query("SELECT AVG(wealth) as avg_wealth FROM wealth GROUP BY step")
+            df = listener.query("SELECT AVG(wealth) as avg_wealth FROM wealth GROUP BY time")
         """
         return pd.read_sql(sql, self.conn)
 
