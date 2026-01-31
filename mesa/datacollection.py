@@ -19,7 +19,8 @@ Additionally, other objects can write directly to tables by passing in an
 appropriate dictionary object for a table row.
 
 The DataCollector then stores the data it collects in dictionaries:
-    * model_vars maps each reporter to a list of its values
+    * model_vars maps each reporter to a list of its values, indexed by the
+      collection steps stored in _collection_steps.
     * tables maps each table to a dictionary, with each column as a key with a
       list as its value.
     * _agent_records maps each model step to a list of each agent's id
@@ -174,11 +175,15 @@ class DataCollector:
         # Type 2: Method of class/instance (bound methods are callable)
         if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
             try:
-                reporter()  # Call without args for bound methods
-            except Exception as e:
-                raise RuntimeError(
-                    f"Method reporter '{name}' failed validation: {e!s}"
-                ) from e
+                reporter(model)
+            except TypeError:
+                try:
+                    reporter()
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Method reporter '{name}' failed validation: {e!s}"
+                    ) from e
+
         # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
         #     pass
 
@@ -361,7 +366,10 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
-            if hasattr(self, "_collection_steps"):
+            if (
+                hasattr(self, "_collection_steps")
+                and self._collection_steps is not None
+            ):
                 self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
@@ -369,7 +377,7 @@ class DataCollector:
 
             for var, reporter in self.model_reporters.items():
                 # Check if lambda or partial function
-                if isinstance(reporter, types.LambdaType | partial):
+                if isinstance(reporter, (types.LambdaType, partial)):
                     # Use deepcopy to store a copy of the data,
                     # preventing references from being updated across steps.
                     self.model_vars[var].append(deepcopy(reporter(model)))
@@ -407,7 +415,7 @@ class DataCollector:
                             if False, throw an error if any columns are missing
         """
         if table_name not in self.tables:
-            raise Exception("Table does not exist.")
+            raise KeyError(f"Table '{table_name}' does not exist.")
 
         for column in self.tables[table_name]:
             if column in row:
@@ -415,21 +423,28 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise Exception("Could not insert row with missing column")
+                raise ValueError(
+                    f"Could not insert row with missing column '{column}' in table '{table_name}'"
+                )
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
 
         The DataFrame has one column for each model variable, and the index is
-        (implicitly) the model tick.
+        the model step at which data was collected.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_model_vars_dataframe"
+            )
+
         # Check if self.model_reporters dictionary is empty, if so raise warning
         if not self.model_reporters:
             raise UserWarning(
                 "No model reporters have been defined in the DataCollector, returning empty DataFrame."
             )
 
-        return pd.DataFrame(self.model_vars)
+        return pd.DataFrame(self.model_vars, index=self._collection_steps)
 
     def get_agent_vars_dataframe(self):
         """Create a pandas DataFrame from the agent variables.
@@ -437,6 +452,11 @@ class DataCollector:
         The DataFrame has one column for each variable, with two additional
         columns for tick and agent_id.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_agent_vars_dataframe"
+            )
+
         # Check if self.agent_reporters dictionary is empty, if so raise warning
         if not self.agent_reporters:
             raise UserWarning(
@@ -462,6 +482,11 @@ class DataCollector:
         Args:
             agent_type: The type of agent to get the data for.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_agenttype_vars_dataframe"
+            )
+
         # Check if self.agenttype_reporters dictionary is empty for this agent type, if so return empty DataFrame
         if agent_type not in self.agenttype_reporters:
             warnings.warn(
@@ -491,6 +516,10 @@ class DataCollector:
         Args:
             table_name: The name of the table to convert.
         """
+        if "pd" not in globals():
+            raise ImportError(
+                "pandas not found. Please install pandas to use DataCollector.get_table_dataframe"
+            )
         if table_name not in self.tables:
-            raise Exception("No such table.")
+            raise KeyError(f"Table '{table_name}' does not exist.")
         return pd.DataFrame(self.tables[table_name])
