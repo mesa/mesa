@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import abc
-from contextlib import suppress
 import operator
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
