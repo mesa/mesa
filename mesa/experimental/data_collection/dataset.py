@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from mesa.agent import Agent, AbstractAgentSet
+from mesa.agent import AbstractAgentSet, Agent
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -111,10 +111,7 @@ class AgentDataSet[A: Agent](BaseDataSet):
             else self.agents.select(**self.select_kwargs)
         )
 
-        return [
-            dict(zip(self._attributes, self._collector(agent)))
-            for agent in agents
-        ]
+        return [dict(zip(self._attributes, self._collector(agent))) for agent in agents]
 
     def close(self):
         """Close the data set."""
@@ -267,9 +264,7 @@ class NumpyAgentDataSet[A: Agent]:
     def _install_properties(self) -> None:
         """Install properties on the agent class for all attributes."""
         for attr in self._attributes:
-            setattr(
-                self.agent_type, attr, property(*self._make_getter_setter(attr))
-            )
+            setattr(self.agent_type, attr, property(*self._make_getter_setter(attr)))
 
     def _expand_storage(self) -> None:
         """Expand the internal array when out of space."""

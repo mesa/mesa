@@ -12,7 +12,6 @@ import numpy as np
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.data_collection import NumpyAgentDataSet
 from mesa.experimental.data_collection.dataset import DataRegistry
 
 
