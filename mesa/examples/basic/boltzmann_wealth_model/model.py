@@ -7,12 +7,10 @@ Agents move randomly on a grid, giving one unit of wealth to a random neighbor
 when they occupy the same cell.
 """
 
-import numpy as np
-
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.data_collection.dataset import DataRegistry
 
 
 class BoltzmannWealth(Model):
@@ -40,16 +38,14 @@ class BoltzmannWealth(Model):
         """
         super().__init__(rng=rng)
 
-        self.data_registry = DataRegistry()
-        self.data_registry.track_model(self, "model_data", "gini")
-        self.agent_wealth = self.data_registry.track_agents_numpy(
-            MoneyAgent, "wealth", "wealth", dtype=float, n=n
-        )
-
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
 
         # Set up data collection
+        self.datacollector = DataCollector(
+            model_reporters={"Gini": self.compute_gini},
+            agent_reporters={"Wealth": "wealth"},
+        )
         MoneyAgent.create_agents(
             self,
             self.num_agents,
@@ -57,31 +53,22 @@ class BoltzmannWealth(Model):
         )
 
         self.running = True
+        self.datacollector.collect(self)
 
     def step(self):
         self.agents.shuffle_do("step")  # Activate all agents in random order
+        self.datacollector.collect(self)  # Collect data
 
-        # mimic data collector by just accessing data fields.
-        a = self.data_registry["wealth"].data
-        b = self.data_registry["model_data"].data
-
-    @property
-    def gini(self):
+    def compute_gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
 
         The Gini coefficient is a measure of inequality in distributions.
         - A Gini of 0 represents complete equality, where all agents have equal wealth.
         - A Gini of 1 represents maximal inequality, where one agent has all wealth.
         """
-        # agent_wealths = [a.wealth for a in self.agents]
-        agent_wealths = self.agent_wealth.data
-        sorted_x = np.sort(agent_wealths)
-        n = len(agent_wealths)
-        cumx = np.cumsum(sorted_x, dtype=float)
-        return (n + 1 - 2 * np.sum(cumx) / cumx[-1]) / n
-
-
-if __name__ == "__main__":
-    model = BoltzmannWealth(125)
-    for _ in range(125):
-        model.step()
+        agent_wealths = [agent.wealth for agent in self.agents]
+        x = sorted(agent_wealths)
+        n = self.num_agents
+        # Calculate using the standard formula for Gini coefficient
+        b = sum(xi * (n - i) for i, xi in enumerate(x)) / (n * sum(x))
+        return 1 + (1 / n) - 2 * b
