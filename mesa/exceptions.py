@@ -22,7 +22,7 @@ class CellFullException(SpaceException):
         super().__init__(f"Cell at coordinate {coordinate} is full.")
 
 
-class AgentMissingException(SpaceException):
+class AgentMissingException(MesaException):
     """Raised when attempting to remove an agent that is not in the cell."""
 
     def __init__(self, agent, coordinate):
