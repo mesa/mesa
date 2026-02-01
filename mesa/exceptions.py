@@ -5,11 +5,11 @@ class MesaException(Exception):  # noqa: N818
     """Base class for all Mesa-specific exceptions."""
 
 
-class DiscreteSpaceException(MesaException):
+class SpaceException(MesaException):
     """Base exception for errors in the discrete_space module."""
 
 
-class CellFullException(DiscreteSpaceException):
+class CellFullException(SpaceException):
     """Raised when attempting to add an agent to a cell with no available capacity."""
 
     def __init__(self, coordinate):
@@ -22,7 +22,7 @@ class CellFullException(DiscreteSpaceException):
         super().__init__(f"Cell at coordinate {coordinate} is full.")
 
 
-class AgentMissingException(DiscreteSpaceException):
+class AgentMissingException(SpaceException):
     """Raised when attempting to remove an agent that is not in the cell."""
 
     def __init__(self, agent, coordinate):
@@ -37,7 +37,7 @@ class AgentMissingException(DiscreteSpaceException):
         super().__init__(f"Agent {agent.unique_id} is not in cell {coordinate}.")
 
 
-class CellMissingException(DiscreteSpaceException):
+class CellMissingException(SpaceException):
     """Raised when attempting to access or remove a cell that does not exist."""
 
     def __init__(self, coordinate):
@@ -50,7 +50,7 @@ class CellMissingException(DiscreteSpaceException):
         super().__init__(f"Cell at coordinate {coordinate} does not exist.")
 
 
-class ConnectionMissingException(DiscreteSpaceException):
+class ConnectionMissingException(SpaceException):
     """Raised when attempting to disconnect a cell that is not connected."""
 
     def __init__(self, cell, other):
