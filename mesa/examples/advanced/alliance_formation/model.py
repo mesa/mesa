@@ -10,6 +10,7 @@ from mesa.experimental.meta_agents.meta_agent import (
     find_combinations,
 )
 
+
 class MultiLevelAllianceModel(mesa.Model):
     """
     Model for simulating multi-level alliances among agents.
