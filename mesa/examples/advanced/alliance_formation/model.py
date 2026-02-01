@@ -3,12 +3,12 @@ import numpy as np
 
 import mesa
 from mesa import Agent
+from mesa.agent import AgentSet
 from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
 from mesa.experimental.meta_agents.meta_agent import (
     create_meta_agent,
     find_combinations,
 )
-
 
 class MultiLevelAllianceModel(mesa.Model):
     """
@@ -62,13 +62,13 @@ class MultiLevelAllianceModel(mesa.Model):
         Returns:
             tuple: Potential utility, new position, and level.
         """
-        agent_list = agents.to_list()
-        agent_0 = agent_list[0]
-        agent_1 = agent_list[1]
+        # agents is now a tuple[Agent, ...]
+        agent_set = AgentSet(agents, random=self.random)
+        agent_0, agent_1 = agent_set.to_list()
 
-        positions = agents.get("position")
+        positions = agent_set.get("position")
         new_position = 1 - (max(positions) - min(positions))
-        potential_utility = agents.agg("power", sum) * 1.2 * new_position
+        potential_utility = agent_set.agg("power", sum) * 1.2 * new_position
 
         value_0 = 0.5 * agent_0.power + 0.5 * (potential_utility - agent_1.power)
         value_1 = 0.5 * agent_1.power + 0.5 * (potential_utility - agent_0.power)
@@ -96,7 +96,8 @@ class MultiLevelAllianceModel(mesa.Model):
         best = {}
         # Determine best option for EACH agent
         for group, value in combinations:
-            agent_ids = sorted(group.get("unique_id"))  # by default is bilateral
+            group_set = AgentSet(group, random=self.random)
+            agent_ids = sorted(group_set.get("unique_id"))  # by default is bilateral
             # Deal with all possibilities
             if (
                 agent_ids[0] not in best and agent_ids[1] not in best
