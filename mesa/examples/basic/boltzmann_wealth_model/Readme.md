@@ -21,11 +21,12 @@ To run the model interactively, in this directory, run the following command
 
 ## How the Model Is Structured
 
-This example follows Mesa’s standard separation of concerns:
+This example follows Mesa's standard separation of concerns:
 
-- Individual agent behavior is defined independently from system-level rules.
-- The model coordinates agent activation, space, and data collection.
-- Visualization code is kept separate so that changing the UI does not affect the simulation logic.
+- `agents.py`: Defines individual agent behavior (WealthAgent with its step method for giving money to other agents)
+- `model.py`: Manages the simulation environment, instantiates agents, handles the grid/space, and collects data
+- `app.py`: Sets up the visualization components to display the model in a web interface
+- `st_app.py`: (Optional) Alternative Streamlit-based visualization
 
 The visualization displays the state of the model but does not influence how agents behave or how the system evolves over time.
 
