@@ -179,6 +179,28 @@ class BaseCollectorListener(ABC):
         if isinstance(self.model, HasObservables):
             # Subscribe to time units observable
             self.model.observe("time", SignalType.CHANGE, self._on_time_change)
+
+            # Check for immediate collection (Initial State / Time 0)
+            current_time = self.model.time
+
+            for name, config in self.configs.items():
+                # Check if we should collect NOW (e.g. start_time=0, current_time=0)
+                if config.should_collect(current_time):
+                    try:
+                        dataset = self.registry.datasets[name]
+                        data_snapshot = dataset.data
+
+                        self._store_dataset_snapshot(name, current_time, data_snapshot)
+
+                        # Important: Advance the next schedule so we don't double-collect
+                        config.update_next_collection(current_time)
+
+                    except Exception as e:
+                        warnings.warn(
+                            f"Initial collection failed: dataset='{name}': {e}",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
         else:
             warnings.warn(
                 "Model does not inherit from HasObservables. "
