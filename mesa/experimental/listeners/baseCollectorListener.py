@@ -97,7 +97,7 @@ class DatasetConfig:
             return False
 
         # After end time
-        if self.end_time is not None and current_time >= self.end_time:
+        if self.end_time is not None and current_time > self.end_time:
             return False
 
         # Not at scheduled time
@@ -112,7 +112,7 @@ class DatasetConfig:
         self._next_collection = current_time + self.interval
 
         # Auto-disable if we've passed end_time
-        if self.end_time is not None and self._next_collection >= self.end_time:
+        if self.end_time is not None and self._next_collection > self.end_time:
             self.enabled = False
 
 
