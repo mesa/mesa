@@ -72,9 +72,3 @@ class BoltzmannWealth(Model):
         # Calculate using the standard formula for Gini coefficient
         b = sum(xi * (n - i) for i, xi in enumerate(x)) / (n * sum(x))
         return 1 + (1 / n) - 2 * b
-
-
-if __name__ == "__main__":
-    model = BoltzmannWealth(1000)
-    for _ in range(100):
-        model.step()
