@@ -209,7 +209,8 @@ def test_find_combinations(setup_agents):
     assert len(combinations) > 0
     for combo in combinations:
         assert combo[1] > 2
-                
+
+
 def test_find_combinations_allows_zero_value(setup_agents):
     """Test that zero-valued evaluation results are preserved."""
     model, agents = setup_agents
