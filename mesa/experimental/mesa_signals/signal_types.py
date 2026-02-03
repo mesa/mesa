@@ -1,4 +1,5 @@
 """Signal types."""
+
 from .signals_util import SignalType
 
 
@@ -33,6 +34,7 @@ class ObservableSignals(SignalType):
     def __str__(self):
         """Return the string value of the signal type."""
         return self.value
+
 
 class ListSignals(SignalType):
     """Enumeration of signal types that observable lists can emit.
@@ -78,8 +80,6 @@ class ListSignals(SignalType):
     APPENDED = "appended"
     REMOVED = "removed"
     REPLACED = "replaced"
-
-
 
 
 class ModelSignals(SignalType):

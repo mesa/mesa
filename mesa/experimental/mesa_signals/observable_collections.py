@@ -25,7 +25,6 @@ __all__ = [
 ]
 
 
-
 class ObservableList(BaseObservable):
     """An ObservableList that emits signals on changes to the underlying list."""
 

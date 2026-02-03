@@ -46,9 +46,6 @@ ObservableName = str | type(ALL) | Iterable[str]
 SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
 
 
-
-
-
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
