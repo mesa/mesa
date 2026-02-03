@@ -31,11 +31,12 @@ from mesa.experimental.mesa_signals.signals_util import (
     create_weakref,
 )
 
+from .signal_types import ObservableSignals
+
 __all__ = [
     "BaseObservable",
     "HasObservables",
     "Observable",
-    "ObservableSignals",
     "computed_property",
     "emit",
 ]
@@ -45,37 +46,7 @@ ObservableName = str | type(ALL) | Iterable[str]
 SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
 
 
-class ObservableSignals(SignalType):
-    """Enumeration of signal types that observables can emit.
 
-    This enum provides type-safe signal type definitions with IDE autocomplete support.
-    Inherits from str for backward compatibility with existing string-based code.
-
-    Attributes:
-        CHANGE: Emitted when an observable's value changes.
-
-    Examples:
-        >>> from mesa.experimental.mesa_signals import Observable, HasObservables, SignalType
-        >>> class MyModel(HasObservables):
-        ...     value = Observable()
-        ...     def __init__(self):
-        ...         super().__init__()
-        ...         self._value = 0
-        >>> model = MyModel()
-        >>> model.observe("value", ObservableSignals.CHANGE, lambda s: print(s.new))
-        >>> model.value = 10
-        10
-
-    Note:
-        String-based signal types are still supported for backward compatibility:
-        >>> model.observe("value", "change", handler)  # Still works
-    """
-
-    CHANGE = "change"
-
-    def __str__(self):
-        """Return the string value of the signal type."""
-        return self.value
 
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
@@ -119,10 +90,10 @@ class BaseObservable:
     def __set__(self, instance: HasObservables, value):  # noqa: D105
         # If no one is listening, Avoid overhead of fetching old value and
         # creating Message object.
-        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGE):
+        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             return
         change_signal = self.signal_types(
-            "change"
+            "changed"
         )  # look up "change" in the descriptor's enum
 
         # this only emits an on change signal, subclasses need to specify
@@ -179,7 +150,7 @@ class ComputedState:
     def _set_dirty(self, signal):
         if not self.is_dirty:
             self.is_dirty = True
-            self.owner.notify(self.name, ObservableSignals.CHANGE, old=self.value)
+            self.owner.notify(self.name, ObservableSignals.CHANGED, old=self.value)
 
     def _add_parent(
         self, parent: HasObservables, name: str, current_value: Any

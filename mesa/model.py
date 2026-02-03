@@ -19,8 +19,8 @@ import numpy as np
 from mesa.experimental.mesa_signals import (
     HasObservables,
     Observable,
-    SignalType,
     emit,
+    ModelSignals
 )
 
 if TYPE_CHECKING:
@@ -38,11 +38,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 _mesa_logger = create_module_logger()
 
 
-class ModelSignals(SignalType):
-    """Signal types for model-level events."""
 
-    AGENT_ADDED = "agent_added"
-    AGENT_REMOVED = "agent_removed"
 
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required

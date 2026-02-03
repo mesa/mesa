@@ -10,14 +10,14 @@ to attributes, computing derived values, and managing collections that emit sign
 when modified.
 """
 
-from .mesa_signal import (
+from .core import (
     HasObservables,
     Observable,
-    ObservableSignals,
     computed_property,
     emit,
 )
-from .observable_collections import ListSignals, ObservableList
+from .observable_collections import ObservableList
+from .signal_types import ListSignals, ModelSignals, ObservableSignals
 from .signals_util import ALL, Message, SignalType
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "HasObservables",
     "ListSignals",
     "Message",
+    "ModelSignals",
     "Observable",
     "ObservableList",
     "ObservableSignals",

@@ -16,62 +16,14 @@ changes in collections of agents, resources, or other model elements.
 from collections.abc import Iterable, MutableSequence
 from typing import Any
 
-from .mesa_signal import BaseObservable, HasObservables, SignalType
+from .core import BaseObservable, HasObservables
+from .signal_types import ListSignals
+from .signals_util import SignalType
 
 __all__ = [
-    "ListSignals",
     "ObservableList",
 ]
 
-
-class ListSignals(SignalType):
-    """Enumeration of signal types that observable lists can emit.
-
-    Provides list-specific signal types with IDE autocomplete and type safety.
-    Inherits from str for backward compatibility with existing string-based code.
-    Includes all list-specific signals (INSERT, APPEND, REMOVE, REPLACE) plus
-    the base CHANGE signal inherited from the observable protocol.
-
-    Note on Design:
-        This enum does NOT extend SignalType because Python Enums cannot be extended
-        once they have members defined. Instead, we include CHANGE as a member here
-        to maintain compatibility. The string inheritance provides value equality:
-        ListSignalType.CHANGE == SignalType.CHANGE == "change" (all True).
-
-    Attributes:
-        CHANGE: Emitted when the list itself is replaced/assigned.
-        INSERT: Emitted when an item is inserted into the list.
-        APPEND: Emitted when an item is appended to the list.
-        REMOVE: Emitted when an item is removed from the list.
-        REPLACE: Emitted when an item is replaced/modified in the list.
-
-    Examples:
-        >>> from mesa.experimental.mesa_signals import ObservableList, HasObservables, ListSignals
-        >>> class MyModel(HasObservables):
-        ...     items = ObservableList()
-        ...     def __init__(self):
-        ...         super().__init__()
-        ...         self.items = []
-        >>> model = MyModel()
-        >>> model.observe("items", ListSignals.INSERT, lambda s: print(f"Inserted {s.new}"))
-        >>> model.items.insert(0, "first")
-        Inserted first
-
-    Note:
-        String-based signal types are still supported for backward compatibility:
-        >>> model.observe("items", "insert", handler)  # Still works
-        Also compatible with SignalType.CHANGE since both equal "change" as strings.
-    """
-
-    SET = "set"
-    INSERT = "insert"
-    APPEND = "append"
-    REMOVE = "remove"
-    REPLACE = "replace"
-
-    def __str__(self):
-        """Return the string value of the signal type."""
-        return self.value
 
 
 class ObservableList(BaseObservable):
@@ -133,7 +85,7 @@ class SignalingList(MutableSequence[Any]):
         old_value = self.data[index]
         self.data[index] = value
         self.owner.notify(
-            self.name, ListSignals.REPLACE, index=index, old=old_value, new=value
+            self.name, ListSignals.REPLACED, index=index, old=old_value, new=value
         )
 
     def __delitem__(self, index: int) -> None:
@@ -145,7 +97,7 @@ class SignalingList(MutableSequence[Any]):
         """
         old_value = self.data[index]
         del self.data[index]
-        self.owner.notify(self.name, ListSignals.REMOVE, index=index, old=old_value)
+        self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
 
     def __getitem__(self, index) -> Any:
         """Get item at index.
@@ -171,7 +123,7 @@ class SignalingList(MutableSequence[Any]):
 
         """
         self.data.insert(index, value)
-        self.owner.notify(self.name, ListSignals.INSERT, index=index, new=value)
+        self.owner.notify(self.name, ListSignals.INSERTED, index=index, new=value)
 
     def append(self, value):
         """Insert value at index.
@@ -182,7 +134,7 @@ class SignalingList(MutableSequence[Any]):
         """
         index = len(self.data)
         self.data.append(value)
-        self.owner.notify(self.name, ListSignals.APPEND, index=index, new=value)
+        self.owner.notify(self.name, ListSignals.APPENDED, index=index, new=value)
 
     def __str__(self):
         return self.data.__str__()
