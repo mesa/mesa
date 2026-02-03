@@ -48,9 +48,7 @@ class Citizen(EpsteinAgent):
             rebellion
     """
 
-    def __init__(
-        self, model, regime_legitimacy, threshold, vision, arrest_prob_constant
-    ):
+    def __init__(self, model):
         """
         Create a new Citizen.
         Args:
@@ -69,13 +67,13 @@ class Citizen(EpsteinAgent):
         super().__init__(model)
         self.hardship = self.random.random()
         self.risk_aversion = self.random.random()
-        self.regime_legitimacy = regime_legitimacy
-        self.threshold = threshold
+        self.regime_legitimacy = model.scenario.legitimacy
+        self.threshold = model.scenario.active_threshold
         self.state = CitizenState.QUIET
-        self.vision = vision
+        self.vision = model.scenario.citizen_vision
         self.jail_sentence = 0
         self.grievance = self.hardship * (1 - self.regime_legitimacy)
-        self.arrest_prob_constant = arrest_prob_constant
+        self.arrest_prob_constant = model.scenario.arrest_prob_constant
         self.arrest_probability = None
 
         self.neighborhood = []
@@ -133,7 +131,7 @@ class Cop(EpsteinAgent):
             able to inspect
     """
 
-    def __init__(self, model, vision, max_jail_term):
+    def __init__(self, model):
         """
         Create a new Cop.
         Args:
@@ -143,8 +141,8 @@ class Cop(EpsteinAgent):
             model: model instance
         """
         super().__init__(model)
-        self.vision = vision
-        self.max_jail_term = max_jail_term
+        self.vision = model.scenario.cop_vision
+        self.max_jail_term = model.scenario.max_jail_term
 
     def step(self):
         """
