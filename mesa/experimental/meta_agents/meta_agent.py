@@ -49,53 +49,47 @@ from mesa.agent import Agent, AgentSet
 def evaluate_combination(
     candidate_group: tuple[Agent, ...],
     model,
-    evaluation_func: Callable[[AgentSet], float] | None,
-) -> tuple[AgentSet, float] | None:
+    evaluation_func: Callable[[tuple[Agent, ...]], float] | None,
+) -> tuple[tuple[Agent, ...], float] | None:
     """Evaluate a combination of agents.
 
     Args:
-        candidate_group (Tuple[Agent, ...]): The group of agents to evaluate.
+        candidate_group: The group of agents to evaluate.
         model: The model instance.
-        evaluation_func (Optional[Callable[[AgentSet], float]]): The function
-        to evaluate the group.
+        evaluation_func: The function to evaluate the group.
 
     Returns:
-        Optional[Tuple[AgentSet, float]]: The evaluated group and its value,
-        or None.
+        Optional: The evaluated group and its value, or None.
     """
-    group_set = AgentSet(candidate_group, random=model.random)
     if evaluation_func:
-        value = evaluation_func(group_set)
-        return group_set, value
+        value = evaluation_func(candidate_group)
+        return candidate_group, value
     return None
 
 
 def find_combinations(
     model,
-    group: AgentSet,
+    group: Iterable,
     size: int | tuple[int, int] = (2, 5),
-    evaluation_func: Callable[[AgentSet], float] | None = None,
-    filter_func: Callable[[list[tuple[AgentSet, float]]], list[tuple[AgentSet, float]]]
+    evaluation_func: Callable[[tuple[Agent, ...]], float] | None = None,
+    filter_func: Callable[
+        [list[tuple[tuple[Agent, ...], float]]], list[tuple[tuple[Agent, ...], float]]
+    ]
     | None = None,
-) -> list[tuple[AgentSet, float]]:
+) -> list[tuple[tuple[Agent, ...], float]]:
     """Find valuable combinations of agents in this set.
 
     Args:
         model: The model instance.
-        group (AgentSet): The set of agents to find combinations in.
-        size (Union[int, Tuple[int, int]], optional): The size or range of
-        sizes for combinations. Defaults to (2, 5).
-        evaluation_func (Optional[Callable[[AgentSet], float]], optional): The
-          function to evaluate combinations. Defaults to None.
-        filter_func (Optional[Callable[[List[Tuple[AgentSet, float]]]): Allows
-          the user to specify how agents are filtered to form groups.
+        group: The set of agents to find combinations in.
+        size: The size or range of sizes for combinations. Defaults to (2, 5).
+        evaluation_func: The function to evaluate combinations. Defaults to None.
+        filter_func: Allows the user to specify how agents are filtered to form groups.
           Defaults to None.
-        List[Tuple[AgentSet, float]]]], optional): The function to filter
-        combinations. Defaults to None.
+        List: The function to filter combinations. Defaults to None.
 
     Returns:
-        List[Tuple[AgentSet, float]]: The list of valuable combinations, in
-        a tuple first agentset of valuable combination  and then the value of
+        List: The list of valuable combinations, in a tuple first agentset of valuable combination  and then the value of
         the combination.
     """
     combinations = []

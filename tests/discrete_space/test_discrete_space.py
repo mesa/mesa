@@ -4,6 +4,7 @@ import copy
 import pickle
 import random
 import re
+import sys
 
 import networkx as nx
 import numpy as np
@@ -611,6 +612,34 @@ def test_cell():
         cell_zero.add_agent(CellAgent(model))
 
 
+def test_cell_deepcopy():
+    """Verify that Cell deepcopy correctly handles circular references via coordinates."""
+    rng = random.Random(42)
+    c1 = Cell(coordinate=(0, 0), random=rng)
+    c2 = Cell(coordinate=(0, 1), random=rng)
+    c1.connect(c2)
+
+    # Perform standalone deepcopy
+    c1_copy = copy.deepcopy(c1)
+
+    # In standalone Cell copy, connections are stored as coordinates (to break recursion)
+    assert c1_copy.connections[(0, 1)] == (0, 1)
+
+    # Now verify it works within a Space (relinking happens)
+    grid = OrthogonalMooreGrid((2, 2), random=rng)
+    grid_copy = copy.deepcopy(grid)
+
+    cell = grid_copy[(0, 0)]
+    # In a grid, the key to a neighbor is the offset.
+    # From (0,0), the cell at (0,1) is at offset (0, 1)
+    neighbor = cell.connections[(0, 1)]
+    assert isinstance(neighbor, Cell)
+    assert neighbor.coordinate == (0, 1)
+
+    # From (0,1), the cell at (0,0) is at offset (0, -1)
+    assert neighbor.connections[(0, -1)] is cell
+
+
 def test_cell_is_full_with_none_capacity():
     """Ensure a cell with unlimited capacity is never considered full regardless of agent count."""
     cell = Cell((0, 0), capacity=None)
@@ -1086,42 +1115,48 @@ def test_patch():  # noqa: D103
         agent.cell = cell2
 
     agent.remove()
-    assert agent not in model._agents
+    assert agent not in model._all_agents
 
 
 def test_copying_discrete_spaces():  # noqa: D103
     # inspired by #2373
     # we use deepcopy but this also applies to pickle
-    grid = OrthogonalMooreGrid((100, 100), random=random.Random(42))
-    grid_copy = copy.deepcopy(grid)
+    # Large grids (100x100 = 10k cells) hit default recursion limit (1000)
+    old_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(5000)
+    try:
+        grid = OrthogonalMooreGrid((100, 100), random=random.Random(42))
+        grid_copy = copy.deepcopy(grid)
 
-    c1 = grid[(5, 5)].connections
-    c2 = grid_copy[(5, 5)].connections
+        c1 = grid[(5, 5)].connections
+        c2 = grid_copy[(5, 5)].connections
 
-    for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
-        for k, v in c1.connections.items():
-            assert v.coordinate == c2.connections[k].coordinate
+        for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
+            for k, v in c1.connections.items():
+                assert v.coordinate == c2.connections[k].coordinate
 
-    n = 10
-    m = 20
-    seed = 42
-    G = nx.gnm_random_graph(n, m, seed=seed)  # noqa: N806
-    grid = Network(G, random=random.Random(42))
-    grid_copy = copy.deepcopy(grid)
+        n = 10
+        m = 20
+        seed = 42
+        G = nx.gnm_random_graph(n, m, seed=seed)  # noqa: N806
+        grid = Network(G, random=random.Random(42))
+        grid_copy = copy.deepcopy(grid)
 
-    for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
-        for k, v in c1.connections.items():
-            assert v.coordinate == c2.connections[k].coordinate
+        for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
+            for k, v in c1.connections.items():
+                assert v.coordinate == c2.connections[k].coordinate
 
-    grid = HexGrid((100, 100), random=random.Random(42))
-    grid_copy = copy.deepcopy(grid)
+        grid = HexGrid((100, 100), random=random.Random(42))
+        grid_copy = copy.deepcopy(grid)
 
-    c1 = grid[(5, 5)].connections
-    c2 = grid_copy[(5, 5)].connections
+        c1 = grid[(5, 5)].connections
+        c2 = grid_copy[(5, 5)].connections
 
-    for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
-        for k, v in c1.connections.items():
-            assert v.coordinate == c2.connections[k].coordinate
+        for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
+            for k, v in c1.connections.items():
+                assert v.coordinate == c2.connections[k].coordinate
+    finally:
+        sys.setrecursionlimit(old_limit)
 
 
 def test_select_random_agent_empty_safe():
