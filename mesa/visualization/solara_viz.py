@@ -550,9 +550,7 @@ def ModelController(
                 # Fallback to signature inspection if _scenario_defaults is missing
                 scenario_defaults = inspect.signature(scenario_class).parameters
 
-            model_init_params = inspect.signature(
-                type(model.value).__init__
-            ).parameters
+            model_init_params = inspect.signature(type(model.value).__init__).parameters
 
             for k, v in model_parameters.value.items():
                 if k in scenario_defaults and k not in model_init_params:
@@ -567,7 +565,9 @@ def ModelController(
                 scenario_kwargs["rng"] = model_parameters.value["seed"]
 
             # Only pass scenario if the model accepts it or has **kwargs
-            has_kwargs = any(p.kind == p.VAR_KEYWORD for p in model_init_params.values())
+            has_kwargs = any(
+                p.kind == p.VAR_KEYWORD for p in model_init_params.values()
+            )
             if "scenario" in model_init_params or has_kwargs:
                 kwargs["scenario"] = scenario_class(**scenario_kwargs)
         else:
@@ -711,9 +711,7 @@ def SimulatorController(
             if not scenario_defaults:
                 scenario_defaults = inspect.signature(scenario_class).parameters
 
-            model_init_params = inspect.signature(
-                type(model.value).__init__
-            ).parameters
+            model_init_params = inspect.signature(type(model.value).__init__).parameters
 
             for k, v in model_parameters.value.items():
                 if k in scenario_defaults and k not in model_init_params:
