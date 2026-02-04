@@ -16,6 +16,7 @@ from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
     SolaraViz,
+    SpaceRendererComponent,
     UserInputs,
     _check_model_params,
 )
@@ -171,6 +172,49 @@ def test_slider():
     assert not slider_int.is_float_slider
     slider_dtype_float = Slider("Homophily", 3, 0, 8, 1, dtype=float)
     assert slider_dtype_float.is_float_slider
+
+
+def test_altair_dependencies_memoized(mocker):
+    """Altair chart should only recompute when dependencies change."""
+    mocker.patch(
+        "mesa.visualization.solara_viz.solara.FigureAltair",
+        autospec=True,
+        return_value=None,
+    )
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+
+    class MockModel(mesa.Model):
+        def __init__(self):
+            super().__init__()
+            self.grid = MultiGrid(10, 10, True)
+            self.grid.place_agent(mesa.Agent(self), (5, 5))
+
+    model = MockModel()
+
+    def agent_portrayal(_):
+        return AgentPortrayalStyle(marker="o", color="gray")
+
+    renderer = SpaceRenderer(model, backend="altair").setup_agents(agent_portrayal).render()
+
+    dep = solara.reactive(0)
+
+    @solara.component
+    def Test():
+        return SpaceRendererComponent(model, renderer, dependencies=[dep.value])
+
+    _, rc = solara.render(Test(), handle_error=False)
+
+    initial_structure_calls = spy_structure.call_count
+    initial_agent_calls = spy_agents.call_count
+
+    rc.render(rc.element, rc.container)
+    assert spy_structure.call_count == initial_structure_calls
+    assert spy_agents.call_count == initial_agent_calls
+
+    dep.set(1)
+    assert spy_structure.call_count == initial_structure_calls + 1
+    assert spy_agents.call_count == initial_agent_calls + 1
 
 
 def test_model_param_checks():
