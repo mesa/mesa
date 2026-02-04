@@ -19,7 +19,6 @@ Key Design Principles:
     3. Observable-based collection
 """
 
-import contextlib
 import copy
 import warnings
 from abc import ABC, abstractmethod
@@ -29,7 +28,7 @@ from typing import Any
 import pandas as pd
 
 from mesa import Model
-from mesa.experimental.mesa_signals import HasObservables, SignalType
+from mesa.experimental.mesa_signals import SignalType
 
 
 @dataclass
@@ -176,39 +175,30 @@ class BaseCollectorListener(ABC):
 
     def _subscribe_to_model(self) -> None:
         """Subscribe to model.time for automatic collection."""
-        if isinstance(self.model, HasObservables):
-            # Subscribe to time units observable
-            self.model.observe("time", SignalType.CHANGE, self._on_time_change)
+        # Subscribe to time units observable
+        self.model.observe("time", SignalType.CHANGE, self._on_time_change)
 
-            # Check for immediate collection (Initial State / Time 0)
-            current_time = self.model.time
+        # Check for immediate collection (Initial State / Time 0)
+        current_time = self.model.time
 
-            for name, config in self.configs.items():
-                # Check if we should collect NOW (e.g. start_time=0, current_time=0)
-                if config.should_collect(current_time):
-                    try:
-                        dataset = self.registry.datasets[name]
-                        data_snapshot = dataset.data
+        for name, config in self.configs.items():
+            # Check if we should collect NOW (e.g. start_time=0, current_time=0)
+            if config.should_collect(current_time):
+                try:
+                    dataset = self.registry.datasets[name]
+                    data_snapshot = dataset.data
 
-                        self._store_dataset_snapshot(name, current_time, data_snapshot)
+                    self._store_dataset_snapshot(name, current_time, data_snapshot)
 
-                        # Important: Advance the next schedule so we don't double-collect
-                        config.update_next_collection(current_time)
+                    # Important: Advance the next schedule so we don't double-collect
+                    config.update_next_collection(current_time)
 
-                    except Exception as e:
-                        warnings.warn(
-                            f"Initial collection failed: dataset='{name}': {e}",
-                            RuntimeWarning,
-                            stacklevel=2,
-                        )
-        else:
-            warnings.warn(
-                "Model does not inherit from HasObservables. "
-                "Auto-collection disabled. "
-                "Call listener.collect() manually or make model inherit HasObservables from mesa_signals. ",
-                UserWarning,
-                stacklevel=2,
-            )
+                except Exception as e:
+                    warnings.warn(
+                        f"Initial collection failed: dataset='{name}': {e}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
@@ -298,8 +288,8 @@ class BaseCollectorListener(ABC):
     def summary(self) -> dict[str, Any]:
         """Get collection status summary."""
 
-    def __del__(self):
-        """Cleanup when listener is destroyed."""
-        if isinstance(self.model, HasObservables):
-            with contextlib.suppress(ValueError, KeyError):
-                self.model.unobserve("time", SignalType.CHANGE, self._on_time_change)
+    # def __del__(self):
+    #     """Cleanup when listener is destroyed."""
+    #     if isinstance(self.model, HasObservables):
+    #         with contextlib.suppress(ValueError, KeyError):
+    #             self.model.unobserve("time", SignalType.CHANGE, self._on_time_change)

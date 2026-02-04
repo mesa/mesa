@@ -27,14 +27,6 @@ from .baseCollectorListener import BaseCollectorListener, DatasetConfig
 if TYPE_CHECKING:
     from mesa.model import Model
 
-# Optional Polars for high-performance output
-try:
-    import polars as pl
-
-    HAS_POLARS = True
-except ImportError:
-    HAS_POLARS = False
-
 
 @dataclass
 class DatasetStorage:
@@ -83,32 +75,35 @@ class CollectorListener(BaseCollectorListener):
         added_bytes = 0
 
         match data:
-            case np.ndarray() if data.size > 0:
-                data_copy = data.copy()
-                storage.blocks.append((time, data_copy))
-                storage.total_rows += len(data_copy)
-                added_bytes = data_copy.nbytes
+            case np.ndarray():
+                if data.size > 0:
+                    data_copy = data.copy()
+                    storage.blocks.append((time, data_copy))
+                    storage.total_rows += len(data_copy)
+                    added_bytes = data_copy.nbytes
 
-                if "type" not in storage.metadata:
-                    storage.metadata["type"] = "numpyagentdataset"
-                    storage.metadata["dtype"] = data.dtype
-                    try:
-                        dataset = self.registry.datasets[dataset_name]
-                        storage.metadata["columns"] = list(dataset._attributes)
-                    except (AttributeError, KeyError):
-                        n_cols = data.shape[1] if data.ndim > 1 else 1
-                        storage.metadata["columns"] = [
-                            f"col_{i}" for i in range(n_cols)
-                        ]
+                    if "type" not in storage.metadata:
+                        storage.metadata["type"] = "numpyagentdataset"
+                        storage.metadata["dtype"] = data.dtype
+                        try:
+                            dataset = self.registry.datasets[dataset_name]
+                        except (AttributeError, KeyError):
+                            n_cols = data.shape[1] if data.ndim > 1 else 1
+                            storage.metadata["columns"] = [
+                                f"col_{i}" for i in range(n_cols)
+                            ]
+                        else:
+                            storage.metadata["columns"] = list(dataset._attributes)
 
-            case list() if data:
-                storage.blocks.append((time, data))
-                storage.total_rows += len(data)
-                added_bytes = len(data) * 100
+            case list():
+                if data:
+                    storage.blocks.append((time, data))
+                    storage.total_rows += len(data)
+                    added_bytes = len(data) * 100
 
-                if "type" not in storage.metadata:
-                    storage.metadata["type"] = "agentdataset"
-                    storage.metadata["columns"] = list(data[0].keys())
+                    if "type" not in storage.metadata:
+                        storage.metadata["type"] = "agentdataset"
+                        storage.metadata["columns"] = list(data[0].keys())
 
             case dict():
                 row = {**data, "time": time}
@@ -119,9 +114,6 @@ class CollectorListener(BaseCollectorListener):
                 if "type" not in storage.metadata:
                     storage.metadata["type"] = "modeldataset"
                     storage.metadata["columns"] = [*list(data.keys()), "time"]
-
-            case np.ndarray() | list():
-                pass  # Empty
 
             case _:
                 storage.blocks.append((time, data))
@@ -215,21 +207,6 @@ class CollectorListener(BaseCollectorListener):
 
     def _convert_agentDataSet(self, storage: DatasetStorage) -> pd.DataFrame:
         """Convert list-of-dicts blocks to DataFrame."""
-        # Use Polars if available for better performance
-        if HAS_POLARS:
-            rows = []
-            for time, block in storage.blocks:
-                for row in block:
-                    rows.append({**row, "time": time})
-
-            if not rows:
-                return pd.DataFrame(
-                    columns=[*storage.metadata.get("columns", []), "time"]
-                )
-
-            return pl.DataFrame(rows).to_pandas()
-
-        # Fallback to pandas
         rows = []
         for time, block in storage.blocks:
             for row in block:
@@ -244,10 +221,6 @@ class CollectorListener(BaseCollectorListener):
         """Convert model dict blocks to DataFrame."""
         if not storage.blocks:
             return pd.DataFrame(columns=storage.metadata.get("columns", []))
-
-        # Model dicts already have 'time' added
-        if HAS_POLARS:
-            return pl.DataFrame(storage.blocks).to_pandas()
 
         return pd.DataFrame(storage.blocks)
 
