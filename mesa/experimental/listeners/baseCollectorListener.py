@@ -20,7 +20,6 @@ Key Design Principles:
 """
 
 import copy
-import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -146,14 +145,6 @@ class BaseCollectorListener(ABC):
         # Override with user config
         if config:
             for name, user_cfg in config.items():
-                if name not in self.configs:
-                    warnings.warn(
-                        f"Config for unknown dataset '{name}' ignored.",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-                    continue
-
                 if isinstance(user_cfg, DatasetConfig):
                     # Copy to ensure unique state
                     self.configs[name] = copy.copy(user_cfg)
@@ -184,21 +175,13 @@ class BaseCollectorListener(ABC):
         for name, config in self.configs.items():
             # Check if we should collect NOW (e.g. start_time=0, current_time=0)
             if config.should_collect(current_time):
-                try:
-                    dataset = self.registry.datasets[name]
-                    data_snapshot = dataset.data
+                dataset = self.registry.datasets[name]
+                data_snapshot = dataset.data
 
-                    self._store_dataset_snapshot(name, current_time, data_snapshot)
+                self._store_dataset_snapshot(name, current_time, data_snapshot)
 
-                    # Important: Advance the next schedule so we don't double-collect
-                    config.update_next_collection(current_time)
-
-                except Exception as e:
-                    warnings.warn(
-                        f"Initial collection failed: dataset='{name}': {e}",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
+                # Important: Advance the next schedule so we don't double-collect
+                config.update_next_collection(current_time)
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
@@ -208,21 +191,13 @@ class BaseCollectorListener(ABC):
             if not config.enabled or current_time < config._next_collection:
                 continue
 
-            try:
-                dataset = self.registry.datasets[name]
-                data_snapshot = dataset.data
+            dataset = self.registry.datasets[name]
+            data_snapshot = dataset.data
 
-                self._store_dataset_snapshot(name, current_time, data_snapshot)
+            self._store_dataset_snapshot(name, current_time, data_snapshot)
 
-                # Update next collection time (may auto-disable)
-                config.update_next_collection(current_time)
-
-            except Exception as e:
-                warnings.warn(
-                    f"Collection failed: dataset='{name}', time={current_time}: {e}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+            # Update next collection time (may auto-disable)
+            config.update_next_collection(current_time)
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -246,19 +221,11 @@ class BaseCollectorListener(ABC):
             if not config.enabled:
                 continue
 
-            try:
-                dataset = self.registry.datasets[name]
-                data_snapshot = dataset.data
-                self._store_dataset_snapshot(name, current_time, data_snapshot)
-                # Note: We do NOT update _next_collection here. Manual collection
-                # is treated as an "extra" snapshot that shouldn't disrupt the
-                # regular interval rhythm.
-            except Exception as e:
-                warnings.warn(
-                    f"Collection failed: dataset='{name}', time={current_time}: {e}",
-                    RuntimeError,
-                    stacklevel=2,
-                )
+            dataset = self.registry.datasets[name]
+            data_snapshot = dataset.data
+            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            # Note: We do NOT update _next_collection here. Manual collection
+            # is treated as an "extra" snapshot that shouldn't disrupt the regular interval
 
     @abstractmethod
     def clear(self, dataset_name: str | None = None) -> None:
