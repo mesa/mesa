@@ -227,9 +227,10 @@ def create_meta_agent(
                 meta_attributes = {}
             for agent in agents:
                 for name, value in agent.__dict__.items():
-                    if (not callable(value) and
-                        name not in mesa_primitives and
-                        not name.startswith("_")
+                    if (
+                        not callable(value)
+                        and name not in mesa_primitives
+                        and not name.startswith("_")
                     ):
                         meta_attributes[name] = value
 
