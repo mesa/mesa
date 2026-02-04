@@ -130,7 +130,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
         agent_type_names[agent.__name__] = agent
 
     if new_agent_class in agent_type_names:
-        return type(agents_by_type[agent_type_names[new_agent_class]].to_list()[0])
+        return type(next(iter(agents_by_type[agent_type_names[new_agent_class]])))
     return None
 
 
