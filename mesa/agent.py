@@ -559,7 +559,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
     def __iter__(self) -> Iterator[A]:
         """Provide an iterator over the agents in the AgentSet."""
-        return self._agents.keys()
+        return iter(list(self._agents.keys()))
 
     def __contains__(self, agent: A) -> bool:
         """Check if an agent is in the AgentSet. Can be used like `agent in agentset`."""
