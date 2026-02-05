@@ -4,6 +4,7 @@ import unittest
 
 import solara
 
+<<<<<<< HEAD
 import mesa
 from mesa.examples.basic.boltzmann_wealth_model.model import (
     BoltzmannScenario,
@@ -14,6 +15,18 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
 )
+=======
+import mesa
+from mesa.examples.basic.boltzmann_wealth_model.model import (
+    BoltzmannScenario,
+    BoltzmannWealth,
+)
+from mesa.experimental.scenarios import Scenario
+from mesa.visualization.solara_viz import (
+    Slider,
+    SolaraViz,
+)
+>>>>>>> 7a46c02b (Add Boltzmann Scenario Support)
 
 
 class MyScenario(Scenario):
@@ -133,6 +146,20 @@ class TestSolaraVizScenarios(unittest.TestCase):
         """Test that resetting the model correctly reconstructs the scenario."""
         # This test would require more complex setup with actual Solara interaction
         # For now, we test the core logic separately in test_parameter_splitting_logic
+
+    def test_boltzmann_scenario_integration(self):
+        """Integration test for Boltzmann Wealth model with scenario params in SolaraViz."""
+        scenario = BoltzmannScenario(n=50, width=10, height=10)
+        model = BoltzmannWealth(scenario=scenario)
+
+        model_params = {
+            "n": Slider("Agents", 60, 10, 100, 1),
+            "width": Slider("Width", 12, 5, 20, 1),
+            "height": Slider("Height", 11, 5, 20, 1),
+            "rng": 42,
+        }
+
+        solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
 
     def test_boltzmann_scenario_integration(self):
         """Integration test for Boltzmann Wealth model with scenario params in SolaraViz."""
