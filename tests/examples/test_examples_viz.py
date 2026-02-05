@@ -2,6 +2,7 @@
 import base64
 
 import playwright.sync_api
+from playwright.sync_api import Error as PlaywrightError
 import pytest
 from IPython.display import display
 
@@ -36,6 +37,20 @@ def run_model_test(
     For more details, see the documentation:
         https://solara.dev/documentation/advanced/howto/testing#testing-widgets-using-solara-server
     """
+    def screenshot_first_image(page, attempts=3, wait_ms=100):
+        """Take a stable screenshot of the first <img> element."""
+        last_error = None
+        for _ in range(attempts):
+            locator = page.locator("img").first
+            try:
+                locator.wait_for(state="visible", timeout=2000)
+                return locator.screenshot()
+            except PlaywrightError as exc:
+                last_error = exc
+                page.wait_for_timeout(wait_ms)
+        if last_error is not None:
+            raise last_error
+
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
@@ -49,12 +64,12 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = screenshot_first_image(page_session)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = screenshot_first_image(page_session)
 
         # Run the model for specified number of steps
         for _ in range(steps):
@@ -72,12 +87,12 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = screenshot_first_image(page_session)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+            changed_graph = screenshot_first_image(page_session)
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
