@@ -46,15 +46,27 @@ def run_model_test(
         if measure_config:
             graph_viz = PlotMatplotlib(model=model, measure=measure_config)
 
+        def take_screenshot(locator, *, retries=3, delay_ms=100):  # pragma: no cover
+            last_error = None
+            for _ in range(retries):
+                try:
+                    return locator.screenshot()
+                except playwright.sync_api.Error as error:
+                    last_error = error
+                    if "Element is not attached to the DOM" not in str(error):
+                        raise
+                    page_session.wait_for_timeout(delay_ms)
+            raise last_error
+
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = take_screenshot(page_session.locator("img"))
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = take_screenshot(page_session.locator("img"))
 
         # Run the model for specified number of steps
         for _ in range(steps):
@@ -72,12 +84,12 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = take_screenshot(page_session.locator("img").first)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+            changed_graph = take_screenshot(page_session.locator("img").last)
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
