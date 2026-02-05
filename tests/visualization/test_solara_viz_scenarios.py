@@ -4,7 +4,6 @@ import unittest
 
 import solara
 
-<<<<<<< HEAD
 import mesa
 from mesa.examples.basic.boltzmann_wealth_model.model import (
     BoltzmannScenario,
@@ -15,18 +14,6 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
 )
-=======
-import mesa
-from mesa.examples.basic.boltzmann_wealth_model.model import (
-    BoltzmannScenario,
-    BoltzmannWealth,
-)
-from mesa.experimental.scenarios import Scenario
-from mesa.visualization.solara_viz import (
-    Slider,
-    SolaraViz,
-)
->>>>>>> 7a46c02b (Add Boltzmann Scenario Support)
 
 
 class MyScenario(Scenario):
@@ -178,3 +165,4 @@ class TestSolaraVizScenarios(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
