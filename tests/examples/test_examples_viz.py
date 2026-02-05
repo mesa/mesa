@@ -24,6 +24,65 @@ from mesa.visualization.components.matplotlib_components import (
 )
 
 
+def _screenshot_first_image(page, attempts=3, wait_ms=100):
+    """Take a stable screenshot of the first <img> element."""
+    last_error = None
+    for _ in range(attempts):
+        locator = page.locator("img").first
+        try:
+            locator.wait_for(state="visible", timeout=2000)
+            return locator.screenshot()
+        except PlaywrightError as exc:
+            last_error = exc
+            page.wait_for_timeout(wait_ms)
+    if last_error is not None:
+        raise last_error
+
+
+def test_screenshot_first_image_retries():
+    """Ensure screenshot retries on Playwright errors."""
+
+    class FakeLocator:
+        def __init__(self, fail_times):
+            self._fail_times = fail_times
+
+        def wait_for(self, state=None, timeout=None):
+            return None
+
+        def screenshot(self):
+            if self._fail_times > 0:
+                self._fail_times -= 1
+                raise PlaywrightError("Element is not attached to the DOM")
+            return b"ok"
+
+    class FakePage:
+        def __init__(self, fail_times):
+            self._locator = FakeLocator(fail_times)
+            self.waits = 0
+
+        def locator(self, _selector):
+            return self
+
+        @property
+        def first(self):
+            return self._locator
+
+        def wait_for_timeout(self, _ms):
+            self.waits += 1
+
+    page = FakePage(fail_times=2)
+    assert _screenshot_first_image(page, attempts=3, wait_ms=0) == b"ok"
+    assert page.waits == 2
+
+    page = FakePage(fail_times=3)
+    try:
+        _screenshot_first_image(page, attempts=2, wait_ms=0)
+    except PlaywrightError:
+        pass
+    else:
+        raise AssertionError("Expected PlaywrightError for exhausted retries")
+
+
 def run_model_test(
     model,
     agent_portrayal,
@@ -37,21 +96,6 @@ def run_model_test(
     For more details, see the documentation:
         https://solara.dev/documentation/advanced/howto/testing#testing-widgets-using-solara-server
     """
-
-    def screenshot_first_image(page, attempts=3, wait_ms=100):
-        """Take a stable screenshot of the first <img> element."""
-        last_error = None
-        for _ in range(attempts):
-            locator = page.locator("img").first
-            try:
-                locator.wait_for(state="visible", timeout=2000)
-                return locator.screenshot()
-            except PlaywrightError as exc:
-                last_error = exc
-                page.wait_for_timeout(wait_ms)
-        if last_error is not None:
-            raise last_error
-
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
@@ -65,12 +109,12 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = screenshot_first_image(page_session)
+        initial_space = _screenshot_first_image(page_session)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = screenshot_first_image(page_session)
+            initial_graph = _screenshot_first_image(page_session)
 
         # Run the model for specified number of steps
         for _ in range(steps):
@@ -88,12 +132,12 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = screenshot_first_image(page_session)
+        changed_space = _screenshot_first_image(page_session)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = screenshot_first_image(page_session)
+            changed_graph = _screenshot_first_image(page_session)
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
