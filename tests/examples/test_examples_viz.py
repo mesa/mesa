@@ -2,7 +2,6 @@
 import base64
 
 import playwright.sync_api
-from playwright.sync_api import Error as PlaywrightError
 import pytest
 from IPython.display import display
 from playwright.sync_api import Error as PlaywrightError
@@ -38,6 +37,7 @@ def run_model_test(
     For more details, see the documentation:
         https://solara.dev/documentation/advanced/howto/testing#testing-widgets-using-solara-server
     """
+
     def screenshot_first_image(page, attempts=3, wait_ms=100):
         """Take a stable screenshot of the first <img> element."""
         last_error = None
