@@ -558,11 +558,7 @@ def ModelController(
                 else:
                     kwargs[k] = v
 
-            # Handle seeding continuity and ensure scenario instantiation
-            if "rng" in model_parameters.value:
-                scenario_kwargs["rng"] = model_parameters.value["rng"]
-            elif "seed" in model_parameters.value:
-                scenario_kwargs["rng"] = model_parameters.value["seed"]
+            # Scenario controls rng; do not override from model params here.
 
             # Only pass scenario if the model accepts it or has **kwargs
             has_kwargs = any(

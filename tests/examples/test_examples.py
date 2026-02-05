@@ -35,23 +35,16 @@ def test_boltzmann_model():  # noqa: D103
 
 
 def test_boltzmann_model_init_variants():  # noqa: D103
-    model = BoltzmannWealth(5, 4, 3, rng=123)
-    assert model.num_agents == 5
-    assert model.grid.width == 4
-    assert model.grid.height == 3
+    model = BoltzmannWealth(rng=123)
+    assert model.num_agents == 100
+    assert model.grid.width == 10
+    assert model.grid.height == 10
 
     scenario = BoltzmannScenario(n=7, width=8, height=9)
-    model = BoltzmannWealth(scenario=scenario, n=10, width=11, height=12)
-    assert model.num_agents == 10
-    assert model.grid.width == 11
-    assert model.grid.height == 12
-
-    try:
-        BoltzmannWealth(1, 2, 3, 4)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError for too many positional args")
+    model = BoltzmannWealth(scenario=scenario)
+    assert model.num_agents == 7
+    assert model.grid.width == 8
+    assert model.grid.height == 9
 
 
 def test_conways_game_model():  # noqa: D103

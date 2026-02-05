@@ -36,37 +36,17 @@ class BoltzmannWealth(Model):
         datacollector (DataCollector): Collects and stores model data
     """
 
-    def __init__(self, *args, scenario=None, **kwargs):
+    def __init__(self, scenario=None, rng=None):
         """Initialize the model.
 
         Args:
+            rng (int, optional): Random rng. Defaults to None.
             scenario: BoltzmannScenario object containing model parameters.
         """
-        if args:
-            if len(args) > 3:
-                raise ValueError("Expected at most 3 positional args: n, width, height")
-            arg_keys = ("n", "width", "height")
-            for key, value in zip(arg_keys, args):
-                kwargs.setdefault(key, value)
-
         if scenario is None:
-            rng = kwargs.get("rng", kwargs.get("seed"))
-            scenario_kwargs = {
-                key: kwargs.pop(key)
-                for key in ("n", "width", "height")
-                if key in kwargs
-            }
-            scenario = BoltzmannScenario(rng=rng, **scenario_kwargs)
-        else:
-            scenario_kwargs = {
-                key: kwargs.pop(key)
-                for key in ("n", "width", "height")
-                if key in kwargs
-            }
-            for key, value in scenario_kwargs.items():
-                setattr(scenario, key, value)
+            scenario = BoltzmannScenario(rng=rng)
 
-        super().__init__(scenario=scenario, **kwargs)
+        super().__init__(scenario=scenario, rng=rng)
 
         self.num_agents = scenario.n
         self.grid = OrthogonalMooreGrid(
