@@ -292,6 +292,7 @@ def SpaceRendererComponent(
         )
         return None
     else:
+
         def build_chart():
             structure = renderer.space_mesh if renderer.space_mesh else None
             agents = renderer.agent_mesh if renderer.agent_mesh else None

@@ -195,7 +195,9 @@ def test_altair_dependencies_memoized(mocker):
     def agent_portrayal(_):
         return AgentPortrayalStyle(marker="o", color="gray")
 
-    renderer = SpaceRenderer(model, backend="altair").setup_agents(agent_portrayal).render()
+    renderer = (
+        SpaceRenderer(model, backend="altair").setup_agents(agent_portrayal).render()
+    )
 
     dep = solara.reactive(0)
 
