@@ -103,9 +103,9 @@ def find_combinations(
             candidate_group, model, evaluation_func
         )
         if evaluation_result is not None:
-            group_set, result = evaluation_result
-            if result:
-                combinations.append((group_set, result))
+            evaluated_group, result = evaluation_result
+            if result is not None:
+                combinations.append((evaluated_group, result))
 
     if len(combinations) > 0 and filter_func:
         filtered_combinations = filter_func(combinations)
@@ -130,7 +130,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
         agent_type_names[agent.__name__] = agent
 
     if new_agent_class in agent_type_names:
-        return type(agents_by_type[agent_type_names[new_agent_class]][0])
+        return type(next(iter(agents_by_type[agent_type_names[new_agent_class]])))
     return None
 
 
