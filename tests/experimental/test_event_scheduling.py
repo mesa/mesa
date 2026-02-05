@@ -545,6 +545,7 @@ class TestEventSchedulingPerformance:
         event_list = EventList()
         fn = MagicMock()
 
+        random.seed(42)
         times = [random.random() * 100 for _ in range(1000)]
 
         for event_time in times:
