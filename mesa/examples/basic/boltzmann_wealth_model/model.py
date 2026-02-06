@@ -20,7 +20,6 @@ class BoltzmannScenario(Scenario):
     n: int = 100
     width: int = 10
     height: int = 10
-    rng: SeedLike | None = None
 
 
 class BoltzmannWealth(Model):
@@ -41,7 +40,6 @@ class BoltzmannWealth(Model):
         """Initialize the model.
 
         Args:
-            rng (int, optional): Random rng. Defaults to None.
             scenario: BoltzmannScenario object containing model parameters.
         """
         if scenario is None:

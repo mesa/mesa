@@ -22,11 +22,6 @@ def agent_portrayal(agent):
 
 
 model_params = {
-    "rng": {
-        "type": "InputText",
-        "value": 42,
-        "label": "Random Seed",
-    },
     "n": {
         "type": "SliderInt",
         "value": 50,
@@ -37,6 +32,11 @@ model_params = {
     },
     "width": 10,
     "height": 10,
+    "rng": {
+        "type": "InputText",
+        "value": 42,
+        "label": "Random Seed",
+    },
 }
 
 

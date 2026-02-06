@@ -22,7 +22,7 @@ def test_boltzmann_model():  # noqa: D103
 
     app.page  # noqa: B018
 
-    model = BoltzmannWealth(rng=42)
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
     ref = weakref.ref(model)
 
     for _i in range(10):
@@ -35,7 +35,12 @@ def test_boltzmann_model():  # noqa: D103
 
 
 def test_boltzmann_model_init_variants():  # noqa: D103
-    model = BoltzmannWealth(rng=123)
+    model = BoltzmannWealth()
+    assert model.num_agents == 100
+    assert model.grid.width == 10
+    assert model.grid.height == 10
+
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=123))
     assert model.num_agents == 100
     assert model.grid.width == 10
     assert model.grid.height == 10
