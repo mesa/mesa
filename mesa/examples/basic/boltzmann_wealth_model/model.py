@@ -45,9 +45,9 @@ class BoltzmannWealth(Model):
             scenario: BoltzmannScenario object containing model parameters.
         """
         if scenario is None:
-            scenario = BoltzmannScenario(rng=rng)
+            scenario = BoltzmannScenario()
 
-        super().__init__(scenario=scenario, rng=rng)
+        super().__init__(scenario=scenario)
 
         self.num_agents = scenario.n
         self.grid = OrthogonalMooreGrid(

@@ -20,7 +20,7 @@ num_ticks = st.slider(
 height = st.slider("Select Grid Height", min_value=10, max_value=100, step=10, value=15)
 width = st.slider("Select Grid Width", min_value=10, max_value=100, step=10, value=20)
 model = BoltzmannWealth(
-    scenario=BoltzmannScenario(n=num_agents, width=width, height=height)
+    scenario=BoltzmannScenario(n=num_agents, width=width, height=height, rng=42)
 )
 
 
