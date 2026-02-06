@@ -476,7 +476,7 @@ class DataRegistry:
         return name in self.datasets
 
     def get(self, name: str) -> DataSet:
-        """Get a dataset by name
+        """Get a dataset by name.
 
         raises KeyError if not found.
 
