@@ -17,6 +17,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from mesa.experimental.data_collection.dataset import DataRegistry
+from mesa.experimental.mesa_signals import (
+    HasObservables,
+    ModelSignals,
+    Observable,
+    emit,
+)
 
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
@@ -34,7 +40,7 @@ _mesa_logger = create_module_logger()
 
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required
-class Model[A: Agent, S: Scenario]:
+class Model[A: Agent, S: Scenario](HasObservables):
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
@@ -60,6 +66,11 @@ class Model[A: Agent, S: Scenario]:
         composition of this AgentSet, ensure you operate on a copy.
 
     """
+
+    # fixme how can we declare that "agents" is observable?
+    time = (
+        Observable()
+    )  # we can now just subscribe to change events on the observable time
 
     @property
     def scenario(self) -> S:
@@ -277,6 +288,7 @@ class Model[A: Agent, S: Scenario]:
         """
         return self._agents_by_type
 
+    @emit("agents", ModelSignals.AGENT_ADDED)
     def register_agent(self, agent: A):
         """Register the agent with the model.
 
@@ -307,6 +319,7 @@ class Model[A: Agent, S: Scenario]:
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
+    @emit("agents", ModelSignals.AGENT_REMOVED)
     def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
 
