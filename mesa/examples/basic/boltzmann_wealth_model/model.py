@@ -20,7 +20,7 @@ class BoltzmannScenario(Scenario):
     n: int = 100
     width: int = 10
     height: int = 10
-    rng: SeedLike|None = None
+    rng: SeedLike | None = None
 
 
 class BoltzmannWealth(Model):
