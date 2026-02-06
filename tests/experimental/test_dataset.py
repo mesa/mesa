@@ -60,7 +60,6 @@ def test_data_registry_track():
             self.wealth = value
 
     class MyModel(Model):
-
         @property
         def summed_wealth(self):
             return self.agents.agg("wealth", sum)

@@ -180,8 +180,6 @@ class TableDataSet:
             raise ValueError(f"Row contains unexpected fields: {row.keys()}")
         self.rows.append(row_to_add)
 
-
-
     @property
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the table."""
