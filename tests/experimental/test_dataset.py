@@ -1,0 +1,353 @@
+"""Tests for experimental datasets."""
+
+import numpy as np
+import pytest
+
+from mesa import Agent, Model
+from mesa.experimental.data_collection import (
+    AgentDataSet,
+    DataRegistry,
+    NumpyAgentDataSet,
+    TableDataSet,
+)
+
+
+def test_data_registry():
+    """Test DataRegistry."""
+    registry = DataRegistry()
+    dataset = TableDataSet("test", "field")
+
+    registry.add_dataset(dataset)
+
+    assert "test" in registry
+    assert "nonexistent" not in registry
+    assert registry["test"] is dataset
+    assert registry.get("test") is dataset
+    with pytest.raises(KeyError):
+        registry.get("nonexistent")
+
+
+def test_data_registry_create_dataset():
+    """Test DataRegistry.create_dataset."""
+    registry = DataRegistry()
+    dataset = registry.create_dataset(TableDataSet, "table", ["a", "b"])
+
+    assert "table" in registry
+    assert registry["table"] is dataset
+    assert dataset.fields == ["a", "b"]
+
+
+def test_data_registry_iteration():
+    """Test DataRegistry __iter__."""
+    registry = DataRegistry()
+    ds1 = TableDataSet("a", "f1")
+    ds2 = TableDataSet("b", "f2")
+    registry.add_dataset(ds1)
+    registry.add_dataset(ds2)
+
+    datasets = list(registry)
+    assert len(datasets) == 2
+    assert ds1 in datasets
+    assert ds2 in datasets
+
+
+def test_data_registry_track():
+    """Test DataRegistry.track_agents convenience method."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.wealth = value
+
+    class MyModel(Model):
+
+        @property
+        def summed_wealth(self):
+            return self.agents.agg("wealth", sum)
+
+        def __init__(self, rng=42):
+            super().__init__(rng=rng)
+            MyAgent.create_agents(
+                self,
+                10,
+                self.rng.random(
+                    10,
+                )
+                * 100,
+            )
+
+    model = MyModel()
+    registry = DataRegistry()
+    agent_dataset = registry.track_agents(model.agents, "agent_data", "wealth")
+    model_dataset = registry.track_model(model, "model_data", "summed_wealth")
+
+    assert "agent_data" in registry
+    assert "model_data" in registry
+
+    assert len(agent_dataset.data) == 10
+    assert len(model_dataset.data) == 1
+
+
+def test_data_registry_close_all():
+    """Test DataRegistry.close() closes all datasets."""
+    registry = DataRegistry()
+    ds1 = TableDataSet("a", "f1")
+    ds2 = TableDataSet("b", "f2")
+    registry.add_dataset(ds1)
+    registry.add_dataset(ds2)
+
+    registry.close()
+
+    assert ds1.rows is None
+    assert ds2.rows is None
+
+
+def test_agent_dataset():
+    """Test AgentDataSet."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.test = value
+
+    class MyModel(Model):
+        def __init__(self, rng=42, n=100):
+            super().__init__(rng=rng)
+
+            MyAgent.create_agents(
+                self,
+                n,
+                self.rng.random(
+                    size=n,
+                ),
+            )
+
+    n = 100
+    model = MyModel(n=n)
+    dataset = AgentDataSet("test", model.agents, "test")
+
+    values = dataset.data
+    assert len(values) == n
+
+    single_field = values[0]
+    assert "unique_id" in single_field
+    assert "test" in single_field
+
+    dataset.close()
+    assert dataset._closed
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
+    dataset.close()
+
+
+def test_numpy_agent_dataset():
+    """Test NumpyAgentDataSet."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.test = value
+
+    class MyModel(Model):
+        def __init__(self, rng=42, n=100):
+            super().__init__(rng=rng)
+
+            self.dataset = NumpyAgentDataSet("test", MyAgent, "test", dtype=float)
+            self.data_registry.add_dataset(self.dataset)
+            MyAgent.create_agents(
+                self,
+                n,
+                self.rng.random(
+                    size=n,
+                ),
+            )
+
+    n = 150
+    model = MyModel(n=n)
+    agents = model.agents.to_list()
+    dataset = model.dataset
+
+    values = dataset.data
+    assert values.shape == (n, 1)
+    assert values[0, 0] == model.agents.to_list()[0].test
+
+    active = dataset.active_agents
+    assert len(active) == len(agents)
+    assert set(active) == set(agents)
+
+    dataset.close()
+    assert dataset._closed
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
+    dataset.close()
+
+    with pytest.raises(ValueError, match="At least one attribute"):
+        NumpyAgentDataSet("test", MyAgent)
+
+
+def test_numpy_agent_dataset_remove_agent():
+    """Test NumpyAgentDataSet.remove_agent with swap-with-last semantics."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.value = value
+
+    class MyModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", dtype=float)
+            self.data_registry.add_dataset(self.dataset)
+
+            MyAgent.create_agents(self, 5, [0.0, 1.0, 2.0, 3.0, 4.0])
+
+    model = MyModel()
+    dataset = model.dataset
+    agents = model.agents.to_list()
+
+    assert len(dataset) == 5
+
+    # Remove agent at index 1 (value=1.0)
+    # The last agent (value=4.0) should be swapped into its position
+    agent_to_remove = agents[1]
+    last_agent = agents[4]
+
+    dataset.remove_agent(agent_to_remove)
+
+    assert len(dataset) == 4
+    # The last agent should now be at index 1
+    assert dataset.data[1, 0] == 4.0
+    # Verify the agent's internal index was updated
+    assert last_agent.__dict__[dataset._index_in_table] == 1
+
+    model = MyModel()
+    dataset = model.dataset
+    agents = model.agents.to_list()
+
+    # Remove the last agent
+    dataset.remove_agent(agents[4])
+
+    assert len(dataset) == 4
+    assert dataset.data[0, 0] == 0.0
+    assert dataset.data[1, 0] == 1.0
+
+
+def test_numpy_agent_dataset_expand_storage():
+    """Test NumpyAgentDataSet auto-expansion when exceeding initial capacity."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.value = value
+
+    class MyModel(Model):
+        def __init__(self):
+            super().__init__()
+            # Start with small capacity
+            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", n=5, dtype=float)
+            self.data_registry.add_dataset(self.dataset)
+            # Add more agents than initial capacity
+            for i in range(20):
+                MyAgent(self, value=float(i))
+
+    model = MyModel()
+    dataset = model.dataset
+
+    assert len(dataset) == 20
+    assert dataset._agent_data.shape[0] >= 20
+    # Verify all data is correct after expansion
+    for i in range(20):
+        assert dataset.data[i, 0] == float(i)
+
+
+def test_numpy_agent_dataset_property_cleanup_on_close():
+    """Test that properties are removed from agent class on close."""
+
+    class MyAgent(Agent):
+        pass
+
+    class MyModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", dtype=float)
+            self.data_registry.add_dataset(self.dataset)
+
+    model = MyModel()
+
+    # Property should exist
+    assert hasattr(MyAgent, "value")
+    assert isinstance(getattr(MyAgent.__class__, "value", None), property) or hasattr(
+        MyAgent, "value"
+    )
+
+    model.dataset.close()
+
+    # Property should be removed
+    assert not hasattr(MyAgent, "value")
+
+
+def test_model_dataset():
+    """Test ModelDataSet."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.test = value
+
+    class MyModel(Model):
+        @property
+        def mean_value(self):
+            data = self.agents.get("test")
+            return np.mean(data)
+
+        def __init__(self, rng=42, n=100):
+            super().__init__(rng=rng)
+            self.data_registry.track_model(
+                self,
+                "model_data",
+                "mean_value",
+            )
+            MyAgent.create_agents(
+                self,
+                n,
+                self.rng.random(
+                    size=n,
+                ),
+            )
+
+    model = MyModel(n=100)
+    data = model.data_registry["model_data"].data
+
+    assert len(data) == 1
+
+    model.data_registry.close()
+    assert model.data_registry["model_data"]._closed
+    with pytest.raises(RuntimeError):
+        _ = model.data_registry["model_data"].data
+
+
+def test_table_dataset():
+    """Test TableDataSet."""
+    dataset = TableDataSet("test", "test")
+    assert dataset.fields == ["test"]
+
+    dataset = TableDataSet("test", ["a", "b", "c"])
+    assert dataset.fields == ["a", "b", "c"]
+
+    dataset.add_row({"a": 1, "b": 2, "c": 99})
+    dataset.add_row({"a": 3, "b": 4, "c": 5})
+
+    with pytest.raises(ValueError):
+        dataset.add_row({"a": 3, "b": 4, "c": 5, "extra": "value"})
+
+    assert len(dataset.data) == 2
+    assert dataset.data[0] == {"a": 1, "b": 2, "c": 99}
+    assert dataset.data[1] == {"a": 3, "b": 4, "c": 5}
+
+    dataset.close()
+
+    with pytest.raises(RuntimeError, match="has been closed"):
+        dataset.add_row({"field": 2})
+
+    with pytest.raises(RuntimeError, match="has been closed"):
+        _ = dataset.data

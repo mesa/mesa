@@ -174,7 +174,13 @@ class TableDataSet:
         """Add a row to the table."""
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
-        self.rows.append({k: row[k] for k in self.fields})
+
+        row_to_add = {k: row.pop(k) for k in self.fields}
+        if len(row) > 0:
+            raise ValueError(f"Row contains unexpected fields: {row.keys()}")
+        self.rows.append(row_to_add)
+
+
 
     @property
     def data(self) -> list[dict[str, Any]]:
@@ -471,9 +477,13 @@ class DataRegistry:
         """Check if a dataset exists."""
         return name in self.datasets
 
-    def get(self, name: str, default: DataSet | None = None) -> DataSet | None:
-        """Get a dataset by name, or default if not found."""
-        return self.datasets.get(name, default)
+    def get(self, name: str) -> DataSet:
+        """Get a dataset by name
+
+        raises KeyError if not found.
+
+        """
+        return self.datasets[name]
 
     def __iter__(self):
         """Iterate over datasets."""
