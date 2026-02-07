@@ -27,7 +27,7 @@ from typing import Any
 import pandas as pd
 
 from mesa import Model
-from mesa.experimental.mesa_signals import SignalType
+from mesa.experimental.mesa_signals import ObservableSignals
 
 
 @dataclass
@@ -167,7 +167,7 @@ class BaseCollectorListener(ABC):
     def _subscribe_to_model(self) -> None:
         """Subscribe to model.time for automatic collection."""
         # Subscribe to time units observable
-        self.model.observe("time", SignalType.CHANGE, self._on_time_change)
+        self.model.observe("time", ObservableSignals.CHANGED, self._on_time_change)
 
         # Check for immediate collection (Initial State / Time 0)
         current_time = self.model.time
@@ -185,7 +185,7 @@ class BaseCollectorListener(ABC):
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
-        current_time = signal.new
+        current_time = signal.additional_kwargs.get("new")
 
         for name, config in self.configs.items():
             if not config.enabled or current_time < config._next_collection:
@@ -259,4 +259,4 @@ class BaseCollectorListener(ABC):
     #     """Cleanup when listener is destroyed."""
     #     if isinstance(self.model, HasObservables):
     #         with contextlib.suppress(ValueError, KeyError):
-    #             self.model.unobserve("time", SignalType.CHANGE, self._on_time_change)
+    #             self.model.unobserve("time", ObservableSignals.CHANGE, self._on_time_change)

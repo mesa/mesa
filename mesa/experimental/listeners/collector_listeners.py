@@ -14,6 +14,7 @@ Architecture:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import pathlib
@@ -512,12 +513,10 @@ class ParquetListener(BaseCollectorListener):
 
     def __del__(self):
         """Flush all buffers on cleanup."""
-        try:
+        with contextlib.suppress(RuntimeError, ImportError, NameError):
             for name in self.buffers:
                 self._flush_buffer(name)
-        except (RuntimeError, ImportError, NameError):
-            pass
-        super().__del__()
+        # super().__del__()
 
 
 class SQLListener(BaseCollectorListener):
@@ -662,6 +661,6 @@ class SQLListener(BaseCollectorListener):
 
     def __del__(self):
         """Close database connection on cleanup."""
-        super().__del__()
+        # super().__del__()
         if hasattr(self, "conn"):
             self.conn.close()
