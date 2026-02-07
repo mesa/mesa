@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 from mesa.agent import Agent, _HardKeyAgentSet
 from mesa.experimental.devs import Simulator
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
-from mesa.experimental.mesa_signals import HasObservables, Observable
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
