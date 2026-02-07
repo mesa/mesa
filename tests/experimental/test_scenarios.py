@@ -56,9 +56,9 @@ def test_scenario():
     model = Model(scenario=scenario)
     # Should work without error
     assert model.rng is not None
-    assert (
-        model.rng is gen
-    )  # fixme we might want to spawn a generator (in essence a copy)
+    # This ensures isolation and that operations on model.rng don't affect the original generator
+    assert model.rng is not gen
+    assert isinstance(model.rng, np.random.Generator)
 
 
 def test_scenario_serialization():
