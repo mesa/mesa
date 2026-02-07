@@ -446,12 +446,11 @@ class DataRegistry:
         self,
         agents: AbstractAgentSet,
         name: str,
-        *args,
-        select_kwargs: dict | None = None,
+        *args: str,
     ):
         """Track the specified fields for the agents in the AgentSet."""
         return self.create_dataset(
-            AgentDataSet, name, agents, *args, select_kwargs=select_kwargs
+            AgentDataSet, name, agents, *args
         )
 
     def track_model(self, model: Model, name: str, *args):
