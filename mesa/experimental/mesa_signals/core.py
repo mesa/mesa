@@ -92,7 +92,7 @@ class BaseObservable:
             return
         change_signal = self.signal_types(
             "changed"
-        )  # look up "change" in the descriptor's enum
+        )  # look up "changed" in the descriptor's enum
 
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
