@@ -26,7 +26,10 @@ __all__ = [
 
 @runtime_checkable
 class DataSet(Protocol):
-    """Protocol for all data collection classes."""
+    """Protocol for all data collection classes.
+
+    All datasets raise RuntimeError if accessed after being closed.
+    """
 
     name: str
 
@@ -49,8 +52,8 @@ class BaseDataSet(abc.ABC):
 
     """
 
-    def __init__(self, name, *args):
-        """Init."""
+    def __init__(self, name, *args: str):
+        """Initialize a base data set."""
         self.name = name
         self._attributes = args
         self._collector = operator.attrgetter(*self._attributes)
@@ -59,7 +62,7 @@ class BaseDataSet(abc.ABC):
     @property
     @abc.abstractmethod
     def data(self):
-        """Return the data of the table."""
+        """Return the data of the dataset."""
         ...
 
     def _check_closed(self):
@@ -82,10 +85,6 @@ class AgentDataSet[A: Agent](BaseDataSet):
         name: the name of the data set
         agents: the agents to collect data from
         args: fields to collect
-        select_kwargs : dict of valid keyword arguments for agentset.select
-                        is passed, the agentset will be filtered before gathering
-                        the data
-
 
     """
 
@@ -93,26 +92,19 @@ class AgentDataSet[A: Agent](BaseDataSet):
         self,
         name: str,
         agents: AbstractAgentSet[A],
-        *args,
-        select_kwargs: dict | None = None,
+        *args: str,
     ):
-        """Init."""
+        """Init. of AgentDataSet."""
         super().__init__(name, "unique_id", *args)
         self.agents = agents
-        self.select_kwargs = select_kwargs
 
     @property
     def data(self) -> list[dict[str, Any]]:
-        """Return the data of the table."""
+        """Return the data of the dataset."""
         self._check_closed()
-
-        agents = (
-            self.agents
-            if self.select_kwargs is None
-            else self.agents.select(**self.select_kwargs)
-        )
-
-        return [dict(zip(self._attributes, self._collector(agent))) for agent in agents]
+        return [
+            dict(zip(self._attributes, self._collector(agent))) for agent in self.agents
+        ]
 
     def close(self):
         """Close the data set."""
@@ -130,14 +122,14 @@ class ModelDataSet[M: Model](BaseDataSet):
 
     """
 
-    def __init__(self, name, model: M, *args):
-        """Init."""
+    def __init__(self, name, model: M, *args: str):
+        """Init of ModelDataSet."""
         super().__init__(name, *args)
         self.model = model
 
     @property
     def data(self) -> dict[str, Any]:
-        """Return the data of the table."""
+        """Return the data of the dataset."""
         self._check_closed()
         values = self._collector(self.model)
         if len(self._attributes) == 1:
@@ -171,18 +163,31 @@ class TableDataSet:
         self.rows = []
 
     def add_row(self, row: dict[str, Any]):
-        """Add a row to the table."""
+        """Add a row to the table.
+
+        Args:
+            row: the row to add
+
+        Raises:
+            RuntimeError: if the dataset has been closed
+            ValueError: if the row is missing required fields or contains unexpected fields
+
+        """
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
 
-        row_to_add = {k: row.pop(k) for k in self.fields}
+        try:
+            row_to_add = {k: row.pop(k) for k in self.fields}
+        except KeyError as e:
+            raise ValueError("row is missing fields") from e
+
         if len(row) > 0:
             raise ValueError(f"Row contains unexpected fields: {row.keys()}")
         self.rows.append(row_to_add)
 
     @property
     def data(self) -> list[dict[str, Any]]:
-        """Return the data of the table."""
+        """Return the data of the dataset."""
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
         return self.rows
@@ -222,6 +227,9 @@ class NumpyAgentDataSet[A: Agent]:
             args: Attribute names to track
             n: Initial capacity
             dtype: NumPy dtype for the array
+
+        Raises:
+            ValueError: if no attributes are specified
 
         """
         if not args:
@@ -298,7 +306,8 @@ class NumpyAgentDataSet[A: Agent]:
         Returns:
             The index assigned to the agent
 
-        Complexity: O(1) amortized
+        Raises:
+            RuntimeError if the dataset has been closed.
 
         """
         self._check_closed()
@@ -324,13 +333,14 @@ class NumpyAgentDataSet[A: Agent]:
         Args:
             agent: The agent to remove
 
-        Complexity: O(1)
+        Raises:
+            ValueError if the agent is not in the dataset
 
         """
         self._check_closed()
         index = agent.__dict__.get(self._index_in_table)
         if index is None:
-            return  # Not in dataset
+            raise ValueError("agent not in dataset")
 
         last_index = self._n_active - 1
 
@@ -408,16 +418,23 @@ class DataRegistry:
     """A registry for data sets."""
 
     def __init__(self):
-        """Init."""
+        """Initialize the registry."""
         self.datasets = {}
 
     def add_dataset(self, dataset: DataSet):
-        """Add a dataset to the registry."""
+        """Add a dataset to the registry.
+
+        Args:
+            dataset: the dataset to register
+
+        Raises:
+            RuntimeError: if a dataset with the same name is already registered
+
+        """
         if dataset.name not in self.datasets:
             self.datasets[dataset.name] = dataset
         else:
             raise RuntimeError(f"Dataset '{dataset.name}' already registered")
-
 
     def create_dataset(self, dataset_type, name, *args, **kwargs) -> DataSet:
         """Create a dataset of the specified type and add it to the registry."""

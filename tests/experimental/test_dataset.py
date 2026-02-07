@@ -165,17 +165,19 @@ def test_numpy_agent_dataset():
         def __init__(self, model, value):
             super().__init__(model)
             self.test = value
+            self.first_attribute = value * self.random.random()
+            self.second_attribute = value * self.random.random()
 
     class MyModel(Model):
         def __init__(self, rng=42, n=100):
             super().__init__(rng=rng)
-
-            self.dataset = NumpyAgentDataSet("test", MyAgent, "test", dtype=float)
+            self.data_registry.track_agents_numpy(MyAgent, "my_data", "first_attribute", "second_attribute")
+            self.dataset = NumpyAgentDataSet("test", MyAgent, "test", dtype=int)
             self.data_registry.add_dataset(self.dataset)
             MyAgent.create_agents(
                 self,
                 n,
-                self.rng.random(
+                self.rng.integers(0, 10,
                     size=n,
                 ),
             )
@@ -189,9 +191,18 @@ def test_numpy_agent_dataset():
     assert values.shape == (n, 1)
     assert values[0, 0] == model.agents.to_list()[0].test
 
+    my_data = model.data_registry.get("my_data")
+    values = my_data.data
+    assert values.shape == (n, 2)
+
     active = dataset.active_agents
     assert len(active) == len(agents)
     assert set(active) == set(agents)
+
+    # let's get a copy of the data and mutate it to ensure it's truly a copy
+    a = my_data.data_copy
+    a[:,0] = -1.0
+    assert np.all(my_data.data[:,0] != -1)
 
     dataset.close()
     assert dataset._closed
@@ -211,6 +222,8 @@ def test_numpy_agent_dataset():
 
     with pytest.raises(ValueError, match="At least one attribute"):
         NumpyAgentDataSet("test", MyAgent)
+
+
 
 
 def test_numpy_agent_dataset_remove_agent():
@@ -247,6 +260,9 @@ def test_numpy_agent_dataset_remove_agent():
     assert dataset.data[1, 0] == 4.0
     # Verify the agent's internal index was updated
     assert last_agent.__dict__[dataset._index_in_table] == 1
+
+    with pytest.raises(ValueError):
+        dataset.remove_agent(agent_to_remove)
 
     model = MyModel()
     dataset = model.dataset
@@ -378,6 +394,9 @@ def test_table_dataset():
 
     with pytest.raises(ValueError):
         dataset.add_row({"a": 3, "b": 4, "c": 5, "extra": "value"})
+
+    with pytest.raises(ValueError):
+        dataset.add_row({"a": 3, "b": 4})
 
     assert len(dataset.data) == 2
     assert dataset.data[0] == {"a": 1, "b": 2, "c": 99}
