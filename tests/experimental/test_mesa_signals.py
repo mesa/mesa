@@ -583,3 +583,192 @@ def test_all_sentinel():
 
     a = pickle.loads(pickle.dumps(sentinel))  # noqa: S301
     assert a is ALL
+
+
+def test_batch_signals_deduplicates_changed():
+    """Test CHANGED signals are deduplicated during batch."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+
+    with agent.batch_signals():
+        agent.value = 1
+        agent.value = 2
+        agent.value = 3
+
+    handler.assert_called_once()
+    signal = handler.call_args.args[0]
+    assert signal.additional_kwargs["new"] == 3
+
+
+def test_batch_signals_keeps_non_changed_order():
+    """Test non-CHANGED signals are preserved in order."""
+
+    class MyAgent(Agent, HasObservables):
+        values = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.values = []
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("values", ALL, handler)
+
+    with agent.batch_signals():
+        agent.values.append(1)
+        agent.values.insert(0, 2)
+        agent.values.remove(1)
+
+    assert handler.call_count == 3
+    assert [call.args[0].signal_type for call in handler.call_args_list] == [
+        ListSignals.APPENDED,
+        ListSignals.INSERTED,
+        ListSignals.REMOVED,
+    ]
+
+
+def test_batch_signals_nested_context():
+    """Test nested batch context only flushes on outer exit."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+
+    with agent.batch_signals():
+        agent.value = 1
+        with agent.batch_signals():
+            agent.value = 2
+            handler.assert_not_called()
+        handler.assert_not_called()
+    handler.assert_called_once()
+
+
+def test_suppress_signals_discards_all():
+    """Test suppression discards observable, list, and @emit signals."""
+
+    class TestSignals(SignalType):
+        PING = "ping"
+
+    class MyModel(Model):
+        value = Observable()
+        values = ObservableList()
+
+        def __init__(self, rng=42):
+            super().__init__(rng=rng)
+            self.value = 0
+            self.values = []
+
+        @emit("test", TestSignals.PING, when="after")
+        def ping(self):
+            pass
+
+    model = MyModel()
+    value_handler = Mock()
+    list_handler = Mock()
+    emit_handler = Mock()
+    model.observe("value", ObservableSignals.CHANGED, value_handler)
+    model.observe("values", ALL, list_handler)
+    model.observe("test", TestSignals.PING, emit_handler)
+
+    with model.suppress_signals():
+        model.value = 1
+        model.values.append(1)
+        model.ping()
+
+    value_handler.assert_not_called()
+    list_handler.assert_not_called()
+    emit_handler.assert_not_called()
+
+
+def test_suppress_signals_nested_context():
+    """Test nested suppression contexts."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+
+    with agent.suppress_signals():
+        with agent.suppress_signals():
+            agent.value = 1
+        agent.value = 2
+    handler.assert_not_called()
+
+
+def test_batch_and_suppress_interaction():
+    """Test suppress takes precedence over batch and only non-suppressed batched signals flush."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+
+    with agent.batch_signals():
+        agent.value = 1
+        with agent.suppress_signals():
+            agent.value = 2
+            with agent.batch_signals():
+                agent.value = 3
+        agent.value = 4
+
+    handler.assert_called_once()
+    signal = handler.call_args.args[0]
+    assert signal.additional_kwargs["new"] == 4
+
+
+def test_batch_signal_buffer_cleared_after_flush():
+    """Test batch buffer is cleared after flush."""
+
+    class MyAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+
+    with agent.batch_signals():
+        agent.value = 1
+
+    agent.value = 2
+
+    assert handler.call_count == 2
+    assert handler.call_args_list[0].args[0].additional_kwargs["new"] == 1
+    assert handler.call_args_list[1].args[0].additional_kwargs["new"] == 2

@@ -22,6 +22,7 @@ import functools
 import weakref
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator, Iterable
+from contextlib import contextmanager
 from typing import Any, Literal
 
 from mesa.experimental.mesa_signals.signals_util import (
@@ -268,6 +269,9 @@ class HasObservables:
         """Initialize a HasObservables."""
         super().__init__(*args, **kwargs)
         self.subscribers = defaultdict(list)
+        self._batch_depth = 0
+        self._suppress_depth = 0
+        self._signal_buffer: list[Message] = []
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -402,7 +406,57 @@ class HasObservables:
             additional_kwargs=kwargs,
         )
 
+        self._buffer_or_dispatch(signal)
+
+    def _buffer_or_dispatch(self, signal: Message) -> None:
+        """Buffer, suppress, or dispatch a signal based on active contexts."""
+        if self._suppress_depth > 0:
+            return
+        if self._batch_depth > 0:
+            self._signal_buffer.append(signal)
+            return
         self._mesa_notify(signal)
+
+    def _flush_signal_buffer(self) -> None:
+        """Flush buffered signals with CHANGED deduplication."""
+        if not self._signal_buffer:
+            return
+
+        last_changed_by_name: dict[str, int] = {}
+        for i, signal in enumerate(self._signal_buffer):
+            if signal.signal_type == ObservableSignals.CHANGED:
+                last_changed_by_name[signal.name] = i
+
+        changed_indexes = set(last_changed_by_name.values())
+        for i, signal in enumerate(self._signal_buffer):
+            if (
+                signal.signal_type == ObservableSignals.CHANGED
+                and i not in changed_indexes
+            ):
+                continue
+            self._mesa_notify(signal)
+
+        self._signal_buffer.clear()
+
+    @contextmanager
+    def batch_signals(self):
+        """Batch outgoing signals until the outermost context exits."""
+        self._batch_depth += 1
+        try:
+            yield
+        finally:
+            self._batch_depth -= 1
+            if self._batch_depth == 0 and self._suppress_depth == 0:
+                self._flush_signal_buffer()
+
+    @contextmanager
+    def suppress_signals(self):
+        """Suppress outgoing signals while the context is active."""
+        self._suppress_depth += 1
+        try:
+            yield
+        finally:
+            self._suppress_depth -= 1
 
     def _mesa_notify(self, signal: Message):
         """Send out the signal.
