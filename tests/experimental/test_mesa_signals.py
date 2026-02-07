@@ -6,14 +6,17 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
-    All,
+    ALL,
     HasObservables,
-    ListSignalType,
+    ListSignals,
     Observable,
     ObservableList,
-    computed,
+    ObservableSignals,
+    SignalType,
+    computed_property,
+    emit,
 )
-from mesa.experimental.mesa_signals.signals_util import Message
+from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 
 
 def test_observables():
@@ -30,7 +33,7 @@ def test_observables():
 
     model = Model(rng=42)
     agent = MyAgent(model, 10)
-    agent.observe("some_attribute", "change", handler)
+    agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
 
     agent.some_attribute = 10
     handler.assert_called_once()
@@ -52,67 +55,114 @@ def test_HasObservables():
 
     model = Model(rng=42)
     agent = MyAgent(model, 10)
-    agent.observe("some_attribute", "change", handler)
+    agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
 
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGED)]
+    }
     assert handler in subscribers
 
-    agent.unobserve("some_attribute", "change", handler)
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    agent.unobserve("some_attribute", ObservableSignals.CHANGED, handler)
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGED)]
+    }
     assert handler not in subscribers
 
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGED)
+        ]
     }
     assert len(subscribers) == 0
 
-    # testing All()
-    agent.observe(All(), "change", handler)
+    agent.observe(ALL, ObservableSignals.CHANGED, handler)
 
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
+        subscribers = {
+            entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGED)]
+        }
         assert handler in subscribers
 
-    agent.unobserve(All(), "change", handler)
+    agent.unobserve(ALL, ObservableSignals.CHANGED, handler)
     for attr in ["some_attribute", "some_other_attribute"]:
-        subscribers = {entry() for entry in agent.subscribers[(attr, "change")]}
+        subscribers = {
+            entry() for entry in agent.subscribers[(attr, ObservableSignals.CHANGED)]
+        }
         assert handler not in subscribers
         assert len(subscribers) == 0
 
     # testing for clear_all_subscriptions
+    ## test single string
     nr_observers = 3
     handlers = [Mock() for _ in range(nr_observers)]
     for handler in handlers:
-        agent.observe("some_attribute", "change", handler)
-        agent.observe("some_other_attribute", "change", handler)
+        agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
+        agent.observe("some_other_attribute", ObservableSignals.CHANGED, handler)
 
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGED)]
+    }
     assert len(subscribers) == nr_observers
 
     agent.clear_all_subscriptions("some_attribute")
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGED)]
+    }
     assert len(subscribers) == 0
 
+    ## test All
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGED)
+        ]
     }
     assert len(subscribers) == 3
 
-    agent.clear_all_subscriptions(All())
-    subscribers = {entry() for entry in agent.subscribers[("some_attribute", "change")]}
+    agent.clear_all_subscriptions(ALL)
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[("some_attribute", ObservableSignals.CHANGED)]
+    }
     assert len(subscribers) == 0
 
     subscribers = {
-        entry() for entry in agent.subscribers[("some_other_attribute", "change")]
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGED)
+        ]
     }
     assert len(subscribers) == 0
+
+    ## test list of strings
+    nr_observers = 3
+    handlers = [Mock() for _ in range(nr_observers)]
+    for handler in handlers:
+        agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
+        agent.observe("some_other_attribute", ObservableSignals.CHANGED, handler)
+
+    subscribers = {
+        entry()
+        for entry in agent.subscribers[
+            ("some_other_attribute", ObservableSignals.CHANGED)
+        ]
+    }
+    assert len(subscribers) == 3
+
+    agent.clear_all_subscriptions(["some_attribute", "some_other_attribute"])
+    assert len(agent.subscribers) == 0
 
     # test raises
     with pytest.raises(ValueError):
         agent.observe("some_attribute", "unknonw_signal", handler)
 
     with pytest.raises(ValueError):
-        agent.observe("unknonw_attribute", "change", handler)
+        agent.observe("unknonw_attribute", ObservableSignals.CHANGED, handler)
 
 
 def test_ObservableList():
@@ -135,7 +185,7 @@ def test_ObservableList():
 
     # add
     handler = Mock()
-    agent.observe("my_list", "append", handler)
+    agent.observe("my_list", ListSignals.APPENDED, handler)
 
     agent.my_list.append(1)
     assert len(agent.my_list) == 1
@@ -143,29 +193,27 @@ def test_ObservableList():
     handler.assert_called_once_with(
         Message(
             name="my_list",
-            new=1,
-            old=None,
-            signal_type=ListSignalType.APPEND,
+            signal_type=ListSignals.APPENDED,
             owner=agent,
-            additional_kwargs={"index": 0},
+            additional_kwargs={"index": 0, "new": 1},
         )
     )
-    agent.unobserve("my_list", "append", handler)
+    agent.unobserve("my_list", ListSignals.APPENDED, handler)
 
     # remove
     handler = Mock()
-    agent.observe("my_list", "remove", handler)
+    agent.observe("my_list", ListSignals.REMOVED, handler)
 
     agent.my_list.remove(1)
     assert len(agent.my_list) == 0
     handler.assert_called_once()
 
-    agent.unobserve("my_list", "remove", handler)
+    agent.unobserve("my_list", ListSignals.APPENDED, handler)
 
     # overwrite the existing list
     a_list = [1, 2, 3, 4, 5]
     handler = Mock()
-    agent.observe("my_list", "change", handler)
+    agent.observe("my_list", ListSignals.SET, handler)
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
     handler.assert_called_once()
@@ -173,37 +221,37 @@ def test_ObservableList():
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
     handler.assert_called()
-    agent.unobserve("my_list", "change", handler)
+    agent.unobserve("my_list", ListSignals.SET, handler)
 
     # pop
     handler = Mock()
-    agent.observe("my_list", "remove", handler)
+    agent.observe("my_list", ListSignals.REMOVED, handler)
 
     index = 4
     entry = agent.my_list.pop(index)
     assert entry == a_list.pop(index)
     assert len(agent.my_list) == len(a_list)
     handler.assert_called_once()
-    agent.unobserve("my_list", "remove", handler)
+    agent.unobserve("my_list", ListSignals.INSERTED, handler)
 
     # insert
     handler = Mock()
-    agent.observe("my_list", "insert", handler)
+    agent.observe("my_list", ListSignals.INSERTED, handler)
     agent.my_list.insert(0, 5)
     handler.assert_called()
-    agent.unobserve("my_list", "insert", handler)
+    agent.unobserve("my_list", ListSignals.INSERTED, handler)
 
     # overwrite
     handler = Mock()
-    agent.observe("my_list", "replace", handler)
+    agent.observe("my_list", ListSignals.REPLACED, handler)
     agent.my_list[0] = 10
     assert agent.my_list[0] == 10
     handler.assert_called_once()
-    agent.unobserve("my_list", "replace", handler)
+    agent.unobserve("my_list", ListSignals.REPLACED, handler)
 
     # combine two lists
     handler = Mock()
-    agent.observe("my_list", "append", handler)
+    agent.observe("my_list", ListSignals.APPENDED, handler)
     a_list = [1, 2, 3, 4, 5]
     agent.my_list = a_list
     assert len(agent.my_list) == len(a_list)
@@ -228,24 +276,27 @@ def test_Message():
 
     def on_change(signal: Message):
         assert signal.name == "some_attribute"
-        assert signal.signal_type == "change"
-        assert signal.old == 10
-        assert signal.new == 5
+        assert signal.signal_type == ObservableSignals.CHANGED
+        assert signal.additional_kwargs["old"] == 10
+        assert signal.additional_kwargs["new"] == 5
         assert signal.owner == agent
-        assert signal.additional_kwargs == {}
+        assert signal.additional_kwargs == {
+            "old": 10,
+            "new": 5,
+        }
 
         items = dir(signal)
-        for entry in ["name", "signal_type", "old", "new", "owner"]:
+        for entry in ["name", "signal_type", "owner", "additional_kwargs"]:
             assert entry in items
 
     model = Model(rng=42)
     agent = MyAgent(model, 10)
-    agent.observe("some_attribute", "change", on_change)
+    agent.observe("some_attribute", ObservableSignals.CHANGED, on_change)
     agent.some_attribute = 5
 
 
-def test_computed():
-    """Test @computed."""
+def test_computed_property():
+    """Test @computed_property."""
 
     class MyAgent(Agent, HasObservables):
         some_other_attribute = Observable()
@@ -254,7 +305,7 @@ def test_computed():
             super().__init__(model)
             self.some_other_attribute = value
 
-        @computed
+        @computed_property
         def some_attribute(self):
             return self.some_other_attribute * 2
 
@@ -265,18 +316,18 @@ def test_computed():
 
     # Dependency Tracking
     handler = Mock()
-    agent.observe("some_attribute", "change", handler)
+    agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
 
     agent.some_other_attribute = 9  # Update Observable dependency
 
     # ComputedState._set_dirty triggers owner.notify immediately
     handler.assert_called_once()
 
-    agent.unobserve("some_attribute", "change", handler)
+    agent.unobserve("some_attribute", ObservableSignals.CHANGED, handler)
 
     # Value Update
     handler = Mock()
-    agent.observe("some_attribute", "change", handler)
+    agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
 
     assert agent.some_attribute == 18  # Re-calculation happens here
 
@@ -284,7 +335,7 @@ def test_computed():
     # it was triggered when the dirty flag was set by the parent.
     handler.assert_not_called()
 
-    agent.unobserve("some_attribute", "change", handler)
+    agent.unobserve("some_attribute", ObservableSignals.CHANGED, handler)
 
     # Cyclical dependencies
     # Scenario: A computed property tries to modify an observable
@@ -296,7 +347,7 @@ def test_computed():
             super().__init__(model)
             self.o1 = value
 
-        @computed
+        @computed_property
         def c1(self):
             # c1 depends on o1 (read) but also tries to write to it.
             # Writing to o1 triggers notify -> sets c1 dirty -> checks cycles.
@@ -329,7 +380,7 @@ def test_computed_dynamic_dependencies():
             self.val_a = 10
             self.val_b = 20
 
-        @computed
+        @computed_property
         def result(self):
             if self.use_a:
                 return self.val_a
@@ -349,7 +400,7 @@ def test_computed_dynamic_dependencies():
     # Modify 'val_a'
     # Since we are on Path B, changes to val_a should be ignored.
     handler = Mock()
-    agent.observe("result", "change", handler)
+    agent.observe("result", ObservableSignals.CHANGED, handler)
 
     agent.val_a = 999  # Should NOT trigger 'result' change
     handler.assert_not_called()
@@ -371,12 +422,12 @@ def test_chained_computations():
             super().__init__(model)
             self.base = val
 
-        @computed
+        @computed_property
         def intermediate(self):
             # When this runs, CURRENT_COMPUTED should be 'final'
             return self.base * 2
 
-        @computed
+        @computed_property
         def final(self):
             # This sets CURRENT_COMPUTED = final_state
             # Then it accesses self.intermediate
@@ -400,7 +451,7 @@ def test_dead_parent_fallback():
     """Test defensive check for garbage collected parents."""
 
     class SimpleAgent(Agent, HasObservables):
-        @computed
+        @computed_property
         def prop(self):
             return 1
 
@@ -446,58 +497,89 @@ def test_list_support():
     handler = Mock()
 
     # Test observe with list of names
-    agent.observe(["attr1", "attr2"], "change", handler)
+    agent.observe(["attr1", "attr2"], ObservableSignals.CHANGED, handler)
 
     # Check subscriptions
-    assert handler in [ref() for ref in agent.subscribers[("attr1", "change")]]
-    assert handler in [ref() for ref in agent.subscribers[("attr2", "change")]]
-    assert handler not in [ref() for ref in agent.subscribers[("attr3", "change")]]
+    assert handler in [
+        ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGED)]
+    ]
+    assert handler in [
+        ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGED)]
+    ]
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr3", ObservableSignals.CHANGED)]
+    ]
 
     # Test unobserve with list of names
-    agent.unobserve(["attr1", "attr2"], "change", handler)
-    assert handler not in [ref() for ref in agent.subscribers[("attr1", "change")]]
-    assert handler not in [ref() for ref in agent.subscribers[("attr2", "change")]]
-
-    # Test observe with list of signal types (though Observable only has 'change' by default,
-    # we can register checking error handling or adding custom signals if needed,
-    # but for now Observable only emits 'change', so we can't easily test different signal types
-    # without a custom observable that emits multiple types. Let's create one.)
-
-    class MultiSignalAgent(Agent, HasObservables):
-        def __init__(self, model):
-            super().__init__(model)
-            # Register a custom observable that emits multiple signal types
-            self._register_signal_emitter("custom_attr", {"type1", "type2", "type3"})
-
-    agent2 = MultiSignalAgent(model)
-    handler2 = Mock()
-
-    # Test observe with list of signal types
-    agent2.observe("custom_attr", ["type1", "type3"], handler2)
-
-    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type1")]]
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type2")]
+    agent.unobserve(["attr1", "attr2"], ObservableSignals.CHANGED, handler)
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr1", ObservableSignals.CHANGED)]
     ]
-    assert handler2 in [ref() for ref in agent2.subscribers[("custom_attr", "type3")]]
-
-    # Test unobserve with list of signal types
-    agent2.unobserve("custom_attr", ["type1", "type3"], handler2)
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type1")]
-    ]
-    assert handler2 not in [
-        ref() for ref in agent2.subscribers[("custom_attr", "type3")]
+    assert handler not in [
+        ref() for ref in agent.subscribers[("attr2", ObservableSignals.CHANGED)]
     ]
 
-    # Test clear_all_subscriptions with list of names
-    agent.observe(["attr1", "attr2", "attr3"], "change", handler)
-    agent.clear_all_subscriptions(["attr1", "attr3"])
 
-    # helper to check emptiness
-    def is_empty(attr):
-        return len([ref() for ref in agent.subscribers[(attr, "change")] if ref()]) == 0
+def test_emit():
+    """Test emit decorator."""
 
-    assert is_empty("attr1")
-    assert not is_empty("attr2")
-    assert is_empty("attr3")
+    class TestSignals(SignalType):
+        BEFORE = "before"
+        AFTER = "after"
+
+    class MyModel(Model):
+        def __init__(self, rng=42):
+            super().__init__(rng=rng)
+
+        @emit("test", TestSignals.BEFORE, when="before")
+        def test_before(self, value):
+            pass
+
+        @emit("test", TestSignals.AFTER, when="after")
+        def test_after(self, some_value=None):
+            pass
+
+    model = MyModel()
+
+    handler_before = Mock()
+    model.observe("test", signal_type=TestSignals.BEFORE, handler=handler_before)
+
+    handler_after = Mock()
+    model.observe("test", signal_type=TestSignals.AFTER, handler=handler_after)
+
+    model.test_before(10)
+    handler_before.assert_called_once_with(
+        Message(
+            name="test",
+            signal_type=TestSignals.BEFORE,
+            owner=model,
+            additional_kwargs={"args": (10,)},
+        )
+    )
+    handler_after.assert_not_called()
+
+    model.test_after(some_value=10)
+    handler_after.assert_called_once_with(
+        Message(
+            name="test",
+            signal_type=TestSignals.AFTER,
+            owner=model,
+            additional_kwargs={"args": (), "some_value": 10},
+        )
+    )
+
+
+def test_all_sentinel():
+    """Test the ALL sentinel."""
+    import pickle  # noqa: PLC0415
+
+    sentinel = _AllSentinel()
+
+    assert sentinel == ALL
+    assert sentinel is ALL
+    assert str(sentinel) == str(ALL)
+    assert repr(sentinel) == repr(ALL)
+    assert hash(sentinel) == hash(ALL)
+
+    a = pickle.loads(pickle.dumps(sentinel))  # noqa: S301
+    assert a is ALL
