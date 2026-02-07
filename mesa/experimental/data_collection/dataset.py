@@ -495,13 +495,9 @@ class DataRegistry:
         """Check if a dataset exists."""
         return name in self.datasets
 
-    def get(self, name: str) -> DataSet:
-        """Get a dataset by name.
-
-        raises KeyError if not found.
-
-        """
-        return self.datasets[name]
+    def get(self, name: str, default = None) -> DataSet | None:
+        """Get a dataset by name."""
+        return self.datasets.get(name, default)
 
     def __iter__(self):
         """Iterate over datasets."""

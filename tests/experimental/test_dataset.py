@@ -24,8 +24,11 @@ def test_data_registry():
     assert "nonexistent" not in registry
     assert registry["test"] is dataset
     assert registry.get("test") is dataset
+    assert registry.get("nonexistent") is None
+    assert registry["test"] is dataset
+
     with pytest.raises(KeyError):
-        registry.get("nonexistent")
+        _ = registry["nonexistent"]
 
     with pytest.raises(
         RuntimeError, match=f"Dataset '{dataset.name}' already registered"
