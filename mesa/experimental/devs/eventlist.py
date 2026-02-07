@@ -149,7 +149,7 @@ class SimulationEvent:
             self.fn = None
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Schedule:
     """Defines when something should happen repeatedly.
 
