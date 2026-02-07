@@ -7,8 +7,9 @@ from mesa import Agent, Model
 from mesa.experimental.data_collection import (
     AgentDataSet,
     DataRegistry,
+    ModelDataSet,
     NumpyAgentDataSet,
-    TableDataSet, ModelDataSet,
+    TableDataSet,
 )
 
 
@@ -26,7 +27,9 @@ def test_data_registry():
     with pytest.raises(KeyError):
         registry.get("nonexistent")
 
-    with pytest.raises(RuntimeError, match=f"Dataset '{dataset.name}' already registered"):
+    with pytest.raises(
+        RuntimeError, match=f"Dataset '{dataset.name}' already registered"
+    ):
         registry.add_dataset(dataset)
 
 
@@ -155,7 +158,6 @@ def test_agent_dataset():
     with pytest.raises(RuntimeError):
         _ = dataset.data
     assert dataset.agents is None
-
 
 
 def test_numpy_agent_dataset():
