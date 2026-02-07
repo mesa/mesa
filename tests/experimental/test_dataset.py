@@ -173,13 +173,17 @@ def test_numpy_agent_dataset():
     class MyModel(Model):
         def __init__(self, rng=42, n=100):
             super().__init__(rng=rng)
-            self.data_registry.track_agents_numpy(MyAgent, "my_data", "first_attribute", "second_attribute")
+            self.data_registry.track_agents_numpy(
+                MyAgent, "my_data", "first_attribute", "second_attribute"
+            )
             self.dataset = NumpyAgentDataSet("test", MyAgent, "test", dtype=int)
             self.data_registry.add_dataset(self.dataset)
             MyAgent.create_agents(
                 self,
                 n,
-                self.rng.integers(0, 10,
+                self.rng.integers(
+                    0,
+                    10,
                     size=n,
                 ),
             )
@@ -203,8 +207,8 @@ def test_numpy_agent_dataset():
 
     # let's get a copy of the data and mutate it to ensure it's truly a copy
     a = my_data.data_copy
-    a[:,0] = -1.0
-    assert np.all(my_data.data[:,0] != -1)
+    a[:, 0] = -1.0
+    assert np.all(my_data.data[:, 0] != -1)
 
     dataset.close()
     assert dataset._closed
@@ -224,8 +228,6 @@ def test_numpy_agent_dataset():
 
     with pytest.raises(ValueError, match="At least one attribute"):
         NumpyAgentDataSet("test", MyAgent)
-
-
 
 
 def test_numpy_agent_dataset_remove_agent():
