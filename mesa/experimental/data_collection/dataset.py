@@ -413,7 +413,11 @@ class DataRegistry:
 
     def add_dataset(self, dataset: DataSet):
         """Add a dataset to the registry."""
-        self.datasets[dataset.name] = dataset
+        if dataset.name not in self.datasets:
+            self.datasets[dataset.name] = dataset
+        else:
+            raise RuntimeError(f"Dataset '{dataset.name}' already registered")
+
 
     def create_dataset(self, dataset_type, name, *args, **kwargs) -> DataSet:
         """Create a dataset of the specified type and add it to the registry."""

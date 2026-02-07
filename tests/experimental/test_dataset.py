@@ -8,7 +8,7 @@ from mesa.experimental.data_collection import (
     AgentDataSet,
     DataRegistry,
     NumpyAgentDataSet,
-    TableDataSet,
+    TableDataSet, ModelDataSet,
 )
 
 
@@ -25,6 +25,9 @@ def test_data_registry():
     assert registry.get("test") is dataset
     with pytest.raises(KeyError):
         registry.get("nonexistent")
+
+    with pytest.raises(RuntimeError, match=f"Dataset '{dataset.name}' already registered"):
+        registry.add_dataset(dataset)
 
 
 def test_data_registry_create_dataset():
@@ -108,6 +111,7 @@ def test_agent_dataset():
         def __init__(self, model, value):
             super().__init__(model)
             self.test = value
+            self.second_attribute = value * self.random.random()
 
     class MyModel(Model):
         def __init__(self, rng=42, n=100):
@@ -128,15 +132,30 @@ def test_agent_dataset():
     values = dataset.data
     assert len(values) == n
 
-    single_field = values[0]
-    assert "unique_id" in single_field
-    assert "test" in single_field
+    single_agent = values[0]
+    assert "unique_id" in single_agent
+    assert "test" in single_agent
 
     dataset.close()
     assert dataset._closed
     with pytest.raises(RuntimeError):
         _ = dataset.data
     dataset.close()
+
+    dataset = AgentDataSet("test", model.agents, "test", "second_attribute")
+    values = dataset.data
+    assert len(values) == n
+
+    single_agent = values[0]
+    assert "unique_id" in single_agent
+    assert "test" in single_agent
+    assert "second_attribute" in single_agent
+
+    dataset.close()
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
+    assert dataset.agents is None
+
 
 
 def test_numpy_agent_dataset():
@@ -178,6 +197,16 @@ def test_numpy_agent_dataset():
     assert dataset._closed
     with pytest.raises(RuntimeError):
         _ = dataset.data
+
+    with pytest.raises(RuntimeError):
+        _ = dataset.active_agents
+
+    with pytest.raises(RuntimeError):
+        _ = dataset.add_agent(MyAgent(model, 2))
+
+    with pytest.raises(RuntimeError):
+        dataset.remove_agent(MyAgent(model, 2))
+
     dataset.close()
 
     with pytest.raises(ValueError, match="At least one attribute"):
@@ -299,6 +328,11 @@ def test_model_dataset():
             data = self.agents.get("test")
             return np.mean(data)
 
+        @property
+        def std_value(self):
+            data = self.agents.get("test")
+            return np.std(data)
+
         def __init__(self, rng=42, n=100):
             super().__init__(rng=rng)
             self.data_registry.track_model(
@@ -323,6 +357,12 @@ def test_model_dataset():
     assert model.data_registry["model_data"]._closed
     with pytest.raises(RuntimeError):
         _ = model.data_registry["model_data"].data
+
+    dataset = ModelDataSet("test", model, "mean_value", "std_value")
+    data = dataset.data
+    assert len(data) == 2
+    dataset.close()
+    assert dataset.model is None
 
 
 def test_table_dataset():
