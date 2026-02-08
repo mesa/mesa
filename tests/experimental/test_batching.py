@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 from mesa.experimental.mesa_signals import (
-    ALL,
     HasObservables,
     ListSignals,
     Observable,
@@ -202,10 +201,9 @@ def test_batch_inside_suppress():
     handler = Mock()
     obj.observe("value", ObservableSignals.CHANGED, handler)
 
-    with obj.suppress():
-        with obj.batch():
-            obj.value = 20
-            obj.value = 30
+    with obj.suppress(), obj.batch():
+        obj.value = 20
+        obj.value = 30
 
     handler.assert_not_called()
 
@@ -336,7 +334,6 @@ def test_aggregate_original_list_reconstruction():
     signal = handler.call_args[0][0]
     assert signal.additional_kwargs["old"] == [1, 2, 3]
     assert signal.additional_kwargs["new"] == [1, 2, 3, 4]
-
 
     obj = ListObj()
     obj.items = [1, 2, 3]
