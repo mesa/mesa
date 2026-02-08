@@ -142,7 +142,6 @@ class Observable(BaseObservable):
             PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
-
 class ComputedState:
     """Internal class to hold the state of a computed property for a specific instance."""
 
