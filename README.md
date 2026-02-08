@@ -68,7 +68,7 @@ For resources or help on using Mesa, check out the following:
 -   [GSoC at Mesa — Candidates Guide](https://github.com/mesa/mesa/blob/main/docs/GSoC.md) (For candidates interested in participating in the Google Summer of Code at Mesa)
 -   [Mesa Examples](https://mesa.readthedocs.io/stable/examples.html) (A repository of seminal ABMs that are part of the Mesa[rec] install and use the most current Mesa release)
 -   [Docs](http://mesa.readthedocs.org/) (Mesa's documentation, API and useful snippets)
-    -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
+-   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
 -   [Discussions](https://github.com/mesa/mesa/discussions) (GitHub threaded discussions about Mesa)
 -   [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org) (Chat Forum via Matrix to talk about Mesa)
 
