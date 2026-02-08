@@ -200,7 +200,7 @@ def test_numpy_agent_dataset():
     assert values.shape == (n, 1)
 
     for agent in agents:
-        index  = agent.__dict__[dataset._index_in_table]
+        index = agent.__dict__[dataset._index_in_table]
         assert dataset._agent_ids[index] == agent.unique_id
         assert dataset.data[index, 0] == agent.test
 
@@ -269,7 +269,7 @@ def test_numpy_agent_dataset_remove_agent():
     for agent in agents:
         if agent is agent_to_remove:
             continue
-        index  = agent.__dict__[dataset._index_in_table]
+        index = agent.__dict__[dataset._index_in_table]
         assert dataset._agent_ids[index] == agent.unique_id
         assert dataset.data[index, 0] == agent.value
 
