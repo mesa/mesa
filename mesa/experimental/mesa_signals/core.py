@@ -50,7 +50,6 @@ BatchSignalAggregator = Callable[[list[Message]], list[Message]]
 
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
-_EMIT_DEPENDENCY = object()
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
@@ -215,9 +214,6 @@ def computed_property(func: Callable) -> property:
                         changed = True
                         break
                     for attr, old_val in observations.items():
-                        if old_val is _EMIT_DEPENDENCY:
-                            changed = True
-                            break
                         current_val = getattr(parent, attr)
                         if current_val != old_val:
                             changed = True
@@ -580,18 +576,12 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
-                if CURRENT_COMPUTED is not None:
-                    CURRENT_COMPUTED._add_parent(self, observable_name, _EMIT_DEPENDENCY)
-                    PROCESSING_SIGNALS.add(_hashable_signal(self, observable_name))
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return method(self, *args, **kwargs)
         else:
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
-                if CURRENT_COMPUTED is not None:
-                    CURRENT_COMPUTED._add_parent(self, observable_name, _EMIT_DEPENDENCY)
-                    PROCESSING_SIGNALS.add(_hashable_signal(self, observable_name))
                 ret = method(self, *args, **kwargs)
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return ret

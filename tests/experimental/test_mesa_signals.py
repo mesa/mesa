@@ -814,34 +814,3 @@ def test_custom_batch_aggregator_for_user_defined_signal():
     handler.assert_called_once()
     assert handler.call_args.args[0].additional_kwargs["args"] == (3,)
 
-
-def test_computed_property_tracks_emit_dependency():
-    """Test computed properties can depend on @emit-decorated methods."""
-
-    class TestSignals(SignalType):
-        UPDATED = "updated"
-
-    class MyModel(Model):
-        def __init__(self, rng=42):
-            super().__init__(rng=rng)
-            self._value = 1
-
-        @emit("value_updates", TestSignals.UPDATED, when="after")
-        def value(self, new_value=None):
-            if new_value is not None:
-                self._value = new_value
-            return self._value
-
-        @computed_property
-        def doubled(self):
-            return self.value() * 2
-
-    model = MyModel()
-    assert model.doubled == 2
-
-    handler = Mock()
-    model.observe("doubled", ObservableSignals.CHANGED, handler)
-
-    model.value(5)
-    handler.assert_called_once()
-    assert model.doubled == 10
