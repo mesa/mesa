@@ -126,7 +126,16 @@ class Observable(BaseObservable):
             )
         old_value = getattr(instance, self.private_name, None)
         setattr(instance, self.private_name, value)  # update before sending signal
-        super().__set__(instance, old_value)  # send the notify
+
+        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
+            return
+        instance.notify(
+            self.public_name,
+            ObservableSignals.CHANGED,
+            old=old_value,
+            new=value,
+        )
+
         PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
