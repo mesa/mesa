@@ -46,9 +46,11 @@ __all__ = [
 
 ObservableName = str | type(ALL) | Iterable[str]
 SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
+BatchSignalAggregator = Callable[[list[Message]], list[Message]]
 
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
+_EMIT_DEPENDENCY = object()
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
@@ -213,6 +215,9 @@ def computed_property(func: Callable) -> property:
                         changed = True
                         break
                     for attr, old_val in observations.items():
+                        if old_val is _EMIT_DEPENDENCY:
+                            changed = True
+                            break
                         current_val = getattr(parent, attr)
                         if current_val != old_val:
                             changed = True
@@ -260,6 +265,7 @@ class HasObservables:
         tuple[str, SignalType], list[weakref.ref]
     ]  # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, type[SignalType] | frozenset[SignalType]]
+    _batch_aggregators: list[BatchSignalAggregator]
 
     def __init_subclass__(cls, **kwargs):
         """Initialize a HasObservables subclass."""
@@ -273,6 +279,7 @@ class HasObservables:
         self._batch_depth = 0
         self._suppress_depth = 0
         self._signal_buffer: list[Message] = []
+        self._batch_aggregators = [self.aggregate_last_changed]
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -419,25 +426,47 @@ class HasObservables:
         self._mesa_notify(signal)
 
     def _flush_signal_buffer(self) -> None:
-        """Flush buffered signals with CHANGED deduplication."""
+        """Flush buffered signals after applying aggregation policies."""
         if not self._signal_buffer:
             return
 
-        last_changed_by_name: dict[str, int] = {}
-        for i, signal in enumerate(self._signal_buffer):
-            if signal.signal_type == ObservableSignals.CHANGED:
-                last_changed_by_name[signal.name] = i
+        signals = list(self._signal_buffer)
+        for aggregator in self._batch_aggregators:
+            signals = list(aggregator(signals))
 
-        changed_indexes = set(last_changed_by_name.values())
-        for i, signal in enumerate(self._signal_buffer):
-            if (
-                signal.signal_type == ObservableSignals.CHANGED
-                and i not in changed_indexes
-            ):
-                continue
+        for signal in signals:
             self._mesa_notify(signal)
 
         self._signal_buffer.clear()
+
+    @staticmethod
+    def aggregate_last_changed(signals: list[Message]) -> list[Message]:
+        """Default batch policy: keep only the last CHANGED signal per observable."""
+        if not signals:
+            return signals
+
+        last_changed_by_name: dict[str, int] = {}
+        for i, signal in enumerate(signals):
+            if signal.signal_type == ObservableSignals.CHANGED:
+                last_changed_by_name[signal.name] = i
+
+        if not last_changed_by_name:
+            return signals
+
+        changed_indexes = set(last_changed_by_name.values())
+        return [
+            signal
+            for i, signal in enumerate(signals)
+            if signal.signal_type != ObservableSignals.CHANGED or i in changed_indexes
+        ]
+
+    def add_batch_aggregator(self, aggregator: BatchSignalAggregator) -> None:
+        """Add a signal batch aggregation policy."""
+        self._batch_aggregators.append(aggregator)
+
+    def clear_batch_aggregators(self) -> None:
+        """Clear all signal batch aggregation policies."""
+        self._batch_aggregators.clear()
 
     @contextmanager
     def batch_signals(self):
@@ -551,12 +580,18 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
+                if CURRENT_COMPUTED is not None:
+                    CURRENT_COMPUTED._add_parent(self, observable_name, _EMIT_DEPENDENCY)
+                    PROCESSING_SIGNALS.add(_hashable_signal(self, observable_name))
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return method(self, *args, **kwargs)
         else:
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
+                if CURRENT_COMPUTED is not None:
+                    CURRENT_COMPUTED._add_parent(self, observable_name, _EMIT_DEPENDENCY)
+                    PROCESSING_SIGNALS.add(_hashable_signal(self, observable_name))
                 ret = method(self, *args, **kwargs)
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return ret
