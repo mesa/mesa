@@ -357,6 +357,9 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         # Auto-start the new schedule
         if value is not None:
+            # Guard: if user passes self.step (which currently advances time) instead of self._do_step, swap to prevent infinite recursion.
+            if value.function is self.step:
+                value.function = self._do_step
             value.start()
 
     def run_model(self) -> None:
