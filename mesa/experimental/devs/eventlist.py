@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import IntEnum
 from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
@@ -148,26 +149,41 @@ class SimulationEvent:
             self.fn = None
 
 
-class EventGenerator:
-    """A generator that creates recurring events at specified intervals.
+@dataclass(frozen=True, slots=True)
+class Schedule:
+    """Defines when something should happen repeatedly.
 
-    EventGenerator represents a pattern for when things should happen repeatedly.
+    Attributes:
+        interval: Time between executions (fixed value or callable returning value)
+        start: Absolute time to begin (None = use current model time + interval)
+        end: Absolute time to stop (None = no end)
+        count: Maximum executions (None = unlimited)
+    """
+
+    interval: float | int | Callable[[Model], float | int] = 1.0
+    start: float | None = None
+    end: float | None = None
+    count: int | None = None
+
+
+class EventGenerator:
+    """A generator that creates recurring events based on a Schedule.
+
     Unlike a single SimulationEvent, an EventGenerator is persistent and can be
     stopped or configured with stop conditions.
 
     Attributes:
         model: The model this generator belongs to
         function: The callable to execute for each generated event
-        interval: Time between events (fixed value or callable returning value)
+        schedule: The Schedule defining when events occur
         priority: Priority level for generated events
-
     """
 
     def __init__(
         self,
         model: Model,
         function: Callable,
-        interval: float | int | Callable[[Model], float | int],
+        schedule: Schedule,
         priority: Priority = Priority.DEFAULT,
     ) -> None:
         """Initialize an EventGenerator.
@@ -176,23 +192,17 @@ class EventGenerator:
             model: The model this generator belongs to
             function: The callable to execute for each generated event.
                      Use functools.partial to bind arguments.
-            interval: Time between events. Can be a fixed value or a callable
-                     that takes the model and returns the interval.
+            schedule: The Schedule defining timing
             priority: Priority level for generated events
-
         """
         self.model = model
         self.function = function
-        self.interval = interval
+        self.schedule = schedule
         self.priority = priority
 
         self._active: bool = False
         self._current_event: SimulationEvent | None = None
         self._execution_count: int = 0
-
-        # Stop conditions (mutually exclusive)
-        self._max_count: int | None = None
-        self._end_time: float | None = None
 
     @property
     def is_active(self) -> bool:
@@ -206,15 +216,16 @@ class EventGenerator:
 
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
-        if callable(self.interval):
-            return self.interval(self.model)
-        return self.interval
+        if callable(self.schedule.interval):
+            return self.schedule.interval(self.model)
+        return self.schedule.interval
 
     def _should_stop(self, next_time: float) -> bool:
         """Check if the generator should stop before scheduling the next event."""
         return (
-            self._max_count is not None and self._execution_count >= self._max_count
-        ) or (self._end_time is not None and next_time > self._end_time)
+            self.schedule.count is not None
+            and self._execution_count >= self.schedule.count
+        ) or (self.schedule.end is not None and next_time > self.schedule.end)
 
     def _execute_and_reschedule(self) -> None:
         """Execute the function and schedule the next event."""
@@ -239,87 +250,37 @@ class EventGenerator:
             self._execute_and_reschedule,
             priority=self.priority,
         )
-        self.model._simulator.event_list.add_event(self._current_event)
+        self.model._event_list.add_event(self._current_event)
 
-    def start(
-        self,
-        at: float | None = None,
-        after: float | None = None,
-    ) -> EventGenerator:
+    def start(self) -> EventGenerator:
         """Start the event generator.
-
-        Args:
-            at: Absolute time to start generating events
-            after: Relative time from now to start generating events
 
         Returns:
             Self for method chaining
-
-        Raises:
-            ValueError: If both `at` and `after` are specified
-
         """
         if self._active:
             return self
 
-        if at is not None and after is not None:
-            raise ValueError("Cannot specify both 'at' and 'after'")
-
-        if at is None and after is None:
+        if self.schedule.start is not None:
+            start_time = self.schedule.start
+        else:
             # Default: start at next interval from now
             start_time = self.model.time + self._get_interval()
-        elif at is not None:
-            if at < self.model.time:
-                raise ValueError(f"Cannot start in the past: {at} < {self.model.time}")
-            start_time = at
-        else:  # after is not None
-            if after < 0:
-                raise ValueError(f"Cannot start in the past: after={after}")
-            start_time = self.model.time + after
 
         self._active = True
         self._schedule_next(start_time)
         return self
 
-    def stop(
-        self,
-        at: float | None = None,
-        after: float | None = None,
-        count: int | None = None,
-    ) -> EventGenerator:
-        """Stop the event generator.
-
-        Args:
-            at: Absolute time to stop generating events
-            after: Relative time from now to stop generating events
-            count: Number of additional executions before stopping
+    def stop(self) -> EventGenerator:
+        """Stop the event generator immediately.
 
         Returns:
             Self for method chaining
-
-        Raises:
-            ValueError: If more than one stop condition is specified
-
         """
-        conditions = sum(x is not None for x in [at, after, count])
-        if conditions > 1:
-            raise ValueError("Can only specify one of 'at', 'after', or 'count'")
-
-        if conditions == 0:
-            # Immediate stop
-            self._active = False
-            if self._current_event is not None:
-                self._current_event.cancel()
-                self._current_event = None
-            return self
-
-        if at is not None:
-            self._end_time = at
-        elif after is not None:
-            self._end_time = self.model.time + after
-        elif count is not None:
-            self._max_count = self._execution_count + count
-
+        self._active = False
+        if self._current_event is not None:
+            self._current_event.cancel()
+            self._current_event = None
         return self
 
 

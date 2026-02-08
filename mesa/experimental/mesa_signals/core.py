@@ -5,8 +5,9 @@ functionality:
 
 - BaseObservable: Abstract base class defining the interface for all observables
 - Observable: Main class for creating observable properties that emit change signals
-- computed: Decorator for creating properties that automatically update based on dependencies
+- computed_property: Decorator for creating properties that automatically update based on dependencies
 - HasObservables: Mixin class that enables an object to contain and manage observables
+- emit: Decorator for methods that emit signals
 - All: Helper class for subscribing to all signals from an observable
 - SignalType: Enum defining the types of signals that can be emitted
 
@@ -91,7 +92,7 @@ class BaseObservable:
             return
         change_signal = self.signal_types(
             "changed"
-        )  # look up "change" in the descriptor's enum
+        )  # look up "changed" in the descriptor's enum
 
         # this only emits an on change signal, subclasses need to specify
         # this in more detail
