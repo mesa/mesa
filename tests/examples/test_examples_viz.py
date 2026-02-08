@@ -1,5 +1,6 @@
 # noqa: D100
 import base64
+from typing import Literal
 
 import playwright.sync_api
 import pytest
@@ -36,6 +37,33 @@ def run_model_test(
     For more details, see the documentation:
         https://solara.dev/documentation/advanced/howto/testing#testing-widgets-using-solara-server
     """
+    def take_img_screenshot(
+        page: playwright.sync_api.Page,
+        which: Literal["all", "first", "last"] = "all",
+        retries: int = 3,
+    ) -> bytes:
+        """Capture an image screenshot with retries for transient DOM re-renders."""
+        last_error = None
+        for _ in range(retries):
+            page.wait_for_selector("img")
+            locator = page.locator("img")
+            if which == "first":
+                locator = locator.first
+            elif which == "last":
+                locator = locator.last
+
+            try:
+                return locator.screenshot()
+            except playwright.sync_api.Error as e:
+                last_error = e
+                if "not attached to the DOM" not in str(e):
+                    raise
+                page.wait_for_timeout(100)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("failed to capture img screenshot")
+
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
@@ -48,13 +76,11 @@ def run_model_test(
 
         # Display and capture the initial visualizations
         display(space_viz)
-        page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = take_img_screenshot(page_session, which="all")
 
         if measure_config:
             display(graph_viz)
-            page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = take_img_screenshot(page_session, which="all")
 
         # Run the model for specified number of steps
         for _ in range(steps):
@@ -71,13 +97,11 @@ def run_model_test(
 
         # Display and capture the updated visualizations
         display(space_viz)
-        page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = take_img_screenshot(page_session, which="first")
 
         if measure_config:
             display(graph_viz)
-            page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+            changed_graph = take_img_screenshot(page_session, which="last")
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
