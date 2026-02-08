@@ -178,13 +178,13 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self._user_step = self.step
 
         # The default recurring event: calls _do_step every 1.0 time units
-        # Users can modify, replace, or stop this.
-        self.default_schedule: EventGenerator = EventGenerator(
+        # Users can modify, replace, or stop this via the property setter.
+        self.default_schedule = EventGenerator(
             self,
             self._do_step,
             Schedule(interval=1.0, start=1.0),
             priority=Priority.HIGH,
-        ).start()
+        )
 
         self.step = self._wrapped_step
 
@@ -337,6 +337,27 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self._all_agents.remove(agent)
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
+
+    @property
+    def default_schedule(self) -> EventGenerator | None:
+        """The default recurring event schedule.
+
+        Assigning a new EventGenerator automatically stops the previous one
+        and starts the new one. Assign None to disable.
+        """
+        return self._default_schedule
+
+    @default_schedule.setter
+    def default_schedule(self, value: EventGenerator | None):
+        # Stop the old schedule if it exists and is active
+        if hasattr(self, "_default_schedule") and self._default_schedule is not None:
+            self._default_schedule.stop()
+
+        self._default_schedule = value
+
+        # Auto-start the new schedule
+        if value is not None:
+            value.start()
 
     def run_model(self) -> None:
         """Run the model until the end condition is reached.
