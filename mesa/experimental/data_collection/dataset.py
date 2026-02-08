@@ -243,6 +243,7 @@ class NumpyAgentDataSet[A: Agent]:
 
         # Core data storage - always contiguous from 0 to _n_active-1
         self._agent_data: np.ndarray = np.empty((n, len(self._attributes)), dtype=dtype)
+        self._agent_ids: np.ndarray = np.zeros(n, dtype=int)
         self._n_active = 0
 
         # Mappings - index is always position in _agent_data
@@ -289,6 +290,10 @@ class NumpyAgentDataSet[A: Agent]:
         new_data[:current_size] = self._agent_data
         self._agent_data = new_data
 
+        new_data = np.zeros(new_size, dtype=self.dtype)
+        new_data[:current_size] = self._agent_ids
+        self._agent_ids = new_data
+
         # Reinstall properties to capture new array reference
         self._install_properties()
 
@@ -321,6 +326,8 @@ class NumpyAgentDataSet[A: Agent]:
         agent.__dict__[self._index_in_table] = index
 
         # Update mappings
+
+        self._agent_ids[index] = agent.unique_id
         self._agent_to_index[agent] = index
         self._index_to_agent[index] = agent
         self._n_active += 1
@@ -347,10 +354,12 @@ class NumpyAgentDataSet[A: Agent]:
         if index != last_index:
             # Swap data row with last active row
             self._agent_data[index] = self._agent_data[last_index]
+            self._agent_ids[index] = self._agent_ids[last_index]
 
             # Update the swapped agent's index
             swapped_agent = self._index_to_agent[last_index]
             swapped_agent.__dict__[self._index_in_table] = index
+
             self._agent_to_index[swapped_agent] = index
             self._index_to_agent[index] = swapped_agent
 

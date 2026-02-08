@@ -198,7 +198,11 @@ def test_numpy_agent_dataset():
 
     values = dataset.data
     assert values.shape == (n, 1)
-    assert values[0, 0] == model.agents.to_list()[0].test
+
+    for agent in agents:
+        index  = agent.__dict__[dataset._index_in_table]
+        assert dataset._agent_ids[index] == agent.unique_id
+        assert dataset.data[index, 0] == agent.test
 
     my_data = model.data_registry.get("my_data")
     values = my_data.data
@@ -261,6 +265,13 @@ def test_numpy_agent_dataset_remove_agent():
     last_agent = agents[4]
 
     dataset.remove_agent(agent_to_remove)
+
+    for agent in agents:
+        if agent is agent_to_remove:
+            continue
+        index  = agent.__dict__[dataset._index_in_table]
+        assert dataset._agent_ids[index] == agent.unique_id
+        assert dataset.data[index, 0] == agent.value
 
     assert len(dataset) == 4
     # The last agent should now be at index 1
