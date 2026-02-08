@@ -250,6 +250,10 @@ def SpaceRendererComponent(
     # update renderer's space according to the model's space/grid
     renderer.space = getattr(model, "grid", getattr(model, "space", None))
 
+    viz_dependencies = [update_counter.value]
+    if dependencies:
+        viz_dependencies.extend(dependencies)
+
     if renderer.backend == "matplotlib":
         # Clear the previous plotted data and agents
         all_artists = [
@@ -275,11 +279,6 @@ def SpaceRendererComponent(
             renderer.draw_agents()
         if renderer.propertylayer_mesh:
             renderer.draw_propertylayer()
-
-        viz_dependencies = [update_counter.value]
-        # Update the fig every time frame
-        if dependencies:
-            viz_dependencies.extend(dependencies)
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
