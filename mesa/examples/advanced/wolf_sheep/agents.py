@@ -1,4 +1,5 @@
 from mesa.discrete_space import CellAgent, FixedAgent
+from mesa.experimental.mesa_signals import HasObservables, Observable, SignalType
 
 
 class Animal(CellAgent):
@@ -53,8 +54,65 @@ class Animal(CellAgent):
             self.spawn_offspring()
 
 
-class Sheep(Animal):
+class Sheep(HasObservables, Animal):
     """A sheep that walks around, reproduces (asexually) and gets eaten."""
+
+    energy = Observable()
+
+    def __init__(
+        self, model, energy=8, p_reproduce=0.04, energy_from_food=4, cell=None
+    ):
+        self.subscribers = {}
+        super().__init__(model, energy, p_reproduce, energy_from_food, cell)
+        self.current_task_event = None
+        self.observe("energy", SignalType.CHANGE, self.on_energy_change)
+
+    def on_energy_change(self, signal):
+        """Reactive Logic: Triggers whenever energy changes."""
+        if signal.new < 6 and self.current_task_event is None:
+            grass_patch = next(
+                (obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None
+            )
+            if grass_patch and grass_patch.fully_grown:
+                self.start_grazing(grass_patch)
+
+    def start_grazing(self, grass_patch):
+        """Start a DURATIVE TASK."""
+        duration = 5.0
+        print(
+            f"Sheep {self.unique_id}: Started grazing at {self.model.time} (Duration: {duration})"
+        )
+        self.current_task_event = self.model.simulator.schedule_event_relative(
+            self.finish_grazing, time_delta=duration, function_args=[grass_patch]
+        )
+
+    def finish_grazing(self, grass_patch):
+        """Task Completion Callback."""
+        print(f"Sheep {self.unique_id}: Finished grazing at {self.model.time}")
+        self.energy += self.energy_from_food
+        grass_patch.fully_grown = False
+        self.current_task_event = None
+
+    def step(self):
+        """
+        Modified Step: Handles Busy State + Interruption Scanning
+        """
+        if self.current_task_event:
+            wolves = [
+                obj for obj in self.cell.neighborhood.agents if isinstance(obj, Wolf)
+            ]
+            if wolves:
+                print(f"Sheep {self.unique_id}: !!!! INTERRUPTED grazing to flee!")
+                self.model.simulator.cancel_event(self.current_task_event)
+                self.current_task_event = None
+                self.move()
+            return
+        self.move()
+        self.energy -= 1
+        if self.energy < 0:
+            self.remove()
+        elif self.random.random() < self.p_reproduce:
+            self.spawn_offspring()
 
     def feed(self):
         """If possible, eat grass at current location."""
