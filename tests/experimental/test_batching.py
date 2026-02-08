@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 from mesa.experimental.mesa_signals import (
-    ALL,
     HasObservables,
     ListSignals,
     Observable,
@@ -16,41 +15,42 @@ from mesa.experimental.mesa_signals import (
 from mesa.experimental.mesa_signals.signals_util import Message
 
 
-class MyObj(HasObservables):
+class MyObj(HasObservables):  # noqa: D101
     value = Observable()
 
-    def __init__(self, val=0):
+    def __init__(self, val=0):  # noqa: D107
         super().__init__()
         self.value = val
 
 
-class MultiObj(HasObservables):
+class MultiObj(HasObservables):  # noqa: D101
     x = Observable()
     y = Observable()
 
-    def __init__(self, x=0, y=0):
+    def __init__(self, x=0, y=0):  # noqa: D107
         super().__init__()
         self.x = x
         self.y = y
 
 
-class ListObj(HasObservables):
+class ListObj(HasObservables):  # noqa: D101
     items = ObservableList()
 
-    def __init__(self):
+    def __init__(self):  # noqa: D107
         super().__init__()
         self.items = []
 
 
-class ComputedObj(HasObservables):
+class ComputedObj(HasObservables):  # noqa: D101
     base = Observable()
 
-    def __init__(self, val=0):
+    def __init__(self, val=0):  # noqa: D107
         super().__init__()
         self.base = val
 
     @computed_property
     def doubled(self):
+        """Test."""
         return self.base * 2
 
 
@@ -202,10 +202,9 @@ def test_batch_inside_suppress():
     handler = Mock()
     obj.observe("value", ObservableSignals.CHANGED, handler)
 
-    with obj.suppress():
-        with obj.batch():
-            obj.value = 20
-            obj.value = 30
+    with obj.suppress(), obj.batch():
+        obj.value = 20
+        obj.value = 30
 
     handler.assert_not_called()
 
@@ -322,7 +321,7 @@ def test_batch_multiple_observables():
 
 
 def test_aggregate_original_list_reconstruction():
-    """Verify pre-batch list state is correctly reconstructed"""
+    """Verify pre-batch list state is correctly reconstructed."""
     obj = ListObj()
     obj.items = [1, 2, 3]
 
@@ -336,7 +335,6 @@ def test_aggregate_original_list_reconstruction():
     signal = handler.call_args[0][0]
     assert signal.additional_kwargs["old"] == [1, 2, 3]
     assert signal.additional_kwargs["new"] == [1, 2, 3, 4]
-
 
     obj = ListObj()
     obj.items = [1, 2, 3]
