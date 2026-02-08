@@ -37,6 +37,7 @@ def run_model_test(
     For more details, see the documentation:
         https://solara.dev/documentation/advanced/howto/testing#testing-widgets-using-solara-server
     """
+
     def take_img_screenshot(
         page: playwright.sync_api.Page,
         which: Literal["all", "first", "last"] = "all",
