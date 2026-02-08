@@ -813,4 +813,3 @@ def test_custom_batch_aggregator_for_user_defined_signal():
 
     handler.assert_called_once()
     assert handler.call_args.args[0].additional_kwargs["args"] == (3,)
-
