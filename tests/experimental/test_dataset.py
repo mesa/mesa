@@ -433,6 +433,3 @@ def test_table_dataset():
 
     with pytest.raises(RuntimeError, match="has been closed"):
         _ = dataset.data
-
-
-
