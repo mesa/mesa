@@ -11,6 +11,7 @@ from mesa.experimental.data_collection import (
     NumpyAgentDataSet,
     TableDataSet,
 )
+from mesa.experimental.data_collection.dataset import DataSet
 
 
 def test_data_registry():
@@ -134,6 +135,7 @@ def test_agent_dataset():
     n = 100
     model = MyModel(n=n)
     dataset = AgentDataSet("test", model.agents, "test")
+    assert isinstance(dataset, DataSet)
 
     values = dataset.data
     assert len(values) == n
@@ -195,6 +197,8 @@ def test_numpy_agent_dataset():
     model = MyModel(n=n)
     agents = model.agents.to_list()
     dataset = model.dataset
+
+    assert isinstance(dataset, DataSet)
 
     values = dataset.data
     assert values.shape == (n, 1)
@@ -384,6 +388,7 @@ def test_model_dataset():
 
     model = MyModel(n=100)
     data = model.data_registry["model_data"].data
+    assert isinstance(model.data_registry["model_data"], DataSet)
 
     assert len(data) == 1
 
@@ -402,6 +407,7 @@ def test_model_dataset():
 def test_table_dataset():
     """Test TableDataSet."""
     dataset = TableDataSet("test", "test")
+    assert isinstance(dataset, DataSet)
     assert dataset.fields == ["test"]
 
     dataset = TableDataSet("test", ["a", "b", "c"])
@@ -427,3 +433,6 @@ def test_table_dataset():
 
     with pytest.raises(RuntimeError, match="has been closed"):
         _ = dataset.data
+
+
+
