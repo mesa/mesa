@@ -292,47 +292,41 @@ def SpaceRendererComponent(
         )
         return None
     else:
+        structure = renderer.space_mesh if renderer.space_mesh else None
+        agents = renderer.agent_mesh if renderer.agent_mesh else None
+        propertylayer = renderer.propertylayer_mesh or None
 
-        def build_chart():
-            structure = renderer.space_mesh if renderer.space_mesh else None
-            agents = renderer.agent_mesh if renderer.agent_mesh else None
-            propertylayer = renderer.propertylayer_mesh or None
+        if renderer.space_mesh:
+            structure = renderer.draw_structure()
+        if renderer.agent_mesh:
+            agents = renderer.draw_agents()
+        if renderer.propertylayer_mesh:
+            propertylayer = renderer.draw_propertylayer()
 
-            if renderer.space_mesh:
-                structure = renderer.draw_structure()
-            if renderer.agent_mesh:
-                agents = renderer.draw_agents()
-            if renderer.propertylayer_mesh:
-                propertylayer = renderer.draw_propertylayer()
+        spatial_charts_list = [
+            chart for chart in [structure, propertylayer, agents] if chart
+        ]
 
-            spatial_charts_list = [
-                chart for chart in [structure, propertylayer, agents] if chart
-            ]
-
-            final_chart = None
-            if spatial_charts_list:
-                final_chart = (
-                    spatial_charts_list[0]
-                    if len(spatial_charts_list) == 1
-                    else alt.layer(*spatial_charts_list).resolve_axis(
-                        x="independent", y="independent"
-                    )
+        final_chart = None
+        if spatial_charts_list:
+            final_chart = (
+                spatial_charts_list[0]
+                if len(spatial_charts_list) == 1
+                else alt.layer(*spatial_charts_list).resolve_axis(
+                    x="independent", y="independent"
                 )
+            )
 
-            if final_chart is None:
-                # If no charts are available, return an empty chart
-                final_chart = (
-                    alt.Chart(pd.DataFrame())
-                    .mark_point()
-                    .properties(width=450, height=350)
-                )
+        if final_chart is None:
+            # If no charts are available, return an empty chart
+            final_chart = (
+                alt.Chart(pd.DataFrame()).mark_point().properties(width=450, height=350)
+            )
 
-            if renderer.post_process:
-                final_chart = renderer.post_process(final_chart)
+        if renderer.post_process:
+            final_chart = renderer.post_process(final_chart)
 
-            return final_chart.configure_view(stroke="black", strokeWidth=1.5)
-
-        final_chart = solara.use_memo(build_chart, dependencies=viz_dependencies)
+        final_chart = final_chart.configure_view(stroke="black", strokeWidth=1.5)
 
         solara.FigureAltair(final_chart, on_click=None, on_hover=None)
         return None
