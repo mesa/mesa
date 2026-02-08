@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, _HardKeyAgentSet
+from mesa.experimental.devs import Simulator
 from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
@@ -109,11 +110,14 @@ class Model[A: Agent, S: Scenario](HasObservables):
             you have to pass either seed or rng, but not both.
 
         """
+        HasObservables.__init__(self)
         super().__init__(*args, **kwargs)
         self.running: bool = True
-        self.steps: int = 0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
+
+        # Initialize Observable values
+        self.steps = 0
+        self.time = 0.0
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
