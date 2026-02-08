@@ -124,9 +124,8 @@ class Observable(BaseObservable):
                 f"cyclical dependency detected: Computed({CURRENT_COMPUTED.name}) tries to change "
                 f"{instance.__class__.__name__}.{self.public_name} while also being dependent on it"
             )
-        old_value = getattr(instance, self.private_name, None)
-        setattr(instance, self.private_name, value) # update before sending signal
-        super().__set__(instance, old_value)  # send the notify
+        setattr(instance, self.private_name, value)  # update before sending signal
+        super().__set__(instance, value)  # send the notify
         PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
