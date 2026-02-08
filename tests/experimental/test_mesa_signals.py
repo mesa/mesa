@@ -569,6 +569,72 @@ def test_emit():
     )
 
 
+def test_inherited_observable_is_subscribable():
+    """Inherited observable should remain subscribable on subclasses."""
+
+    class ParentAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    class ChildAgent(ParentAgent):
+        pass
+
+    model = Model(rng=42)
+    agent = ChildAgent(model)
+    handler = Mock()
+
+    agent.observe("value", ObservableSignals.CHANGED, handler)
+    agent.value = 1
+
+    handler.assert_called_once()
+
+
+def test_subclass_shadowed_observable_is_not_subscribable():
+    """Subclass shadowing removes base observable from subscribe registry."""
+
+    class ParentAgent(Agent, HasObservables):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 0
+
+    class ChildAgent(ParentAgent):
+        value = 1
+
+    model = Model(rng=42)
+    agent = ChildAgent(model)
+
+    assert "value" not in ChildAgent.observables
+    with pytest.raises(ValueError, match="not known"):
+        agent.observe("value", ObservableSignals.CHANGED, Mock())
+
+
+def test_overridden_emit_method_not_inherited_for_subscribe():
+    """Overriding an emitter method without @emit should remove class-level emitter."""
+
+    class TestSignals(SignalType):
+        PING = "ping"
+
+    class ParentModel(Model):
+        @emit("event", TestSignals.PING)
+        def ping(self):
+            pass
+
+    class ChildModel(ParentModel):
+        def ping(self):
+            pass
+
+    child = ChildModel(rng=42)
+
+    assert "event" not in ChildModel.observables
+    with pytest.raises(ValueError, match="not known"):
+        child.observe("event", TestSignals.PING, Mock())
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415

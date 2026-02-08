@@ -515,12 +515,21 @@ def descriptor_generator(
     """Yield the name and signal_types for each Observable defined on cls.
 
     This handles both legacy BaseObservable descriptors and new @computed_properties.
+    Class shadowing rules follow normal Python MRO behavior:
+    if a subclass defines an attribute/method name, the base definition is ignored.
     """
     emitters = defaultdict(set)
+    shadowed_names = set()
+
     for base in cls.__mro__:
         base_dict = vars(base)
 
         for name, entry in base_dict.items():
+            # Respect subclass overrides/shadowing for both descriptors and emitters.
+            if name in shadowed_names:
+                continue
+            shadowed_names.add(name)
+
             if isinstance(entry, ComputedProperty):
                 yield name, entry.signal_types
             elif isinstance(entry, BaseObservable):
