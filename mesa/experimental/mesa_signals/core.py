@@ -124,19 +124,23 @@ class Observable(BaseObservable):
                 f"cyclical dependency detected: Computed({CURRENT_COMPUTED.name}) tries to change "
                 f"{instance.__class__.__name__}.{self.public_name} while also being dependent on it"
             )
-        old_value = getattr(instance, self.private_name, None)
-        setattr(instance, self.private_name, value)  # update before sending signal
 
-        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
-            return
-        instance.notify(
-            self.public_name,
-            ObservableSignals.CHANGED,
-            old=old_value,
-            new=value,
-        )
+        send_notify = False
+        old_value = None
+        if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
+            old_value = getattr(instance, self.private_name, None)
+            send_notify = True
+        setattr(instance, self.private_name, value)
 
-        PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
+        if send_notify:
+            instance.notify(
+                self.public_name,
+                ObservableSignals.CHANGED,
+                old=old_value,
+                new=value,
+            )
+            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
+
 
 
 class ComputedState:
