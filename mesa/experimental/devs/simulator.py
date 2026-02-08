@@ -98,8 +98,8 @@ class Simulator:
                 f"Model time ({model.time}) does not match simulator start_time ({self.start_time}). "
                 "Has the model already been run?"
             )
-        if not model._event_list.is_empty():
-            raise ValueError("Events already scheduled. Call setup before scheduling.")
+        if model._simulator is not None:
+            raise ValueError("Model already has a simulator attached.")
 
         self.model = model
         model._simulator = self  # Register simulator with model
@@ -304,8 +304,8 @@ class ABMSimulator(Simulator):
 
         """
         super().setup(model)
-        # Schedule the first step event
-        model._schedule_step(1)
+        # default_schedule is already started in Model.__init__,
+        # so step events are already queued. Nothing else needed.
 
     def check_time_unit(self, time) -> bool:
         """Check whether the time is of the correct unit.
@@ -367,8 +367,8 @@ class DEVSimulator(Simulator):
             model (Model): The model to simulate
 
         """
-        # For pure DEVS, we don't want automatic step scheduling
-        # Clear any pre-scheduled events
+        # For pure DEVS, stop the default step scheduling
+        model.default_schedule.stop()
         model._event_list.clear()
         super().setup(model)
 
