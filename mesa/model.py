@@ -27,7 +27,12 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, _HardKeyAgentSet
-from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
+from mesa.experimental.devs.eventlist import (
+    EventGenerator,
+    EventList,
+    Priority,
+    Schedule,
+)
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 
@@ -169,8 +174,18 @@ class Model[A: Agent, S: Scenario](HasObservables):
             scenario = Scenario(rng=seed)  # type: ignore[assignment]
         self.scenario = scenario
 
-        # Wrap the user-defined step method
+        # Store user's step method and create the default schedule
         self._user_step = self.step
+
+        # The default recurring event: calls _do_step every 1.0 time units
+        # Users can modify, replace, or stop this via the property setter.
+        self.default_schedule = EventGenerator(
+            self,
+            self._do_step,
+            Schedule(interval=1.0, start=1.0),
+            priority=Priority.HIGH,
+        )
+
         self.step = self._wrapped_step
 
         # setup agent registration data structures
@@ -181,11 +196,8 @@ class Model[A: Agent, S: Scenario](HasObservables):
             [], random=self.random
         )  # an agenset with all agents
 
-    def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
+    def _wrapped_step(self) -> None:
         """Advance time by one unit, processing any scheduled events."""
-        # Schedule step event if not already scheduled (first call or no simulator)
-        if self._event_list.is_empty():
-            self._schedule_step(self.time + 1)
         self._advance_time(self.time + 1)
 
     def _advance_time(self, until: float) -> None:
@@ -210,17 +222,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         self.time = until
 
-    def _schedule_step(self, time: float) -> None:
-        """Schedule a step event at the given time."""
-        event = SimulationEvent(time, self._do_step, priority=Priority.HIGH)
-        self._event_list.add_event(event)
-
     def _do_step(self) -> None:
-        """Execute one step and schedule the next."""
+        """Execute one step. Rescheduling is handled by the EventGenerator."""
         self.steps += 1
         _mesa_logger.info(f"Step {self.steps} at time {self.time}")
         self._user_step()
-        self._schedule_step(self.time + 1)
 
     @property
     def agents(self) -> _HardKeyAgentSet[A]:
@@ -331,6 +337,30 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self._all_agents.remove(agent)
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
+
+    @property
+    def default_schedule(self) -> EventGenerator | None:
+        """The default recurring event schedule.
+
+        Assigning a new EventGenerator automatically stops the previous one
+        and starts the new one. Assign None to disable.
+        """
+        return self._default_schedule
+
+    @default_schedule.setter
+    def default_schedule(self, value: EventGenerator | None):
+        # Stop the old schedule if it exists and is active
+        if hasattr(self, "_default_schedule") and self._default_schedule is not None:
+            self._default_schedule.stop()
+
+        self._default_schedule = value
+
+        # Auto-start the new schedule
+        if value is not None:
+            # Guard: if user passes self.step (which currently advances time) instead of self._do_step, swap to prevent infinite recursion.
+            if value.function is self.step:
+                value.function = self._do_step
+            value.start()
 
     def run_model(self) -> None:
         """Run the model until the end condition is reached.
