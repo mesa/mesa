@@ -569,6 +569,143 @@ def test_emit():
     )
 
 
+def test_ObservableList_negative_index_replace():
+    """Test that __setitem__ with negative index emits normalized positive index."""
+
+    class MyAgent(Agent, HasObservables):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REPLACED, handler)
+
+    # Replace last element with -1
+    agent.my_list[-1] = 99
+    assert agent.my_list[2] == 99
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={"index": 2, "old": 3, "new": 99},
+        )
+    )
+
+    # Replace first element with -len
+    handler.reset_mock()
+    agent.my_list[-3] = 50
+    assert agent.my_list[0] == 50
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={"index": 0, "old": 1, "new": 50},
+        )
+    )
+
+
+def test_ObservableList_negative_index_delete():
+    """Test that __delitem__ with negative index emits normalized positive index."""
+
+    class MyAgent(Agent, HasObservables):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REMOVED, handler)
+
+    # Delete last element with -1
+    del agent.my_list[-1]
+    assert list(agent.my_list) == [1, 2]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": 2, "old": 3},
+        )
+    )
+
+    # Delete first element with -2 (on now 2-element list)
+    handler.reset_mock()
+    del agent.my_list[-2]
+    assert list(agent.my_list) == [2]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": 0, "old": 1},
+        )
+    )
+
+
+def test_ObservableList_negative_index_insert():
+    """Test that insert with negative/out-of-bounds index emits normalized index."""
+
+    class MyAgent(Agent, HasObservables):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.INSERTED, handler)
+
+    # Insert with -1 (before last element, normalized to index 2)
+    agent.my_list.insert(-1, 99)
+    assert list(agent.my_list) == [1, 2, 99, 3]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": 2, "new": 99},
+        )
+    )
+
+    # Insert with large negative (clamped to 0)
+    handler.reset_mock()
+    agent.my_list.insert(-100, 50)
+    assert agent.my_list[0] == 50
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": 0, "new": 50},
+        )
+    )
+
+    # Insert beyond length (clamped to len)
+    handler.reset_mock()
+    current_len = len(agent.my_list)
+    agent.my_list.insert(100, 77)
+    assert agent.my_list[-1] == 77
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": current_len, "new": 77},
+        )
+    )
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415

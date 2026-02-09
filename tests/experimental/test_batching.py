@@ -443,6 +443,26 @@ def test_aggregate_original_list_reconstruction():
     handler.assert_not_called()
 
 
+def test_batch_list_negative_indices():
+    """Batch with negative index operations produces correct aggregated SET signal."""
+    obj = ListObj()
+    obj.items = [1, 2, 3, 4, 5]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[-1] = 99  # replace last: [1, 2, 3, 4, 99]
+        del obj.items[-2]  # delete index 3: [1, 2, 3, 99]
+        obj.items.insert(-1, 77)  # insert before last: [1, 2, 3, 77, 99]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.signal_type == ListSignals.SET
+    assert signal.additional_kwargs["old"] == [1, 2, 3, 4, 5]
+    assert signal.additional_kwargs["new"] == [1, 2, 3, 77, 99]
+
+
 def test_aggregate_custom_uses_value():
     """Custom aggregator receives captured value and uses it for aggregation."""
 
