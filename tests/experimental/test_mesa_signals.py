@@ -735,18 +735,35 @@ def test_ObservableList_slice_setitem():
         )
     )
 
-    # Replace with negative slice
+    # Replace with a generator
     handler.reset_mock()
-    agent.my_list[-2:] = [10, 20, 30]
-    assert list(agent.my_list) == [1, 10, 20, 30]
+    agent.my_list[0:2] = (x * 10 for x in range(3))
+    assert list(agent.my_list) == [0, 10, 20, 5]
     handler.assert_called_once_with(
         Message(
             name="my_list",
             signal_type=ListSignals.REPLACED,
             owner=agent,
             additional_kwargs={
-                "index": slice(1, 3, 1),
-                "old": [99, 5],
+                "index": slice(0, 2, 1),
+                "old": [1, 99],
+                "new": [0, 10, 20],
+            },
+        )
+    )
+
+    # Replace with negative slice
+    handler.reset_mock()
+    agent.my_list[-2:] = [10, 20, 30]
+    assert list(agent.my_list) == [0, 10, 10, 20, 30]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(2, 4, 1),
+                "old": [20, 5],
                 "new": [10, 20, 30],
             },
         )

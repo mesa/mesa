@@ -173,6 +173,7 @@ def test_suppress_nesting():
         # Inner suppress exited, but outer still active
         obj.value = 40
         handler.assert_not_called()
+    handler.assert_not_called()
 
     # Outer suppress exited, signals should work again
     obj.value = 50
@@ -537,3 +538,115 @@ def test_aggregate_custom_uses_value():
     signal = handler.call_args[0][0]
     assert signal.additional_kwargs["old"] == 0
     assert signal.additional_kwargs["delta"] == 10
+
+
+def test_batch_list_slice_replacement():
+    """Batch with length-changing slice replacement reconstructs old correctly."""
+    # Shrink: replace 3 elements with 1
+    obj = ListObj()
+    obj.items = [1, 2, 3, 4, 5]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[1:4] = [99]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3, 4, 5]
+    assert signal.additional_kwargs["new"] == [1, 99, 5]
+
+    # Grow: replace 1 element with 3
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[1:2] = [10, 20, 30]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [1, 10, 20, 30, 3]
+
+    # Insert via empty slice
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[1:1] = [10, 20]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [1, 10, 20, 2, 3]
+
+
+def test_batch_list_inherited_methods():
+    """MutableSequence inherited methods (extend, pop, clear, +=) emit correct signals in batch."""
+    # extend
+    obj = ListObj()
+    obj.items = [1, 2]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items.extend([3, 4, 5])
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2]
+    assert signal.additional_kwargs["new"] == [1, 2, 3, 4, 5]
+
+    # pop
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        val = obj.items.pop()
+
+    assert val == 3
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [1, 2]
+
+    # clear
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items.clear()
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == []
+
+    # +=
+    obj = ListObj()
+    obj.items = [1]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items += [2, 3]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1]
+    assert signal.additional_kwargs["new"] == [1, 2, 3]

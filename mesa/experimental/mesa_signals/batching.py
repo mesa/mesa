@@ -142,7 +142,15 @@ def _aggregate_list(
                 old = [*current[:idx], kwargs["old"], *current[idx:]]
         case ListSignals.REPLACED:
             old = list(current)
-            old[idx] = kwargs["old"]
+            if isinstance(idx, slice) and idx.step == 1:
+                # For contiguous slices, the replacement may have changed list
+                # length. The new values occupy current[start : start + len(new)],
+                # so we replace that range with the original values.
+                new_vals = kwargs["new"]
+                start = idx.start
+                old[start : start + len(new_vals)] = kwargs["old"]
+            else:
+                old[idx] = kwargs["old"]
         case ListSignals.SET:
             old = list(kwargs.get("old", []))
         case _:

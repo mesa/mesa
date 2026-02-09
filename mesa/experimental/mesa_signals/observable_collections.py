@@ -86,13 +86,14 @@ class SignalingList(MutableSequence[Any]):
             # this resolves negative numbers in slice
             index = slice(*index.indices(len(self.data)))
             old_value = self.data[index]
-            self.data[index] = value
+            new_value = list(value)
+            self.data[index] = new_value
             self.owner.notify(
                 self.name,
                 ListSignals.REPLACED,
                 index=index,
                 old=old_value,
-                new=list(value),
+                new=new_value,
             )
         else:
             if index < 0:
