@@ -151,7 +151,7 @@ def SolaraViz(
         display_components.insert(0, (create_space_component(renderer.value), 0))
 
     with solara.AppBar():
-        solara.AppBarTitle(name if name else model.value.__class__.__name__)
+        solara.AppBarTitle(name if name else type(model.value).__name__)
         solara.lab.ThemeToggle()
 
     with solara.Sidebar(), solara.Column():
@@ -532,9 +532,9 @@ def ModelController(
         visualization_pause_event.clear()
         _mesa_logger.log(
             10,
-            f"creating new {model.value.__class__} instance with {model_parameters.value}",
+            f"creating new {type(model.value)} instance with {model_parameters.value}",
         )
-        model.value = model.value = model.value.__class__(**model_parameters.value)
+        model.value = model.value = type(model.value)(**model_parameters.value)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -659,7 +659,7 @@ def SimulatorController(
         simulator.reset()
         visualization_pause_event.clear()
         pause_step_event.clear()
-        model.value = model.value = model.value.__class__(
+        model.value = model.value = type(model.value)(
             simulator=simulator, **model_parameters.value
         )
         if renderer is not None:
@@ -765,7 +765,7 @@ def ModelCreator(
     model_parameters = solara.use_reactive(model_parameters)
 
     solara.use_effect(
-        lambda: _check_model_params(model.value.__class__.__init__, user_params),
+        lambda: _check_model_params(type(model.value).__init__, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
@@ -922,7 +922,7 @@ def make_initial_grid_layout(num_components):
 
 def copy_renderer(renderer: SpaceRenderer, model: Model):
     """Create a new renderer instance with the same configuration as the original."""
-    new_renderer = renderer.__class__(model=model, backend=renderer.backend)
+    new_renderer = type(renderer)(model=model, backend=renderer.backend)
 
     attributes_to_copy = [
         "agent_portrayal",
