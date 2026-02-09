@@ -569,7 +569,7 @@ def test_emit():
     )
 
 
-def test_ObservableList_negative_index_replace():
+def test_ObservableList_negative_index_normalization():
     """Test that __setitem__ with negative index emits normalized positive index."""
 
     class MyAgent(Agent, HasObservables):
@@ -579,6 +579,7 @@ def test_ObservableList_negative_index_replace():
             super().__init__(model)
             self.my_list = [1, 2, 3]
 
+    # replaced
     model = Model(rng=42)
     agent = MyAgent(model)
     handler = Mock()
@@ -609,17 +610,7 @@ def test_ObservableList_negative_index_replace():
         )
     )
 
-
-def test_ObservableList_negative_index_delete():
-    """Test that __delitem__ with negative index emits normalized positive index."""
-
-    class MyAgent(Agent, HasObservables):
-        my_list = ObservableList()
-
-        def __init__(self, model):
-            super().__init__(model)
-            self.my_list = [1, 2, 3]
-
+    # removed
     model = Model(rng=42)
     agent = MyAgent(model)
     handler = Mock()
@@ -650,17 +641,7 @@ def test_ObservableList_negative_index_delete():
         )
     )
 
-
-def test_ObservableList_negative_index_insert():
-    """Test that insert with negative/out-of-bounds index emits normalized index."""
-
-    class MyAgent(Agent, HasObservables):
-        my_list = ObservableList()
-
-        def __init__(self, model):
-            super().__init__(model)
-            self.my_list = [1, 2, 3]
-
+    # inserted
     model = Model(rng=42)
     agent = MyAgent(model)
     handler = Mock()
