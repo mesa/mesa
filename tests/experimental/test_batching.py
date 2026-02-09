@@ -471,7 +471,6 @@ def test_aggregate_original_list_reconstruction():
     assert signal.additional_kwargs["new"] == [3, 2, 1]
 
 
-
 def test_batch_list_negative_indices():
     """Batch with negative index operations produces correct aggregated SET signal."""
     obj = ListObj()
