@@ -229,6 +229,25 @@ def test_batch_computed_staleness():
     assert obj.doubled == 40
 
 
+def test_suppress_computed_staleness():
+    """Computed returns stale value during and after suppress."""
+    obj = ComputedObj(10)
+
+    # Access to initialize the computed
+    assert obj.doubled == 20
+
+    handler = Mock()
+    obj.observe("doubled", ObservableSignals.CHANGED, handler)
+
+    with obj.suppress():
+        obj.base = 20
+        # During batch, computed may be stale
+        # (dirty notification hasn't fired yet)
+
+    # After suppress, computed should still be stale
+    handler.assert_not_called()
+    assert obj.doubled == 20
+
 def test_aggregate_register_custom():
     """User registers custom aggregator via @aggregate.register, verify it's used."""
 
