@@ -204,7 +204,9 @@ def SolaraViz(
                     use_threads=reactive_use_threads,
                 )
         with solara.Card("Model Parameters"):
-            ModelCreator(model, model_params, model_parameters=reactive_model_parameters)
+            ModelCreator(
+                model, model_params, model_parameters=reactive_model_parameters
+            )
         with solara.Card("Information"):
             ShowSteps(model.value)
         if (
