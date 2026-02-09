@@ -82,6 +82,8 @@ class SignalingList(MutableSequence[Any]):
             value: the item to set
 
         """
+        if index < 0:
+            index += len(self.data)
         old_value = self.data[index]
         self.data[index] = value
         self.owner.notify(
@@ -95,6 +97,8 @@ class SignalingList(MutableSequence[Any]):
             index: The index of the item to remove
 
         """
+        if index < 0:
+            index += len(self.data)
         old_value = self.data[index]
         del self.data[index]
         self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
@@ -122,6 +126,11 @@ class SignalingList(MutableSequence[Any]):
             value: the value to insert
 
         """
+        # Normalize before insert: clamp to [0, len] to match list.insert behavior
+        if index < 0:
+            index = max(0, index + len(self.data))
+        elif index > len(self.data):
+            index = len(self.data)
         self.data.insert(index, value)
         self.owner.notify(self.name, ListSignals.INSERTED, index=index, new=value)
 
