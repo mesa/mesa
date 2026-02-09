@@ -512,6 +512,10 @@ def test_networkgrid():
 
 def test_voronoigrid():
     """Test VoronoiGrid."""
+    # Index 0: [0, 1]
+    # Index 1: [1, 3]
+    # Index 2: [1.1, 1]
+    # Index 3: [1, 1]
     points = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
 
     grid = VoronoiGrid(points, random=random.Random(42))
@@ -521,7 +525,7 @@ def test_voronoigrid():
     # Check cell neighborhood
     assert len(grid._cells[0].connections.values()) == 2
     for connection in grid._cells[0].connections.values():
-        assert connection.coordinate in [[1, 1], [1, 3]]
+        assert connection.coordinate in [1, 3]
 
     with pytest.raises(ValueError):
         VoronoiGrid(points, capacity="str", random=random.Random(42))

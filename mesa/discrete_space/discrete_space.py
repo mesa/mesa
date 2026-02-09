@@ -20,6 +20,8 @@ from functools import cached_property
 from random import Random
 from typing import TypeVar
 
+import numpy as np
+
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
@@ -84,6 +86,54 @@ class DiscreteSpace[T: Cell]:
 
     def _connect_cells(self): ...
     def _connect_single_cell(self, cell: T): ...
+
+    def pos_to_cell(self, position: np.ndarray) -> T:
+        """Convert physical position to cell.
+
+        Args:
+            position: Physical coordinates (e.g., [5.3, 7.8])
+
+        Returns:
+            Cell: The cell at or containing the position
+
+        Raises:
+            NotImplementedError: If space type doesn't support position lookup
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement pos_to_cell(). "
+            "This space may be purely topological (no physical coordinates)."
+        )
+
+    def cell_to_pos(self, cell: T) -> np.ndarray | None:
+        """Get physical position of a cell.
+
+        Args:
+            cell: The cell to get position for
+
+        Returns:
+            np.ndarray: Physical coordinates of the cell center, or None if
+                       the space is purely topological (e.g., non-spatial network)
+
+        Note:
+            If cell.position is already set, returns that. Otherwise, calculates
+            position from cell.coordinate using space-specific logic.
+        """
+        if cell.position is not None:
+            return cell.position
+        return self._calculate_position(cell)
+
+    def _calculate_position(self, cell: T) -> np.ndarray | None:
+        """Calculate physical position from logical coordinate.
+
+        This is space-specific and should be overridden by subclasses.
+
+        Args:
+            cell: The cell to calculate position for
+
+        Returns:
+            np.ndarray: Calculated position, or None for purely topological spaces
+        """
+        return None  # Default: no physical position
 
     def add_cell(self, cell: T):
         """Add a cell to the space.

@@ -18,6 +18,8 @@ from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
 
@@ -32,6 +34,7 @@ class Cell:
 
     Attributes:
         coordinate (Tuple[int, int]) : the position of the cell in the discrete space
+        position (np.ndarray | None): physical coordinates of the cell
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell
         random (Random): the random number generator
@@ -43,7 +46,8 @@ class Cell:
         "_empty",
         "capacity",
         "connections",
-        "coordinate",
+        "coordinate",  # Logical index
+        "position",  # Physical position
         "properties",
         "random",
     ]
@@ -59,6 +63,7 @@ class Cell:
     def __init__(
         self,
         coordinate: Coordinate,
+        position: np.ndarray | None = None,
         capacity: int | None = None,
         random: Random | None = None,
     ) -> None:
@@ -66,12 +71,14 @@ class Cell:
 
         Args:
             coordinate: coordinates of the cell
+            position: physical coordinates of the cell
             capacity (int) : the capacity of the cell. If None, the capacity is infinite
             random (Random) : the random number generator to use
 
         """
         super().__init__()
-        self.coordinate = coordinate
+        self.coordinate = coordinate  # Logical index
+        self.position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
         self._agents: list[
             CellAgent

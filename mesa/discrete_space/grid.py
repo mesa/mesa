@@ -14,6 +14,7 @@ or Hex for more uniform distances.
 from __future__ import annotations
 
 import copyreg
+import math
 from collections.abc import Sequence
 from itertools import product
 from random import Random
@@ -123,6 +124,48 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def _calculate_position(self, cell: T) -> np.ndarray:
+        """Calculate physical position of cell center from coordinate.
+
+        Args:
+            cell: The cell to calculate position for
+
+        Returns:
+            np.ndarray: Position of the cell center
+        """
+        # Cell center is at coordinate + 0.5
+        return np.array(cell.coordinate, dtype=float) + 0.5
+
+    def pos_to_cell(self, position: np.ndarray) -> T:
+        """Find the cell containing the given position.
+
+        Args:
+            position: Physical coordinates
+
+        Returns:
+            Cell: The cell containing the position
+
+        Raises:
+            KeyError: If position is outside grid bounds and not a torus
+        """
+        position = np.asarray(position)
+
+        # Floor to get cell coordinate
+        coord = tuple(np.floor(position).astype(int))
+
+        # Handle torus wrapping
+        if self.torus:
+            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+
+        # Check bounds for non-torus grids
+        elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
+            raise ValueError(
+                f"Position {position} is outside grid bounds. "
+                f"Dimensions: {self.dimensions}"
+            )
+
+        return self._cells[coord]
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
@@ -286,6 +329,81 @@ class HexGrid(Grid[T]):
     Raises:
         ValueError: If torus=True and either width or height is odd.
     """
+
+    def _calculate_position(self, cell: T) -> np.ndarray:
+        """Convert offset hex coordinates (col, row) to pixel position.
+
+        Args:
+            cell: The hex cell
+
+        Returns:
+            np.ndarray: Pixel position of hex center
+        """
+        col, row = cell.coordinate
+        size = 1.0  # Size of the hexagon (distance from center to any corner)
+
+        x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+        y = size * 1.5 * row
+
+        return np.array([x, y])
+
+    def pos_to_cell(self, position: np.ndarray) -> T:
+        """Convert pixel position to hex cell (Offset Coordinates).
+
+        Args:
+            position: Pixel coordinates [x, y]
+
+        Returns:
+            Cell: The hex cell at that position
+        """
+        position = np.asarray(position)
+        x, y = position
+        size = 1.0
+
+        # Invert the Pointy-Topped conversion
+        q = (math.sqrt(3) / 3 * x - 1 / 3 * y) / size
+        r = (2 / 3 * y) / size
+
+        # Round to nearest Hex (Axial)
+        # Convert to Cube coordinates for rounding
+        cx = q
+        cz = r
+        cy = -cx - cz
+
+        rx = round(cx)
+        ry = round(cy)
+        rz = round(cz)
+
+        x_diff = abs(rx - cx)
+        y_diff = abs(ry - cy)
+        z_diff = abs(rz - cz)
+
+        if x_diff > y_diff and x_diff > z_diff:
+            rx = -ry - rz
+        elif y_diff > z_diff:
+            ry = -rx - rz
+        else:
+            rz = -rx - ry
+
+        # Axial integer result: q=rx, r=rz
+        q_int, r_int = rx, rz
+
+        # Axial to Offset (Odd-R / "Row" offset)
+        # col = q + (r - (r&1)) / 2
+        # row = r
+        row = int(r_int)
+        col = int(q_int + (r_int - (r_int % 2)) / 2)
+
+        coord = (col, row)
+
+        # Handle torus wrapping
+        if self.torus:
+            height, width = self.dimensions
+            coord = (coord[0] % width, coord[1] % height)
+        elif not (0 <= col < self.width and 0 <= row < self.height):
+            raise ValueError(f"Position {position} is outside grid bounds.")
+
+        return self._cells[coord]
 
     def _connect_cells_2d(self) -> None:
         # fmt: off
