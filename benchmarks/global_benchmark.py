@@ -42,11 +42,7 @@ def run_model(model_class, seed, parameters):
 
     end_init_start_run = time.perf_counter()
 
-    if model_class.__name__ in uses_simulator:
-        simulator.run_for(config["steps"])
-    else:
-        for _ in range(config["steps"]):
-            model.step()
+    model.run_for(config["steps"])
 
     end_run = time.perf_counter()
     gc.enable()  # Re-enable GC after benchmarking

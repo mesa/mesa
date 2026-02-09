@@ -16,9 +16,17 @@ def test_model_set_up():
     assert model.time == 0.0
     assert model._simulator is None
 
-    model.step()
+    model.run_for(1)
     assert model.steps == 1
     assert model.time == 1.0
+
+
+def test_model_run_for():
+    """Test Model.run_for() method."""
+    model = Model()
+    model.run_for(10)
+    assert model.steps == 10
+    assert model.time == 10.0
 
 
 def test_model_time_increment():
