@@ -143,6 +143,10 @@ def create_meta_agent(
     meta_methods: dict[str, Callable] | None = None,
     assume_constituting_agent_methods: bool = False,
     assume_constituting_agent_attributes: bool = False,
+    meta_agent_selector: Callable[
+        [list["MetaAgent"], Iterable[Agent]],
+        "MetaAgent",
+     ] | None = None,
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
@@ -156,6 +160,10 @@ def create_meta_agent(
     constituting_-agents as meta_agent methods.
     assume_constituting_agent_attributes (bool): Whether to retain attributes
     from constituting_-agents.
+    meta_agent_selector(Callable[[list[MetaAgent], Iterable[Agent]],MetaAgent], optional):
+    Optional callback used when multiple existing meta-agents of the same class
+    are eligible. The callable receives the list of candidate meta-agents and
+    the agents being added, and must return exactly one of the candidates.
 
     Returns:
         - MetaAgent Instance
