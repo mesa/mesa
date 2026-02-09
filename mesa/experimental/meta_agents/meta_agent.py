@@ -146,7 +146,8 @@ def create_meta_agent(
     meta_agent_selector: Callable[
         [list["MetaAgent"], Iterable[Agent]],
         "MetaAgent",
-     ] | None = None,
+    ]
+    | None = None,
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
@@ -163,7 +164,7 @@ def create_meta_agent(
     meta_agent_selector(Callable[[list[MetaAgent], Iterable[Agent]],MetaAgent], optional):
     Optional callback used when multiple existing meta-agents of the same class
     are eligible. The callable receives the list of candidate meta-agents and
-    the agents being added, and must return exactly one of the candidates. 
+    the agents being added, and must return exactly one of the candidates.
 
     Returns:
         - MetaAgent Instance
@@ -265,9 +266,7 @@ def create_meta_agent(
             try:
                 selected = meta_agent_selector(existing_meta_agents, agents)
             except Exception as e:
-                raise ValueError(
-                    "meta_agent_selector raised an exception"
-                ) from e
+                raise ValueError("meta_agent_selector raised an exception") from e
 
             if selected not in existing_meta_agents:
                 raise ValueError(
@@ -305,12 +304,13 @@ def create_meta_agent(
         {
             "unique_id": None,
             "_constituting_set": None,
-        }, 
+        },
     )
     meta_agent_instance = meta_agent_class(model, agents)
     add_attributes(meta_agent_instance, agents, meta_attributes)
     add_methods(meta_agent_instance, agents, meta_methods)
     return meta_agent_instance
+
 
 class MetaAgent(Agent):
     """A MetaAgent is an agent that contains other agents as components."""
