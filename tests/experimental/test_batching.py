@@ -141,6 +141,24 @@ def test_batch_nesting():
     assert signal.additional_kwargs["old"] == 10
     assert signal.additional_kwargs["new"] == 30
 
+    # test if only signal in inner loop is properly
+    # transferred to outer loop
+    handler.reset_mock()
+    with obj.batch():
+        with obj.batch():
+            # only change inside inner batch
+            obj.value = 10
+            handler.assert_not_called()
+
+        # Inner batch exited, but outer still active
+        handler.assert_not_called()
+
+    # Outer batch exited, now signal should fire
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == 30
+    assert signal.additional_kwargs["new"] == 10
+
 
 def test_suppress_nesting():
     """Nested suppress, outer exit restores."""
@@ -247,6 +265,7 @@ def test_suppress_computed_staleness():
     # After suppress, computed should still be stale
     handler.assert_not_called()
     assert obj.doubled == 20
+
 
 def test_aggregate_register_custom():
     """User registers custom aggregator via @aggregate.register, verify it's used."""
