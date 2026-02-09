@@ -687,6 +687,129 @@ def test_ObservableList_negative_index_normalization():
     )
 
 
+def test_ObservableList_slice_setitem():
+    """Test that __setitem__ with a slice emits a REPLACED signal with normalized index."""
+
+    class MyAgent(Agent, HasObservables):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3, 4, 5]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REPLACED, handler)
+
+    # Replace a slice
+    agent.my_list[1:3] = [20, 30]
+    assert list(agent.my_list) == [1, 20, 30, 4, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(1, 3, 1),
+                "old": [2, 3],
+                "new": [20, 30],
+            },
+        )
+    )
+
+    # Replace with different length (shrink)
+    handler.reset_mock()
+    agent.my_list[1:4] = [99]
+    assert list(agent.my_list) == [1, 99, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(1, 4, 1),
+                "old": [20, 30, 4],
+                "new": [99],
+            },
+        )
+    )
+
+    # Replace with negative slice
+    handler.reset_mock()
+    agent.my_list[-2:] = [10, 20, 30]
+    assert list(agent.my_list) == [1, 10, 20, 30]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(1, 3, 1),
+                "old": [99, 5],
+                "new": [10, 20, 30],
+            },
+        )
+    )
+
+
+def test_ObservableList_slice_delitem():
+    """Test that __delitem__ with a slice emits a REMOVED signal with normalized index."""
+
+    class MyAgent(Agent, HasObservables):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3, 4, 5]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REMOVED, handler)
+
+    del agent.my_list[1:3]
+    assert list(agent.my_list) == [1, 4, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(1, 3, 1), "old": [2, 3]},
+        )
+    )
+
+    # Step slice
+    handler.reset_mock()
+    agent.my_list = [1, 2, 3, 4, 5]
+    handler.reset_mock()
+    del agent.my_list[::2]
+    assert list(agent.my_list) == [2, 4]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(0, 5, 2), "old": [1, 3, 5]},
+        )
+    )
+
+    # Negative slice
+    handler.reset_mock()
+    agent.my_list = [1, 2, 3, 4, 5]
+    handler.reset_mock()
+    del agent.my_list[-3:-1]
+    assert list(agent.my_list) == [1, 2, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(2, 4, 1), "old": [3, 4]},
+        )
+    )
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415

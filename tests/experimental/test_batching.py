@@ -442,6 +442,35 @@ def test_aggregate_original_list_reconstruction():
 
     handler.assert_not_called()
 
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[1::] = [1, 1]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [1, 1, 1]
+
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        obj.items[:] = obj.items[::-1]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [3, 2, 1]
+
+
 
 def test_batch_list_negative_indices():
     """Batch with negative index operations produces correct aggregated SET signal."""

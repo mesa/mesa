@@ -126,9 +126,20 @@ def _aggregate_list(
         case ListSignals.APPENDED:
             old = current[:idx]
         case ListSignals.INSERTED:
-            old = current[:idx] + current[idx + 1 :]
+            old = list(current)
+            del old[idx]
         case ListSignals.REMOVED:
-            old = [*current[:idx], kwargs["old"], *current[idx:]]
+            if isinstance(idx, slice):
+                # Merge removed items back at their original positions
+                removed = kwargs["old"]
+                original_len = len(current) + len(removed)
+                removed_indices = set(range(*idx.indices(original_len)))
+                old = []
+                ri, ci = iter(removed), iter(current)
+                for i in range(original_len):
+                    old.append(next(ri if i in removed_indices else ci))
+            else:
+                old = [*current[:idx], kwargs["old"], *current[idx:]]
         case ListSignals.REPLACED:
             old = list(current)
             old[idx] = kwargs["old"]

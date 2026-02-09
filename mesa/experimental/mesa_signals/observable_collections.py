@@ -74,34 +74,58 @@ class SignalingList(MutableSequence[Any]):
         self.name: str = name
         self.data = list(iterable)
 
-    def __setitem__(self, index: int, value: Any) -> None:
-        """Set item to index.
+    def __setitem__(self, index: int | slice, value: Any) -> None:
+        """Set item(s) by index or slice.
 
         Args:
-            index: the index to set item to
-            value: the item to set
+            index: the index or slice to set
+            value: the item (or iterable for slices) to set
 
         """
-        if index < 0:
-            index += len(self.data)
-        old_value = self.data[index]
-        self.data[index] = value
-        self.owner.notify(
-            self.name, ListSignals.REPLACED, index=index, old=old_value, new=value
-        )
+        if isinstance(index, slice):
+            # this resolves negative numbers in slice
+            index = slice(*index.indices(len(self.data)))
+            old_value = self.data[index]
+            self.data[index] = value
+            self.owner.notify(
+                self.name,
+                ListSignals.REPLACED,
+                index=index,
+                old=old_value,
+                new=list(value),
+            )
+        else:
+            if index < 0:
+                index += len(self.data)
+            old_value = self.data[index]
+            self.data[index] = value
+            self.owner.notify(
+                self.name, ListSignals.REPLACED, index=index, old=old_value, new=value
+            )
 
-    def __delitem__(self, index: int) -> None:
-        """Delete item at index.
+    def __delitem__(self, index: int | slice) -> None:
+        """Delete item(s) by index or slice.
 
         Args:
-            index: The index of the item to remove
+            index: the index or slice to delete
 
         """
-        if index < 0:
-            index += len(self.data)
-        old_value = self.data[index]
-        del self.data[index]
-        self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
+        if isinstance(index, slice):
+            # this resolves negative numbers in slice
+            index = slice(*index.indices(len(self.data)))
+            old_value = self.data[index]
+            del self.data[index]
+            self.owner.notify(
+                self.name, ListSignals.REMOVED, index=index, old=old_value
+            )
+        else:
+            if index < 0:
+                index += len(self.data)
+            old_value = self.data[index]
+            del self.data[index]
+            self.owner.notify(
+                self.name, ListSignals.REMOVED, index=index, old=old_value
+            )
 
     def __getitem__(self, index) -> Any:
         """Get item at index.
