@@ -208,7 +208,7 @@ def test_ObservableList():
     assert len(agent.my_list) == 0
     handler.assert_called_once()
 
-    agent.unobserve("my_list", ListSignals.APPENDED, handler)
+    agent.unobserve("my_list", ListSignals.REMOVED, handler)
 
     # overwrite the existing list
     a_list = [1, 2, 3, 4, 5]
@@ -232,7 +232,7 @@ def test_ObservableList():
     assert entry == a_list.pop(index)
     assert len(agent.my_list) == len(a_list)
     handler.assert_called_once()
-    agent.unobserve("my_list", ListSignals.INSERTED, handler)
+    agent.unobserve("my_list", ListSignals.REMOVED, handler)
 
     # insert
     handler = Mock()
@@ -265,7 +265,7 @@ def test_ObservableList():
 
 
 def test_Message():
-    """Test AttributeDict."""
+    """Test Message."""
 
     class MyAgent(Agent, HasObservables):
         some_attribute = Observable()
