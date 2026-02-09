@@ -41,6 +41,7 @@ import solara.lab
 
 import mesa.visualization.components.altair_components as components_altair
 from mesa.experimental.devs.simulator import Simulator
+from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, function_logger
 from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.space_renderer import SpaceRenderer
@@ -150,7 +151,7 @@ def SolaraViz(
         display_components.insert(0, (create_space_component(renderer.value), 0))
 
     with solara.AppBar():
-        solara.AppBarTitle(name if name else type(model.value).__name__)
+        solara.AppBarTitle(name if name else model.value.__class__.__name__)
         solara.lab.ThemeToggle()
 
     with solara.Sidebar(), solara.Column():
@@ -203,11 +204,7 @@ def SolaraViz(
                     use_threads=reactive_use_threads,
                 )
         with solara.Card("Model Parameters"):
-            ModelCreator(
-                model,
-                model_params,
-                model_parameters=reactive_model_parameters,
-            )
+            ModelCreator(model, model_params, model_parameters=reactive_model_parameters)
         with solara.Card("Information"):
             ShowSteps(model.value)
         if (
@@ -443,6 +440,54 @@ def ComponentsView(
 JupyterViz = SolaraViz
 
 
+def _get_scenario_defaults(scenario: Scenario) -> dict[str, Any]:
+    """Return defaults for a scenario instance, validating scenario type."""
+    scenario_class = type(scenario)
+    if not issubclass(scenario_class, Scenario):
+        raise ValueError(
+            "Expected model.scenario to be a subclass instance of mesa.experimental.scenarios.Scenario."
+        )
+
+    return getattr(scenario, "_scenario_defaults", {})
+
+
+def _build_model_init_kwargs(
+    model: Model,
+    model_parameters: dict[str, Any],
+    *,
+    add_scenario_when_empty: bool,
+    require_model_accepts_scenario: bool,
+) -> dict[str, Any]:
+    """Build kwargs for model re-instantiation, splitting scenario/model params."""
+    kwargs: dict[str, Any] = {}
+    scenario_kwargs: dict[str, Any] = {}
+
+    if getattr(model, "scenario", None):
+        scenario = model.scenario
+        scenario_class = type(scenario)
+        scenario_defaults = _get_scenario_defaults(scenario)
+        model_init_params = inspect.signature(model.__class__.__init__).parameters
+
+        for key, value in model_parameters.items():
+            if key in scenario_defaults and key not in model_init_params:
+                scenario_kwargs[key] = value
+            else:
+                kwargs[key] = value
+
+        has_kwargs = any(p.kind == p.VAR_KEYWORD for p in model_init_params.values())
+        accepts_scenario = "scenario" in model_init_params or has_kwargs
+        should_add_scenario = add_scenario_when_empty or bool(scenario_kwargs)
+
+        if should_add_scenario and (
+            accepts_scenario or not require_model_accepts_scenario
+        ):
+            kwargs["scenario"] = scenario_class(**scenario_kwargs)
+    else:
+        kwargs = {**model_parameters}
+
+    return kwargs
+
+
 @solara.component
 def ModelController(
     model: solara.Reactive[Model],
@@ -469,7 +514,6 @@ def ModelController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-
     visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
 
     error_message = solara.use_reactive(None)
@@ -534,41 +578,16 @@ def ModelController(
         visualization_pause_event.clear()
         _mesa_logger.log(
             10,
-            f"creating new {type(model.value)} instance with {model_parameters.value}",
+            f"creating new {model.value.__class__} instance with {model_parameters.value}",
         )
-        kwargs = {}
-        scenario_kwargs = {}
+        kwargs = _build_model_init_kwargs(
+            model.value,
+            model_parameters.value,
+            add_scenario_when_empty=True,
+            require_model_accepts_scenario=True,
+        )
 
-        # Check if the model has a scenario and split parameters accordingly
-        if getattr(model.value, "scenario", None):
-            scenario_class = type(model.value.scenario)
-            # We assume scenario parameters are those in scenario class but NOT in model init
-            # Check for _scenario_defaults first (Mesa's Scenario mechanism) or fallback to signature
-            scenario_defaults = getattr(model.value.scenario, "_scenario_defaults", {})
-            if not scenario_defaults:
-                # Fallback to signature inspection if _scenario_defaults is missing
-                scenario_defaults = inspect.signature(scenario_class).parameters
-
-            model_init_params = inspect.signature(type(model.value).__init__).parameters
-
-            for k, v in model_parameters.value.items():
-                if k in scenario_defaults and k not in model_init_params:
-                    scenario_kwargs[k] = v
-                else:
-                    kwargs[k] = v
-
-            # Scenario controls rng; do not override from model params here.
-
-            # Only pass scenario if the model accepts it or has **kwargs
-            has_kwargs = any(
-                p.kind == p.VAR_KEYWORD for p in model_init_params.values()
-            )
-            if "scenario" in model_init_params or has_kwargs:
-                kwargs["scenario"] = scenario_class(**scenario_kwargs)
-        else:
-            kwargs = {**model_parameters.value}
-
-        model.value = type(model.value)(**kwargs)
+        model.value = model.value.__class__(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -625,11 +644,9 @@ def SimulatorController(
     """
     playing = solara.use_reactive(False)
     running = solara.use_reactive(True)
-
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-
     visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
     pause_step_event = solara.use_memo(lambda: threading.Event(), [])
 
@@ -696,32 +713,16 @@ def SimulatorController(
         visualization_pause_event.clear()
         pause_step_event.clear()
 
-        kwargs = {}
-        scenario_kwargs = {}
-
-        # Check if the model has a scenario and split parameters accordingly
-        if getattr(model.value, "scenario", None):
-            scenario_class = type(model.value.scenario)
-            scenario_defaults = getattr(model.value.scenario, "_scenario_defaults", {})
-            if not scenario_defaults:
-                scenario_defaults = inspect.signature(scenario_class).parameters
-
-            model_init_params = inspect.signature(type(model.value).__init__).parameters
-
-            for k, v in model_parameters.value.items():
-                if k in scenario_defaults and k not in model_init_params:
-                    scenario_kwargs[k] = v
-                else:
-                    kwargs[k] = v
-
-            if scenario_kwargs:
-                kwargs["scenario"] = scenario_class(**scenario_kwargs)
-        else:
-            kwargs = {**model_parameters.value}
+        kwargs = _build_model_init_kwargs(
+            model.value,
+            model_parameters.value,
+            add_scenario_when_empty=False,
+            require_model_accepts_scenario=False,
+        )
 
         kwargs["simulator"] = simulator
 
-        model.value = type(model.value)(**kwargs)
+        model.value = model.value.__class__(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -789,7 +790,7 @@ def ModelCreator(
     model: solara.Reactive[Model],
     user_params: dict,
     *,
-    model_parameters: dict | solara.Reactive[dict] | None = None,
+    model_parameters: dict | solara.Reactive[dict] = None,
 ):
     """Solara component for creating and managing a model instance with user-defined parameters.
 
@@ -825,7 +826,7 @@ def ModelCreator(
     model_parameters = solara.use_reactive(model_parameters)
 
     solara.use_effect(
-        lambda: _check_model_params(type(model.value).__init__, user_params),
+        lambda: _check_model_params(model.value.__class__.__init__, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
@@ -982,7 +983,7 @@ def make_initial_grid_layout(num_components):
 
 def copy_renderer(renderer: SpaceRenderer, model: Model):
     """Create a new renderer instance with the same configuration as the original."""
-    new_renderer = type(renderer)(model=model, backend=renderer.backend)
+    new_renderer = renderer.__class__(model=model, backend=renderer.backend)
 
     attributes_to_copy = [
         "agent_portrayal",
