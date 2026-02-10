@@ -118,11 +118,10 @@ class Model[A: Agent, S: Scenario](HasObservables):
         HasObservables.__init__(self)
         super().__init__(*args, **kwargs)
         self.running: bool = True
+        self.steps: int = 0
+        self.time: float = 0.0
         self.agent_id_counter: int = 1
 
-        # Initialize Observable values
-        self.steps = 0
-        self.time = 0.0
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
