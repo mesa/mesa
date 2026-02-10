@@ -882,7 +882,8 @@ def _check_model_params(model_or_func, model_params):
         )
 
     has_var_keyword = any(
-        param.kind == inspect.Parameter.VAR_KEYWORD for param in model_parameters.values()
+        param.kind == inspect.Parameter.VAR_KEYWORD
+        for param in model_parameters.values()
     )
 
     scenario_defaults = {}
