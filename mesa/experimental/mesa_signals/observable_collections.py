@@ -135,9 +135,7 @@ class SignalingList(MutableSequence[Any]):
                 index += len(self.data)
             old_value = self.data[index]
         del self.data[index]
-        self.owner.notify(
-            self.name, ListSignals.REMOVED, index=index, old=old_value
-        )
+        self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
 
     def __getitem__(self, index) -> Any:
         """Get item at index.

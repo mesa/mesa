@@ -200,7 +200,10 @@ class _BatchContext:
                 if name not in self._previous.buffer:
                     self._previous.buffer[name] = []
                     # Transfer captured value if parent doesn't have one yet
-                    if name in self._captured_values and name not in self._previous._captured_values:
+                    if (
+                        name in self._captured_values
+                        and name not in self._previous._captured_values
+                    ):
                         self._previous._captured_values[name] = self._captured_values[
                             name
                         ]

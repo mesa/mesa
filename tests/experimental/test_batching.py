@@ -664,7 +664,9 @@ def test_suppress_inside_nested_batch_snapshot():
         with obj.suppress():
             obj.items.append(4)  # suppressed, but snapshots [1,2,3] into outer
         with obj.batch():
-            obj.items.append(5)  # inner snapshot [1,2,3,4] must NOT overwrite outer's [1,2,3]
+            obj.items.append(
+                5
+            )  # inner snapshot [1,2,3,4] must NOT overwrite outer's [1,2,3]
 
     handler.assert_called_once()
     signal = handler.call_args[0][0]
