@@ -48,14 +48,21 @@ class BaseDataSet(abc.ABC):
 
     Args:
        name: the name of the data set
-       args: the fields to collect
+       fields: the fields to collect
 
     """
 
-    def __init__(self, name, *args: str):
+    def __init__(self, name, *, fields: str|list[str]|None = None,):
         """Initialize a base data set."""
         self.name = name
-        self._attributes = args
+
+        if fields is not None:
+            if isinstance(fields, str):
+                fields = [fields]
+        else:
+            raise ValueError("please pass one or more fields to collect")
+
+        self._attributes = fields
         self._collector = operator.attrgetter(*self._attributes)
         self._closed = False
 
@@ -84,7 +91,7 @@ class AgentDataSet[A: Agent](BaseDataSet):
     Args:
         name: the name of the data set
         agents: the agents to collect data from
-        args: fields to collect
+        fields: fields to collect
 
     """
 
@@ -92,10 +99,15 @@ class AgentDataSet[A: Agent](BaseDataSet):
         self,
         name: str,
         agents: AbstractAgentSet[A],
-        *args: str,
+        fields: str | list[str] | None = None,
     ):
         """Init. of AgentDataSet."""
-        super().__init__(name, "unique_id", *args)
+        if fields is None:
+            raise ValueError("please pass one or more fields to collect")
+        elif isinstance(fields, str):
+            fields = [fields]
+
+        super().__init__(name, fields=["unique_id", *fields])
         self.agents = agents
 
     @property
@@ -118,13 +130,13 @@ class ModelDataSet[M: Model](BaseDataSet):
     Args:
         name: the name of the data set
         model: the model to collect data from
-        args: the fields to collect.
+        fields: the fields to collect.
 
     """
 
-    def __init__(self, name, model: M, *args: str):
+    def __init__(self, name, model: M, fields: str| list[str] | None = None):
         """Init of ModelDataSet."""
-        super().__init__(name, *args)
+        super().__init__(name, fields=fields)
         self.model = model
 
     @property
@@ -156,9 +168,13 @@ class TableDataSet:
 
     """
 
-    def __init__(self, name, fields: str | list[str]):
+    def __init__(self, name, fields: str | list[str]| None = None):
         """Init."""
         self.name = name
+
+        if fields is None:
+            raise ValueError("please pass one or more fields to collect")
+
         self.fields = fields if isinstance(fields, list) else [fields]
         self.rows = []
 
@@ -215,7 +231,7 @@ class NumpyAgentDataSet[A: Agent]:
         self,
         name: str,
         agent_type: type[A],
-        *args: str,
+        fields: str | list[str] | None = None,
         n: int = 100,
         dtype: np.dtype | type = np.float64,
     ):
@@ -224,7 +240,7 @@ class NumpyAgentDataSet[A: Agent]:
         Args:
             name: Name of the dataset
             agent_type: The agent class to install properties on
-            args: Attribute names to track
+            fields: attribute names to track
             n: Initial capacity
             dtype: NumPy dtype for the array
 
@@ -232,11 +248,13 @@ class NumpyAgentDataSet[A: Agent]:
             ValueError: if no attributes are specified
 
         """
-        if not args:
-            raise ValueError("At least one attribute must be specified")
+        if fields is None:
+            raise ValueError("please pass one or more fields to collect")
+        elif isinstance(fields, str):
+            fields = [fields]
 
         self.name = name
-        self._attributes = args
+        self._attributes = fields
         self._closed = False
         self.dtype = dtype
         self._index_in_table = f"_index_datatable_{name}"
@@ -250,7 +268,7 @@ class NumpyAgentDataSet[A: Agent]:
         self._index_to_agent: dict[int, A] = {}
         self._agent_to_index: dict[A, int] = {}
         self._attribute_to_index: dict[str, int] = {
-            attr: i for i, attr in enumerate(args)
+            attr: i for i, attr in enumerate(fields)
         }
 
         # Install properties on the agent class
@@ -387,6 +405,11 @@ class NumpyAgentDataSet[A: Agent]:
         return self._agent_data[: self._n_active].copy()
 
     @property
+    def agent_ids(self) -> np.ndarray:
+        """Return the agent ids as a view (no copy)."""
+        return self._agent_ids[: self._n_active]
+
+    @property
     def active_agents(self) -> list[A]:
         """Return list of all active agents (order matches data rows)."""
         self._check_closed()
@@ -445,9 +468,9 @@ class DataRegistry:
         else:
             raise RuntimeError(f"Dataset '{dataset.name}' already registered")
 
-    def create_dataset(self, dataset_type, name, *args, **kwargs) -> DataSet:
+    def create_dataset(self, dataset_type, name, *args, fields: str|list[str]|None = None, **kwargs) -> DataSet:
         """Create a dataset of the specified type and add it to the registry."""
-        dataset = dataset_type(name, *args, **kwargs)
+        dataset = dataset_type(name, *args, fields=fields, **kwargs)
         self.datasets[name] = dataset
         return dataset
 
@@ -455,20 +478,20 @@ class DataRegistry:
         self,
         agents: AbstractAgentSet,
         name: str,
-        *args: str,
+        fields: str|list[str]|None = None,
     ):
         """Track the specified fields for the agents in the AgentSet."""
-        return self.create_dataset(AgentDataSet, name, agents, *args)
+        return self.create_dataset(AgentDataSet, name, agents, fields=fields)
 
-    def track_model(self, model: Model, name: str, *args):
+    def track_model(self, model: Model, name: str, fields: str|list[str]|None = None,):
         """Track the specified fields in the model."""
-        return self.create_dataset(ModelDataSet, name, model, *args)
+        return self.create_dataset(ModelDataSet, name, model, fields=fields)
 
     def track_agents_numpy(
         self,
         agent_type: type[Agent],
         name: str,
-        *args,
+        fields: str|list[str]|None = None,
         n: int = 100,
         dtype: np.dtype | type = np.float64,
     ) -> NumpyAgentDataSet:
@@ -477,7 +500,7 @@ class DataRegistry:
         Args:
             agent_type: The agent class to install properties on
             name: Name of the dataset
-            args: Attribute names to track
+            fields: Attribute names to track
             n: Initial capacity
             dtype: NumPy dtype for the array
 
@@ -485,7 +508,7 @@ class DataRegistry:
             The created NumpyAgentDataSet
 
         """
-        dataset = NumpyAgentDataSet(name, agent_type, *args, n=n, dtype=dtype)
+        dataset = NumpyAgentDataSet(name, agent_type, fields=fields, n=n, dtype=dtype)
         self.datasets[name] = dataset
         return dataset
 

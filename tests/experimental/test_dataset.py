@@ -17,7 +17,7 @@ from mesa.experimental.data_collection.dataset import DataSet
 def test_data_registry():
     """Test DataRegistry."""
     registry = DataRegistry()
-    dataset = TableDataSet("test", "field")
+    dataset = TableDataSet("test", fields="field")
 
     registry.add_dataset(dataset)
 
@@ -40,7 +40,7 @@ def test_data_registry():
 def test_data_registry_create_dataset():
     """Test DataRegistry.create_dataset."""
     registry = DataRegistry()
-    dataset = registry.create_dataset(TableDataSet, "table", ["a", "b"])
+    dataset = registry.create_dataset(TableDataSet, "table", fields=["a", "b"])
 
     assert "table" in registry
     assert registry["table"] is dataset
@@ -50,8 +50,8 @@ def test_data_registry_create_dataset():
 def test_data_registry_iteration():
     """Test DataRegistry __iter__."""
     registry = DataRegistry()
-    ds1 = TableDataSet("a", "f1")
-    ds2 = TableDataSet("b", "f2")
+    ds1 = TableDataSet("a", fields="f1")
+    ds2 = TableDataSet("b", fields="f2")
     registry.add_dataset(ds1)
     registry.add_dataset(ds2)
 
@@ -87,8 +87,8 @@ def test_data_registry_track():
 
     model = MyModel()
     registry = DataRegistry()
-    agent_dataset = registry.track_agents(model.agents, "agent_data", "wealth")
-    model_dataset = registry.track_model(model, "model_data", "summed_wealth")
+    agent_dataset = registry.track_agents(model.agents, "agent_data", fields="wealth")
+    model_dataset = registry.track_model(model, "model_data", fields="summed_wealth")
 
     assert "agent_data" in registry
     assert "model_data" in registry
@@ -100,8 +100,8 @@ def test_data_registry_track():
 def test_data_registry_close_all():
     """Test DataRegistry.close() closes all datasets."""
     registry = DataRegistry()
-    ds1 = TableDataSet("a", "f1")
-    ds2 = TableDataSet("b", "f2")
+    ds1 = TableDataSet("a", fields="f1")
+    ds2 = TableDataSet("b", fields="f2")
     registry.add_dataset(ds1)
     registry.add_dataset(ds2)
 
@@ -134,7 +134,7 @@ def test_agent_dataset():
 
     n = 100
     model = MyModel(n=n)
-    dataset = AgentDataSet("test", model.agents, "test")
+    dataset = AgentDataSet("test", model.agents, fields="test")
     assert isinstance(dataset, DataSet)
 
     values = dataset.data
@@ -150,7 +150,7 @@ def test_agent_dataset():
         _ = dataset.data
     dataset.close()
 
-    dataset = AgentDataSet("test", model.agents, "test", "second_attribute")
+    dataset = AgentDataSet("test", model.agents, fields=["test", "second_attribute"])
     values = dataset.data
     assert len(values) == n
 
@@ -179,9 +179,9 @@ def test_numpy_agent_dataset():
         def __init__(self, rng=42, n=100):
             super().__init__(rng=rng)
             self.data_registry.track_agents_numpy(
-                MyAgent, "my_data", "first_attribute", "second_attribute"
+                MyAgent, "my_data", fields=["first_attribute", "second_attribute"]
             )
-            self.dataset = NumpyAgentDataSet("test", MyAgent, "test", dtype=int)
+            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="test", dtype=int)
             self.data_registry.add_dataset(self.dataset)
             MyAgent.create_agents(
                 self,
@@ -237,7 +237,7 @@ def test_numpy_agent_dataset():
 
     dataset.close()
 
-    with pytest.raises(ValueError, match="At least one attribute"):
+    with pytest.raises(ValueError, match="please pass one or more fields to collect"):
         NumpyAgentDataSet("test", MyAgent)
 
 
@@ -252,7 +252,7 @@ def test_numpy_agent_dataset_remove_agent():
     class MyModel(Model):
         def __init__(self):
             super().__init__()
-            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", dtype=float)
+            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", dtype=float)
             self.data_registry.add_dataset(self.dataset)
 
             MyAgent.create_agents(self, 5, [0.0, 1.0, 2.0, 3.0, 4.0])
@@ -310,7 +310,7 @@ def test_numpy_agent_dataset_expand_storage():
         def __init__(self):
             super().__init__()
             # Start with small capacity
-            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", n=5, dtype=float)
+            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", n=5, dtype=float)
             self.data_registry.add_dataset(self.dataset)
             # Add more agents than initial capacity
             for i in range(20):
@@ -335,7 +335,7 @@ def test_numpy_agent_dataset_property_cleanup_on_close():
     class MyModel(Model):
         def __init__(self):
             super().__init__()
-            self.dataset = NumpyAgentDataSet("test", MyAgent, "value", dtype=float)
+            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", dtype=float)
             self.data_registry.add_dataset(self.dataset)
 
     model = MyModel()
@@ -376,7 +376,7 @@ def test_model_dataset():
             self.data_registry.track_model(
                 self,
                 "model_data",
-                "mean_value",
+                fields="mean_value",
             )
             MyAgent.create_agents(
                 self,
@@ -397,7 +397,7 @@ def test_model_dataset():
     with pytest.raises(RuntimeError):
         _ = model.data_registry["model_data"].data
 
-    dataset = ModelDataSet("test", model, "mean_value", "std_value")
+    dataset = ModelDataSet("test", model, fields=["mean_value", "std_value"])
     data = dataset.data
     assert len(data) == 2
     dataset.close()
@@ -406,11 +406,11 @@ def test_model_dataset():
 
 def test_table_dataset():
     """Test TableDataSet."""
-    dataset = TableDataSet("test", "test")
+    dataset = TableDataSet("test", fields="test")
     assert isinstance(dataset, DataSet)
     assert dataset.fields == ["test"]
 
-    dataset = TableDataSet("test", ["a", "b", "c"])
+    dataset = TableDataSet("test", fields=["a", "b", "c"])
     assert dataset.fields == ["a", "b", "c"]
 
     dataset.add_row({"a": 1, "b": 2, "c": 99})
