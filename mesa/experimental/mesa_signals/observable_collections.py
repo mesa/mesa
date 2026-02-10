@@ -45,11 +45,9 @@ class ObservableList(BaseObservable):
         old_value = getattr(instance, self.private_name, self.fallback_value)
         # Snapshot into batch context before replacing the list
         ctx = instance._batch_context
-        if ctx is not None and self.public_name not in ctx._captured_values:
-            try:
-                ctx._captured_values[self.public_name] = list(old_value)
-            except TypeError:
-                ctx._captured_values[self.public_name] = old_value
+        if ctx is not None:
+            old_value = [] if old_value is None else list(old_value)
+            ctx.capture_original_value_once(self.public_name, old_value)
         setattr(
             instance,
             self.private_name,
@@ -84,8 +82,8 @@ class SignalingList(MutableSequence[Any]):
     def _snapshot_if_batching(self):
         """Snapshot list state into the batch context before the first mutation."""
         ctx = self.owner._batch_context
-        if ctx is not None and self.name not in ctx._captured_values:
-            ctx._captured_values[self.name] = list(self.data)
+        if ctx is not None:
+            ctx.capture_original_value_once(self.name, list(self.data))
 
     def __setitem__(self, index: int | slice, value: Any) -> None:
         """Set item(s) by index or slice.

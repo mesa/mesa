@@ -21,7 +21,12 @@ Notes:
     normally and mark computed properties dirty.
 
     During suppress, computed properties may become permanently stale because
-    their triggering signals are dropped entirely.
+    their triggering signals are dropped entirely.]]
+
+    @aggregate.register is global to the python process, and it's non-trivial
+    to remove it, although you can overwrite it. See also functools.singledispatch for
+    more details.
+
 """
 
 from __future__ import annotations
@@ -228,6 +233,21 @@ class _BatchContext:
                 key = (signal.name, signal.signal_type)
                 if key in self.instance.subscribers:
                     self.instance._mesa_notify(signal)
+
+    def capture_original_value_once(self, name, value):
+        """"Store the original value of an observable while batching.
+
+        Args:
+            name: the name of the observable
+            value: the original value
+
+        The value will be passed to the aggregator function on flushing and
+        can then be used to determine if there has been a change from old to new
+        while batching.
+
+        """
+        if name not in self._captured_values:
+            self._captured_values[name] = value
 
 
 class _SuppressContext:
