@@ -1,6 +1,5 @@
 """Test Solara visualizations - Modern API."""
 
-import inspect
 import re
 import unittest
 
