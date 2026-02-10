@@ -1,13 +1,13 @@
-"""CollectorListener for the DataRegistry Architecture.
+"""DataRecorder for the DataRegistry Architecture.
 
 This module orchestrates data collection from Mesa's DataRegistry, managing
 storage and conversion to analysis-ready formats.
 
 Architecture:
-    DataRegistry (statistics.py) → CollectorListener → Analysis
+    DataRegistry → DataRecorder → Analysis
 
     - DataRegistry: Pure extraction (what to collect)
-    - CollectorListeners: Storage orchestration (efficient accumulation) derived from BaseCollectorListener
+    - DataRecorders: Storage orchestration (efficient accumulation) derived from BaseDataRecorder
     - Observable-based auto-collection - subscribes to model.time observable
 
 """
@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from .base_listener import BaseCollectorListener, DatasetConfig
+from .basedatarecorder import BaseDataRecorder, DatasetConfig
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -43,15 +43,15 @@ class DatasetStorage:
     estimated_size_bytes: int = 0
 
 
-class CollectorListener(BaseCollectorListener):
-    """In-memory collector listener (default implementation)."""
+class DataRecorder(BaseDataRecorder):
+    """In-memory data recorder (default implementation)."""
 
     def __init__(
         self,
         model: Model,
         config: dict[str, DatasetConfig | dict[str, Any]] | None = None,
     ):
-        """Initialize the listener and subscribe to model observables."""
+        """Initialize the recorder and subscribe to model observables."""
         self.storage: dict[str, DatasetStorage] = {}
         super().__init__(model, config)
 
@@ -257,7 +257,7 @@ class CollectorListener(BaseCollectorListener):
         """String representation."""
         memory = f"{self.estimate_memory_usage():.1f}MB" if self.storage else "0MB"
         return (
-            f"CollectorListener("
+            f"DataRecorder("
             f"datasets={len(self.storage)}, "
             f"rows={sum(s.total_rows for s in self.storage.values())}, "
             f"memory={memory})"
@@ -295,7 +295,7 @@ class NumpyJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-class JSONListener(BaseCollectorListener):
+class JSONDataRecorder(BaseDataRecorder):
     """Store data as JSON files."""
 
     def __init__(
@@ -304,7 +304,7 @@ class JSONListener(BaseCollectorListener):
         config: dict[str, DatasetConfig | dict[str, Any]] | None = None,
         output_dir=".",
     ):
-        """Initialize JSON Listener."""
+        """Initialize JSON Recorder."""
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.data: dict[str, list] = {}
@@ -378,7 +378,7 @@ class JSONListener(BaseCollectorListener):
                 json.dump(snapshots, f, indent=2, cls=NumpyJSONEncoder)
 
 
-class ParquetListener(BaseCollectorListener):
+class ParquetDataRecorder(BaseDataRecorder):
     """Store collected data in Parquet files."""
 
     def __init__(
@@ -519,7 +519,7 @@ class ParquetListener(BaseCollectorListener):
         # super().__del__()
 
 
-class SQLListener(BaseCollectorListener):
+class SQLDataRecorder(BaseDataRecorder):
     """Store collected data in SQLite database."""
 
     def __init__(

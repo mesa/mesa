@@ -1,4 +1,4 @@
-"""BaseCollectorListener for the Custom Listeners.
+"""BaseDataRecorder for the Custom Data Recorders.
 
 Subclasses must implement:
     - _store_dataset_snapshot: Store a single dataset snapshot
@@ -15,7 +15,7 @@ The base class handles:
 
 Key Design Principles:
     1. ABC-based design for custom storage backends
-    2. Separation of concerns: BaseCollectorListener(owns config) vs CustomListener(owns storage)
+    2. Separation of concerns: BaseDataRecorder(owns config) vs CustomRecorder(owns storage)
     3. Observable-based collection
 """
 
@@ -114,15 +114,15 @@ class DatasetConfig:
             self.enabled = False
 
 
-class BaseCollectorListener(ABC):
-    """Base class for data collection listeners."""
+class BaseDataRecorder(ABC):
+    """Base class for data recorders."""
 
     def __init__(
         self,
         model: Model,
         config: dict[str, DatasetConfig | dict[str, Any]] | None = None,
     ):
-        """Initialize the listener.
+        """Initialize the recorder.
 
         Args:
             model: The model to observe.
@@ -256,7 +256,6 @@ class BaseCollectorListener(ABC):
         """Get collection status summary."""
 
     # def __del__(self):
-    #     """Cleanup when listener is destroyed."""
-    #     if isinstance(self.model, HasObservables):
-    #         with contextlib.suppress(ValueError, KeyError):
-    #             self.model.unobserve("time", ObservableSignals.CHANGE, self._on_time_change)
+    #     """Cleanup when recorder is destroyed."""
+    #     with contextlib.suppress(ValueError, KeyError):
+    #         self.model.unobserve("time", ObservableSignals.CHANGE, self._on_time_change)
