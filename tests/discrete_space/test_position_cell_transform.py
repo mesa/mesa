@@ -1,6 +1,7 @@
 """Test the coordinate translation between cell and position for different discrete spaces."""
 
 import math
+import random
 
 import networkx as nx
 import numpy as np
@@ -16,7 +17,7 @@ from mesa.discrete_space import (
 
 def test_grid_transform():
     """Test OrthogonalGrid coordinate conversion."""
-    grid = OrthogonalMooreGrid((10, 10), torus=False)
+    grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
 
     # Test cell_to_pos (Center of cell)
     cell = grid._cells[(5, 5)]
@@ -37,7 +38,7 @@ def test_grid_transform():
         grid.pos_to_cell([10.1, 5])
 
     # Torus Grid
-    torus_grid = OrthogonalMooreGrid((10, 10), torus=True)
+    torus_grid = OrthogonalMooreGrid((10, 10), torus=True, random=random.Random(42))
 
     # Wrapping negative
     cell = torus_grid.pos_to_cell([-0.5, 5])
@@ -50,7 +51,7 @@ def test_grid_transform():
 
 def test_hex_grid_transform():
     """Test HexGrid Pointy-Topped coordinate conversion."""
-    grid = HexGrid((10, 10), torus=False)
+    grid = HexGrid((10, 10), torus=False, random=random.Random(42))
 
     # Cell -> Pos -> Cell should return the original cell
     for cell in grid.all_cells:
@@ -78,7 +79,7 @@ def test_hex_grid_transform():
 def test_voronoi_transform():
     """Test VoronoiGrid."""
     centroids = [(10, 10), (20, 10), (50, 50)]
-    grid = VoronoiGrid(centroids)
+    grid = VoronoiGrid(centroids, random=random.Random(42))
 
     # cell_to_pos should return the centroid
     cell_0 = grid._cells[0]
@@ -99,7 +100,7 @@ def test_network_transform():
     G.add_node(0, pos=(0, 0))
     G.add_node(1, pos=(10, 0))
 
-    net = Network(G)
+    net = Network(G, random=random.Random(42))
 
     # cell_to_pos
     cell_0 = net._cells[0]
@@ -110,7 +111,9 @@ def test_network_transform():
     assert net.pos_to_cell([9, 1]) == net._cells[1]
 
     G_for_layout = nx.path_graph(3)  # noqa: N806
-    net_layout = Network(G_for_layout, layout=nx.spring_layout)
+    net_layout = Network(
+        G_for_layout, layout=nx.spring_layout, random=random.Random(42)
+    )
 
     # Should have generated positions
     assert net_layout._cells[0].position is not None
@@ -118,7 +121,7 @@ def test_network_transform():
     assert net_layout.pos_to_cell([0, 0]) is not None
 
     G_for_topo = nx.path_graph(3)  # noqa: N806
-    net_topo = Network(G_for_topo, layout=None)
+    net_topo = Network(G_for_topo, layout=None, random=random.Random(42))
 
     # Positions should be None
     assert net_topo._cells[0].position is None
@@ -132,10 +135,10 @@ def test_network_transform():
 def test_polymorphism():
     """Test that all spaces adhere to the DiscreteSpace interface."""
     spaces = [
-        OrthogonalMooreGrid((5, 5)),
-        HexGrid((5, 5)),
-        VoronoiGrid([(0, 0), (10, 10)]),
-        Network(nx.path_graph(3), layout=nx.spring_layout),
+        OrthogonalMooreGrid((5, 5), random=random.Random(42)),
+        HexGrid((5, 5), random=random.Random(42)),
+        VoronoiGrid([(0, 0), (10, 10)], random=random.Random(42)),
+        Network(nx.path_graph(3), layout=nx.spring_layout, random=random.Random(42)),
     ]
 
     for space in spaces:
