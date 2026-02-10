@@ -211,6 +211,24 @@ def test_find_combinations(setup_agents):
         assert combo[1] > 2
 
 
+def test_find_combinations_allows_zero_value(setup_agents):
+    """Test that zero-valued evaluation results are preserved."""
+    model, agents = setup_agents
+
+    def evaluation_func(agent_group):
+        return 0.0
+
+    combinations = find_combinations(
+        model,
+        agents,
+        size=2,
+        evaluation_func=evaluation_func,
+    )
+
+    assert len(combinations) > 0
+    assert combinations[0][1] == 0.0
+
+
 def test_meta_agent_len(setup_agents):
     """Test the __len__ method of MetaAgent.
 
