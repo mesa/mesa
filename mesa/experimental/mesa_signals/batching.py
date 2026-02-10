@@ -57,7 +57,7 @@ def aggregate(
     Args:
         signal_type: the type of signal (used for dispatch)
         signals: list of buffered Message objects
-        value: the attribute value captured at the time of the first signal
+        value: the attribute value captured at the time of the first signal, or None if not captured
 
     Returns:
         list of Message objects to dispatch
@@ -106,55 +106,15 @@ def _aggregate_list(
 ) -> list[Message]:
     """Aggregate ListSignals: collapse into a single SET signal.
 
-    Reconstructs the pre-batch list state by reverse-applying the first
-    captured operation on ``value`` (the list state right after that operation).
-    Reads the current list state at flush time for the ``new`` value.
+    ``value`` is the pre-batch list state, captured by SignalingList before
+    the first mutation. Reads the current list state at flush time for ``new``.
 
     If old == new after aggregation, return empty list.
     """
     if not signals:
         return []
 
-    # Reverse-engineer pre-batch state from first signal + value
-    first = signals[0]
-    kwargs = first.additional_kwargs
-    current = list(value) if value is not None else []
-
-    # reverse engineer the original value of list before first signal
-    idx = kwargs.get("index")
-    match first.signal_type:
-        case ListSignals.APPENDED:
-            old = current[:idx]
-        case ListSignals.INSERTED:
-            old = list(current)
-            del old[idx]
-        case ListSignals.REMOVED:
-            if isinstance(idx, slice):
-                # Merge removed items back at their original positions
-                removed = kwargs["old"]
-                original_len = len(current) + len(removed)
-                removed_indices = set(range(*idx.indices(original_len)))
-                old = []
-                ri, ci = iter(removed), iter(current)
-                for i in range(original_len):
-                    old.append(next(ri if i in removed_indices else ci))
-            else:
-                old = [*current[:idx], kwargs["old"], *current[idx:]]
-        case ListSignals.REPLACED:
-            old = list(current)
-            if isinstance(idx, slice) and idx.step == 1:
-                # For contiguous slices, the replacement may have changed list
-                # length. The new values occupy current[start : start + len(new)],
-                # so we replace that range with the original values.
-                new_vals = kwargs["new"]
-                start = idx.start
-                old[start : start + len(new_vals)] = kwargs["old"]
-            else:
-                old[idx] = kwargs["old"]
-        case ListSignals.SET:
-            old = list(kwargs.get("old", []))
-        case _:
-            raise ValueError("unknown list signal type")
+    old = list(value) if value is not None else []
 
     # Current list state at flush time
     owner = signals[-1].owner
@@ -206,7 +166,8 @@ class _BatchContext:
         """Capture a signal and add it to the buffer.
 
         On the first signal for a given observable name, stores the current
-        attribute value for later use by ``aggregate``.
+        attribute value for later use by ``aggregate`` (unless already
+        snapshotted before mutation, e.g. by SignalingList).
 
         Args:
             signal: the Message to buffer
@@ -216,14 +177,13 @@ class _BatchContext:
 
         if name not in self.buffer:
             self.buffer[name] = []
-            current_value = getattr(signal.owner, name, None)
-            try:
-                # we might have to look at this again downstream
-                # currently we only have signaling list and model.agents
-                # both of which can be cast to a list.
-                self._captured_values[name] = list(current_value)
-            except TypeError:
-                self._captured_values[name] = current_value
+            # Only capture if not already snapshotted before mutation
+            if name not in self._captured_values:
+                current_value = getattr(signal.owner, name, None)
+                try:
+                    self._captured_values[name] = list(current_value)
+                except TypeError:
+                    self._captured_values[name] = current_value
 
         self.buffer[name].append(signal)
 
@@ -239,8 +199,8 @@ class _BatchContext:
             for name, signals in self.buffer.items():
                 if name not in self._previous.buffer:
                     self._previous.buffer[name] = []
-                    # Transfer captured value if parent doesn't have one
-                    if name in self._captured_values:
+                    # Transfer captured value if parent doesn't have one yet
+                    if name in self._captured_values and name not in self._previous._captured_values:
                         self._previous._captured_values[name] = self._captured_values[
                             name
                         ]

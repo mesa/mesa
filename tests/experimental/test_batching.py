@@ -650,3 +650,23 @@ def test_batch_list_inherited_methods():
     signal = handler.call_args[0][0]
     assert signal.additional_kwargs["old"] == [1]
     assert signal.additional_kwargs["new"] == [1, 2, 3]
+
+
+def test_suppress_inside_nested_batch_snapshot():
+    """Suppressed mutation snapshots into outer batch; nested inner batch must not overwrite it."""
+    obj = ListObj()
+    obj.items = [1, 2, 3]
+
+    handler = Mock()
+    obj.observe("items", ListSignals.SET, handler)
+
+    with obj.batch():
+        with obj.suppress():
+            obj.items.append(4)  # suppressed, but snapshots [1,2,3] into outer
+        with obj.batch():
+            obj.items.append(5)  # inner snapshot [1,2,3,4] must NOT overwrite outer's [1,2,3]
+
+    handler.assert_called_once()
+    signal = handler.call_args[0][0]
+    assert signal.additional_kwargs["old"] == [1, 2, 3]
+    assert signal.additional_kwargs["new"] == [1, 2, 3, 4, 5]
