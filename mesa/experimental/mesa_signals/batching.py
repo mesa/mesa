@@ -235,7 +235,7 @@ class _BatchContext:
                     self.instance._mesa_notify(signal)
 
     def capture_original_value_once(self, name, value):
-        """"Store the original value of an observable while batching.
+        """Store the original value of an observable while batching.
 
         Args:
             name: the name of the observable
@@ -244,7 +244,6 @@ class _BatchContext:
         The value will be passed to the aggregator function on flushing and
         can then be used to determine if there has been a change from old to new
         while batching.
-
         """
         if name not in self._captured_values:
             self._captured_values[name] = value
