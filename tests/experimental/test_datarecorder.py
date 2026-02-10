@@ -169,6 +169,8 @@ def test_json_recorder():
 
 def test_parquet_recorder():
     """Test ParquetDataRecorder."""
+    pytest.importorskip("pyarrow")
+
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
         # Set small buffer size to force flush
