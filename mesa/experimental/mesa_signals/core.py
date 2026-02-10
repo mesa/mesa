@@ -8,8 +8,6 @@ functionality:
 - computed_property: Decorator for creating properties that automatically update based on dependencies
 - HasObservables: Mixin class that enables an object to contain and manage observables
 - emit: Decorator for methods that emit signals
-- All: Helper class for subscribing to all signals from an observable
-- SignalType: Enum defining the types of signals that can be emitted
 
 The module implements a robust reactive system where changes to observable properties
 automatically trigger updates to dependent computed values and notify subscribed
@@ -83,7 +81,6 @@ class BaseObservable:
     def __set_name__(self, owner: HasObservables, name: str):  # noqa: D105
         self.public_name = name
         self.private_name = f"_{name}"
-        # owner.register_observable(self)
 
     def __set__(self, instance: HasObservables, value):  # noqa: D105
         # If no one is listening, Avoid overhead of fetching old value and
@@ -99,8 +96,8 @@ class BaseObservable:
         instance.notify(
             self.public_name,
             change_signal,
-            old=getattr(instance, self.private_name, self.fallback_value),
-            new=value,
+            old=value,
+            new=getattr(instance, self.private_name, self.fallback_value),
         )
 
     def __str__(self):  # noqa: D105
@@ -108,7 +105,11 @@ class BaseObservable:
 
 
 class Observable(BaseObservable):
-    """Observable class."""
+    """Observable descriptor.
+
+    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed.
+
+    """
 
     # fixme: when we go to 3.13, we might explore changing this into a property
     #    instead of descriptor, which is likely to be more performant
@@ -121,13 +122,24 @@ class Observable(BaseObservable):
         ):
             raise ValueError(
                 f"cyclical dependency detected: Computed({CURRENT_COMPUTED.name}) tries to change "
-                f"{instance.__class__.__name__}.{self.public_name} while also being dependent it"
+                f"{instance.__class__.__name__}.{self.public_name} while also being dependent on it"
             )
 
-        super().__set__(instance, value)  # send the notify
+        send_notify = False
+        old_value = None
+        if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
+            old_value = getattr(instance, self.private_name, None)
+            send_notify = True
         setattr(instance, self.private_name, value)
 
-        PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
+        if send_notify:
+            instance.notify(
+                self.public_name,
+                ObservableSignals.CHANGED,
+                old=old_value,
+                new=value,
+            )
+            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
 class ComputedState:
@@ -356,7 +368,7 @@ class HasObservables:
     def clear_all_subscriptions(self, name: ObservableName):
         """Clears all subscriptions for the observable <name>.
 
-        if name is All, all subscriptions are removed
+        if name is ALL, all subscriptions are removed
 
         Args:
             name: name of the Observable to unsubscribe for all signal types
