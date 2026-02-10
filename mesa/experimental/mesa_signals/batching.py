@@ -236,7 +236,7 @@ class _BatchContext:
 
     def capture_original_value_once(self, name, value):
         """Store the original value of an observable while batching.
-
+        
         Args:
             name: the name of the observable
             value: the original value
