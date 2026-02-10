@@ -42,6 +42,7 @@ class ObservableList(BaseObservable):
             value: The value to set the attribute to.
 
         """
+        old_value = getattr(instance, self.private_name, self.fallback_value)
         setattr(
             instance,
             self.private_name,
@@ -50,13 +51,13 @@ class ObservableList(BaseObservable):
         instance.notify(
             self.public_name,
             ListSignals.SET,
-            old=getattr(instance, self.private_name, self.fallback_value),
+            old=old_value,
             new=value,
         )
 
 
 class SignalingList(MutableSequence[Any]):
-    """A basic lists that emits signals on changes."""
+    """A standard list that emits signals on changes to the underlying list."""
 
     __slots__ = ["data", "name", "owner"]
 
@@ -66,7 +67,7 @@ class SignalingList(MutableSequence[Any]):
         Args:
             iterable: initial values in the list
             owner: the HasObservables instance on which this list is defined
-            name: the attribute name to which  this list is assigned
+            name: the attribute name to which this list is assigned
 
         """
         self.owner: HasObservables = owner
@@ -125,7 +126,7 @@ class SignalingList(MutableSequence[Any]):
         self.owner.notify(self.name, ListSignals.INSERTED, index=index, new=value)
 
     def append(self, value):
-        """Insert value at index.
+        """Append value to list.
 
         Args:
             value: the value to append
