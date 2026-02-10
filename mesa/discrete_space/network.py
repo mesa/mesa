@@ -104,12 +104,6 @@ class Network(DiscreteSpace[Cell]):
         Raises:
             ValueError: If network is not spatial
         """
-        if not self.spatial:
-            raise ValueError(
-                "Cannot convert position to cell in non-spatial network. "
-                "Set spatial=True when creating the Network."
-            )
-
         position = np.asarray(position)
 
         # Find nearest node by brute force   FIXME: Could optimize with KD-tree if many nodes
