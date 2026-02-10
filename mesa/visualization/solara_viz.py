@@ -828,7 +828,7 @@ def ModelCreator(
     model_parameters = solara.use_reactive(model_parameters)
 
     solara.use_effect(
-        lambda: _check_model_params(type(model.value).__init__, user_params),
+        lambda: _check_model_params(model.value, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
@@ -852,16 +852,23 @@ def ModelCreator(
     UserInputs(user_adjust_params, on_change=on_change)
 
 
-def _check_model_params(init_func, model_params):
+def _check_model_params(model_or_func, model_params):
     """Check if model parameters are valid for the model's initialization function.
 
     Args:
-        init_func: Model initialization function
+        model_or_func: Model instance or its initialization function
         model_params: Dictionary of model parameters
 
     Raises:
         ValueError: If a parameter is not valid for the model's initialization function
     """
+    if inspect.isfunction(model_or_func) or inspect.ismethod(model_or_func):
+        init_func = model_or_func
+        model = None
+    else:
+        model = model_or_func
+        init_func = type(model).__init__
+
     model_parameters = inspect.signature(init_func).parameters
 
     has_var_positional = any(
@@ -874,16 +881,30 @@ def _check_model_params(init_func, model_params):
             "Mesa's visualization requires the use of keyword arguments to ensure the parameters are passed to Solara correctly. Please ensure all model parameters are of form param=value"
         )
 
+    has_var_keyword = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in model_parameters.values()
+    )
+
+    scenario_defaults = {}
+    if model is not None and getattr(model, "scenario", None):
+        scenario_defaults = _get_scenario_defaults(model.scenario)
+
     for name in model_parameters:
         if (
             model_parameters[name].default == inspect.Parameter.empty
             and name not in model_params
-            and name != "self"
-            and name != "kwargs"
+            and name not in ["self", "kwargs", "args", "scenario"]
+            and not has_var_keyword
         ):
             raise ValueError(f"Missing required model parameter: {name}")
+
     for name in model_params:
-        if name not in model_parameters and "kwargs" not in model_parameters:
+        if (
+            name not in model_parameters
+            and name not in scenario_defaults
+            and name not in ["rng", "seed", "simulator"]
+            and not has_var_keyword
+        ):
             raise ValueError(f"Invalid model parameter: {name}")
 
 
