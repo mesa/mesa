@@ -8,9 +8,9 @@ when they occupy the same cell.
 """
 
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.data_collection import DataRecorder, DatasetConfig
 
 
 class BoltzmannWealth(Model):
@@ -41,13 +41,11 @@ class BoltzmannWealth(Model):
         self.num_agents = n
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
 
-        self.data_registry.track_agents_numpy(
-            MoneyAgent,
-            "agents_wealth",
-            "wealth",
-            n=n,
+        # Set up data collection
+        self.datacollector = DataCollector(
+            model_reporters={"Gini": self.compute_gini},
+            agent_reporters={"Wealth": "wealth"},
         )
-        self.data_registry.track_model(self, "model_data", "gini")
         MoneyAgent.create_agents(
             self,
             self.num_agents,
@@ -55,17 +53,13 @@ class BoltzmannWealth(Model):
         )
 
         self.running = True
-        config = {
-            "agents_wealth": DatasetConfig(interval=1, start_time=0),
-            "model_data": DatasetConfig(interval=1, start_time=0),
-        }
-        self.listener = DataRecorder(self, config=config)
+        self.datacollector.collect(self)
 
     def step(self):
         self.agents.shuffle_do("step")  # Activate all agents in random order
+        self.datacollector.collect(self)  # Collect data
 
-    @property
-    def gini(self):
+    def compute_gini(self):
         """Calculate the Gini coefficient for the model's current wealth distribution.
 
         The Gini coefficient is a measure of inequality in distributions.
@@ -76,7 +70,5 @@ class BoltzmannWealth(Model):
         x = sorted(agent_wealths)
         n = self.num_agents
         # Calculate using the standard formula for Gini coefficient
-        if sum(x) == 0:
-            return 0
         b = sum(xi * (n - i) for i, xi in enumerate(x)) / (n * sum(x))
         return 1 + (1 / n) - 2 * b

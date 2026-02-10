@@ -1,7 +1,7 @@
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.schelling.agents import SchellingAgent
-from mesa.experimental.data_collection import DataRecorder, DatasetConfig
 
 
 class Schelling(Model):
@@ -39,15 +39,24 @@ class Schelling(Model):
 
         # Track happiness
         self.happy = 0
-        self.data_registry.track_model(
-            self,
-            "model_data",
-            fields=["happy", "pct_happy", "population", "minority_pct"],
-        )
-        self.data_registry.track_agents_numpy(
-            SchellingAgent,
-            "agent_data",
-            fields=["type"],
+
+        # Set up data collection
+        self.datacollector = DataCollector(
+            model_reporters={
+                "happy": "happy",
+                "pct_happy": lambda m: (m.happy / len(m.agents)) * 100
+                if len(m.agents) > 0
+                else 0,
+                "population": lambda m: len(m.agents),
+                "minority_pct": lambda m: (
+                    sum(1 for agent in m.agents if agent.type == 1)
+                    / len(m.agents)
+                    * 100
+                    if len(m.agents) > 0
+                    else 0
+                ),
+            },
+            agent_reporters={"agent_type": "type"},
         )
 
         # Create agents and place them on the grid
@@ -60,35 +69,12 @@ class Schelling(Model):
 
         # Collect initial state
         self.agents.do("assign_state")
-
-        config = {
-            "model_data": DatasetConfig(interval=1, start_time=0),
-            "agent_data": DatasetConfig(interval=1, start_time=0),
-        }
-        self.datarecorder = DataRecorder(self, config=config)
-
-    @property
-    def population(self):
-        """Return the current population size."""
-        return len(self.agents)
-
-    @property
-    def pct_happy(self):
-        """Return the percentage of happy agents."""
-        if self.population > 0:
-            return (self.happy / self.population) * 100
-        return 0
-
-    @property
-    def minority_pct(self):
-        """Return the percentage of minority agents."""
-        if self.population > 0:
-            count = sum(1 for agent in self.agents if agent.type == 1)
-            return (count / self.population) * 100
-        return 0
+        self.datacollector.collect(self)
 
     def step(self):
         """Run one step of the model."""
+        self.happy = 0  # Reset counter of happy agents
         self.agents.shuffle_do("step")  # Activate all agents in random order
         self.agents.do("assign_state")
-        self.running = self.happy < self.population
+        self.datacollector.collect(self)  # Collect data
+        self.running = self.happy < len(self.agents)  # Continue until everyone is happy

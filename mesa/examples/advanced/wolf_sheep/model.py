@@ -12,9 +12,9 @@ Replication of the model found in NetLogo:
 import math
 
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
-from mesa.experimental.data_collection import DataRecorder, DatasetConfig
 from mesa.experimental.devs import ABMSimulator
 
 
@@ -43,13 +43,26 @@ class WolfSheep(Model):
         rng=None,
         simulator: ABMSimulator = None,
     ):
-        """Create a new Wolf-Sheep model with the given parameters."""
-        super().__init__(rng=rng)
+        """Create a new Wolf-Sheep model with the given parameters.
 
-        # Handle simulator if provided (DEVS support)
-        if simulator:
-            self.simulator = simulator
-            self.simulator.setup(self)
+        Args:
+            height: Height of the grid
+            width: Width of the grid
+            initial_sheep: Number of sheep to start with
+            initial_wolves: Number of wolves to start with
+            sheep_reproduce: Probability of each sheep reproducing each step
+            wolf_reproduce: Probability of each wolf reproducing each step
+            wolf_gain_from_food: Energy a wolf gains from eating a sheep
+            grass: Whether to have the sheep eat grass for energy
+            grass_regrowth_time: How long it takes for a grass patch to regrow
+                                once it is eaten
+            sheep_gain_from_food: Energy sheep gain from grass, if enabled
+            rng: Random rng
+            simulator: ABMSimulator instance for event scheduling
+        """
+        super().__init__(rng=rng)
+        self.simulator = simulator
+        self.simulator.setup(self)
 
         # Initialize model parameters
         self.height = height
@@ -64,11 +77,17 @@ class WolfSheep(Model):
             random=self.random,
         )
 
-        model_fields = ["num_wolves", "num_sheep"]
+        # Set up data collection
+        model_reporters = {
+            "Wolves": lambda m: len(m.agents_by_type[Wolf]),
+            "Sheep": lambda m: len(m.agents_by_type[Sheep]),
+        }
         if grass:
-            model_fields.append("num_grass")
+            model_reporters["Grass"] = lambda m: len(
+                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
+            )
 
-        self.data_registry.track_model(self, "model_data", fields=model_fields)
+        self.datacollector = DataCollector(model_reporters)
 
         # Create sheep:
         Sheep.create_agents(
@@ -99,27 +118,15 @@ class WolfSheep(Model):
                 )
                 GrassPatch(self, countdown, grass_regrowth_time, cell)
 
+        # Collect initial data
         self.running = True
-        self.recorder = DataRecorder(
-            self, config={"model_data": DatasetConfig(interval=1, start_time=0)}
-        )
-
-    @property
-    def num_wolves(self):
-        """Wolves Count."""
-        return len(self.agents_by_type[Wolf])
-
-    @property
-    def num_sheep(self):
-        """Sheep Count."""
-        return len(self.agents_by_type[Sheep])
-
-    @property
-    def num_grass(self):
-        """Count fully grown grass."""
-        return len(self.agents_by_type[GrassPatch].select(lambda a: a.fully_grown))
+        self.datacollector.collect(self)
 
     def step(self):
         """Execute one step of the model."""
+        # First activate all sheep, then all wolves, both in random order
         self.agents_by_type[Sheep].shuffle_do("step")
         self.agents_by_type[Wolf].shuffle_do("step")
+
+        # Collect data
+        self.datacollector.collect(self)
