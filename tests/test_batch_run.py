@@ -1,7 +1,7 @@
 """Test Batchrunner."""
 
 import pytest
-
+import contextlib
 import mesa
 from mesa.agent import Agent
 from mesa.batchrunner import _make_model_kwargs
@@ -811,8 +811,6 @@ def test_batch_run_agenttype_and_agent_reporters():
 def test_batch_run_top_level_deprecation_warning():
     """Calling mesa.batch_run should emit a DeprecationWarning."""
     with pytest.warns(DeprecationWarning, match="mesa.batch_run is deprecated"):
-        try:
+        with contextlib.suppress(Exception):
             mesa.batch_run(None, {}, iterations=0)
-        except Exception:
-            # We only care that the warning is raised before failure
-            pass
+            
