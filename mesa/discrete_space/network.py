@@ -12,9 +12,11 @@ Useful for modeling systems like social networks, transportation systems,
 or any environment where connectivity matters more than physical location.
 """
 
+from collections.abc import Callable
 from random import Random
 from typing import Any
 
+import networkx as nx
 import numpy as np
 
 from mesa.discrete_space.cell import Cell
@@ -30,7 +32,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        spatial: bool = False,
+        layout: Callable | None = nx.spring_layout,
     ) -> None:
         """A Networked grid.
 
@@ -39,18 +41,27 @@ class Network(DiscreteSpace[Cell]):
             capacity (int) : the capacity of the cell
             random (Random): a random number generator
             cell_klass (type[Cell]): The base Cell class to use in the Network
-            spatial: If True, expects nodes to have 'pos' attribute with [x, y] coordinates.
-                    If False, network is purely topological (no physical positions).
+            layout (Callable | None): A function that computes positions for the
+                nodes if they are missing (e.g. nx.spring_layout).
+                Set to None to force a purely topological network (no positions).
+                Defaults to nx.spring_layout.
 
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
-        self.spatial = spatial
+
+        # Check for existing positions to determine if this is a spatial network
+        has_existing_pos = any("pos" in data for _, data in self.G.nodes(data=True))
+
+        # If positions are missing and a layout is provided, generate them.
+        if not has_existing_pos and layout is not None:
+            positions = layout(self.G)
+            nx.set_node_attributes(self.G, positions, "pos")
 
         for node_id in self.G.nodes:
             # Extract position if spatial network
             pos = None
-            if self.spatial and "pos" in self.G.nodes[node_id]:
+            if "pos" in self.G.nodes[node_id]:
                 pos = np.array(self.G.nodes[node_id]["pos"])
 
             self._cells[node_id] = self.cell_klass(
