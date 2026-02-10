@@ -19,6 +19,7 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
     UserInputs,
+    _build_model_init_kwargs,
     _check_model_params,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
@@ -363,30 +364,20 @@ def test_parameter_splitting_logic():
         "scenario_param2": 25,  # Should go to scenario
     }
 
-    # Test the splitting logic (same as in ModelController)
-    if hasattr(model, "scenario") and model.scenario:
-        scenario_class = model.scenario.__class__
-        scenario_defaults = getattr(model.scenario, "_scenario_defaults", {})
-        if not scenario_defaults:
-            scenario_defaults = inspect.signature(scenario_class).parameters
-
-        model_init_params = inspect.signature(model.__class__.__init__).parameters
-
-        scenario_kwargs = {}
-        model_kwargs = {}
-
-        for k, v in model_parameters.items():
-            if k in scenario_defaults and k not in model_init_params:
-                scenario_kwargs[k] = v
-            else:
-                model_kwargs[k] = v
+    # Test the splitting logic using the actual helper
+    kwargs = _build_model_init_kwargs(
+        model,
+        model_parameters,
+        add_scenario_when_empty=True,
+        require_model_accepts_scenario=True,
+    )
 
     # Verify the split
-    assert "scenario_param1" in scenario_kwargs
-    assert "scenario_param2" in scenario_kwargs
-    assert "model_param1" in model_kwargs
-    assert "model_param2" in model_kwargs
-    assert scenario_kwargs["scenario_param1"] == 0.9
-    assert scenario_kwargs["scenario_param2"] == 25
-    assert model_kwargs["model_param1"] == 15
-    assert model_kwargs["model_param2"] == 30
+    assert "model_param1" in kwargs
+    assert "model_param2" in kwargs
+    assert "scenario" in kwargs
+    assert isinstance(kwargs["scenario"], TestScenario)
+    assert kwargs["scenario"].scenario_param1 == 0.9
+    assert kwargs["scenario"].scenario_param2 == 25
+    assert kwargs["model_param1"] == 15
+    assert kwargs["model_param2"] == 30

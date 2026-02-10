@@ -151,7 +151,7 @@ def SolaraViz(
         display_components.insert(0, (create_space_component(renderer.value), 0))
 
     with solara.AppBar():
-        solara.AppBarTitle(name if name else model.value.__class__.__name__)
+        solara.AppBarTitle(name if name else type(model.value).__name__)
         solara.lab.ThemeToggle()
 
     with solara.Sidebar(), solara.Column():
@@ -468,7 +468,7 @@ def _build_model_init_kwargs(
         scenario = model.scenario
         scenario_class = type(scenario)
         scenario_defaults = _get_scenario_defaults(scenario)
-        model_init_params = inspect.signature(model.__class__.__init__).parameters
+        model_init_params = inspect.signature(type(model).__init__).parameters
 
         for key, value in model_parameters.items():
             if key in scenario_defaults and key not in model_init_params:
@@ -580,7 +580,7 @@ def ModelController(
         visualization_pause_event.clear()
         _mesa_logger.log(
             10,
-            f"creating new {model.value.__class__} instance with {model_parameters.value}",
+            f"creating new {type(model.value)} instance with {model_parameters.value}",
         )
         kwargs = _build_model_init_kwargs(
             model.value,
@@ -589,7 +589,7 @@ def ModelController(
             require_model_accepts_scenario=True,
         )
 
-        model.value = model.value.__class__(**kwargs)
+        model.value = type(model.value)(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -724,7 +724,7 @@ def SimulatorController(
 
         kwargs["simulator"] = simulator
 
-        model.value = model.value.__class__(**kwargs)
+        model.value = type(model.value)(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -828,7 +828,7 @@ def ModelCreator(
     model_parameters = solara.use_reactive(model_parameters)
 
     solara.use_effect(
-        lambda: _check_model_params(model.value.__class__.__init__, user_params),
+        lambda: _check_model_params(type(model.value).__init__, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
@@ -985,7 +985,7 @@ def make_initial_grid_layout(num_components):
 
 def copy_renderer(renderer: SpaceRenderer, model: Model):
     """Create a new renderer instance with the same configuration as the original."""
-    new_renderer = renderer.__class__(model=model, backend=renderer.backend)
+    new_renderer = type(renderer)(model=model, backend=renderer.backend)
 
     attributes_to_copy = [
         "agent_portrayal",
@@ -999,7 +999,7 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     ]
 
     for attr in attributes_to_copy:
-        if hasattr(renderer, attr):
+        if getattr(renderer, attr, None) is not None:
             value_to_copy = getattr(renderer, attr)
             setattr(new_renderer, attr, value_to_copy)
 
