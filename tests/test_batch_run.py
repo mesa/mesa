@@ -815,7 +815,5 @@ def test_batch_run_agenttype_and_agent_reporters():
 
 def test_batch_run_top_level_deprecation_warning():
     """Calling mesa.batch_run should emit a DeprecationWarning."""
-    # We use rng=[None] to avoid the legacy 'iterations' warning
-    with pytest.warns(DeprecationWarning, match="mesa.batch_run is deprecated"):
-        with contextlib.suppress(Exception):
-            mesa.batch_run(None, {}, rng=[None])
+    with pytest.warns(DeprecationWarning, match="mesa.batch_run is deprecated"), contextlib.suppress(Exception):
+        mesa.batch_run(None, {}, rng=[None])
