@@ -52,7 +52,12 @@ class BaseDataSet(abc.ABC):
 
     """
 
-    def __init__(self, name, *, fields: str|list[str]|None = None,):
+    def __init__(
+        self,
+        name,
+        *,
+        fields: str | list[str] | None = None,
+    ):
         """Initialize a base data set."""
         self.name = name
 
@@ -134,7 +139,7 @@ class ModelDataSet[M: Model](BaseDataSet):
 
     """
 
-    def __init__(self, name, model: M, fields: str| list[str] | None = None):
+    def __init__(self, name, model: M, fields: str | list[str] | None = None):
         """Init of ModelDataSet."""
         super().__init__(name, fields=fields)
         self.model = model
@@ -168,7 +173,7 @@ class TableDataSet:
 
     """
 
-    def __init__(self, name, fields: str | list[str]| None = None):
+    def __init__(self, name, fields: str | list[str] | None = None):
         """Init."""
         self.name = name
 
@@ -468,7 +473,9 @@ class DataRegistry:
         else:
             raise RuntimeError(f"Dataset '{dataset.name}' already registered")
 
-    def create_dataset(self, dataset_type, name, *args, fields: str|list[str]|None = None, **kwargs) -> DataSet:
+    def create_dataset(
+        self, dataset_type, name, *args, fields: str | list[str] | None = None, **kwargs
+    ) -> DataSet:
         """Create a dataset of the specified type and add it to the registry."""
         dataset = dataset_type(name, *args, fields=fields, **kwargs)
         self.datasets[name] = dataset
@@ -478,12 +485,17 @@ class DataRegistry:
         self,
         agents: AbstractAgentSet,
         name: str,
-        fields: str|list[str]|None = None,
+        fields: str | list[str] | None = None,
     ):
         """Track the specified fields for the agents in the AgentSet."""
         return self.create_dataset(AgentDataSet, name, agents, fields=fields)
 
-    def track_model(self, model: Model, name: str, fields: str|list[str]|None = None,):
+    def track_model(
+        self,
+        model: Model,
+        name: str,
+        fields: str | list[str] | None = None,
+    ):
         """Track the specified fields in the model."""
         return self.create_dataset(ModelDataSet, name, model, fields=fields)
 
@@ -491,7 +503,7 @@ class DataRegistry:
         self,
         agent_type: type[Agent],
         name: str,
-        fields: str|list[str]|None = None,
+        fields: str | list[str] | None = None,
         n: int = 100,
         dtype: np.dtype | type = np.float64,
     ) -> NumpyAgentDataSet:

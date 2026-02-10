@@ -252,7 +252,9 @@ def test_numpy_agent_dataset_remove_agent():
     class MyModel(Model):
         def __init__(self):
             super().__init__()
-            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", dtype=float)
+            self.dataset = NumpyAgentDataSet(
+                "test", MyAgent, fields="value", dtype=float
+            )
             self.data_registry.add_dataset(self.dataset)
 
             MyAgent.create_agents(self, 5, [0.0, 1.0, 2.0, 3.0, 4.0])
@@ -310,7 +312,9 @@ def test_numpy_agent_dataset_expand_storage():
         def __init__(self):
             super().__init__()
             # Start with small capacity
-            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", n=5, dtype=float)
+            self.dataset = NumpyAgentDataSet(
+                "test", MyAgent, fields="value", n=5, dtype=float
+            )
             self.data_registry.add_dataset(self.dataset)
             # Add more agents than initial capacity
             for i in range(20):
@@ -335,7 +339,9 @@ def test_numpy_agent_dataset_property_cleanup_on_close():
     class MyModel(Model):
         def __init__(self):
             super().__init__()
-            self.dataset = NumpyAgentDataSet("test", MyAgent, fields="value", dtype=float)
+            self.dataset = NumpyAgentDataSet(
+                "test", MyAgent, fields="value", dtype=float
+            )
             self.data_registry.add_dataset(self.dataset)
 
     model = MyModel()
