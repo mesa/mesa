@@ -77,46 +77,48 @@ def DictInput(name, options, on_change):
     label = options.get("label", name)
 
     # Render as expansion panel
-    with solara.v.ExpansionPanels(v_model=[0], multiple=True):
-        with solara.v.ExpansionPanel():
-            with solara.v.ExpansionPanelHeader():
-                solara.Text(f"{label}")
-            with solara.v.ExpansionPanelContent():
-                entries = options.get("entries", {})
-                for key, value_spec in entries.items():
-                    if isinstance(value_spec, dict) and "value" in value_spec:
-                        # Render based on the field's metadata
-                        field_label = value_spec.get("label", key)
-                        field_type = value_spec.get("type", "InputText")
-                        current_value = dict_values.value.get(key, value_spec["value"])
+    with (
+        solara.v.ExpansionPanels(v_model=[0], multiple=True),
+        solara.v.ExpansionPanel(),
+    ):
+        with solara.v.ExpansionPanelHeader():
+            solara.Text(f"{label}")
+        with solara.v.ExpansionPanelContent():
+            entries = options.get("entries", {})
+            for key, value_spec in entries.items():
+                if isinstance(value_spec, dict) and "value" in value_spec:
+                    # Render based on the field's metadata
+                    field_label = value_spec.get("label", key)
+                    field_type = value_spec.get("type", "InputText")
+                    current_value = dict_values.value.get(key, value_spec["value"])
 
-                        if field_type == "SliderInt":
-                            solara.SliderInt(
-                                field_label,
-                                value=current_value,
-                                on_value=lambda v, k=key: field_change_handler(k, v),
-                                min=value_spec.get("min", 0),
-                                max=value_spec.get("max", 100),
-                                step=value_spec.get("step", 1),
-                            )
-                        elif field_type == "SliderFloat":
-                            solara.SliderFloat(
-                                field_label,
-                                value=current_value,
-                                on_value=lambda v, k=key: field_change_handler(k, v),
-                                min=value_spec.get("min", 0.0),
-                                max=value_spec.get("max", 1.0),
-                                step=value_spec.get("step", 0.1),
-                            )
-                        else:
-                            # Default to text input
-                            solara.InputText(
-                                field_label,
-                                value=str(current_value),
-                                on_value=lambda v, k=key: field_change_handler(
-                                    k, int(v) if v.isdigit() else v
-                                ),
-                            )
+                    if field_type == "SliderInt":
+                        solara.SliderInt(
+                            field_label,
+                            value=current_value,
+                            on_value=lambda v, k=key: field_change_handler(k, v),
+                            min=value_spec.get("min", 0),
+                            max=value_spec.get("max", 100),
+                            step=value_spec.get("step", 1),
+                        )
+                    elif field_type == "SliderFloat":
+                        solara.SliderFloat(
+                            field_label,
+                            value=current_value,
+                            on_value=lambda v, k=key: field_change_handler(k, v),
+                            min=value_spec.get("min", 0.0),
+                            max=value_spec.get("max", 1.0),
+                            step=value_spec.get("step", 0.1),
+                        )
+                    else:
+                        # Default to text input
+                        solara.InputText(
+                            field_label,
+                            value=str(current_value),
+                            on_value=lambda v, k=key: field_change_handler(
+                                k, int(v) if v.isdigit() else v
+                            ),
+                        )
 
 
 @solara.component
