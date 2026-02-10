@@ -807,7 +807,8 @@ def test_batch_run_agenttype_and_agent_reporters():
 
     assert wealth_count > 0, "agent_reporters data not collected"
     assert type_steps_count > 0, "agenttype_reporters data not collected"
-    
+
+
 def test_batch_run_top_level_deprecation_warning():
     """Calling mesa.batch_run should emit a DeprecationWarning."""
     with pytest.warns(DeprecationWarning, match="mesa.batch_run is deprecated"):
