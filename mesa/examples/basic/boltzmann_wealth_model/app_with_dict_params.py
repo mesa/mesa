@@ -113,4 +113,4 @@ page = SolaraViz(
     name="Boltzmann Wealth Model (Custom Dict Parameters)",
 )
 
-page
+page  # noqa
