@@ -49,7 +49,6 @@ def run_model(model_class, seed, parameters):
 
     # Clean up to avoid memory leaks
     model.remove_all_agents()
-    ## Hello
 
     # Force a final collection to reclaim memory before the next iteration
     gc.collect()
