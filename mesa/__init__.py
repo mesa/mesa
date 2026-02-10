@@ -16,7 +16,7 @@ from mesa.model import Model
 
 
 def batch_run(*args, **kwargs):
-    """Batch run a model with a set of parameter values. (Deprecated)"""  # Add this line
+    """Batch run a model with a set of parameter values. (Deprecated)"""
     warnings.warn(
         "mesa.batch_run is deprecated and will be removed in Mesa 4.0. "
         "Use the new Scenario / DataSet APIs instead.",
