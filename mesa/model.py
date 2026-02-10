@@ -122,7 +122,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self.time: float = 0.0
         self.agent_id_counter: int = 1
 
-
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
 
