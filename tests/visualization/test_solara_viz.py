@@ -494,7 +494,7 @@ class TestBackwardCompatibility:
     def test_checkbox_param(self):
         """Test that Checkbox parameters work unchanged."""
         param_spec = {"type": "Checkbox", "value": True}
-        assert extract_default_value(param_spec) == True
+        assert extract_default_value(param_spec)
 
     def test_choice_param(self):
         """Test that Choice parameters work unchanged."""
