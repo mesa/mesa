@@ -343,8 +343,8 @@ class TestRegisterParamExtractor:
             return spec.get("my_value")
 
         register_param_extractor("MyType", my_extractor)
-        assert "MyType" in _param_extractors
-        assert _param_extractors["MyType"] == my_extractor
+        assert "MyType" in solara_viz_module._param_extractors
+        assert solara_viz_module._param_extractors["MyType"] == my_extractor
 
     def test_register_multiple_extractors(self):
         """Test registering multiple extractors."""
@@ -358,9 +358,9 @@ class TestRegisterParamExtractor:
         register_param_extractor("Type1", extractor1)
         register_param_extractor("Type2", extractor2)
 
-        assert len(_param_extractors) == 2
-        assert _param_extractors["Type1"] == extractor1
-        assert _param_extractors["Type2"] == extractor2
+        assert len(solara_viz_module._param_extractors) == 2
+        assert solara_viz_module._param_extractors["Type1"] == extractor1
+        assert solara_viz_module._param_extractors["Type2"] == extractor2
 
     def test_overwrite_extractor(self):
         """Test that registering the same type overwrites the previous extractor."""
@@ -374,7 +374,7 @@ class TestRegisterParamExtractor:
         register_param_extractor("MyType", extractor1)
         register_param_extractor("MyType", extractor2)
 
-        assert _param_extractors["MyType"] == extractor2
+        assert solara_viz_module._param_extractors["MyType"] == extractor2
 
 
 class TestNestedDictExtractor:
