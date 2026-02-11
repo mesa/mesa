@@ -231,6 +231,23 @@ class BaseDataRecorder(ABC):
             # Note: We do NOT update _next_collection here. Manual collection
             # is treated as an "extra" snapshot that shouldn't disrupt the regular interval
 
+    def finalise(self) -> None:
+        """Capture final snapshot at the end of a simulation run.
+
+        This method should be called when the simulation ends to ensure the final
+        state is recorded. It collects data for all
+        enabled datasets at the current model time.
+
+        Notes:
+            - Respects enabled/disabled status of datasets
+            - Does not update collection schedules
+            - Safe to call multiple times (subsequent calls just re-capture current state)
+            - Does not check if we're at a scheduled collection time
+        """
+        # FIXME: We might want to add explicit RUN_ENDED signal handling in the future,
+        # but for now we can just call this method manually at the end of the run.
+        self.collect()
+
     @abstractmethod
     def clear(self, dataset_name: str | None = None) -> None:
         """Clear stored data."""
