@@ -5,11 +5,6 @@ This namespace contains experimental features. These are under development, and 
 ## Devs
 
 ```{eval-rst}
-.. automodule:: experimental.devs.eventlist
-   :members:
-```
-
-```{eval-rst}
 .. automodule:: experimental.devs.simulator
    :members:
 ```
