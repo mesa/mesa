@@ -1,5 +1,11 @@
 """Simulator implementations for different time advancement approaches in Mesa.
 
+.. deprecated:: 3.5.0
+    The `Simulator`, `ABMSimulator`, and `DEVSimulator` classes are deprecated
+    and will be removed in Mesa 4.0. Use the new public methods on `Model` instead:
+    `run_for()`, `run_until()`, `schedule_event()`, and `schedule_recurring()`.
+    See https://mesa.readthedocs.io/latest/migration_guide.html#replacing-simulator-classes
+
 This module provides simulator classes that control how simulation time advances and how
 events are executed. It supports both discrete-time and continuous-time simulations through
 three main classes:
@@ -285,6 +291,11 @@ class Simulator:
 class ABMSimulator(Simulator):
     """This simulator uses incremental time progression, while allowing for additional event scheduling.
 
+    .. deprecated:: 3.5.0
+        `ABMSimulator` is deprecated and will be removed in Mesa 4.0.
+        Use `model.run_for()`, `model.run_until()`, and `model.schedule_event()` instead.
+        See https://mesa.readthedocs.io/latest/migration_guide.html#replacing-simulator-classes
+
     The basic time unit of this simulator is an integer. It schedules `model.step` for each tick with the
     highest priority. This implies that by default, `model.step` is the first event executed at a specific tick.
     In addition, discrete event scheduling, using integer as the time unit is fully supported, paving the way
@@ -294,6 +305,13 @@ class ABMSimulator(Simulator):
 
     def __init__(self):
         """Initialize a ABM simulator."""
+        warnings.warn(
+            "ABMSimulator is deprecated and will be removed in Mesa 4.0. "
+            "Use model.run_for(), model.run_until(), and model.schedule_event() instead. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#replacing-simulator-classes",
+            FutureWarning,
+            stacklevel=2,
+        )
         super().__init__(int, 0)
 
     def setup(self, model):
@@ -352,12 +370,24 @@ class ABMSimulator(Simulator):
 class DEVSimulator(Simulator):
     """A simulator where the unit of time is a float.
 
+    .. deprecated:: 3.5.0
+        `DEVSimulator` is deprecated and will be removed in Mesa 4.0.
+        Use `model.run_for()`, `model.run_until()`, `model.schedule_event()`, and `model.schedule_recurring()` instead.
+        See https://mesa.readthedocs.io/latest/migration_guide.html#replacing-simulator-classes
+
     Can be used for full-blown discrete event simulating using event scheduling.
 
     """
 
     def __init__(self):
         """Initialize a DEVS simulator."""
+        warnings.warn(
+            "DEVSimulator is deprecated and will be removed in Mesa 4.0. "
+            "Use model.run_for(), model.run_until(), model.schedule_event(), and model.schedule_recurring() instead. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#replacing-simulator-classes",
+            FutureWarning,
+            stacklevel=2,
+        )
         super().__init__(float, 0.0)
 
     def setup(self, model: Model) -> None:
