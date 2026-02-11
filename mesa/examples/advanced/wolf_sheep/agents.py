@@ -63,7 +63,7 @@ class Sheep(Animal):
         )
         if grass_patch.fully_grown:
             self.energy += self.energy_from_food
-            grass_patch.eat()
+            grass_patch.get_eaten()
 
     def move(self):
         """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
@@ -134,7 +134,7 @@ class GrassPatch(FixedAgent):
         """Regrow the grass."""
         self.fully_grown = True
 
-    def eat(self):
+    def get_eaten(self):
         """Mark grass as eaten and schedule regrowth."""
         self.fully_grown = False
         self.model.schedule_event(self.regrow, after=self.grass_regrowth_time)
