@@ -1,16 +1,15 @@
 """Tests for DataRecorders."""
 
+import json
 import tempfile
 from pathlib import Path
-
-import pytest
 from unittest.mock import MagicMock, patch
-import pandas as pd
+
 import numpy as np
-import json
+import pandas as pd
+import pytest
 
 from mesa.agent import Agent
-from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.experimental.data_collection import (
     DataRecorder,
     DatasetConfig,
@@ -18,6 +17,7 @@ from mesa.experimental.data_collection import (
     ParquetDataRecorder,
     SQLDataRecorder,
 )
+from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.model import Model
 
 
@@ -240,10 +240,11 @@ def test_recorder_summary():
     assert summary["total_rows"] > 0
     assert "memory_mb" in summary
 
+
 def test_datarecorder_eviction_coverage():
     """Test eviction logic for all data types (numpy, list, dict, custom)."""
     model = MockModel()
-    
+
     # Create datasets in registry
     model.data_registry.create_dataset(TableDataSet, "np_ds", fields="v")
     model.data_registry.create_dataset(TableDataSet, "list_ds", fields="v")
@@ -257,13 +258,13 @@ def test_datarecorder_eviction_coverage():
         "dict_ds": DatasetConfig(window_size=1),
         "custom_ds": DatasetConfig(window_size=1),
     }
-    
+
     recorder = DataRecorder(model, config=config)
 
     # 1. Custom Data Type (triggers 'case _:' and 'type="custom"')
     recorder._store_dataset_snapshot("custom_ds", 1, "value1")
     assert recorder.storage["custom_ds"].metadata["type"] == "custom"
-    
+
     # Push second value to trigger eviction of "value1" (custom eviction logic)
     recorder._store_dataset_snapshot("custom_ds", 2, "value2")
     assert len(recorder.storage["custom_ds"].blocks) == 1
@@ -290,14 +291,14 @@ def test_datarecorder_clear_specific():
     model = MockModel()
     model.data_registry.create_dataset(TableDataSet, "test_ds", fields="v")
     recorder = DataRecorder(model)
-    
+
     recorder._store_dataset_snapshot("test_ds", 1, {"v": 1})
     assert recorder.storage["test_ds"].total_rows == 1
-    
+
     # Clear specific
     recorder.clear("test_ds")
     assert recorder.storage["test_ds"].total_rows == 0
-    
+
     # Clear invalid
     with pytest.raises(KeyError):
         recorder.clear("non_existent")
@@ -309,12 +310,12 @@ def test_numpy_json_encoder_coverage():
         "float": np.float32(1.5),
         "bool": np.bool_(True),
         "array": np.array([1, 2]),
-        "int": np.int32(10)
+        "int": np.int32(10),
     }
-    
+
     # Dump to string using the encoder
     json_str = json.dumps(data, cls=NumpyJSONEncoder)
-    
+
     # Parse back to check values
     decoded = json.loads(json_str)
     assert decoded["float"] == 1.5
@@ -327,53 +328,55 @@ def test_numpy_json_encoder_coverage():
 @patch("pandas.read_parquet")
 @patch("pathlib.Path.exists")
 @patch("pathlib.Path.unlink")
-def test_parquet_recorder_coverage(mock_unlink, mock_exists, mock_read, mock_to_parquet):
+def test_parquet_recorder_coverage(
+    mock_unlink, mock_exists, mock_read, mock_to_parquet
+):
     """Test ParquetRecorder logic by mocking file I/O (runs without pyarrow)."""
     model = MockModel()
-    
+
     # 1. Setup Registry with agent_ids support logic check
     # We need a mock dataset that has 'agent_ids' to test the np.ndarray logic branch
     mock_dataset = MagicMock()
     mock_dataset._attributes = ["col1"]
     mock_dataset.agent_ids = np.array([100])
     model.data_registry.datasets["numpy_ds"] = mock_dataset
-    
+
     recorder = ParquetDataRecorder(model)
-    recorder.buffer_size = 1 # Force flush on every write
+    recorder.buffer_size = 1  # Force flush on every write
     recorder._initialize_dataset_storage("numpy_ds", mock_dataset)
 
     # 2. Test Storing Numpy Data (triggers IDs stacking logic)
     data = np.array([[1.0]])
     recorder._store_dataset_snapshot("numpy_ds", 1, data)
-    
+
     # Verify to_parquet was called (flush happened)
     assert mock_to_parquet.called
     # Verify ID stacking: The dataframe passed to to_parquet should have 'agent_id'
-    # call_args[0][0] is the filename (if args used) or self (if method mock). 
+    # call_args[0][0] is the filename (if args used) or self (if method mock).
     # Since we mocked DataFrame.to_parquet, the first arg to the real function is 'self' (the df).
     # But usually patch replaces the unbound method or instance method.
     # Let's check the logic inside _store_dataset_snapshot more simply:
-    # It constructs a DF. We can verify logic by checking if it ran without error 
+    # It constructs a DF. We can verify logic by checking if it ran without error
     # and hit the flush.
-    
+
     # 3. Test get_table_dataframe
-    mock_exists.return_value = True # File exists
+    mock_exists.return_value = True  # File exists
     mock_read.return_value = pd.DataFrame({"a": [1]})
-    
+
     df = recorder.get_table_dataframe("numpy_ds")
     assert not df.empty
     assert mock_read.called
-    
+
     # 4. Test Clear (Specific)
     recorder.clear("numpy_ds")
     assert mock_unlink.called
-    
+
     # 5. Test Clear (All)
     recorder.clear()
     assert mock_unlink.call_count >= 2
 
     # 6. Test Summary (File exists branch)
-    # We need to mock os.path.getsize as well if we want full coverage there, 
+    # We need to mock os.path.getsize as well if we want full coverage there,
     # but the basics are covered.
     with patch("os.path.getsize", return_value=1024):
         summary = recorder.summary()
