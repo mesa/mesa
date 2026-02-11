@@ -27,7 +27,7 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from mesa.time import EventList, Priority, SimulationEvent
+from mesa.time import Event, EventList, Priority
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -171,7 +171,7 @@ class Simulator:
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
-    ) -> SimulationEvent:
+    ) -> Event:
         """Schedule event for the current time instant.
 
         Args:
@@ -181,7 +181,7 @@ class Simulator:
             function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
 
         Returns:
-            SimulationEvent: the simulation event that is scheduled
+            Event: the simulation event that is scheduled
 
         """
         return self.schedule_event_relative(
@@ -199,7 +199,7 @@ class Simulator:
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
-    ) -> SimulationEvent:
+    ) -> Event:
         """Schedule event for the specified time instant.
 
         Args:
@@ -210,13 +210,13 @@ class Simulator:
             function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
 
         Returns:
-            SimulationEvent: the simulation event that is scheduled
+            Event: the simulation event that is scheduled
 
         """
         if self.model.time > time:
             raise ValueError("trying to schedule an event in the past")
 
-        event = SimulationEvent(
+        event = Event(
             time,
             function,
             priority=priority,
@@ -233,7 +233,7 @@ class Simulator:
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
-    ) -> SimulationEvent:
+    ) -> Event:
         """Schedule event for the current time plus the time delta.
 
         Args:
@@ -244,7 +244,7 @@ class Simulator:
             function_kwargs (Dict[str, Any]):  dict of keyword arguments for function
 
         Returns:
-            SimulationEvent: the simulation event that is scheduled
+            Event: the simulation event that is scheduled
 
         """
         if time_delta < 0:
@@ -254,7 +254,7 @@ class Simulator:
                 f"before current time ({self.model.time})"
             )
 
-        event = SimulationEvent(
+        event = Event(
             self.model.time + time_delta,
             function,
             priority=priority,
@@ -264,16 +264,16 @@ class Simulator:
         self._schedule_event(event)
         return event
 
-    def cancel_event(self, event: SimulationEvent) -> None:
+    def cancel_event(self, event: Event) -> None:
         """Remove the event from the event list.
 
         Args:
-            event (SimulationEvent): The simulation event to remove
+            event (Event): The simulation event to remove
 
         """
         self.event_list.remove(event)
 
-    def _schedule_event(self, event: SimulationEvent):
+    def _schedule_event(self, event: Event):
         if not self.check_time_unit(event.time):
             raise ValueError(
                 f"time unit mismatch {event.time} is not of time unit {self.time_unit}"
@@ -330,8 +330,8 @@ class ABMSimulator(Simulator):
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
-    ) -> SimulationEvent:
-        """Schedule a SimulationEvent for the next tick.
+    ) -> Event:
+        """Schedule a Event for the next tick.
 
         Args:
             function (Callable): the callable to execute

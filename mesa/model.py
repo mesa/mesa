@@ -31,11 +31,11 @@ from mesa.agent import Agent, _HardKeyAgentSet
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 from mesa.time import (
+    Event,
     EventGenerator,
     EventList,
     Priority,
     Schedule,
-    SimulationEvent,
 )
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
@@ -408,7 +408,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         at: float | None = None,
         after: float | None = None,
         priority: Priority = Priority.DEFAULT,
-    ) -> SimulationEvent:
+    ) -> Event:
         """Schedule a one-off event.
 
         Args:
@@ -418,7 +418,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
             priority: Priority level for the event
 
         Returns:
-            The scheduled SimulationEvent (can be used to cancel)
+            The scheduled Event (can be used to cancel)
 
         Raises:
             ValueError: If both or neither of at/after are specified
@@ -427,7 +427,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
             raise ValueError("Specify exactly one of 'at' or 'after'")
 
         time = at if at is not None else self.time + after
-        event = SimulationEvent(time, function, priority=priority)
+        event = Event(time, function, priority=priority)
         self._event_list.add_event(event)
         return event
 

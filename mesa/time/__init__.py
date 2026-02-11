@@ -10,6 +10,6 @@ simulation events in chronological order while respecting event priorities. Key 
 - Support for event cancellation without breaking the heap structure
 """
 
-from .events import EventGenerator, EventList, Priority, Schedule, SimulationEvent
+from .events import Event, EventGenerator, EventList, Priority, Schedule
 
-__all__ = ["EventGenerator", "EventList", "Priority", "Schedule", "SimulationEvent"]
+__all__ = ["Event", "EventGenerator", "EventList", "Priority", "Schedule"]
