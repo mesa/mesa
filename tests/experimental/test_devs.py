@@ -181,7 +181,7 @@ def test_simulation_event():
     event.execute()
     some_test_function.assert_called_once()
 
-    with pytest.raises(TypeError, match = "function must be callable"):
+    with pytest.raises(TypeError, match="function must be callable"):
         SimulationEvent(
             time, None, priority=Priority.DEFAULT, function_args=[], function_kwargs={}
         )
