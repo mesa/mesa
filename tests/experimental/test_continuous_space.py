@@ -4,7 +4,11 @@ import numpy as np
 import pytest
 
 from mesa import Model
-from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
+from mesa.experimental.continuous_space import (
+    ContinuousSpace,
+    ContinuousSpaceAgent,
+    MovingContinuousSpaceAgent,
+)
 
 
 def test_continuous_space():
@@ -490,3 +494,51 @@ def test_agent_removal_no_ghost_entries():
     for idx, agent in enumerate(space.active_agents):
         assert space._agent_to_index[agent] == idx
         assert space._index_to_agent[idx] == agent
+
+
+def test_moving_continuous_space_agent_helpers():
+    """Test movement helper mixin behavior in non-torus and torus spaces."""
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 1], [0, 1]])
+
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+    agent = MovingContinuousSpaceAgent(space, model)
+    agent.position = [0.2, 0.2]
+
+    agent.move_by([0.1, 0.2])
+    assert np.allclose(agent.position, [0.3, 0.4])
+
+    moved = agent.move_towards([0.9, 0.4], distance=1.0, clamp=True)
+    assert np.isclose(moved, 0.6)
+    assert np.allclose(agent.position, [0.9, 0.4])
+
+    agent.position = [0.2, 0.2]
+    moved = agent.move_towards([0.9, 0.2], distance=0.3, clamp=False)
+    assert np.isclose(moved, 0.3)
+    assert np.allclose(agent.position, [0.5, 0.2])
+
+    agent.position = [0.2, 0.2]
+    moved = agent.move_towards([0.2, 0.2], distance=0.5)
+    assert np.isclose(moved, 0.0)
+    assert np.allclose(agent.position, [0.2, 0.2])
+
+    agent.move_in_direction([3, 4], distance=0.5)
+    assert np.allclose(agent.position, [0.5, 0.6])
+
+    prev = agent.position.copy()
+    agent.move_in_direction([0, 0], distance=0.5)
+    assert np.allclose(agent.position, prev)
+
+    with pytest.raises(ValueError):
+        agent.move_towards([0.5, 0.5], distance=-0.1)
+
+    with pytest.raises(ValueError):
+        agent.move_in_direction([1, 0], distance=-0.1)
+
+    torus_space = ContinuousSpace(dimensions, torus=True, random=model.random)
+    torus_agent = MovingContinuousSpaceAgent(torus_space, model)
+    torus_agent.position = [0.9, 0.5]
+
+    moved = torus_agent.move_towards([0.1, 0.5], distance=0.15)
+    assert np.isclose(moved, 0.15)
+    assert np.allclose(torus_agent.position, [0.05, 0.5])
