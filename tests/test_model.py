@@ -16,6 +16,7 @@ def test_model_set_up():
     assert model.time == 0.0
     assert model._simulator is None
 
+    model.step()
     assert model.steps == 1
     assert model.time == 1.0
 
