@@ -349,14 +349,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         while self.running:
             self.step()
 
-    def run_for(self, steps: float) -> None:
-        """Run the model for N steps.
-
-        Args:
-           steps: The number of steps to run the model for.
-        """
-        self._advance_time(self.time + steps)
-
     def step(self) -> None:
         """A single step. Fill in here."""
 
