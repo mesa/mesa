@@ -211,7 +211,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
             until: The time to advance to
 
         """
-        if self._time is 0.0:
+        if self._time == 0.0:
             self.time = 0.0  # this emits ObservableSignal.CHANGED
 
         while True:
