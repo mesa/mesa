@@ -51,7 +51,8 @@ class TestRunFor:
         """run_for(1) should produce the same result as step()."""
         m1, m2 = SimpleModel(n=3), SimpleModel(n=3)
         for _ in range(5):
-            m1.step()
+            with pytest.warns(FutureWarning, match="Model.step\\(\\)"):
+                m1.step()
             m2.run_for(1)
         assert m1.steps == m2.steps == 5
         assert m1.time == m2.time == 5.0

@@ -63,6 +63,12 @@ class Simulator:
             time_unit: type of the smulaiton time
             start_time: the starttime of the simulator
         """
+        warnings.warn(
+            "The Simulator API is deprecated and will be removed in Mesa 4.0. "
+            "Use `model.schedule_event(...)`, `model.run_for(...)`, and `model.run_until(...)` instead.",
+            FutureWarning,
+            stacklevel=3,
+        )
         self.start_time = start_time
         self.time_unit = time_unit
         self.model: Model | None = None

@@ -16,7 +16,7 @@ def test_model_set_up():
     assert model.time == 0.0
     assert model._simulator is None
 
-    model.step()
+    model.run_for(1)
     assert model.steps == 1
     assert model.time == 1.0
 
@@ -26,7 +26,7 @@ def test_model_time_increment():
     model = Model()
 
     for i in range(5):
-        model.step()
+        model.run_for(1)
         assert model.steps == i + 1
         assert model.time == float(i + 1)
 
@@ -35,7 +35,8 @@ def test_model_time_increment():
 def test_model_time_with_simulator():
     """Test that simulator controls time when attached."""
     model = Model()
-    simulator = DEVSimulator()
+    with pytest.warns(FutureWarning, match="Simulator API is deprecated"):
+        simulator = DEVSimulator()
     simulator.setup(model)
 
     # Simulator is now attached
@@ -57,7 +58,8 @@ def test_running():
                 self.running = False
 
     model = TestModel()
-    model.run_model()
+    with pytest.warns(FutureWarning, match="Model.run_model\\(\\)"):
+        model.run_model()
     assert model.steps == 10
     assert model.time == 10.0
 

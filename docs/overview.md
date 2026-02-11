@@ -103,8 +103,7 @@ The simplest approach runs the model for a specified number of steps:
 
 ```python
 model = MyModel(seed=42)
-for _ in range(100):
-    model.step()
+model.run_for(100)
 ```
 
 #### Agent Activation Patterns

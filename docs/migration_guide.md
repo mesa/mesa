@@ -77,6 +77,30 @@ Mesa 3.5 doesn't introduce any breaking changes. Mesa 4 will clean up many depre
 
 * Ref: [Discussion #2921](https://github.com/mesa/mesa/discussions/2921), [PR #3266](https://github.com/projectmesa/mesa/pull/3266)
 
+### Time advancement API
+`Model.step()`, `Model.run_model()`, and the experimental Simulator API are deprecated and will be removed in Mesa 4.0.
+
+Use the `Model` event/time API directly instead:
+
+```python
+# Old (deprecated)
+model.step()
+model.run_model()
+
+sim = DEVSimulator()
+sim.setup(model)
+sim.schedule_event_absolute(fn, 2.5)
+sim.run_for(5.0)
+
+# New
+model.run_for(1)
+while model.running:
+    model.run_for(1)
+
+model.schedule_event(fn, at=2.5)
+model.run_for(5.0)
+```
+
 ### AgentSet sequence behavior
 The Sequence behavior (indexing and slicing) on `AgentSet` is deprecated and will be removed in Mesa 4.0. Use the new `to_list()` method instead.
 
