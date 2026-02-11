@@ -63,7 +63,7 @@ class Sheep(Animal):
         )
         if grass_patch.fully_grown:
             self.energy += self.energy_from_food
-            grass_patch.fully_grown = False
+            grass_patch.get_eaten()
 
     def move(self):
         """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
@@ -112,23 +112,6 @@ class Wolf(Animal):
 class GrassPatch(FixedAgent):
     """A patch of grass that grows at a fixed rate and can be eaten by sheep."""
 
-    @property
-    def fully_grown(self):
-        """Whether the grass patch is fully grown."""
-        return self._fully_grown
-
-    @fully_grown.setter
-    def fully_grown(self, value: bool) -> None:
-        """Set grass growth state and schedule regrowth if eaten."""
-        self._fully_grown = value
-
-        if not value:  # If grass was just eaten
-            self.model.simulator.schedule_event_relative(
-                setattr,
-                self.grass_regrowth_time,
-                function_args=[self, "fully_grown", True],
-            )
-
     def __init__(self, model, countdown, grass_regrowth_time, cell):
         """Create a new patch of grass.
 
@@ -139,12 +122,19 @@ class GrassPatch(FixedAgent):
             cell: Cell to which this grass patch belongs
         """
         super().__init__(model)
-        self._fully_grown = countdown == 0
+        self.fully_grown = countdown == 0
         self.grass_regrowth_time = grass_regrowth_time
         self.cell = cell
 
         # Schedule initial growth if not fully grown
         if not self.fully_grown:
-            self.model.simulator.schedule_event_relative(
-                setattr, countdown, function_args=[self, "fully_grown", True]
-            )
+            self.model.schedule_event(self.regrow, after=countdown)
+
+    def regrow(self):
+        """Regrow the grass."""
+        self.fully_grown = True
+
+    def get_eaten(self):
+        """Mark grass as eaten and schedule regrowth."""
+        self.fully_grown = False
+        self.model.schedule_event(self.regrow, after=self.grass_regrowth_time)
