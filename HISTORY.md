@@ -73,7 +73,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Introduce AbstractAgentSet to agent.py and refactor AgentSet to inherit from it by @codebreaker32 in #3210
 * Introduce `_HardKeyAgentSet` in agents.py by @codebreaker32 in #3219
 * Refactor step scheduling to use `EventGenerator` internally by @EwoutH in #3260
-* fix: handle deprecated space_kwargs gracefully in SpaceRenderer.rende… by @DipayanDasgupta in #3269
+* fix: handle deprecated space_kwargs gracefully in SpaceRenderer by @DipayanDasgupta in #3269
 ### 🧪 Experimental features
 * Add explicit support for Scenarios by @quaquel in #3103
 * feat: Add SignalType enum for type-safe signal definitions. by @codebyNJ in #3056
@@ -93,7 +93,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Fix TypeError in find_combinations when evaluation_func is None by @codebyNJ in #3112
 * Make create_meta_agent deterministic by @quaquel in #3183
 * Fix seed logic to ensure reproducibility by @codebreaker32 in #3192
-* Bugfix for pickling dynamicly modified grids by @quaquel in #3217
+* Bugfix for pickling dynamically modified grids by @quaquel in #3217
 * check whether model reporter is a partial function by @wang-boyu in #3220
 * Prevent RecursionError and data loss in Cell/Grid deepcopy by @falloficarus22 in #3222
 * fix: update alliance_formation example to use AgentSet.to_list() by @souro26 in #3235
