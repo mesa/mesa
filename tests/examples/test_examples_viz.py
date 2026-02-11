@@ -23,6 +23,23 @@ from mesa.visualization.components.matplotlib_components import (
 )
 
 
+def _capture_img_screenshot(
+    page_session: playwright.sync_api.Page, *, position: str = "first", retries: int = 5
+):
+    """Capture a screenshot from an img locator, retrying on transient DOM detaches."""
+    page_session.wait_for_selector("img")
+    locator = page_session.locator("img")
+    target = locator.first if position == "first" else locator.last
+
+    for attempt in range(retries):
+        try:
+            return target.screenshot()
+        except playwright.sync_api.Error as exc:
+            if "not attached to the DOM" not in str(exc) or attempt == retries - 1:
+                raise
+            page_session.wait_for_timeout(100)
+
+
 def run_model_test(
     model,
     agent_portrayal,
@@ -48,13 +65,11 @@ def run_model_test(
 
         # Display and capture the initial visualizations
         display(space_viz)
-        page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = _capture_img_screenshot(page_session, position="first")
 
         if measure_config:
             display(graph_viz)
-            page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = _capture_img_screenshot(page_session, position="last")
 
         # Run the model for specified number of steps
         model.run_for(steps)
@@ -70,13 +85,11 @@ def run_model_test(
 
         # Display and capture the updated visualizations
         display(space_viz)
-        page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = _capture_img_screenshot(page_session, position="first")
 
         if measure_config:
             display(graph_viz)
-            page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+            changed_graph = _capture_img_screenshot(page_session, position="last")
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
