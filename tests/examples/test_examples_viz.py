@@ -57,8 +57,7 @@ def run_model_test(
             initial_graph = page_session.locator("img").screenshot()
 
         # Run the model for specified number of steps
-        for _ in range(steps):
-            model.step()
+        model.run_for(steps)
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
