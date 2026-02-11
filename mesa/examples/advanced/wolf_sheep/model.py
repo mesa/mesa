@@ -12,9 +12,9 @@ Replication of the model found in NetLogo:
 import math
 
 from mesa import Model
-from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
+from mesa.experimental.data_collection import DataRecorder, DatasetConfig
 from mesa.experimental.devs import ABMSimulator
 
 
@@ -77,17 +77,11 @@ class WolfSheep(Model):
             random=self.random,
         )
 
-        # Set up data collection
-        model_reporters = {
-            "Wolves": lambda m: len(m.agents_by_type[Wolf]),
-            "Sheep": lambda m: len(m.agents_by_type[Sheep]),
-        }
+        model_fields = ["num_wolves", "num_sheep"]
         if grass:
-            model_reporters["Grass"] = lambda m: len(
-                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
-            )
+            model_fields.append("num_grass")
 
-        self.datacollector = DataCollector(model_reporters)
+        self.data_registry.track_model(self, "model_data", fields=model_fields)
 
         # Create sheep:
         Sheep.create_agents(
@@ -120,13 +114,30 @@ class WolfSheep(Model):
 
         # Collect initial data
         self.running = True
-        self.datacollector.collect(self)
+        self.datarecorder = DataRecorder(
+            self,
+            config={
+                "model_data": DatasetConfig(interval=1),
+            },
+        )
+
+    @property
+    def num_wolves(self):
+        """Count wolves."""
+        return len(self.agents_by_type[Wolf])
+
+    @property
+    def num_sheep(self):
+        """Count sheep."""
+        return len(self.agents_by_type[Sheep])
+
+    @property
+    def num_grass(self):
+        """Count fully grown grass patches."""
+        return len(self.agents_by_type[GrassPatch].select(lambda a: a.fully_grown))
 
     def step(self):
         """Execute one step of the model."""
         # First activate all sheep, then all wolves, both in random order
         self.agents_by_type[Sheep].shuffle_do("step")
         self.agents_by_type[Wolf].shuffle_do("step")
-
-        # Collect data
-        self.datacollector.collect(self)
