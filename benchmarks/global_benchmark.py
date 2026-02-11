@@ -12,8 +12,6 @@ sys.path.insert(0, os.path.abspath(".."))
 
 from configurations import configurations
 
-from mesa.experimental.devs.simulator import ABMSimulator
-
 
 # Generic function to initialize and run a model
 def run_model(model_class, seed, parameters):
@@ -27,18 +25,13 @@ def run_model(model_class, seed, parameters):
     Returns:
         startup time and run time
     """
-    uses_simulator = ["WolfSheep"]
     # Explicitly collect garbage before the run to ensure a clean memory state
     gc.collect()
 
     # Disable GC during timed runs to avoid random slowdowns
     gc.disable()
     start_init = time.perf_counter()
-    if model_class.__name__ in uses_simulator:
-        simulator = ABMSimulator()
-        model = model_class(simulator=simulator, rng=seed, **parameters)
-    else:
-        model = model_class(rng=seed, **parameters)
+    model = model_class(rng=seed, **parameters)
 
     end_init_start_run = time.perf_counter()
 

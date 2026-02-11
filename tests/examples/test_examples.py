@@ -146,19 +146,16 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 def test_wolf_sheep():  # noqa: D103
     from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
     app.page  # noqa: B018
 
-    simulator = ABMSimulator()
-    model = WolfSheep(rng=42, simulator=simulator)
+    model = WolfSheep(rng=42)
     ref = weakref.ref(model)
 
-    simulator.run_for(10)
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
-    del simulator
     gc.collect()
     assert ref() is None
 
