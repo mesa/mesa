@@ -115,7 +115,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
             you have to pass either seed or rng, but not both.
 
         """
-        HasObservables.__init__(self)
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.steps: int = 0
