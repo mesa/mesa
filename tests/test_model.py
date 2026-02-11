@@ -35,7 +35,7 @@ def test_model_time_increment():
 def test_model_time_with_simulator():
     """Test that simulator controls time when attached."""
     model = Model()
-    with pytest.warns(FutureWarning, match="Simulator API is deprecated"):
+    with pytest.warns(FutureWarning, match="DEVSimulator is deprecated"):
         simulator = DEVSimulator()
     simulator.setup(model)
 

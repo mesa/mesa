@@ -15,12 +15,18 @@ from mesa.time import (
     Schedule,
 )
 
-# Ignore deprecation warnings for Simulator classes in this test file
-pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
-
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The Simulator API is deprecated and will be removed in Mesa 4.0.*:FutureWarning"
-)
+# Ignore simulator deprecation warnings for constructor calls in this test file.
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:The Simulator API is deprecated and will be removed in Mesa 4.0.*:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:ABMSimulator is deprecated and will be removed in Mesa 4.0.*:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:DEVSimulator is deprecated and will be removed in Mesa 4.0.*:FutureWarning"
+    ),
+]
 
 
 def test_devs_simulator():
@@ -167,7 +173,7 @@ def test_simulator_time_deprecation():
 
 def test_simulator_api_deprecation():
     """Test that Simulator constructors emit future warning."""
-    with pytest.warns(FutureWarning, match="Simulator API is deprecated"):
+    with pytest.warns(FutureWarning, match="DEVSimulator is deprecated"):
         DEVSimulator()
 
 
