@@ -212,7 +212,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         """
         if self._time is None:
-            self.time = 0.0 # this emits a changed signal on time
+            self.time = 0.0  # this emits a changed signal on time
 
         while True:
             try:
