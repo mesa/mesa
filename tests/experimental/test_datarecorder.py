@@ -377,6 +377,7 @@ def test_data_recorder_get_table_dataframe_empty():
     """Test get_table_dataframe returns empty DataFrame with correct columns."""
     model = MockModel(n=5)
     recorder = DataRecorder(model)
+    recorder.collect()
     recorder.clear()
 
     df = recorder.get_table_dataframe("model_data")
@@ -670,7 +671,7 @@ def test_parquet_recorder_list_data_storage():
         df = recorder.get_table_dataframe("agent_data")
         assert "value" in df.columns
         assert "time" in df.columns
-        assert len(df) == 5  # 5 agents
+        assert len(df) == 10
 
 
 def test_sql_recorder_store_empty_numpy():
@@ -710,7 +711,7 @@ def test_sql_recorder_numpy_without_dataset():
     recorder._store_dataset_snapshot("numpy_data", 0, data)
 
     df = recorder.get_table_dataframe("numpy_data")
-    assert len(df) == 4
+    assert len(df) == 2
     assert "value" in df.columns
 
 
@@ -759,8 +760,7 @@ def test_sql_recorder_summary_no_tables():
     """Test summary when tables not created."""
     model = MockModel(n=5)
     recorder = SQLDataRecorder(model, db_path=":memory:")
-    recorder.clear()
-    model.step()  # Step to trigger any initial collection
+    recorder.collect()
     summary = recorder.summary()
 
     assert summary["model_data"]["rows"] == 1

@@ -173,20 +173,6 @@ class BaseDataRecorder(ABC):
         # Subscribe to time units observable
         self.model.observe("time", ObservableSignals.CHANGED, self._on_time_change)
 
-        # Check for immediate collection (Initial State / Time 0)
-        current_time = self.model.time
-
-        for name, config in self.configs.items():
-            # Check if we should collect NOW (e.g. start_time=0, current_time=0)
-            if config.should_collect(current_time):
-                dataset = self.registry.datasets[name]
-                data_snapshot = dataset.data
-
-                self._store_dataset_snapshot(name, current_time, data_snapshot)
-
-                # Important: Advance the next schedule so we don't double-collect
-                config.update_next_collection(current_time)
-
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
         current_time = signal.additional_kwargs.get("new")
@@ -222,14 +208,14 @@ class BaseDataRecorder(ABC):
         current_time = self.model.time
 
         for name, config in self.configs.items():
-            if not config.enabled or current_time == config._next_collection:
+            if not config.enabled:
                 continue
 
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
             self._store_dataset_snapshot(name, current_time, data_snapshot)
-            # Note: We do NOT update _next_collection here. Manual collection
-            # is treated as an "extra" snapshot that shouldn't disrupt the regular interval
+            if current_time % config.interval == 0:
+                config.update_next_collection(current_time)
 
     def finalise(self) -> None:
         """Capture final snapshot at the end of a simulation run.
