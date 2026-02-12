@@ -241,10 +241,17 @@ class Cell:
         return neighborhood
 
     def __getstate__(self):
-        """Return state of the Cell with connections set to empty."""
+        """Return state of the Cell.
+
+        Neighbors are replaced with their coordinates to avoid deep recursion
+        while preserving the connection keys.
+        """
         state = super().__getstate__()
-        # Replace connections with empty dict to avoid infinite recursion error in pickle/deepcopy
-        state[1]["connections"] = {}
+        # Replace neighbor objects with their coordinates to avoid deep recursion
+        # while preserving the connection keys.
+        state[1]["connections"] = {
+            key: neighbor.coordinate for key, neighbor in self.connections.items()
+        }
         return state
 
     def _clear_cache(self):
