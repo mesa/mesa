@@ -159,6 +159,7 @@ class Schedule:
         end: Absolute time to stop (None = no end)
         count: Maximum executions (None = unlimited)
     """
+
     interval: float | int | Callable[[Model], float | int] = 1.0
     start: float | None = None
     end: float | None = None
@@ -167,15 +168,12 @@ class Schedule:
     def __post_init__(self):
         """Validate schedule parameters."""
         if not callable(self.interval) and self.interval <= 0:
-            raise ValueError(
-                f"Schedule interval must be > 0, got {self.interval}"
-            )
+            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
 
         if self.count is not None and self.count <= 0:
             raise ValueError(
                 f"Schedule count must be > 0 if provided, got {self.count}"
             )
-
 
 
 class EventGenerator:
