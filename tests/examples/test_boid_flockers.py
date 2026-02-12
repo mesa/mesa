@@ -1,9 +1,12 @@
+"""Tests for the Boids flockers example."""
+
 import numpy as np
 
 from mesa.examples.basic.boid_flockers.model import BoidFlockers
 
 
 def test_boid_cohesion_steers_to_local_centroid():
+    """Boids should cohere toward the local neighbors' centroid."""
     model = BoidFlockers(
         population_size=3,
         width=100,
