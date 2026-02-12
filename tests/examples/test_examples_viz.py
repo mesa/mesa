@@ -16,6 +16,7 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
@@ -189,7 +190,7 @@ def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Boltzmann wealth model behavior and visualization."""
-    model = BoltzmannWealth(rng=42)
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color=agent.wealth)

@@ -1,6 +1,5 @@
 """Test Solara visualizations with Scenarios."""
 
-import pytest
 import solara
 
 import mesa
@@ -9,7 +8,7 @@ from mesa.examples.basic.boltzmann_wealth_model.model import (
     BoltzmannWealth,
 )
 from mesa.experimental.scenarios import Scenario
-from mesa.visualization.solara_viz import Slider, SolaraViz
+from mesa.visualization.solara_viz import Slider, SolaraViz, _build_model_init_kwargs
 
 
 class MyScenario(Scenario):
@@ -126,11 +125,30 @@ def test_scenario_with_defaults():
     assert scenario.speed == 1.0  # Still default.
 
 
-@pytest.mark.skip(
-    reason="Requires interactive Solara state handling; covered indirectly."
-)
 def test_reset_with_scenario():
-    """Test that resetting the model correctly reconstructs the scenario."""
+    """Test reset init kwargs route scenario fields (including rng) to Scenario."""
+    model = BoltzmannWealth(scenario=BoltzmannScenario(n=50, width=10, height=10))
+    model_parameters = {
+        "n": 60,
+        "width": 12,
+        "height": 11,
+        "rng": 42,
+    }
+
+    kwargs = _build_model_init_kwargs(
+        model,
+        model_parameters,
+        add_scenario_when_empty=False,
+        require_model_accepts_scenario=False,
+    )
+
+    assert "scenario" in kwargs
+    assert "rng" not in kwargs
+    assert isinstance(kwargs["scenario"], BoltzmannScenario)
+    assert kwargs["scenario"].n == 60
+    assert kwargs["scenario"].width == 12
+    assert kwargs["scenario"].height == 11
+    assert kwargs["scenario"].rng == 42
 
 
 def test_boltzmann_scenario_integration():
