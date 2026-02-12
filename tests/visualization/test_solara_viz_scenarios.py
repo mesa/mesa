@@ -126,7 +126,9 @@ def test_scenario_with_defaults():
     assert scenario.speed == 1.0  # Still default.
 
 
-@pytest.mark.skip(reason="Requires interactive Solara state handling; covered indirectly.")
+@pytest.mark.skip(
+    reason="Requires interactive Solara state handling; covered indirectly."
+)
 def test_reset_with_scenario():
     """Test that resetting the model correctly reconstructs the scenario."""
 
