@@ -25,8 +25,7 @@ def test_boltzmann_model():  # noqa: D103
     model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()  # this seems to be needed
 
     del model
@@ -60,8 +59,7 @@ def test_conways_game_model():  # noqa: D103
     model = ConwaysGameOfLife(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -77,8 +75,7 @@ def test_schelling_model():  # noqa: D103
     model = Schelling(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -94,8 +91,7 @@ def test_virus_on_network():  # noqa: D103
     model = VirusOnNetwork(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -111,8 +107,7 @@ def test_boid_flockers():  # noqa: D103
     model = BoidFlockers(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -128,8 +123,7 @@ def test_epstein():  # noqa: D103
     model = EpsteinCivilViolence(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -145,8 +139,7 @@ def test_pd_grid():  # noqa: D103
     model = PdGrid(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -162,8 +155,7 @@ def test_sugarscape_g1mt():  # noqa: D103
     model = SugarscapeG1mt(rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
@@ -173,19 +165,16 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 def test_wolf_sheep():  # noqa: D103
     from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
     app.page  # noqa: B018
 
-    simulator = ABMSimulator()
-    model = WolfSheep(rng=42, simulator=simulator)
+    model = WolfSheep(rng=42)
     ref = weakref.ref(model)
 
-    simulator.run_for(10)
+    model.run_for(10)
     model.remove_all_agents()
 
     del model
-    del simulator
     gc.collect()
     assert ref() is None
 
@@ -198,8 +187,7 @@ def test_alliance_formation_model():  # noqa: D103
     model = MultiLevelAllianceModel(50, rng=42)
     ref = weakref.ref(model)
 
-    for _i in range(10):
-        model.step()
+    model.run_for(10)
     assert len(model.agents) == len(model.network.nodes)
 
     model.remove_all_agents()

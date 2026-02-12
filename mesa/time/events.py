@@ -11,7 +11,7 @@ simulation events in chronological order while respecting event priorities. Key 
 
 The module contains three main components:
 - Priority: An enumeration defining event priority levels (HIGH, DEFAULT, LOW)
-- SimulationEvent: A class representing individual events with timing and execution details
+- Event: A class representing individual events with timing and execution details
 - EventList: A heap-based priority queue managing the chronological ordering of events
 
 The implementation supports both pure discrete event simulation and hybrid approaches
@@ -41,7 +41,7 @@ class Priority(IntEnum):
     HIGH = 1
 
 
-class SimulationEvent:
+class Event:
     """A simulation event.
 
     The callable is wrapped using weakref, so there is no need to explicitly cancel event if e.g., an agent
@@ -169,7 +169,7 @@ class Schedule:
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
 
-    Unlike a single SimulationEvent, an EventGenerator is persistent and can be
+    Unlike a single Event, an EventGenerator is persistent and can be
     stopped or configured with stop conditions.
 
     Attributes:
@@ -201,7 +201,7 @@ class EventGenerator:
         self.priority = priority
 
         self._active: bool = False
-        self._current_event: SimulationEvent | None = None
+        self._current_event: Event | None = None
         self._execution_count: int = 0
 
     @property
@@ -245,7 +245,7 @@ class EventGenerator:
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
-        self._current_event = SimulationEvent(
+        self._current_event = Event(
             time,
             self._execute_and_reschedule,
             priority=self.priority,
@@ -296,26 +296,26 @@ class EventList:
 
     def __init__(self):
         """Initialize an event list."""
-        self._events: list[SimulationEvent] = []
+        self._events: list[Event] = []
         heapify(self._events)
 
-    def add_event(self, event: SimulationEvent):
+    def add_event(self, event: Event):
         """Add the event to the event list.
 
         Args:
-            event (SimulationEvent): The event to be added
+            event (Event): The event to be added
 
         """
         heappush(self._events, event)
 
-    def peek_ahead(self, n: int = 1) -> list[SimulationEvent]:
+    def peek_ahead(self, n: int = 1) -> list[Event]:
         """Look at the first n non-canceled event in the event list.
 
         Args:
             n (int): The number of events to look ahead
 
         Returns:
-            list[SimulationEvent]
+            list[Event]
 
         Raises:
             IndexError: If the eventlist is empty
@@ -333,7 +333,7 @@ class EventList:
         valid_events = [e for e in self._events if not e.CANCELED]
         return nsmallest(n, valid_events)
 
-    def pop_event(self) -> SimulationEvent:
+    def pop_event(self) -> Event:
         """Pop the first element from the event list."""
         while self._events:
             event = heappop(self._events)
@@ -345,7 +345,7 @@ class EventList:
         """Return whether the event list is empty."""
         return len(self) == 0
 
-    def __contains__(self, event: SimulationEvent) -> bool:  # noqa
+    def __contains__(self, event: Event) -> bool:  # noqa
         return event in self._events
 
     def __len__(self) -> int:  # noqa
@@ -362,11 +362,11 @@ class EventList:
         )
         return f"EventList([{events_str}])"
 
-    def remove(self, event: SimulationEvent) -> None:
+    def remove(self, event: Event) -> None:
         """Remove an event from the event list.
 
         Args:
-            event (SimulationEvent): The event to be removed
+            event (Event): The event to be removed
 
         """
         # we cannot simply remove items from _eventlist because this breaks
