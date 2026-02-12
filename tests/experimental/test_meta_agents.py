@@ -337,9 +337,11 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
 
-"""Tests for meta_agent_selector behavior."""
-class TestMetaAgentSelector:
 
+"""Tests for meta_agent_selector behavior."""
+
+
+class TestMetaAgentSelector:
     def test_default_fallback_lowest_unique_id(self, setup_agents):
         model, agents = setup_agents
 
@@ -433,4 +435,3 @@ class TestMetaAgentSelector:
                 Agent,
                 meta_agent_selector=bad_selector,
             )
-
