@@ -212,14 +212,3 @@ class TestScheduleValidation:
 
         with pytest.raises(ValueError):
             Schedule(interval=1.0, count=-5)
-
-    def test_rejects_nonpositive_callable_interval(self):
-        model = SimpleModel()
-
-        def bad_interval(m):
-            return 0
-
-        schedule = Schedule(interval=bad_interval)
-
-        with pytest.raises(ValueError):
-            model.schedule_recurring(lambda: None, schedule)

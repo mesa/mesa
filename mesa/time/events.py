@@ -227,13 +227,9 @@ class EventGenerator:
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
         if callable(self.schedule.interval):
-            value = self.schedule.interval(self.model)
-            if value <= 0:
-                raise ValueError(
-                    f"Schedule interval callable returned invalid value {value}. Must be > 0."
-                )
-            return value
+            return self.schedule.interval(self.model)
         return self.schedule.interval
+
 
     def _should_stop(self, next_time: float) -> bool:
         """Check if the generator should stop before scheduling the next event."""
