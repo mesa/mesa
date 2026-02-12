@@ -63,8 +63,7 @@ def run_model_test(
             initial_graph = graph_locator.screenshot()
 
         # Run the model for specified number of steps
-        for _ in range(steps):
-            model.step()
+        model.run_for(steps)
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
@@ -143,9 +142,8 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         Sheep,
         Wolf,
     )
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
-    model = WolfSheep(simulator=ABMSimulator(), rng=42)
+    model = WolfSheep(rng=42)
 
     def agent_portrayal(agent):
         if agent is None:
