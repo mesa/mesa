@@ -52,6 +52,59 @@ if TYPE_CHECKING:
 
 _mesa_logger = create_module_logger()
 
+# Parameter extractor registry for custom parameter types
+_param_extractors = {}
+
+
+def register_param_extractor(param_type: str, extractor_func: Callable):
+    """Register a custom parameter value extractor for a specific parameter type.
+
+    This allows users to define custom parameter types with complex structures
+    and provide extractors to properly initialize their default values.
+
+    Args:
+        param_type: The parameter type string (e.g., "Dict", "CustomType")
+        extractor_func: A function that takes a param_spec dict and returns the default value
+
+    Example:
+        >>> def extract_dict_param(spec):
+        ...     entries = spec.get("entries", {})
+        ...     result = {}
+        ...     for key, value in entries.items():
+        ...         if isinstance(value, dict) and "value" in value:
+        ...             result[key] = value["value"]
+        ...         elif isinstance(value, dict):
+        ...             result[key] = extract_dict_param(value)
+        ...         else:
+        ...             result[key] = value
+        ...     return result
+        ...
+        >>> register_param_extractor("Dict", extract_dict_param)
+    """
+    _param_extractors[param_type] = extractor_func
+
+
+def extract_default_value(param_spec: dict | Any) -> Any:
+    """Extract the default value from a parameter specification.
+
+    Checks registered extractors for custom parameter types before falling back
+    to the standard "value" key extraction.
+
+    Args:
+        param_spec: The parameter specification dictionary or a direct value
+
+    Returns:
+        The extracted default value
+    """
+    if not isinstance(param_spec, dict):
+        return param_spec
+
+    param_type = param_spec.get("type")
+    if param_type in _param_extractors:
+        return _param_extractors[param_type](param_spec)
+
+    return param_spec.get("value")
+
 
 @solara.component
 @function_logger(__name__)
@@ -776,7 +829,7 @@ def ModelCreator(
         lambda: model_parameters.set(
             {
                 **fixed_params,
-                **{k: v.get("value") for k, v in user_adjust_params.items()},
+                **{k: extract_default_value(v) for k, v in user_adjust_params.items()},
             }
         ),
         [],
