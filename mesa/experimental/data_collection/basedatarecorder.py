@@ -214,7 +214,7 @@ class BaseDataRecorder(ABC):
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
             self._store_dataset_snapshot(name, current_time, data_snapshot)
-            if current_time % config.interval == 0:
+            if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
 
     def finalise(self) -> None:
