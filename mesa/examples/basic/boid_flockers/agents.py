@@ -82,7 +82,8 @@ class Boid(ContinuousSpaceAgent):
             separation_vector = np.zeros(self.space.ndims)
 
         match_vector = (
-            np.asarray([n.direction for n in neighbors]).mean(axis=0) * self.match_factor
+            np.asarray([n.direction for n in neighbors]).mean(axis=0)
+            * self.match_factor
         )
 
         # Update direction based on the three behaviors
