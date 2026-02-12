@@ -49,53 +49,47 @@ from mesa.agent import Agent, AgentSet
 def evaluate_combination(
     candidate_group: tuple[Agent, ...],
     model,
-    evaluation_func: Callable[[AgentSet], float] | None,
-) -> tuple[AgentSet, float] | None:
+    evaluation_func: Callable[[tuple[Agent, ...]], float] | None,
+) -> tuple[tuple[Agent, ...], float] | None:
     """Evaluate a combination of agents.
 
     Args:
-        candidate_group (Tuple[Agent, ...]): The group of agents to evaluate.
+        candidate_group: The group of agents to evaluate.
         model: The model instance.
-        evaluation_func (Optional[Callable[[AgentSet], float]]): The function
-        to evaluate the group.
+        evaluation_func: The function to evaluate the group.
 
     Returns:
-        Optional[Tuple[AgentSet, float]]: The evaluated group and its value,
-        or None.
+        Optional: The evaluated group and its value, or None.
     """
-    group_set = AgentSet(candidate_group, random=model.random)
     if evaluation_func:
-        value = evaluation_func(group_set)
-        return group_set, value
+        value = evaluation_func(candidate_group)
+        return candidate_group, value
     return None
 
 
 def find_combinations(
     model,
-    group: AgentSet,
+    group: Iterable,
     size: int | tuple[int, int] = (2, 5),
-    evaluation_func: Callable[[AgentSet], float] | None = None,
-    filter_func: Callable[[list[tuple[AgentSet, float]]], list[tuple[AgentSet, float]]]
+    evaluation_func: Callable[[tuple[Agent, ...]], float] | None = None,
+    filter_func: Callable[
+        [list[tuple[tuple[Agent, ...], float]]], list[tuple[tuple[Agent, ...], float]]
+    ]
     | None = None,
-) -> list[tuple[AgentSet, float]]:
+) -> list[tuple[tuple[Agent, ...], float]]:
     """Find valuable combinations of agents in this set.
 
     Args:
         model: The model instance.
-        group (AgentSet): The set of agents to find combinations in.
-        size (Union[int, Tuple[int, int]], optional): The size or range of
-        sizes for combinations. Defaults to (2, 5).
-        evaluation_func (Optional[Callable[[AgentSet], float]], optional): The
-          function to evaluate combinations. Defaults to None.
-        filter_func (Optional[Callable[[List[Tuple[AgentSet, float]]]): Allows
-          the user to specify how agents are filtered to form groups.
+        group: The set of agents to find combinations in.
+        size: The size or range of sizes for combinations. Defaults to (2, 5).
+        evaluation_func: The function to evaluate combinations. Defaults to None.
+        filter_func: Allows the user to specify how agents are filtered to form groups.
           Defaults to None.
-        List[Tuple[AgentSet, float]]]], optional): The function to filter
-        combinations. Defaults to None.
+        List: The function to filter combinations. Defaults to None.
 
     Returns:
-        List[Tuple[AgentSet, float]]: The list of valuable combinations, in
-        a tuple first agentset of valuable combination  and then the value of
+        List: The list of valuable combinations, in a tuple first agentset of valuable combination  and then the value of
         the combination.
     """
     combinations = []
@@ -109,9 +103,9 @@ def find_combinations(
             candidate_group, model, evaluation_func
         )
         if evaluation_result is not None:
-            group_set, result = evaluation_result
-            if result:
-                combinations.append((group_set, result))
+            evaluated_group, result = evaluation_result
+            if result is not None:
+                combinations.append((evaluated_group, result))
 
     if len(combinations) > 0 and filter_func:
         filtered_combinations = filter_func(combinations)
@@ -136,7 +130,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
         agent_type_names[agent.__name__] = agent
 
     if new_agent_class in agent_type_names:
-        return type(agents_by_type[agent_type_names[new_agent_class]][0])
+        return type(next(iter(agents_by_type[agent_type_names[new_agent_class]])))
     return None
 
 
@@ -217,40 +211,57 @@ def create_meta_agent(
         meta_attributes (Dict[str, Any]): Attributes to be added to the
         meta-agent.
         """
+        # Prevent collision of attributes with meta-agent instantiation
+        mesa_primitives = [
+            "unique_id",
+            "model",
+            "pos",
+            "name",
+            "random",
+            "rng",
+        ]
+
         if assume_constituting_agent_attributes:
             if meta_attributes is None:
                 # Initialize meta_attributes if not provided
                 meta_attributes = {}
             for agent in agents:
                 for name, value in agent.__dict__.items():
-                    if not callable(value):
+                    if (
+                        not callable(value)
+                        and name not in mesa_primitives
+                        and not name.startswith("_")
+                    ):
                         meta_attributes[name] = value
 
         if meta_attributes is not None:
             for key, value in meta_attributes.items():
                 setattr(meta_agent_instance, key, value)
 
-    # Path 1 - Add agents to existing meta-agent
-    constituting_agents = [a for a in agents if hasattr(a, "meta_agent")]
-    if len(constituting_agents) > 0:
-        if len(constituting_agents) == 1:
-            add_attributes(constituting_agents[0].meta_agent, agents, meta_attributes)
-            add_methods(constituting_agents[0].meta_agent, agents, meta_methods)
-            constituting_agents[0].meta_agent.add_constituting_agents(agents)
+    # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
+    # This preserves the "singleton/unique group per class" behavior while allowing overlap between different classes
+    existing_meta_agents = []
+    for a in agents:
+        if hasattr(a, "meta_agents"):
+            for ma in a.meta_agents:
+                if (
+                    ma.__class__.__name__ == new_agent_class
+                    and ma not in existing_meta_agents
+                ):
+                    existing_meta_agents.append(ma)
 
-            return constituting_agents[0].meta_agent  # Return the existing meta-agent
-
-        else:
-            constituting_agent = model.random.choice(constituting_agents)
-            agents = list(
-                (dict.fromkeys(agents) | dict.fromkeys(constituting_agents)).keys()
-            )
-            add_attributes(constituting_agent.meta_agent, agents, meta_attributes)
-            add_methods(constituting_agent.meta_agent, agents, meta_methods)
-            constituting_agent.meta_agent.add_constituting_agents(agents)
-            # TODO: Add way for user to specify how agents join meta-agent
-            # instead of random choice
-            return constituting_agent.meta_agent
+    if len(existing_meta_agents) > 0:
+        # TODO: Add way for user to specify how agents join meta-agent
+        # instead of random choice if there are multiple meta-agents of the same class
+        meta_agent = (
+            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+            if len(existing_meta_agents) > 1
+            else existing_meta_agents[0]
+        )
+        add_attributes(meta_agent, agents, meta_attributes)
+        add_methods(meta_agent, agents, meta_methods)
+        meta_agent.add_constituting_agents(agents)
+        return meta_agent
 
     else:
         # Path 2 - Create a new instance of an existing meta-agent class
@@ -297,7 +308,11 @@ class MetaAgent(Agent):
 
         # Add ref to meta_agent in constituting_agents
         for agent in self._constituting_set:
-            agent.meta_agent = self  # TODO: Make a set for meta_agents
+            if not hasattr(agent, "meta_agents"):
+                agent.meta_agents = set()
+            agent.meta_agents.add(self)
+            # Maintain backward compatibility for code expecting agent.meta_agent
+            agent.meta_agent = self
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -370,18 +385,28 @@ class MetaAgent(Agent):
         """
         for agent in new_agents:
             self._constituting_set.add(agent)
-            agent.meta_agent = self  # TODO: Make a set for meta_agents
+            if not hasattr(agent, "meta_agents"):
+                agent.meta_agents = set()
+            agent.meta_agents.add(self)
+            agent.meta_agent = self
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
 
         Args:
-            remove_agents (set[Agent]): The agents to remove from MetaAgent.
+            remove_agents (set[Agent]): The agents to remove.
         """
         for agent in remove_agents:
             self._constituting_set.discard(agent)
-            agent.meta_agent = None  # TODO: Remove meta_agent from set
-            self.model.deregister_agent(agent)
+            if hasattr(agent, "meta_agents"):
+                agent.meta_agents.discard(self)
+                # Update backward compatibility attribute deterministically
+                if len(agent.meta_agents) > 0:
+                    agent.meta_agent = sorted(
+                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                    )[0]
+                else:
+                    agent.meta_agent = None
 
     def step(self):
         """Perform the agent's step.

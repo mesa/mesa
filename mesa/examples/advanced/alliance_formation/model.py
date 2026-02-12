@@ -57,17 +57,18 @@ class MultiLevelAllianceModel(mesa.Model):
         Calculate the Shapley value of the two agents.
 
         Args:
-            agents (list): List of agents.
+            agents: Pair of agents.
 
         Returns:
             tuple: Potential utility, new position, and level.
         """
-        agent_0 = agents[0]
-        agent_1 = agents[1]
+        agent_0, agent_1 = agents
 
-        positions = agents.get("position")
-        new_position = 1 - (max(positions) - min(positions))
-        potential_utility = agents.agg("power", sum) * 1.2 * new_position
+        new_position = 1 - (
+            max(agent_0.position, agent_1.position)
+            - min(agent_0.position, agent_1.position)
+        )
+        potential_utility = (agent_0.power + agent_1.power) * 1.2 * new_position
 
         value_0 = 0.5 * agent_0.power + 0.5 * (potential_utility - agent_1.power)
         value_1 = 0.5 * agent_1.power + 0.5 * (potential_utility - agent_0.power)
@@ -95,7 +96,7 @@ class MultiLevelAllianceModel(mesa.Model):
         best = {}
         # Determine best option for EACH agent
         for group, value in combinations:
-            agent_ids = sorted(group.get("unique_id"))  # by default is bilateral
+            agent_ids = sorted(a.unique_id for a in group)
             # Deal with all possibilities
             if (
                 agent_ids[0] not in best and agent_ids[1] not in best
