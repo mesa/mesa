@@ -450,7 +450,10 @@ def _get_scenario_defaults(scenario: Scenario) -> dict[str, Any]:
             "Expected model.scenario to be a subclass instance of mesa.experimental.scenarios.Scenario."
         )
 
-    return getattr(scenario, "_scenario_defaults", {})
+    defaults = getattr(scenario, "_scenario_defaults", {}).copy()
+    defaults["rng"] = None
+
+    return defaults
 
 
 def _build_model_init_kwargs(
@@ -527,8 +530,6 @@ def ModelController(
                 do_step()
                 if use_threads.value:
                     visualization_pause_event.set()
-        except asyncio.CancelledError:
-            return
         except Exception as e:
             error_message.value = f"error in step: {e}"
             traceback.print_exc()
@@ -542,8 +543,6 @@ def ModelController(
                     visualization_pause_event.clear()
                     force_update()
 
-            except asyncio.CancelledError:
-                return
             except Exception as e:
                 error_message.value = f"error in visualization: {e}"
                 traceback.print_exc()
@@ -668,8 +667,6 @@ def SimulatorController(
                 do_step()
                 if use_threads.value:
                     visualization_pause_event.set()
-        except asyncio.CancelledError:
-            return
         except Exception as e:
             error_message.value = f"error in step: {e}"
             traceback.print_exc()
@@ -685,8 +682,6 @@ def SimulatorController(
                     visualization_pause_event.clear()
                     force_update()
                     pause_step_event.set()
-            except asyncio.CancelledError:
-                return
             except Exception as e:
                 error_message.value = f"error in visualization: {e}"
                 traceback.print_exc()
