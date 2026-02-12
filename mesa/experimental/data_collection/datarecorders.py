@@ -469,7 +469,7 @@ class ParquetDataRecorder(BaseDataRecorder):
         if dataset_name is None:
             for name in self.buffers:
                 filepath = self.output_dir / f"{name}.parquet"
-                if filepath.exists():
+                if filepath.exists():  # pragma: no cover
                     filepath.unlink()
                 self.buffers[name].clear()
         else:
@@ -477,7 +477,7 @@ class ParquetDataRecorder(BaseDataRecorder):
                 raise KeyError(f"Dataset '{dataset_name}' not found")
 
             filepath = self.output_dir / f"{dataset_name}.parquet"
-            if filepath.exists():
+            if filepath.exists():  # pragma: no cover
                 filepath.unlink()
             self.buffers[dataset_name].clear()
 

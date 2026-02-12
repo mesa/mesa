@@ -746,6 +746,11 @@ def test_sql_recorder_get_empty_dataset():
     df = recorder.get_table_dataframe("model_data")
     assert len(df) == 0
 
+    model.step()
+    recorder.clear()
+    df = recorder.get_table_dataframe("model_data")
+    assert len(df) == 0
+
 
 def test_sql_recorder_clear_nonexistent():
     """Test clearing nonexistent dataset."""
