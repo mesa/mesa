@@ -165,6 +165,16 @@ class Schedule:
     end: float | None = None
     count: int | None = None
 
+    def __post_init__(self):
+        """Validate schedule parameters."""
+        if not callable(self.interval) and self.interval <= 0:
+            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
+
+        if self.count is not None and self.count <= 0:
+            raise ValueError(
+                f"Schedule count must be > 0 if provided, got {self.count}"
+            )
+
 
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
