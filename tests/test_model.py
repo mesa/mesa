@@ -16,11 +16,13 @@ def test_model_set_up():
     assert model.time == 0.0
     assert model._simulator is None
 
-    model.step()
+    with pytest.warns(FutureWarning, match=r"model\.step\(\) is deprecated"):
+        model.step()
     assert model.steps == 1
     assert model.time == 1.0
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_model_time_increment():
     """Test that time increments correctly with steps."""
     model = Model()
@@ -57,9 +59,31 @@ def test_running():
                 self.running = False
 
     model = TestModel()
-    model.run_model()
+    with pytest.warns(FutureWarning, match=r"model\.run_model\(\) is deprecated"):
+        model.run_model()
     assert model.steps == 10
     assert model.time == 10.0
+
+
+def test_step_deprecation_warning():
+    """Test that model.step emits deprecation warning."""
+    model = Model()
+
+    with pytest.warns(FutureWarning, match=r"model\.step\(\) is deprecated"):
+        model.step()
+
+
+def test_run_model_deprecation_warning():
+    """Test that model.run_model emits deprecation warning."""
+
+    class TestModel(Model):
+        def step(self):
+            if self.steps == 1:
+                self.running = False
+
+    model = TestModel()
+    with pytest.warns(FutureWarning, match=r"model\.run_model\(\) is deprecated"):
+        model.run_model()
 
 
 def test_rng(rng=23):
