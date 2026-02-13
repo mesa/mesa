@@ -352,7 +352,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
            Use a custom loop or `batch_run` instead.
         """
         warnings.warn(
-            "run_model() is deprecated and will be removed in a future version.",
+            "run_model() is deprecated and will be removed in Mesa 4.0.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -366,7 +366,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
            Use `agent.step()` or custom logic instead.
         """
         warnings.warn(
-            "model.step() is deprecated and will be removed in a future version. "
+            "model.step() is deprecated and will be removed in Mesa 4.0. "
             "Please implement your own step logic or use the scheduler directly.",
             DeprecationWarning,
             stacklevel=2,
