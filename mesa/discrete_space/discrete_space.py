@@ -90,7 +90,7 @@ class DiscreteSpace[T: Cell]:
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell at or nearest to the given position."""
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement find_nearest_cell(). "
+            f"{type(self).__name__} does not implement find_nearest_cell(). "
             "This space may be purely topological."
         )
 
