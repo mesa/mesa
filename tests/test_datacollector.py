@@ -134,7 +134,7 @@ class TestDataCollector(unittest.TestCase):
         for i in range(7):
             if i == 4:
                 self.model.agents[3].remove()
-            self.model.step()
+            self.model.run_for(1)
 
         # Write to table:
         for agent in self.model.agents:
@@ -252,7 +252,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         """Create the model and run it a set number of steps."""
         self.model = MockModelWithAgentTypes()
         for _ in range(5):
-            self.model.step()
+            self.model.run_for(1)
 
     def test_agenttype_vars(self):
         """Test agent-type-specific variable collection."""
@@ -321,7 +321,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         """Test agent-type-specific reporter with string attribute."""
         model = MockModelWithAgentTypes()
         model.datacollector._new_agenttype_reporter(MockAgentA, "string_attr", "val")
-        model.step()
+        model.run_for(1)
 
         agent_a_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentA)
         self.assertIn("string_attr", agent_a_data.columns)
@@ -339,7 +339,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         model.datacollector._new_agenttype_reporter(
             MockAgentB, "func_param", [test_func, [2]]
         )
-        model.step()
+        model.run_for(1)
 
         agent_b_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentB)
         self.assertIn("func_param", agent_b_data.columns)
@@ -356,7 +356,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         model.datacollector._new_agenttype_reporter(
             MockAgentB, "type_b_val", lambda a: a.type_b_val
         )
-        model.step()
+        model.run_for(1)
 
         agent_a_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentA)
         agent_b_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentB)
@@ -372,7 +372,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         model.datacollector._new_agenttype_reporter(MockAgent, "val", lambda a: a.val)
         model.datacollector._new_agenttype_reporter(Agent, "val", lambda a: a.val)
         for _ in range(3):
-            model.step()
+            model.run_for(1)
 
         super_data = model.datacollector.get_agenttype_vars_dataframe(MockAgent)
         agent_data = model.datacollector.get_agenttype_vars_dataframe(Agent)
@@ -720,9 +720,9 @@ def test_mutable_data_independence():
 
     model = MutableModel()
 
-    model.step()
-    model.step()
-    model.step()
+    model.run_for(1)
+    model.run_for(1)
+    model.run_for(1)
 
     df = model.datacollector.get_agent_vars_dataframe()
 

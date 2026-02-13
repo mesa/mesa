@@ -157,7 +157,7 @@ def test_meta_agent_integration(setup_agents):
         assume_constituting_agent_methods=True,
     )
 
-    model.step()
+    model.run_for(1)
 
     assert meta_agent in model.agents
     assert meta_agent.function1() == "function1"

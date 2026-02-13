@@ -44,7 +44,7 @@ class LifeTimeModel(Model):
 
     def run_model(self, step_count=100):  # noqa: D102
         for _ in range(step_count):
-            self.step()
+            self.run_for(1)
 
 
 class FiniteLifeAgent(Agent):
