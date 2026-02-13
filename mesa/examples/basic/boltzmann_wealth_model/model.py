@@ -43,7 +43,9 @@ class BoltzmannWealth(Model):
         self.grid = OrthogonalMooreGrid((width, height), random=self.random)
 
         self.recorder = DataRecorder(self)
-        self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(self.recorder)
+        self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(
+            self.recorder
+        )
         self.data_registry.track_model(self, "model_data", "gini").record(self.recorder)
 
         # Set up data collection
@@ -83,4 +85,3 @@ class BoltzmannWealth(Model):
 if __name__ == "__main__":
     model = BoltzmannWealth(n=100)
     model.run_for(10)
-

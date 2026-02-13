@@ -32,8 +32,8 @@ from mesa.experimental.mesa_signals import ObservableSignals
 
 if TYPE_CHECKING:
     from mesa import Model
-    from .dataset import DataSet, DataRegistry
 
+    from .dataset import DataRegistry, DataSet
 
 
 @dataclass
@@ -256,7 +256,9 @@ class BaseDataRecorder(ABC):
             raise KeyError(f"Dataset '{dataset_name}' not found")
         self.configs[dataset_name].enabled = False
 
-    def add_dataset(self, dataset: DataSet, configuration: DatasetConfig|None=None) -> None:
+    def add_dataset(
+        self, dataset: DataSet, configuration: DatasetConfig | None = None
+    ) -> None:
         """Add a dataset to the collection.
 
         Args:
