@@ -31,6 +31,7 @@ def test_model_time_increment():
         assert model.time == float(i + 1)
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_model_time_with_simulator():
     """Test that simulator controls time when attached."""
     model = Model()

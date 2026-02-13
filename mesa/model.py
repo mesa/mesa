@@ -9,13 +9,14 @@ from __future__ import annotations
 import random
 import sys
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 # mypy
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from mesa.experimental.data_collection.dataset import DataRegistry
 from mesa.experimental.mesa_signals import (
     HasObservables,
     ModelSignals,
@@ -27,9 +28,15 @@ if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
 from mesa.agent import Agent, _HardKeyAgentSet
-from mesa.experimental.devs.eventlist import EventList, Priority, SimulationEvent
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
+from mesa.time import (
+    Event,
+    EventGenerator,
+    EventList,
+    Priority,
+    Schedule,
+)
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -120,6 +127,8 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         # Event list for event-based execution
         self._event_list: EventList = EventList()
+        # Strong references to active EventGenerators (prevent GC)
+        self._event_generators: list[EventGenerator] = []
 
         # check if `scenario` is provided
         # and if so, whether rng is the same or not
@@ -169,8 +178,15 @@ class Model[A: Agent, S: Scenario](HasObservables):
             scenario = Scenario(rng=seed)  # type: ignore[assignment]
         self.scenario = scenario
 
-        # Wrap the user-defined step method
+        # Store user's step method and create the default step schedule.
+        # Uses EventGenerator to schedule _do_step every 1.0 time units.
         self._user_step = self.step
+        self._default_schedule: EventGenerator = EventGenerator(
+            self,
+            self._do_step,
+            Schedule(interval=1.0, start=1.0),
+            priority=Priority.HIGH,
+        ).start()
         self.step = self._wrapped_step
 
         # setup agent registration data structures
@@ -181,11 +197,10 @@ class Model[A: Agent, S: Scenario](HasObservables):
             [], random=self.random
         )  # an agenset with all agents
 
-    def _wrapped_step(self, *args: Any, **kwargs: Any) -> None:
+        self.data_registry = DataRegistry()
+
+    def _wrapped_step(self) -> None:
         """Advance time by one unit, processing any scheduled events."""
-        # Schedule step event if not already scheduled (first call or no simulator)
-        if self._event_list.is_empty():
-            self._schedule_step(self.time + 1)
         self._advance_time(self.time + 1)
 
     def _advance_time(self, until: float) -> None:
@@ -210,17 +225,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         self.time = until
 
-    def _schedule_step(self, time: float) -> None:
-        """Schedule a step event at the given time."""
-        event = SimulationEvent(time, self._do_step, priority=Priority.HIGH)
-        self._event_list.add_event(event)
-
     def _do_step(self) -> None:
-        """Execute one step and schedule the next."""
+        """Execute one step. Rescheduling is handled by the EventGenerator."""
         self.steps += 1
         _mesa_logger.info(f"Step {self.steps} at time {self.time}")
         self._user_step()
-        self._schedule_step(self.time + 1)
 
     @property
     def agents(self) -> _HardKeyAgentSet[A]:
@@ -388,3 +397,73 @@ class Model[A: Agent, S: Scenario](HasObservables):
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
         for agent in list(self._all_agents):
             agent.remove()
+
+        self.data_registry.close()  # this is needed to ensure GC works properly
+
+    ### Event scheduling and time progression methods ###
+    def schedule_event(
+        self,
+        function: Callable,
+        *,
+        at: float | None = None,
+        after: float | None = None,
+        priority: Priority = Priority.DEFAULT,
+    ) -> Event:
+        """Schedule a one-off event.
+
+        Args:
+            function: The callable to execute
+            at: Absolute time to execute (mutually exclusive with after)
+            after: Relative time from now to execute (mutually exclusive with at)
+            priority: Priority level for the event
+
+        Returns:
+            The scheduled Event (can be used to cancel)
+
+        Raises:
+            ValueError: If both or neither of at/after are specified
+        """
+        if (at is None) == (after is None):
+            raise ValueError("Specify exactly one of 'at' or 'after'")
+
+        time = at if at is not None else self.time + after
+        event = Event(time, function, priority=priority)
+        self._event_list.add_event(event)
+        return event
+
+    def schedule_recurring(
+        self,
+        function: Callable,
+        schedule: Schedule,
+        priority: Priority = Priority.DEFAULT,
+    ) -> EventGenerator:
+        """Schedule a recurring event based on a Schedule.
+
+        Args:
+            function: The callable to execute repeatedly
+            schedule: The Schedule defining when events occur
+            priority: Priority level for generated events
+
+        Returns:
+            The EventGenerator (can be used to stop)
+        """
+        generator = EventGenerator(self, function, schedule, priority)
+        generator.start()
+        self._event_generators.append(generator)
+        return generator
+
+    def run_for(self, duration: float | int) -> None:
+        """Run the model for the specified duration.
+
+        Args:
+            duration: Time units to advance
+        """
+        self._advance_time(self.time + duration)
+
+    def run_until(self, end_time: float | int) -> None:
+        """Run the model until the specified time.
+
+        Args:
+            end_time: Absolute time to run until
+        """
+        self._advance_time(end_time)
