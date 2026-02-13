@@ -44,10 +44,10 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_position",  # physical position
         "capacity",
         "connections",
         "coordinate",  # Logical index
-        "position",  # Physical position
         "properties",
         "random",
     ]
@@ -59,6 +59,22 @@ class Cell:
     @empty.setter
     def empty(self, value: bool) -> None:
         self._empty = value
+
+    @property
+    def position(self) -> np.ndarray:
+        """Get the physical position of the cell.
+
+        Returns:
+            np.ndarray: Physical position of the cell
+        """
+        if self._position is not None:
+            return self._position
+        # Default for implicit grids
+        return np.asarray(self.coordinate, dtype=float)
+
+    @position.setter
+    def position(self, value: np.ndarray | None) -> None:
+        self._position = value
 
     def __init__(
         self,
@@ -78,7 +94,7 @@ class Cell:
         """
         super().__init__()
         self.coordinate = coordinate  # Logical index
-        self.position = position  # Physical position
+        self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
         self._agents: list[
             CellAgent

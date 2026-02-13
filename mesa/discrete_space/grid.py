@@ -21,6 +21,7 @@ from random import Random
 from typing import Any, TypeVar
 
 import numpy as np
+from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
@@ -125,23 +126,11 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
 
-    def _calculate_position(self, cell: T) -> np.ndarray:
-        """Calculate physical position of cell center from coordinate.
-
-        Args:
-            cell: The cell to calculate position for
-
-        Returns:
-            np.ndarray: Position of the cell center
-        """
-        # Cell center is at coordinate + 0.5
-        return np.array(cell.coordinate, dtype=float) + 0.5
-
-    def pos_to_cell(self, position: np.ndarray) -> T:
+    def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell containing the given position.
 
         Args:
-            position: Physical coordinates
+            position: Physical position [x, y]
 
         Returns:
             Cell: The cell containing the position
@@ -149,8 +138,6 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         Raises:
             KeyError: If position is outside grid bounds and not a torus
         """
-        position = np.asarray(position)
-
         # Floor to get cell coordinate
         coord = tuple(np.floor(position).astype(int))
 
@@ -330,79 +317,66 @@ class HexGrid(Grid[T]):
         ValueError: If torus=True and either width or height is odd.
     """
 
-    def _calculate_position(self, cell: T) -> np.ndarray:
-        """Convert offset hex coordinates (col, row) to pixel position.
+    def __init__(
+        self,
+        dimensions: Sequence[int],
+        torus: bool = False,
+        capacity: float | None = None,
+        random: Random | None = None,
+        cell_klass: type[T] = Cell,
+    ) -> None:
+        """Initialize the hex grid.
 
         Args:
-            cell: The hex cell
-
-        Returns:
-            np.ndarray: Pixel position of hex center
+            dimensions: the dimensions of the space
+            torus: whether the space wraps
+            capacity: capacity of the grid cell
+            random: a random number generator
+            cell_klass: the base class to use for the cells
         """
-        col, row = cell.coordinate
-        size = 1.0  # Size of the hexagon (distance from center to any corner)
+        super().__init__(
+            dimensions=dimensions,
+            torus=torus,
+            capacity=capacity,
+            random=random,
+            cell_klass=cell_klass,
+        )
+        self._init_hex_geometry()
 
-        x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
-        y = size * 1.5 * row
+    def _init_hex_geometry(self) -> None:
+        """Calculate physical positions for all cells and build KD-Tree.
 
-        return np.array([x, y])
-
-    def pos_to_cell(self, position: np.ndarray) -> T:
-        """Convert pixel position to hex cell (Offset Coordinates).
-
-        Args:
-            position: Pixel coordinates [x, y]
-
-        Returns:
-            Cell: The hex cell at that position
+        Refer https://www.redblobgames.com/grids/hexagons/#hex-to-pixel for more detail
         """
-        position = np.asarray(position)
-        x, y = position
+        positions = []
+        self._kdtree_coords = []
+
         size = 1.0
+        for coord, cell in self._cells.items():
+            col, row = coord
+            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            y = size * 1.5 * row
+            position = np.array([x, y])
 
-        # Invert the Pointy-Topped conversion
-        q = (math.sqrt(3) / 3 * x - 1 / 3 * y) / size
-        r = (2 / 3 * y) / size
+            cell.position = position
+            positions.append(position)
+            self._kdtree_coords.append(coord)
 
-        # Round to nearest Hex (Axial)
-        # Convert to Cube coordinates for rounding
-        cx = q
-        cz = r
-        cy = -cx - cz
+        self._kdtree = KDTree(np.array(positions))
 
-        rx = round(cx)
-        ry = round(cy)
-        rz = round(cz)
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the hex cell at the given position."""
+        position = np.asarray(position)
 
-        x_diff = abs(rx - cx)
-        y_diff = abs(ry - cy)
-        z_diff = abs(rz - cz)
-
-        if x_diff > y_diff and x_diff > z_diff:
-            rx = -ry - rz
-        elif y_diff > z_diff:
-            ry = -rx - rz
-        else:
-            rz = -rx - ry
-
-        # Axial integer result: q=rx, r=rz
-        q_int, r_int = rx, rz
-
-        # Axial to Offset (Odd-R / "Row" offset)
-        # col = q + (r - (r&1)) / 2
-        # row = r
-        row = int(r_int)
-        col = int(q_int + (r_int - (r_int % 2)) / 2)
-
-        coord = (col, row)
-
-        # Handle torus wrapping
         if self.torus:
-            height, width = self.dimensions
-            coord = (coord[0] % width, coord[1] % height)
-        elif not (0 <= col < self.width and 0 <= row < self.height):
-            raise ValueError(f"Position {position} is outside grid bounds.")
+            width_pixels = self.dimensions[0] * math.sqrt(3)
+            height_pixels = self.dimensions[1] * 1.5
+            position = np.array(
+                [position[0] % width_pixels, position[1] % height_pixels]
+            )
 
+        _, index = self._kdtree.query(position)
+        coord = self._kdtree_coords[index]
         return self._cells[coord]
 
     def _connect_cells_2d(self) -> None:

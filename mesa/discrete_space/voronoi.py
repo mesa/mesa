@@ -234,25 +234,11 @@ class VoronoiGrid(DiscreteSpace):
         self._connect_cells()
         self._build_cell_polygons()
 
-    def _calculate_position(self, cell: Cell) -> np.ndarray:
-        """Get centroid position (already stored in cell.position).
+    def find_nearest_cell(self, position: np.ndarray) -> Cell:
+        """Find the Voronoi cell nearest to the given position.
 
         Args:
-            cell: The Voronoi cell
-
-        Returns:
-            np.ndarray: Centroid position
-        """
-        # Position is pre-calculated and stored during init
-        return cell.position
-
-    def pos_to_cell(self, position: np.ndarray) -> Cell:
-        """Find the Voronoi cell containing the given position.
-
-        Uses KD-tree to find nearest centroid in O(log n) time.
-
-        Args:
-            position: Physical coordinates [x, y]
+            position: Physical position [x, y]
 
         Returns:
             Cell: The Voronoi cell whose centroid is nearest to position

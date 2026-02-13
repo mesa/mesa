@@ -18,6 +18,7 @@ from typing import Any
 
 import networkx as nx
 import numpy as np
+from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
@@ -72,6 +73,19 @@ class Network(DiscreteSpace[Cell]):
             )
 
         self._connect_cells()
+        self._build_kdtree()
+
+    def _build_kdtree(self) -> None:
+        """Build the KD-Tree for fast nearest-cell lookups."""
+        self._kdtree_cells = [
+            cell for cell in self._cells.values() if cell._position is not None
+        ]
+
+        if self._kdtree_cells:
+            positions = np.array([c.position for c in self._kdtree_cells])
+            self._kdtree = KDTree(positions)
+        else:
+            self._kdtree = None
 
     def _connect_cells(self) -> None:
         for cell in self.all_cells:
@@ -81,22 +95,13 @@ class Network(DiscreteSpace[Cell]):
         for node_id in self.G.neighbors(cell.coordinate):
             cell.connect(self._cells[node_id], node_id)
 
-    def _calculate_position(self, cell: Cell) -> np.ndarray | None:
-        """Get node position if spatial network, else None.
+    def find_nearest_cell(self, position: np.ndarray) -> Cell:
+        """Find the network node nearest to the given position.
+
+        Only works for spatial networks (networks with node positions).
 
         Args:
-            cell: The network cell (node)
-
-        Returns:
-            np.ndarray | None: Node position if spatial network, else None
-        """
-        return cell.position  # Already set during init, or None
-
-    def pos_to_cell(self, position: np.ndarray) -> Cell:
-        """Find nearest node to given position (spatial networks only).
-
-        Args:
-            position: Physical coordinates [x, y]
+            position: Physical position [x, y]
 
         Returns:
             Cell: The node closest to the position
@@ -104,33 +109,23 @@ class Network(DiscreteSpace[Cell]):
         Raises:
             ValueError: If network is not spatial
         """
-        position = np.asarray(position)
-
-        # Find nearest node by brute force   FIXME: Could optimize with KD-tree if many nodes
-        min_distance = float("inf")
-        nearest_cell = None
-
-        for cell in self._cells.values():
-            if cell.position is not None:
-                distance = np.linalg.norm(position - cell.position)
-                if distance < min_distance:
-                    min_distance = distance
-                    nearest_cell = cell
-
-        if nearest_cell is None:
+        if getattr(self, "_kdtree", None) is None:
             raise ValueError("No nodes with positions found in network")
 
-        return nearest_cell
+        _, index = self._kdtree.query(position)
+        return self._kdtree_cells[index]
 
     def add_cell(self, cell: Cell):
         """Add a cell to the space."""
         super().add_cell(cell)
         self.G.add_node(cell.coordinate)
+        self._build_kdtree()
 
     def remove_cell(self, cell: Cell):
         """Remove a cell from the space."""
         super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
+        self._build_kdtree()
 
     def add_connection(self, cell1: Cell, cell2: Cell):
         """Add a connection between the two cells."""
