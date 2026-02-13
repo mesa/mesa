@@ -363,7 +363,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """A single step. Fill in here.
 
         .. deprecated:: 3.0
-           Use `agent.step()` or custom logic instead. (Adjust version/message as needed)
+           Use `agent.step()` or custom logic instead.
         """
         warnings.warn(
             "model.step() is deprecated and will be removed in a future version. "
