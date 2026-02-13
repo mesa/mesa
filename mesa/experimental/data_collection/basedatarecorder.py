@@ -175,7 +175,7 @@ class BaseDataRecorder(ABC):
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
-        current_time = signal.additional_kwargs.get("new")
+        current_time = signal.additional_kwargs.get("old")
 
         for name, config in self.configs.items():
             if not config.enabled or current_time < config._next_collection:
