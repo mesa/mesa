@@ -22,6 +22,8 @@ If you want to learn how to build agent-based models step by step using Mesa, fo
 - [Custom Visualization Components](tutorials/8_visualization_custom): Learn how to add custom visual components to your interactive dashboard.
 - [Parameter Sweeps](tutorials/9_batch_run): Learn how to conduct parameter sweeps on multiple processors with Mesa's BatchRunner.
 - [Comparing Scenarios](tutorials/10_comparing_scenarios): Think through how to analyze your parameter sweep results to find insight in your Mesa simulations.
+- [Tutorial 11: Discrete Event Simulation](tutorials/11_discrete_event_simulation.ipynb)
+- [Tutorial 12: Hybrid ABM-DEVS Models](tutorials/12_hybrid_abm_devs.ipynb)
 
 ## Examples
 Mesa ships with a collection of example models. These are classic ABMs, so if you are familiar with ABMs and want to get a quick sense of how MESA works, these examples are great place to start. You can find them [here](examples).
