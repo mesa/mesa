@@ -11,7 +11,7 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.examples.basic.boltzmann_wealth_model.agents import MoneyAgent
-from mesa.experimental.data_collection import DataRecorder
+from mesa.experimental.data_collection import DataRecorder, DatasetConfig
 
 
 class BoltzmannWealth(Model):
@@ -44,7 +44,9 @@ class BoltzmannWealth(Model):
 
         self.recorder = DataRecorder(self)
         self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(self.recorder)
-        self.data_registry.track_model(self, "model_data", "gini").record(self.recorder)
+        (self.data_registry.track_model(self, "model_data", "gini")
+                    .record(self.recorder,
+                            configuration=DatasetConfig(start_time=4, interval=2)))
 
         # Set up data collection
         self.datacollector = DataCollector(

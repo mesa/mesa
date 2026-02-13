@@ -168,7 +168,7 @@ class BaseDataRecorder(ABC):
                     current.__post_init__()
 
         # Initialize storage for each dataset
-        for name in config.keys():
+        for name in config:
             dataset = self.registry[name]
             self._initialize_dataset_storage(name, dataset)
 
