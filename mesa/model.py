@@ -351,7 +351,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         Overload as needed.
         """
         while self.running:
-            self._step_once()
+            self.step()
 
     def step(self) -> None:
         """A single step. Fill in here."""
