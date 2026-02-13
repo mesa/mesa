@@ -85,4 +85,3 @@ class BoltzmannWealth(Model):
 if __name__ == "__main__":
     model = BoltzmannWealth(n=100)
     model.run_for(10)
-
