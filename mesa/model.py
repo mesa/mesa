@@ -350,11 +350,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Overload as needed.
         """
-        warnings.warn(
-            "model.run_model() is deprecated and will be removed in Mesa 4.0. Use model.run_for(...) or model.run_until(...) instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
         while self.running:
             self._step_once()
 
