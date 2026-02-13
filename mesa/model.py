@@ -202,15 +202,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
     def _wrapped_step(self) -> None:
         """Advance time by one unit, processing any scheduled events."""
-        warnings.warn(
-            "model.step() is deprecated and will be removed in Mesa 4.0. Use model.run_for(1) instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        self._step_once()
-
-    def _step_once(self) -> None:
-        """Advance time by one unit without deprecation warnings."""
         self._advance_time(self.time + 1)
 
     def _advance_time(self, until: float) -> None:
