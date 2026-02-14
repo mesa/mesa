@@ -8,9 +8,9 @@ from .datarecorders import (
     SQLDataRecorder,
 )
 from .dataset import (
-    DataSet,
     AgentDataSet,
     DataRegistry,
+    DataSet,
     ModelDataSet,
     NumpyAgentDataSet,
     TableDataSet,
