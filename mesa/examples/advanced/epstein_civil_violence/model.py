@@ -1,3 +1,5 @@
+from typing import Literal
+
 import mesa
 from mesa.discrete_space import OrthogonalMooreGrid, OrthogonalVonNeumannGrid
 from mesa.examples.advanced.epstein_civil_violence.agents import (
