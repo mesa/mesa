@@ -278,7 +278,7 @@ class EventGenerator:
         self._active = True
         self._schedule_next(start_time)
         return self
-    
+
     def restart(self) -> EventGenerator:
         """Restart the event generator.
 
