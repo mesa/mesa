@@ -90,10 +90,6 @@ class Network(DiscreteSpace[Cell]):
 
     def _rebuild_kdtree(self) -> None:
         """Rebuild the KD-Tree."""
-        self._kdtree_cells = [
-            cell for cell in self._cells.values() if cell._position is not None
-        ]
-
         if self._kdtree_cells:
             positions = np.array([c.position for c in self._kdtree_cells])
             self._kdtree = KDTree(positions)
@@ -132,13 +128,20 @@ class Network(DiscreteSpace[Cell]):
         """Add a cell to the space."""
         super().add_cell(cell)
         self.G.add_node(cell.coordinate)
-        self._rebuild_kdtree()
+
+        if cell._position is not None:
+            self._kdtree_cells.append(cell)
+            self._rebuild_kdtree()
 
     def remove_cell(self, cell: Cell):
         """Remove a cell from the space."""
         super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
         self._rebuild_kdtree()
+
+        if cell._position is not None:
+            self._kdtree_cells.remove(cell)
+            self._rebuild_kdtree()
 
     def add_connection(self, cell1: Cell, cell2: Cell):
         """Add a connection between the two cells."""
