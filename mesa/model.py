@@ -119,8 +119,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.steps: int = 0
-        self._time = 0.0
-        # self.time: float = 0.0
+        self.time: float = 0.0
         self.agent_id_counter: int = 1
 
         # Track if a simulator is controlling time
@@ -211,9 +210,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
             until: The time to advance to
 
         """
-        if self._time == 0.0:
-            self.time = 0.0  # this emits ObservableSignal.CHANGED
-
         while True:
             try:
                 event = self._event_list.pop_event()
