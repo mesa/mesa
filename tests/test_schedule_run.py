@@ -212,7 +212,8 @@ class TestScheduleValidation:
 
         with pytest.raises(ValueError):
             Schedule(interval=1.0, count=-5)
-            
+
+
 class TestGeneratorLifecycle:
     """Tests covering EventGenerator lifecycle and restart behavior."""
 
