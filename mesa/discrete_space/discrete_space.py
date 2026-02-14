@@ -20,6 +20,8 @@ from functools import cached_property
 from random import Random
 from typing import TypeVar
 
+import numpy as np
+
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
@@ -85,6 +87,13 @@ class DiscreteSpace[T: Cell]:
 
     def _connect_cells(self): ...
     def _connect_single_cell(self, cell: T): ...
+
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the cell at or nearest to the given position."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement find_nearest_cell(). "
+            "This space may be purely topological."
+        )
 
     def add_cell(self, cell: T):
         """Add a cell to the space.

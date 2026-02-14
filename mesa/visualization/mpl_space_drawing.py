@@ -71,6 +71,10 @@ def collect_agent_data(
             agent_x, agent_y = agent.pos, agent.pos
         elif isinstance(space, Network):
             agent_x, agent_y = agent.cell.coordinate, agent.cell.coordinate
+        elif isinstance(space, VoronoiGrid):
+            agent_x, agent_y = (
+                agent.pos if agent.pos is not None else agent.cell.position
+            )
         else:
             agent_x = (
                 agent.pos[0] if agent.pos is not None else agent.cell.coordinate[0]

@@ -17,6 +17,7 @@ from itertools import combinations
 from random import Random
 
 import numpy as np
+from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
@@ -207,8 +208,18 @@ class VoronoiGrid(DiscreteSpace):
         self.centroids_coordinates = centroids_coordinates
         self._validate_parameters()
 
+        # Build KD-tree for fast nearest-centroid lookup
+        self._kdtree = KDTree(np.array(centroids_coordinates))
+
+        # Create cells with Integer coordinates and physical positions
+        # coordinate is now an integer index
         self._cells = {
-            i: cell_klass(self.centroids_coordinates[i], capacity, random=self.random)
+            i: cell_klass(
+                coordinate=i,  # Integer index
+                capacity=capacity,
+                random=self.random,
+                position=self.centroids_coordinates[i],  # Physical centroid position
+            )
             for i in range(len(self.centroids_coordinates))
         }
 
@@ -220,6 +231,22 @@ class VoronoiGrid(DiscreteSpace):
         self._connect_cells()
         self._build_cell_polygons()
 
+    def find_nearest_cell(self, position: np.ndarray) -> Cell:
+        """Find the Voronoi cell nearest to the given position.
+
+        Args:
+            position: Physical position [x, y]
+
+        Returns:
+            Cell: The Voronoi cell whose centroid is nearest to position
+        """
+        position = np.asarray(position)
+
+        # Find nearest centroid using KD-tree
+        _distance, index = self._kdtree.query(position)
+
+        return self._cells[index]
+
     def _connect_cells(self) -> None:
         """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
         self.triangulation = Delaunay()
@@ -228,8 +255,9 @@ class VoronoiGrid(DiscreteSpace):
 
         for point in self.triangulation.export_triangles():
             for i, j in combinations(point, 2):
-                self._cells[i].connect(self._cells[j], (i, j))
-                self._cells[j].connect(self._cells[i], (j, i))
+                # Use integer indices as connection keys
+                self._cells[i].connect(self._cells[j], j)
+                self._cells[j].connect(self._cells[i], i)
 
     def _validate_parameters(self) -> None:
         if self.capacity is not None and not isinstance(self.capacity, float | int):
