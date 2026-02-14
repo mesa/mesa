@@ -14,6 +14,7 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 
 
 def test_boltzmann_model():  # noqa: D103
@@ -21,7 +22,7 @@ def test_boltzmann_model():  # noqa: D103
 
     app.page  # noqa: B018
 
-    model = BoltzmannWealth(rng=42)
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
     ref = weakref.ref(model)
 
     model.run_for(10)
@@ -30,6 +31,24 @@ def test_boltzmann_model():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
+
+def test_boltzmann_model_init_variants():  # noqa: D103
+    model = BoltzmannWealth()
+    assert model.num_agents == 100
+    assert model.grid.width == 10
+    assert model.grid.height == 10
+
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=123))
+    assert model.num_agents == 100
+    assert model.grid.width == 10
+    assert model.grid.height == 10
+
+    scenario = BoltzmannScenario(n=7, width=8, height=9)
+    model = BoltzmannWealth(scenario=scenario)
+    assert model.num_agents == 7
+    assert model.grid.width == 8
+    assert model.grid.height == 9
 
 
 def test_conways_game_model():  # noqa: D103

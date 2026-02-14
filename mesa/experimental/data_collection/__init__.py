@@ -1,5 +1,12 @@
 """New style data collection."""
 
+from .basedatarecorder import BaseDataRecorder, DatasetConfig
+from .datarecorders import (
+    DataRecorder,
+    JSONDataRecorder,
+    ParquetDataRecorder,
+    SQLDataRecorder,
+)
 from .dataset import (
     AgentDataSet,
     DataRegistry,
@@ -10,8 +17,14 @@ from .dataset import (
 
 __all__ = [
     "AgentDataSet",
+    "BaseDataRecorder",
+    "DataRecorder",
     "DataRegistry",
+    "DatasetConfig",
+    "JSONDataRecorder",
     "ModelDataSet",
     "NumpyAgentDataSet",
+    "ParquetDataRecorder",
+    "SQLDataRecorder",
     "TableDataSet",
 ]
