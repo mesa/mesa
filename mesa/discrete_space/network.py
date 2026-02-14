@@ -57,7 +57,7 @@ class Network(DiscreteSpace[Cell]):
             node_positions = layout
         elif layout is not None:
             raise ValueError(
-                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
+                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable` or `None`"
             )
 
         self._kdtree_cells = []
