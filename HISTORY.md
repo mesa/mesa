@@ -3,6 +3,132 @@
 ---
 title: Release History
 ---
+# 3.5.0 beta 0 (2026-02-11)
+## Highlights
+Mesa 3.5.0 will be a major feature release that introduces a public event scheduling API, stabilizes the event system, and lays the groundwork for Mesa 4.0 by deprecating several legacy patterns.
+
+Because of the size of this release, we're now first releasing beta release `v3.5.0b0`. Feedback and bug reports are welcome and appreciated!
+
+### Public event scheduling and time advancement
+The headline feature of 3.5.0 is a new public API for event scheduling and time advancement directly on `Model` (#3266). Instead of interacting with experimental `Simulator` classes, users can now schedule events and advance time with simple, expressive methods:
+
+```python
+# Run the model for a duration
+model.run_for(10)       # Advance 10 time units
+model.run_until(50.0)   # Run until absolute time 50
+
+# Schedule one-off events
+model.schedule_event(callback, at=25.0)    # At absolute time
+model.schedule_event(callback, after=5.0)  # Relative to now
+
+# Schedule recurring events
+from mesa.time import Schedule
+model.schedule_recurring(func, Schedule(interval=10, start=0))
+```
+
+For traditional ABMs, `model.run_for(1)` is functionally equivalent to `model.step()`, but this generalizes naturally to event-driven and hybrid models. The mental model shifts from "execute step N" to "advance time, and whatever is scheduled will run."
+
+### Stabilized event scheduling system
+The event scheduling system (EventList, Event, EventGenerator, Schedule, Priority) has been moved from `mesa.experimental.devs` to the new stable `mesa.time` module (#3276), making event-based simulation a first-class feature of Mesa. The new `Schedule` dataclass provides a clean way to define recurring timing patterns with interval, start, end, and count parameters (#3250).
+
+### Deprecations toward Mesa 4.0
+This release deprecates several legacy patterns to prepare for Mesa 4.0:
+- **Simulator classes deprecated** (#3277): `ABMSimulator` and `DEVSimulator` are replaced by the new `Model` methods above.
+- **`seed` parameter deprecated** (#3147): Use the `rng` parameter in `Model.__init__()` instead.
+- **AgentSet sequence behavior deprecated** (#3208): Indexing/slicing on `AgentSet` is deprecated in favor of the new `to_list()` method.
+- **Portrayal dictionaries deprecated** (#3144): Use `AgentPortrayalStyle` and `PropertyLayerStyle` instead.
+
+See our [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#mesa-3-5-0) for more detail.
+
+### Internal architecture improvements
+Under the hood, `Model` now uses an `EventGenerator` internally for step scheduling (#3260), unifying the step mechanism with the broader event system. A new `_HardKeyAgentSet` (#3219, #3224) replaces `WeakKeyDictionary`-based storage for model-managed agent collections, eliminating weak reference overhead while preventing memory leaks through automatic downgrading when creating views. An `AbstractAgentSet` base class (#3210) formalizes the AgentSet interface.
+
+### New agent creation from DataFrames
+Agents can now be created directly from a pandas DataFrame (#3199), mapping columns to constructor arguments:
+
+```python
+agents = MyAgent.from_dataframe(model, df)
+```
+
+### Experimental features
+Several experimental features see significant progress: explicit `Scenario` support for computational experiments (#3103, #3168), a data registry for structured data collection (#3156), reactive model support (#3212), and improved meta-agent support with overlapping memberships (#3172).
+
+## What's Changed
+### ⏳ Deprecations
+* Deprecate the agent and propertylayer portrayal dicts by @EwoutH in #3144
+* Deprecate `seed` parameter in favor of `rng` in Model by @quaquel in #3147
+* Deprecate AgentSet sequence behavior and add `to_list()` method by @codebyNJ in #3208
+* Deprecate Simulator classes, add migration guide entry by @EwoutH in #3277
+### 🎉 New features added
+* Add DataFrame support to Agent creation by @falloficarus22 in #3199
+* Add Schedule dataclass and refactor EventGenerator by @EwoutH in #3250
+* Add public event scheduling and time advancement methods by @EwoutH in #3266
+### 🛠 Enhancements made
+* Fix: Cell.get_neighborhood() RecursionError for large radius (#3105) by @Nithin9585 in #3106
+* Replace PropertyDescriptor with properties by @quaquel in #3125
+* Ensure Cell only uses __slots__ by @quaquel in #3121
+* Allow list inputs for `MesaSignal` observable names and signal types by @Sonu0305 in #3139
+* Optimise create_agents by replacing 'ListLike' approach with itertools by @codebreaker32 in #3163
+* Micro optimization of grid.select_random_empty_cell by @quaquel in #3214
+* Introduce AbstractAgentSet to agent.py and refactor AgentSet to inherit from it by @codebreaker32 in #3210
+* Introduce `_HardKeyAgentSet` in agents.py by @codebreaker32 in #3219
+* Refactor step scheduling to use `EventGenerator` internally by @EwoutH in #3260
+* fix: handle deprecated space_kwargs gracefully in SpaceRenderer by @DipayanDasgupta in #3269
+### 🧪 Experimental features
+* Add explicit support for Scenarios by @quaquel in #3103
+* feat: Add SignalType enum for type-safe signal definitions. by @codebyNJ in #3056
+* Replace Computable Descriptor with @computed in mesa_signals by @codebreaker32 in #3153
+* Add scenario property to Agent class by @EwoutH in #3164
+* replace AttributeDict with a dataclass by @quaquel in #3138
+* Enable type-hinted Scenario subclassing and fix Model generic typing by @EwoutH in #3168
+* Optimise mesa_signals by skipping signals for empty subscribers to reduce subsequent overheads by @codebreaker32 in #3198
+* Add EventGenerator class for recurring event patterns by @EwoutH in #3201
+* Support multiple and overlapping meta-agent memberships by @falloficarus22 in #3172
+* fix: update meta_agents extract_class to use to_list() by @Jayantparashar10 in #3241
+* Making Model reactive by @quaquel in #3212
+* Add data registry by @quaquel in #3156
+### 🐛 Bugs fixed
+* Fix batch_run Data Collection to Ensure Accuracy and Capture All Steps by @codebreaker32 in #3109
+* Fix network visualization bug: Replace array indexing with dictionary lookup by @codebyNJ in #3045
+* Fix TypeError in find_combinations when evaluation_func is None by @codebyNJ in #3112
+* Make create_meta_agent deterministic by @quaquel in #3183
+* Fix seed logic to ensure reproducibility by @codebreaker32 in #3192
+* Bugfix for pickling dynamically modified grids by @quaquel in #3217
+* check whether model reporter is a partial function by @wang-boyu in #3220
+* Prevent RecursionError and data loss in Cell/Grid deepcopy by @falloficarus22 in #3222
+* fix: update alliance_formation example to use AgentSet.to_list() by @souro26 in #3235
+* fix: preserve falsy evaluation values in find_combinations by @souro26 in #3237
+* Naming collision in meta-agents `add_atrributes` by @tpike3 in #3239
+* fix: update Altair tooltip type inference for compatibility by @souro26 in #3234
+* Fix Solara Altair dependency updates by @falloficarus22 in #3244
+### 🔍 Examples updated
+* Update wolf-sheep example to use new event scheduling API by @EwoutH in #3278
+### 📜 Documentation improvements
+* Add deprecation of passing portrayal arguments to draw() methods to migration guide by @EwoutH in #3202
+* docs: clarify SolaraViz keyword-only model arguments by @Arjun-Sasi in #3044
+* docs: Add Mesa migration guide for AgentSet sequence behavior by @codebyNJ in #3218
+* docs: improve Boltzmann Wealth Model README structure and clarity by @souro26 in #3229
+* Update SpaceRenderer API in Tutorials 4, 5, and 6 by @falloficarus22 in #3231
+* Fix docstring in `mesa_signals/core.py` by @codebreaker32 in #3255
+* cleanup by @quaquel in #3258
+* Migrate tutorials and examples to model.run_for() by @falloficarus22 in #3270
+### 🔧 Maintenance
+* Fix pickling for scheduled events by serializing weak-referenced callbacks safely by @EwoutH in #3205
+* Unify event list between Model and Simulator by @EwoutH in #3204
+* Fix: Replace 'assert ValueError' with proper return None by @codebyNJ in #3189
+* Update `model.py` to replace `AgentSet` with `_HardKeyAgentSet` by @codebreaker32 in #3224
+* Use type(model.value).__init__ in ModelCreator param check by @falloficarus22 in #3264
+* Stabilize event scheduling system from experimental to mesa.time by @EwoutH in #3276
+
+## New Contributors
+* @champ-byte made their first contribution in #3098
+* @Arjun-Sasi made their first contribution in #3044
+* @souro26 made their first contribution in #3235
+* @Jayantparashar10 made their first contribution in #3241
+* @ApurvaPatil2401 made their first contribution in #3249
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.1...v3.5.0b0
+
 # 3.4.2 (2026-01-23)
 ## Highlights
 Mesa 3.4.2 is a bugfix release that addresses a critical memory leak affecting all Mesa models.

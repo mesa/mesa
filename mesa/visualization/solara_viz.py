@@ -41,6 +41,7 @@ import solara.lab
 
 import mesa.visualization.components.altair_components as components_altair
 from mesa.experimental.devs.simulator import Simulator
+from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, function_logger
 from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.space_renderer import SpaceRenderer
@@ -136,7 +137,6 @@ def SolaraViz(
     if not isinstance(model, solara.Reactive):
         model = solara.use_reactive(model)  # noqa: RUF100  # noqa: SH102
 
-    # Set up reactive model_parameters shared by ModelCreator and ModelController
     reactive_model_parameters = solara.use_reactive({})
     reactive_play_interval = solara.use_reactive(play_interval)
     reactive_render_interval = solara.use_reactive(render_interval)
@@ -151,7 +151,7 @@ def SolaraViz(
         display_components.insert(0, (create_space_component(renderer.value), 0))
 
     with solara.AppBar():
-        solara.AppBarTitle(name if name else model.value.__class__.__name__)
+        solara.AppBarTitle(name if name else type(model.value).__name__)
         solara.lab.ThemeToggle()
 
     with solara.Sidebar(), solara.Column():
@@ -250,6 +250,10 @@ def SpaceRendererComponent(
     # update renderer's space according to the model's space/grid
     renderer.space = getattr(model, "grid", getattr(model, "space", None))
 
+    viz_dependencies = [update_counter.value]
+    if dependencies:
+        viz_dependencies.extend(dependencies)
+
     if renderer.backend == "matplotlib":
         # Clear the previous plotted data and agents
         all_artists = [
@@ -275,11 +279,6 @@ def SpaceRendererComponent(
             renderer.draw_agents()
         if renderer.propertylayer_mesh:
             renderer.draw_propertylayer()
-
-        viz_dependencies = [update_counter.value]
-        # Update the fig every time frame
-        if dependencies:
-            viz_dependencies.extend(dependencies)
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
@@ -443,6 +442,57 @@ def ComponentsView(
 JupyterViz = SolaraViz
 
 
+def _get_scenario_defaults(scenario: Scenario) -> dict[str, Any]:
+    """Return defaults for a scenario instance, validating scenario type."""
+    scenario_class = type(scenario)
+    if not issubclass(scenario_class, Scenario):
+        raise ValueError(
+            "Expected model.scenario to be a subclass instance of mesa.experimental.scenarios.Scenario."
+        )
+
+    defaults = getattr(scenario, "_scenario_defaults", {}).copy()
+    defaults["rng"] = None
+
+    return defaults
+
+
+def _build_model_init_kwargs(
+    model: Model,
+    model_parameters: dict[str, Any],
+    *,
+    add_scenario_when_empty: bool,
+    require_model_accepts_scenario: bool,
+) -> dict[str, Any]:
+    """Build kwargs for model re-instantiation, splitting scenario/model params."""
+    kwargs: dict[str, Any] = {}
+    scenario_kwargs: dict[str, Any] = {}
+
+    if getattr(model, "scenario", None):
+        scenario = model.scenario
+        scenario_class = type(scenario)
+        scenario_defaults = _get_scenario_defaults(scenario)
+        model_init_params = inspect.signature(type(model).__init__).parameters
+
+        for key, value in model_parameters.items():
+            if key in scenario_defaults and key not in model_init_params:
+                scenario_kwargs[key] = value
+            else:
+                kwargs[key] = value
+
+        has_kwargs = any(p.kind == p.VAR_KEYWORD for p in model_init_params.values())
+        accepts_scenario = "scenario" in model_init_params or has_kwargs
+        should_add_scenario = add_scenario_when_empty or bool(scenario_kwargs)
+
+        if should_add_scenario and (
+            accepts_scenario or not require_model_accepts_scenario
+        ):
+            kwargs["scenario"] = scenario_class(**scenario_kwargs)
+    else:
+        kwargs = {**model_parameters}
+
+    return kwargs
+
+
 @solara.component
 def ModelController(
     model: solara.Reactive[Model],
@@ -533,9 +583,16 @@ def ModelController(
         visualization_pause_event.clear()
         _mesa_logger.log(
             10,
-            f"creating new {model.value.__class__} instance with {model_parameters.value}",
+            f"creating new {type(model.value)} instance with {model_parameters.value}",
         )
-        model.value = model.value = model.value.__class__(**model_parameters.value)
+        kwargs = _build_model_init_kwargs(
+            model.value,
+            model_parameters.value,
+            add_scenario_when_empty=True,
+            require_model_accepts_scenario=True,
+        )
+
+        model.value = type(model.value)(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -660,9 +717,17 @@ def SimulatorController(
         simulator.reset()
         visualization_pause_event.clear()
         pause_step_event.clear()
-        model.value = model.value = model.value.__class__(
-            simulator=simulator, **model_parameters.value
+
+        kwargs = _build_model_init_kwargs(
+            model.value,
+            model_parameters.value,
+            add_scenario_when_empty=False,
+            require_model_accepts_scenario=False,
         )
+
+        kwargs["simulator"] = simulator
+
+        model.value = type(model.value)(**kwargs)
         if renderer is not None:
             renderer.value = copy_renderer(renderer.value, model.value)
             force_update()
@@ -766,7 +831,7 @@ def ModelCreator(
     model_parameters = solara.use_reactive(model_parameters)
 
     solara.use_effect(
-        lambda: _check_model_params(model.value.__class__.__init__, user_params),
+        lambda: _check_model_params(model.value, user_params),
         [model.value],
     )
     user_adjust_params, fixed_params = split_model_params(user_params)
@@ -790,16 +855,23 @@ def ModelCreator(
     UserInputs(user_adjust_params, on_change=on_change)
 
 
-def _check_model_params(init_func, model_params):
+def _check_model_params(model_or_func, model_params):
     """Check if model parameters are valid for the model's initialization function.
 
     Args:
-        init_func: Model initialization function
+        model_or_func: Model instance or its initialization function
         model_params: Dictionary of model parameters
 
     Raises:
         ValueError: If a parameter is not valid for the model's initialization function
     """
+    if inspect.isfunction(model_or_func) or inspect.ismethod(model_or_func):
+        init_func = model_or_func
+        model = None
+    else:
+        model = model_or_func
+        init_func = type(model).__init__
+
     model_parameters = inspect.signature(init_func).parameters
 
     has_var_positional = any(
@@ -812,16 +884,31 @@ def _check_model_params(init_func, model_params):
             "Mesa's visualization requires the use of keyword arguments to ensure the parameters are passed to Solara correctly. Please ensure all model parameters are of form param=value"
         )
 
+    has_var_keyword = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD
+        for param in model_parameters.values()
+    )
+
+    scenario_defaults = {}
+    if model is not None and getattr(model, "scenario", None):
+        scenario_defaults = _get_scenario_defaults(model.scenario)
+
     for name in model_parameters:
         if (
             model_parameters[name].default == inspect.Parameter.empty
             and name not in model_params
-            and name != "self"
-            and name != "kwargs"
+            and name not in ["self", "kwargs", "args", "scenario"]
+            and not has_var_keyword
         ):
             raise ValueError(f"Missing required model parameter: {name}")
+
     for name in model_params:
-        if name not in model_parameters and "kwargs" not in model_parameters:
+        if (
+            name not in model_parameters
+            and name not in scenario_defaults
+            and name not in ["rng", "seed", "simulator"]
+            and not has_var_keyword
+        ):
             raise ValueError(f"Invalid model parameter: {name}")
 
 
@@ -923,7 +1010,7 @@ def make_initial_grid_layout(num_components):
 
 def copy_renderer(renderer: SpaceRenderer, model: Model):
     """Create a new renderer instance with the same configuration as the original."""
-    new_renderer = renderer.__class__(model=model, backend=renderer.backend)
+    new_renderer = type(renderer)(model=model, backend=renderer.backend)
 
     attributes_to_copy = [
         "agent_portrayal",
@@ -937,7 +1024,7 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     ]
 
     for attr in attributes_to_copy:
-        if hasattr(renderer, attr):
+        if getattr(renderer, attr, None) is not None:
             value_to_copy = getattr(renderer, attr)
             setattr(new_renderer, attr, value_to_copy)
 
