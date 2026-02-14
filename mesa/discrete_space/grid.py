@@ -14,12 +14,14 @@ or Hex for more uniform distances.
 from __future__ import annotations
 
 import copyreg
+import math
 from collections.abc import Sequence
 from itertools import product
 from random import Random
 from typing import Any, TypeVar
 
 import numpy as np
+from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.property_layer import (
@@ -120,8 +122,37 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             coord: self.cell_klass(coord, capacity, random=self.random)
             for coord in coordinates
         }
+        self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the cell containing the given position.
+
+        Args:
+            position: Physical position [x, y]
+
+        Returns:
+            Cell: The cell containing the position
+
+        Raises:
+            KeyError: If position is outside grid bounds and not a torus
+        """
+        # Floor to get cell coordinate
+        coord = tuple(np.floor(position).astype(int))
+
+        # Handle torus wrapping
+        if self.torus:
+            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+
+        # Check bounds for non-torus grids
+        elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
+            raise ValueError(
+                f"Position {position} is outside grid bounds. "
+                f"Dimensions: {self.dimensions}"
+            )
+
+        return self._cells[coord]
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
@@ -151,10 +182,13 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+        random = self.random
+        cells = self._celllist
+
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
-                cell = self.all_cells.select_random_cell()
+                cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
@@ -191,12 +225,8 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
-        self.__dict__ = state
-        self._connect_cells()  # using super fails for this for some reason, so we repeat ourselves
+        super().__setstate__(state)
 
-        self.cell_klass = type(
-            self._cells[(0, 0)]
-        )  # the __reduce__ function handles this for us nicely
         for layer in self._mesa_property_layers.values():
             setattr(
                 self.cell_klass,
@@ -286,6 +316,68 @@ class HexGrid(Grid[T]):
     Raises:
         ValueError: If torus=True and either width or height is odd.
     """
+
+    def __init__(
+        self,
+        dimensions: Sequence[int],
+        torus: bool = False,
+        capacity: float | None = None,
+        random: Random | None = None,
+        cell_klass: type[T] = Cell,
+    ) -> None:
+        """Initialize the hex grid.
+
+        Args:
+            dimensions: the dimensions of the space
+            torus: whether the space wraps
+            capacity: capacity of the grid cell
+            random: a random number generator
+            cell_klass: the base class to use for the cells
+        """
+        super().__init__(
+            dimensions=dimensions,
+            torus=torus,
+            capacity=capacity,
+            random=random,
+            cell_klass=cell_klass,
+        )
+        self._init_hex_geometry()
+
+    def _init_hex_geometry(self) -> None:
+        """Calculate physical positions for all cells and build KD-Tree.
+
+        Refer https://www.redblobgames.com/grids/hexagons/#hex-to-pixel for more detail
+        """
+        positions = []
+        self._kdtree_coords = []
+
+        size = 1.0
+        for coord, cell in self._cells.items():
+            col, row = coord
+            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            y = size * 1.5 * row
+            position = np.array([x, y])
+
+            cell.position = position
+            positions.append(position)
+            self._kdtree_coords.append(coord)
+
+        self._kdtree = KDTree(np.array(positions))
+
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the hex cell at the given position."""
+        position = np.asarray(position)
+
+        if self.torus:
+            width_pixels = self.dimensions[0] * math.sqrt(3)
+            height_pixels = self.dimensions[1] * 1.5
+            position = np.array(
+                [position[0] % width_pixels, position[1] % height_pixels]
+            )
+
+        _, index = self._kdtree.query(position)
+        coord = self._kdtree_coords[index]
+        return self._cells[coord]
 
     def _connect_cells_2d(self) -> None:
         # fmt: off
