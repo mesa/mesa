@@ -160,12 +160,13 @@ class BaseDataRecorder(ABC):
                     # Note: __post_init__ was already called when user created the object
                 else:
                     # Update default dataclass fields from dict
-                    current = self.configs[name]
-                    for key, value in user_cfg.items():
-                        if hasattr(current, key):
-                            setattr(current, key, value)
+                    configuration = DatasetConfig(**user_cfg)
+                    self.configs[name] = configuration
+                    # for key, value in user_cfg.items():
+                    #     if hasattr(current, key):
+                    #         setattr(current, key, value)
                     # Re-validate
-                    current.__post_init__()
+                    # current.__post_init__()
 
         # Initialize storage for each dataset
         for name in config:

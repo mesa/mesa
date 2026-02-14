@@ -8,6 +8,7 @@ from .datarecorders import (
     SQLDataRecorder,
 )
 from .dataset import (
+    DataSet,
     AgentDataSet,
     DataRegistry,
     ModelDataSet,
