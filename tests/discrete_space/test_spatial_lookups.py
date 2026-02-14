@@ -90,10 +90,14 @@ def test_voronoi_lookups():
 def test_network_lookups():
     """Test Network spatial vs topological modes and dynamic KD-Tree updates."""
     G = nx.Graph()  # noqa: N806
-    G.add_node(0, pos=(0, 0))
-    G.add_node(1, pos=(10, 0))
+    G.add_node(0)
+    G.add_node(1)
 
-    net = Network(G, random=random.Random(42))
+    with pytest.raises(ValueError):
+        _ = Network(G, layout=[], random=random.Random(42))
+
+    layout_dict = {0: (0, 0), 1: (10, 0)}
+    net = Network(G, layout=layout_dict, random=random.Random(42))
 
     # Test spatial cell position
     cell_0 = net._cells[0]
@@ -123,7 +127,7 @@ def test_network_lookups():
     G_for_topo = nx.path_graph(3)  # noqa: N806
     net_topo = Network(G_for_topo, layout=None, random=random.Random(42))
 
-    np.testing.assert_array_equal(net_topo._cells[0].position, [0])
+    np.testing.assert_equal(net_topo._cells[0].position, 0.0)
 
     # Should fail for pure topological network
     with pytest.raises(ValueError):

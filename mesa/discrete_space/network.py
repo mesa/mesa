@@ -12,7 +12,7 @@ Useful for modeling systems like social networks, transportation systems,
 or any environment where connectivity matters more than physical location.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from random import Random
 from typing import Any
 
@@ -33,7 +33,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        layout: Callable | None = nx.spring_layout,
+        layout: Mapping | Callable | None = nx.spring_layout,
     ) -> None:
         """A Networked grid.
 
@@ -42,41 +42,54 @@ class Network(DiscreteSpace[Cell]):
             capacity (int) : the capacity of the cell
             random (Random): a random number generator
             cell_klass (type[Cell]): The base Cell class to use in the Network
-            layout (Callable | None): A function that computes positions for the
-                nodes if they are missing (e.g. nx.spring_layout).
-                Set to None to force a purely topological network (no positions).
-                Defaults to nx.spring_layout.
-
+            layout: A dictionary mapping node IDs to physical positions (x, y),
+                or a callable that generates them (e.g. nx.spring_layout).
+                Set to None to force a purely topological network (no physical positions).
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 
-        # Check for existing positions to determine if this is a spatial network
-        has_existing_pos = any("pos" in data for _, data in self.G.nodes(data=True))
+        # Resolve positions from the layout argument
+        node_positions = {}
+        if callable(layout):
+            node_positions = layout(self.G)
+        elif isinstance(layout, Mapping):
+            node_positions = layout
+        elif layout is not None:
+            raise ValueError(
+                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
+            )
 
-        # If positions are missing and a layout is provided, generate them.
-        if not has_existing_pos and layout is not None:
-            positions = layout(self.G)
-            nx.set_node_attributes(self.G, positions, "pos")
+        self._kdtree_cells = []
+        positions_for_tree = []
 
+        # Create cells and gather KD-Tree data simultaneously
         for node_id in self.G.nodes:
-            # Extract position if spatial network
-            pos = None
-            if "pos" in self.G.nodes[node_id]:
-                pos = np.array(self.G.nodes[node_id]["pos"])
+            pos = node_positions.get(node_id)
+            if pos is not None:
+                pos = np.array(pos)
 
-            self._cells[node_id] = self.cell_klass(
+            cell = self.cell_klass(
                 coordinate=node_id,
                 capacity=capacity,
                 random=self.random,
                 position=pos,  # None for topological networks
             )
+            self._cells[node_id] = cell
+
+            if pos is not None:
+                self._kdtree_cells.append(cell)
+                positions_for_tree.append(pos)
+
+        if positions_for_tree:
+            self._kdtree = KDTree(np.array(positions_for_tree))
+        else:
+            self._kdtree = None
 
         self._connect_cells()
-        self._build_kdtree()
 
     def _build_kdtree(self) -> None:
-        """Build the KD-Tree for fast nearest-cell lookups."""
+        """Build the KD-Tree."""
         self._kdtree_cells = [
             cell for cell in self._cells.values() if cell._position is not None
         ]
