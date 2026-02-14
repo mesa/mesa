@@ -20,6 +20,7 @@ __all__ = [
     "AgentDataSet",
     "BaseDataRecorder",
     "DataRecorder",
+    "DataSet",
     "DataRegistry",
     "DatasetConfig",
     "JSONDataRecorder",
