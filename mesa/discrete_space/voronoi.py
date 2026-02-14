@@ -208,11 +208,8 @@ class VoronoiGrid(DiscreteSpace):
         self.centroids_coordinates = centroids_coordinates
         self._validate_parameters()
 
-        # Store centroids as numpy array for KD-tree
-        self.centroids = np.array(centroids_coordinates)
-
         # Build KD-tree for fast nearest-centroid lookup
-        self._kdtree = KDTree(np.array(self.centroids_coordinates))
+        self._kdtree = KDTree(np.array(centroids_coordinates))
 
         # Create cells with Integer coordinates and physical positions
         # coordinate is now an integer index
@@ -221,9 +218,9 @@ class VoronoiGrid(DiscreteSpace):
                 coordinate=i,  # Integer index
                 capacity=capacity,
                 random=self.random,
-                position=self.centroids[i],  # Physical centroid position
+                position=self.centroids_coordinates[i],  # Physical centroid position
             )
-            for i in range(len(self.centroids))
+            for i in range(len(self.centroids_coordinates))
         }
 
         self.regions = None

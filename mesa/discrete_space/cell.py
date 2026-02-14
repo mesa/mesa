@@ -33,7 +33,7 @@ class Cell:
     """The cell represents a position in a discrete space.
 
     Attributes:
-        coordinate (Tuple[int, int]) : the logical position(or index) of the cell in the discrete space
+        coordinate (Coordinate) : the logical position(or index) of the cell in the discrete space
         position (np.ndarray | None): the physical position of the cell in the discrete space
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell

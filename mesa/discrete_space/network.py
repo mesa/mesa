@@ -91,7 +91,7 @@ class Network(DiscreteSpace[Cell]):
     def _rebuild_kdtree(self) -> None:
         """Rebuild the KD-Tree."""
         if self._kdtree_cells:
-            positions = np.array([c.position for c in self._kdtree_cells])
+            positions = np.array([c._position for c in self._kdtree_cells])
             self._kdtree = KDTree(positions)
         else:
             self._kdtree = None
