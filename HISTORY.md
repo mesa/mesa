@@ -122,6 +122,8 @@ Note that experimental features are in active development and can have (breaking
 * Support Scenarios in SolaraViz visualization by @falloficarus22 in #3178
 * Add `DataSet.record()` by @quaquel in #3295
 * Resolve `DataRecorder` off-by-one timestamp error by @codebreaker32 in #3299
+* Adding batch and suppress to mesa_signals by @quaquel in #3261
+* Only emit signal of new value of observable is different from old value by @quaquel in #3312
 ### 🐛 Bugs fixed
 * Fix batch_run Data Collection to Ensure Accuracy and Capture All Steps by @codebreaker32 in #3109
 * Fix network visualization bug: Replace array indexing with dictionary lookup by @codebyNJ in #3045
@@ -149,6 +151,7 @@ Note that experimental features are in active development and can have (breaking
 * cleanup by @quaquel in #3258
 * Migrate tutorials and examples to model.run_for() by @falloficarus22 in #3270
 * Add agent activation, event scheduling and time progression tutorials by @EwoutH in #3280
+* Update overview.md for Mesa 3.5 by @EwoutH in #3310
 ### 🔧 Maintenance
 * Fix pickling for scheduled events by serializing weak-referenced callbacks safely by @EwoutH in #3205
 * Unify event list between Model and Simulator by @EwoutH in #3204
