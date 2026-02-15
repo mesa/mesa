@@ -692,6 +692,42 @@ class TestPartialReporterValidation(unittest.TestCase):
         data = dc.get_model_vars_dataframe()
         self.assertEqual(data["AgentsTimesTwo"][0], 6)
 
+    def test_partial_model_reporter_error_is_wrapped(self):
+        """Test that partial reporter errors are wrapped with clear context."""
+
+        def explode(_model, _multiplier):
+            raise ValueError("partial exploded")
+
+        model = Model()
+        dc = DataCollector(
+            model_reporters={"BrokenPartial": partial(explode, _multiplier=2)}
+        )
+
+        with self.assertRaises(RuntimeError) as context:
+            dc.collect(model)
+
+        error_msg = str(context.exception)
+        self.assertIn("BrokenPartial", error_msg)
+        self.assertIn("failed collection", error_msg)
+
+
+class TestModelReporterListErrors(unittest.TestCase):
+    """Tests for list-based model reporter error propagation."""
+
+    def test_list_model_reporter_runtime_error_propagates(self):
+        """List-based reporter failures should propagate their original exception."""
+
+        def explode():
+            raise ValueError("list reporter exploded")
+
+        model = Model()
+        dc = DataCollector(model_reporters={"BrokenList": [explode, []]})
+
+        with self.assertRaises(ValueError) as context:
+            dc.collect(model)
+
+        self.assertIn("list reporter exploded", str(context.exception))
+
 
 def test_mutable_data_independence():
     """Test that mutable agent data is deep-copied, preventing historical records from changing."""
