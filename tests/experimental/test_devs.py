@@ -6,14 +6,17 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mesa import Model
-from mesa.experimental.devs.eventlist import (
+from mesa.experimental.devs.simulator import ABMSimulator, DEVSimulator
+from mesa.time import (
+    Event,
     EventGenerator,
     EventList,
     Priority,
     Schedule,
-    SimulationEvent,
 )
-from mesa.experimental.devs.simulator import ABMSimulator, DEVSimulator
+
+# Ignore deprecation warnings for Simulator classes in this test file
+pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
 
 
 def test_devs_simulator():
@@ -117,7 +120,7 @@ def test_devs_simulator():
     # setup with event scheduled
     simulator = DEVSimulator()
     with pytest.raises(RuntimeError, match="Simulator not set up"):
-        simulator.event_list.add_event(SimulationEvent(1.0, Mock(), Priority.DEFAULT))
+        simulator.event_list.add_event(Event(1.0, Mock(), Priority.DEFAULT))
 
 
 def test_abm_simulator():
@@ -159,11 +162,11 @@ def test_simulator_time_deprecation():
 
 
 def test_simulation_event():
-    """Tests for SimulationEvent class."""
+    """Tests for Event class."""
     some_test_function = MagicMock()
 
     time = 10
-    event = SimulationEvent(
+    event = Event(
         time,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -182,13 +185,13 @@ def test_simulation_event():
     some_test_function.assert_called_once()
 
     with pytest.raises(Exception):
-        SimulationEvent(
+        Event(
             time, None, priority=Priority.DEFAULT, function_args=[], function_kwargs={}
         )
 
     # check calling with arguments
     some_test_function = MagicMock()
-    event = SimulationEvent(
+    event = Event(
         time,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -202,13 +205,13 @@ def test_simulation_event():
     def some_test_function(x, y):
         return x + y
 
-    event = SimulationEvent(time, some_test_function, priority=Priority.DEFAULT)
+    event = Event(time, some_test_function, priority=Priority.DEFAULT)
     del some_test_function
     event.execute()
 
     # cancel
     some_test_function = MagicMock()
-    event = SimulationEvent(
+    event = Event(
         time,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -223,14 +226,14 @@ def test_simulation_event():
     assert event.CANCELED
 
     # comparison for sorting
-    event1 = SimulationEvent(
+    event1 = Event(
         10,
         some_test_function,
         priority=Priority.DEFAULT,
         function_args=[],
         function_kwargs={},
     )
-    event2 = SimulationEvent(
+    event2 = Event(
         10,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -239,14 +242,14 @@ def test_simulation_event():
     )
     assert event1 < event2  # based on just unique_id as tiebraker
 
-    event1 = SimulationEvent(
+    event1 = Event(
         11,
         some_test_function,
         priority=Priority.DEFAULT,
         function_args=[],
         function_kwargs={},
     )
-    event2 = SimulationEvent(
+    event2 = Event(
         10,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -255,14 +258,14 @@ def test_simulation_event():
     )
     assert event1 > event2
 
-    event1 = SimulationEvent(
+    event1 = Event(
         10,
         some_test_function,
         priority=Priority.DEFAULT,
         function_args=[],
         function_kwargs={},
     )
-    event2 = SimulationEvent(
+    event2 = Event(
         10,
         some_test_function,
         priority=Priority.HIGH,
@@ -273,13 +276,13 @@ def test_simulation_event():
 
 
 def test_simulation_event_pickle():
-    """Test pickling and unpickling of SimulationEvent."""
+    """Test pickling and unpickling of Event."""
 
     # Test with regular function
     def test_fn():
         return "test"
 
-    event = SimulationEvent(
+    event = Event(
         10.0,
         test_fn,
         priority=Priority.HIGH,
@@ -292,7 +295,7 @@ def test_simulation_event_pickle():
     assert state["_fn_strong"] is test_fn
     assert state["fn"] is None
 
-    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event = Event.__new__(Event)
     new_event.__setstate__(state)
 
     assert new_event.time == 10.0
@@ -306,7 +309,7 @@ def test_simulation_event_pickle():
     state = event.__getstate__()
     assert state["_fn_strong"] is None
 
-    new_event = SimulationEvent.__new__(SimulationEvent)
+    new_event = Event.__new__(Event)
     new_event.__setstate__(state)
     assert new_event.fn is None
 
@@ -321,7 +324,7 @@ def test_eventlist():
 
     # add event
     some_test_function = MagicMock()
-    event = SimulationEvent(
+    event = Event(
         1,
         some_test_function,
         priority=Priority.DEFAULT,
@@ -340,7 +343,7 @@ def test_eventlist():
     # peak ahead
     event_list = EventList()
     for i in range(10):
-        event = SimulationEvent(
+        event = Event(
             i,
             some_test_function,
             priority=Priority.DEFAULT,
@@ -370,7 +373,7 @@ def test_eventlist():
     some_test_function = MagicMock()
     times = [5.0, 15.0, 10.0, 25.0, 20.0, 8.0]
     for t in times:
-        event = SimulationEvent(
+        event = Event(
             t,
             some_test_function,
             priority=Priority.DEFAULT,
@@ -387,7 +390,7 @@ def test_eventlist():
     # pop event
     event_list = EventList()
     for i in range(10):
-        event = SimulationEvent(
+        event = Event(
             i,
             some_test_function,
             priority=Priority.DEFAULT,
@@ -399,7 +402,7 @@ def test_eventlist():
     assert event.time == 0
 
     event_list = EventList()
-    event = SimulationEvent(
+    event = Event(
         9,
         some_test_function,
         priority=Priority.DEFAULT,

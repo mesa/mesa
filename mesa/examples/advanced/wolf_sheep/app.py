@@ -1,6 +1,5 @@
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
 from mesa.examples.advanced.wolf_sheep.model import WolfSheep
-from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import (
     CommandConsole,
     Slider,
@@ -78,8 +77,7 @@ lineplot_component = make_plot_component(
     post_process=post_process_lines,
 )
 
-simulator = ABMSimulator()
-model = WolfSheep(simulator=simulator, grass=True)
+model = WolfSheep(grass=True)
 
 renderer = SpaceRenderer(
     model,
@@ -94,6 +92,5 @@ page = SolaraViz(
     components=[lineplot_component, CommandConsole],
     model_params=model_params,
     name="Wolf Sheep",
-    simulator=simulator,
 )
 page  # noqa
