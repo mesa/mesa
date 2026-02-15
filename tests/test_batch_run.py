@@ -789,7 +789,9 @@ def test_batch_run_agenttype_and_agent_reporters():
         MixedReportersModel,
         parameters={"n_agents": [2]},
         number_processes=1,
-        rng=[None,],
+        rng=[
+            None,
+        ],
         max_steps=5,
         data_collection_period=-1,
         display_progress=False,

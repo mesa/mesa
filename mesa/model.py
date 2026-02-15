@@ -7,8 +7,6 @@ Core Objects: Model
 from __future__ import annotations
 
 import random
-import sys
-import warnings
 from collections.abc import Callable, Sequence
 
 # mypy
@@ -346,9 +344,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         if failed:
             self.rng: np.random.Generator = np.random.default_rng(rng)
 
-        self._rng = (
-            self.rng.bit_generator.state
-        )  # this allows for reproducing the rng
+        self._rng = self.rng.bit_generator.state  # this allows for reproducing the rng
 
         try:
             self.random = random.Random(rng)
@@ -358,7 +354,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         else:
             seed = rng
         self._seed = seed  # this allows for reproducing stdlib.random
-
 
     def remove_all_agents(self):
         """Remove all agents from the model.

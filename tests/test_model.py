@@ -79,6 +79,7 @@ def test_rng(rng=23):
         )
     )
 
+
 def etest_reset_rng(newseed=42):
     """Test resetting the random seed on the model."""
     model = Model(rng=5)
