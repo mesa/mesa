@@ -5,6 +5,7 @@
 
 model
 agent
+agentset
 time
 space
 discrete_space

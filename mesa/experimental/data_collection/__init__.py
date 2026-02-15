@@ -10,6 +10,7 @@ from .datarecorders import (
 from .dataset import (
     AgentDataSet,
     DataRegistry,
+    DataSet,
     ModelDataSet,
     NumpyAgentDataSet,
     TableDataSet,
@@ -20,6 +21,7 @@ __all__ = [
     "BaseDataRecorder",
     "DataRecorder",
     "DataRegistry",
+    "DataSet",
     "DatasetConfig",
     "JSONDataRecorder",
     "ModelDataSet",

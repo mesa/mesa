@@ -252,6 +252,7 @@ class EventGenerator:
         else:
             self._active = False
             self._current_event = None
+            self.model._event_generators.discard(self)
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
@@ -278,6 +279,7 @@ class EventGenerator:
             start_time = self.model.time + self._get_interval()
 
         self._active = True
+        self.model._event_generators.add(self)
         self._schedule_next(start_time)
         return self
 
@@ -291,6 +293,7 @@ class EventGenerator:
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
+        self.model._event_generators.discard(self)
         return self
 
 

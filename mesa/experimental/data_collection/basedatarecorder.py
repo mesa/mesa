@@ -33,6 +33,8 @@ from mesa.experimental.mesa_signals import ObservableSignals
 if TYPE_CHECKING:
     from mesa import Model
 
+    from .dataset import DataRegistry, DataSet
+
 
 @dataclass
 class DatasetConfig:
@@ -134,17 +136,20 @@ class BaseDataRecorder(ABC):
                     Values can be dicts or DatasetConfig objects.
         """
         self.model = model
-        self.registry = getattr(model, "data_registry", None)
+        self.registry: DataRegistry = getattr(model, "data_registry", None)
 
         if self.registry is None:
             raise AttributeError("Model must have a DataRegistry (model.data_registry)")
 
+        if config is None:
+            config = {}
+
         # Parse configuration
         self.configs: dict[str, DatasetConfig] = {}
 
-        # Load defaults from registry
-        for name in self.registry.datasets:
-            self.configs[name] = DatasetConfig()
+        # # Load defaults from registry
+        # for name in self.registry.datasets:
+        #     self.configs[name] = DatasetConfig()
 
         # Override with user config
         if config:
@@ -155,15 +160,17 @@ class BaseDataRecorder(ABC):
                     # Note: __post_init__ was already called when user created the object
                 else:
                     # Update default dataclass fields from dict
-                    current = self.configs[name]
-                    for key, value in user_cfg.items():
-                        if hasattr(current, key):
-                            setattr(current, key, value)
+                    configuration = DatasetConfig(**user_cfg)
+                    self.configs[name] = configuration
+                    # for key, value in user_cfg.items():
+                    #     if hasattr(current, key):
+                    #         setattr(current, key, value)
                     # Re-validate
-                    current.__post_init__()
+                    # current.__post_init__()
 
         # Initialize storage for each dataset
-        for name, dataset in self.registry.datasets.items():
+        for name in config:
+            dataset = self.registry[name]
             self._initialize_dataset_storage(name, dataset)
 
         self._subscribe_to_model()
@@ -249,6 +256,23 @@ class BaseDataRecorder(ABC):
         if dataset_name not in self.configs:
             raise KeyError(f"Dataset '{dataset_name}' not found")
         self.configs[dataset_name].enabled = False
+
+    def add_dataset(
+        self, dataset: DataSet, configuration: DatasetConfig | None = None
+    ) -> None:
+        """Add a dataset to the collection.
+
+        Args:
+            dataset (DataSet): Dataset to record
+            configuration (DatasetConfig|None): Configuration for recording the dataset
+
+        """
+        if configuration is None:
+            configuration = DatasetConfig()
+
+        name = dataset.name
+        self.configs[name] = copy.copy(configuration)
+        self._initialize_dataset_storage(name, dataset)
 
     @abstractmethod
     def get_table_dataframe(self, name: str) -> pd.DataFrame:

@@ -14,6 +14,7 @@ from mesa.agent import Agent
 from mesa.experimental.data_collection import (
     DataRecorder,
     DataRegistry,
+    DataSet,
     DatasetConfig,
     JSONDataRecorder,
     ParquetDataRecorder,
@@ -150,7 +151,7 @@ def test_base_recorder_config_dict_vs_dataclass():
 def test_base_recorder_enable_disable_dataset():
     """Test enabling and disabling datasets."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
 
     # Disable a dataset
     recorder.disable_dataset("model_data")
@@ -171,7 +172,9 @@ def test_base_recorder_enable_disable_dataset():
 def test_base_recorder_manual_collect():
     """Test manual collection via collect() method."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(
+        model, {"model_data": DatasetConfig(), "agent_data": DatasetConfig()}
+    )
     recorder.clear()
 
     # Manually trigger collection
@@ -186,7 +189,14 @@ def test_base_recorder_manual_collect():
 def test_base_recorder_get_all_dataframes():
     """Test get_all_dataframes method."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+    )
 
     model.step()
 
@@ -206,12 +216,12 @@ def test_data_recorder_custom_data_type():
     model.data_registry = DataRegistry()
 
     # Create a custom dataset that returns an unknown type
-    custom_dataset = Mock()
+    custom_dataset = Mock(spec=DataSet)
     custom_dataset.name = "custom_data"
     custom_dataset.data = CustomDataType("test_data")
     model.data_registry.datasets["custom_data"] = custom_dataset
 
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(model, {"custom_data": DatasetConfig()})
     recorder.clear()
 
     # Manually trigger collection
@@ -226,7 +236,7 @@ def test_data_recorder_custom_data_type():
 def test_data_recorder_empty_numpy_array():
     """Test storing empty numpy array."""
     model = MockModel(n=0)  # No agents
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(model, {"numpy_data": DatasetConfig()})
     recorder.clear()
 
     # Try to collect with empty array
@@ -241,12 +251,13 @@ def test_data_recorder_empty_list():
     """Test storing empty list (no agents)."""
     model = Model()
     model.data_registry = DataRegistry()
-
-    # Track agents but with no agents
-    model.data_registry.track_agents(model.agents, "empty_agents", fields=["value"])
-
     recorder = DataRecorder(model)
     recorder.clear()
+
+    # Track agents but with no agents
+    model.data_registry.track_agents(
+        model.agents, "empty_agents", fields=["value"]
+    ).record(recorder)
 
     model.step()
 
@@ -333,7 +344,9 @@ def test_data_recorder_clear_nonexistent_dataset():
 def test_data_recorder_clear_single_dataset():
     """Test clearing specific dataset."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(
+        model, {"model_data": DatasetConfig(), "agent_data": DatasetConfig()}
+    )
 
     model.step()
 
@@ -351,7 +364,14 @@ def test_data_recorder_clear_single_dataset():
 def test_data_recorder_clear_all_datasets():
     """Test clearing all datasets."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+    )
 
     model.step()
 
@@ -376,7 +396,12 @@ def test_data_recorder_get_table_dataframe_nonexistent():
 def test_data_recorder_get_table_dataframe_empty():
     """Test get_table_dataframe returns empty DataFrame with correct columns."""
     model = MockModel(n=5)
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+        },
+    )
     recorder.collect()
     recorder.clear()
 
@@ -393,12 +418,12 @@ def test_data_recorder_get_table_dataframe_unknown_type_warning():
     model = Model()
     model.data_registry = DataRegistry()
 
-    custom_dataset = Mock()
+    custom_dataset = Mock(spec=DataSet)
     custom_dataset.name = "custom_data"
     custom_dataset.data = CustomDataType("test")
     model.data_registry.datasets["custom_data"] = custom_dataset
 
-    recorder = DataRecorder(model)
+    recorder = DataRecorder(model, {"custom_data": DatasetConfig()})
     recorder.clear()
     recorder.collect()
 
@@ -413,7 +438,15 @@ def test_json_recorder_numpy_types():
     """Test JSONDataRecorder handles numpy types in custom encoder."""
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=2)
-        recorder = JSONDataRecorder(model, output_dir=temp_dir)
+        recorder = JSONDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
 
         model.step()
         df = recorder.get_table_dataframe("numpy_data")
@@ -451,7 +484,15 @@ def test_json_recorder_clear():
     """Test JSONDataRecorder clear functionality."""
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=2)
-        recorder = JSONDataRecorder(model, output_dir=temp_dir)
+        recorder = JSONDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
 
         model.step()
         recorder.save_to_json()
@@ -486,7 +527,15 @@ def test_parquet_recorder_buffer_and_flush():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.buffer_size = 100
         recorder.clear("model_data")
 
@@ -513,7 +562,15 @@ def test_parquet_recorder_empty_buffer_flush():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.clear()
 
         # Flush empty buffer
@@ -530,7 +587,15 @@ def test_parquet_recorder_append_to_existing():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.buffer_size = 1
         recorder.clear()
 
@@ -562,7 +627,15 @@ def test_parquet_recorder_get_nonexistent_file():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.clear()
 
         # Didn't step, so no data written
@@ -590,7 +663,15 @@ def test_parquet_recorder_summary_with_files():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.buffer_size = 1
         recorder.clear()
 
@@ -610,7 +691,15 @@ def test_parquet_recorder_summary_no_files():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.clear()
 
         summary = recorder.summary()
@@ -625,7 +714,15 @@ def test_parquet_recorder_cleanup_on_delete():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.buffer_size = 100
         recorder.clear()
 
@@ -644,7 +741,15 @@ def test_parquet_recorder_dict_data_storage():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.buffer_size = 1
         recorder.clear()
 
@@ -662,10 +767,19 @@ def test_parquet_recorder_list_data_storage():
 
     with tempfile.TemporaryDirectory() as temp_dir:
         model = MockModel(n=5)
-        recorder = ParquetDataRecorder(model, output_dir=temp_dir)
+        recorder = ParquetDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            output_dir=temp_dir,
+        )
         recorder.clear()
 
         model.step()
+        recorder.collect()  # force collect after step
 
         # Check list was stored correctly
         df = recorder.get_table_dataframe("agent_data")
@@ -677,7 +791,15 @@ def test_parquet_recorder_list_data_storage():
 def test_sql_recorder_store_empty_numpy():
     """Test SQL recorder with empty numpy array."""
     model = MockModel(n=0)  # No agents
-    recorder = SQLDataRecorder(model, db_path=":memory:")
+    recorder = SQLDataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+        db_path=":memory:",
+    )
 
     model.step()
 
@@ -690,9 +812,11 @@ def test_sql_recorder_store_empty_list():
     """Test SQL recorder with empty list."""
     model = Model()
     model.data_registry = DataRegistry()
-    model.data_registry.track_agents(model.agents, "empty_agents", fields=["value"])
 
     recorder = SQLDataRecorder(model, db_path=":memory:")
+    model.data_registry.track_agents(
+        model.agents, "empty_agents", fields=["value"]
+    ).record(recorder)
 
     model.step()
 
@@ -704,7 +828,15 @@ def test_sql_recorder_store_empty_list():
 def test_sql_recorder_numpy_without_dataset():
     """Test SQL recorder stores numpy data when dataset not in registry."""
     model = MockModel(n=2)
-    recorder = SQLDataRecorder(model, db_path=":memory:")
+    recorder = SQLDataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+        db_path=":memory:",
+    )
 
     # Manually store data
     data = np.array([[1.0, 2.0], [3.0, 4.0]])
@@ -718,7 +850,15 @@ def test_sql_recorder_numpy_without_dataset():
 def test_sql_recorder_numpy_with_time_column():
     """Test SQL recorder with Numpy data."""
     model = MockModel(n=2)
-    recorder = SQLDataRecorder(model, db_path=":memory:")
+    recorder = SQLDataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+        db_path=":memory:",
+    )
 
     model.step()
 
@@ -740,7 +880,15 @@ def test_sql_recorder_get_nonexistent_dataset():
 def test_sql_recorder_get_empty_dataset():
     """Test getting dataset when table not created."""
     model = MockModel(n=5)
-    recorder = SQLDataRecorder(model, db_path=":memory:")
+    recorder = SQLDataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+        db_path=":memory:",
+    )
     recorder.clear("model_data")
 
     df = recorder.get_table_dataframe("model_data")
@@ -764,7 +912,15 @@ def test_sql_recorder_clear_nonexistent():
 def test_sql_recorder_summary_no_tables():
     """Test summary when tables not created."""
     model = MockModel(n=5)
-    recorder = SQLDataRecorder(model, db_path=":memory:")
+    recorder = SQLDataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(),
+            "agent_data": DatasetConfig(),
+            "numpy_data": DatasetConfig(),
+        },
+        db_path=":memory:",
+    )
     recorder.collect()
     summary = recorder.summary()
 
@@ -793,7 +949,15 @@ def test_sql_recorder_with_file_database():
 
     try:
         model = MockModel(n=5)
-        recorder = SQLDataRecorder(model, db_path=db_path)
+        recorder = SQLDataRecorder(
+            model,
+            {
+                "model_data": DatasetConfig(),
+                "agent_data": DatasetConfig(),
+                "numpy_data": DatasetConfig(),
+            },
+            db_path=db_path,
+        )
 
         model.step()
 
@@ -865,7 +1029,8 @@ def test_recorder_start_time_behavior():
 
     # Step to start_time
     model.step()  # t=1 (should not collect)
-    model.step()  # t=2 (should collect)
+    model.step()  # t=2 (should not collect)
+    model.step()  # the change to t=3 triggers a single collect for t=2
 
     df = recorder.get_table_dataframe("model_data")
     times = df["time"].unique()

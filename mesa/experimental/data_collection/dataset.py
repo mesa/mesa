@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from mesa.agent import AbstractAgentSet, Agent
+from mesa.agent import Agent
+from mesa.agentset import AbstractAgentSet
+from mesa.experimental.data_collection import BaseDataRecorder, DatasetConfig
 
 if TYPE_CHECKING:
     from mesa.model import Model
@@ -40,6 +42,12 @@ class DataSet(Protocol):
 
     def close(self):
         """Close the dataset."""
+        ...
+
+    def record(
+        self, recorder: BaseDataRecorder, configuration: DatasetConfig | None = None
+    ) -> DataSet:
+        """Record the collected data."""
         ...
 
 
@@ -88,6 +96,13 @@ class BaseDataSet(abc.ABC):
             return
         self._collector = None
         self._closed = True
+
+    def record(
+        self, recorder: BaseDataRecorder, configuration: DatasetConfig | None = None
+    ) -> DataSet:
+        """Record the collected data."""
+        recorder.add_dataset(self, configuration=configuration)
+        return self
 
 
 class AgentDataSet[A: Agent](BaseDataSet):
@@ -216,6 +231,13 @@ class TableDataSet:
     def close(self):
         """Close the data set."""
         self.rows = None
+
+    def record(
+        self, recorder: BaseDataRecorder, configuration: DatasetConfig | None = None
+    ) -> DataSet:
+        """Record the collected data."""
+        recorder.add_dataset(self, configuration=configuration)
+        return self
 
 
 class NumpyAgentDataSet[A: Agent]:
@@ -450,6 +472,13 @@ class NumpyAgentDataSet[A: Agent]:
                 delattr(self.agent_type, attr)
         self._closed = True
 
+    def record(
+        self, recorder: BaseDataRecorder, configuration: DatasetConfig | None = None
+    ) -> DataSet:
+        """Record the collected data."""
+        recorder.add_dataset(self, configuration=configuration)
+        return self
+
 
 class DataRegistry:
     """A registry for data sets."""
@@ -486,7 +515,7 @@ class DataRegistry:
         agents: AbstractAgentSet,
         name: str,
         fields: str | list[str] | None = None,
-    ):
+    ) -> AgentDataSet:
         """Track the specified fields for the agents in the AgentSet."""
         return self.create_dataset(AgentDataSet, name, agents, fields=fields)
 
@@ -495,7 +524,7 @@ class DataRegistry:
         model: Model,
         name: str,
         fields: str | list[str] | None = None,
-    ):
+    ) -> ModelDataSet:
         """Track the specified fields in the model."""
         return self.create_dataset(ModelDataSet, name, model, fields=fields)
 
