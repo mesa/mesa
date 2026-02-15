@@ -107,7 +107,7 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed.
+    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
 
     """
 
@@ -129,7 +129,8 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            send_notify = True
+            if old_value != value:
+                send_notify = True
         setattr(instance, self.private_name, value)
 
         if send_notify:
