@@ -103,10 +103,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Args:
             args: arguments to pass onto super
-            seed: the seed for the random number generator
             rng: Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
-                  `numpy.random.default_rng` to instantiate a `Generator`.
+                  `numpy.random.default_rng` to instantiate a `Generator`. `rng` is also used to try to seed a
+                  `random.Random` instance, if this fails, a random integer will be generated using the seeded
+                  numpy random number generator with which to seed `random.Random`.
             scenario: the scenario specifying the computational experiment to run
             kwargs: keyword arguments to pass onto super
 
