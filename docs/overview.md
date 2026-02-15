@@ -12,6 +12,7 @@ Most models consist of one class to represent the model itself and one or more c
 
 - [mesa.model](apis/model)
 - [mesa.agent](apis/agent)
+- [mesa.agentset](apis/agentset)
 - [mesa.discrete_space](apis/discrete_space)
 
 The skeleton of a model might look like this:
@@ -212,7 +213,7 @@ AgentSet offers several methods for efficient agent management:
    ```
 `model.agents` can also be accessed within a model instance using `self.agents`.
 
-These are just some examples of using the AgentSet, there are many more possibilities, see the [AgentSet API docs](apis/agent).
+These are just some examples of using the AgentSet, there are many more possibilities, see the [AgentSet API docs](apis/agentset).
 
 ### Analysis modules
 
