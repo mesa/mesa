@@ -114,7 +114,9 @@ class HasPosition:
         - Base ``Agent`` does NOT include this mixin. This is intentional:
           only agents that need spatial position should mix it in (composition).
         - ``CellAgent`` does NOT use this mixin either; it derives position
-          from ``cell.coordinate`` via its own property override.
+          from ``cell.position`` (np.ndarray) via its own property override.
+          See #3268 for the distinction between logical ``coordinate`` and
+          physical ``position`` on cells.
         - ``ContinuousSpaceAgent`` has its own position property backed by
           numpy arrays in the space.
 

@@ -163,22 +163,6 @@ class Cell:
         return len(self._agents) == 0
 
     @property
-    def position(self) -> Coordinate:
-        """The position of this cell in its space.
-
-        This property implements the Locatable protocol, providing a unified
-        interface for accessing position across different Mesa object types.
-
-        Unlike agents, cells always have a coordinate (set at construction
-        time), so this property never returns None.
-
-        Returns:
-            The cell's coordinate tuple (never None).
-
-        """
-        return self.coordinate
-
-    @property
     def is_full(self) -> bool:
         """Returns a bool of the contents of a cell."""
         if self.capacity is None:

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
+import numpy as np
+
 from mesa.agent import Agent
 
 if TYPE_CHECKING:
@@ -94,17 +96,18 @@ class CellAgent(Agent, HasCell, BasicMovement):
     """
 
     @property
-    def position(self) -> tuple[int, ...] | None:
-        """The position of this agent in its space.
+    def position(self) -> np.ndarray | None:
+        """The physical position of this agent in its space.
 
         This property implements the Locatable protocol. For CellAgents,
-        the position is derived from the cell's coordinate.
+        the position is derived from the cell's physical position as
+        introduced by #3268 (Distinguish Logical Index from Physical Position).
 
         Returns:
-            The cell's coordinate tuple, or None if not placed in any cell.
+            np.ndarray of the cell's physical position, or None if not placed.
 
         """
-        return self.cell.coordinate if self.cell is not None else None
+        return self.cell.position if self.cell is not None else None
 
     def remove(self):
         """Remove the agent from the model."""
@@ -123,17 +126,18 @@ class FixedAgent(Agent, FixedCell):
     """
 
     @property
-    def position(self) -> tuple[int, ...] | None:
-        """The position of this agent in its space.
+    def position(self) -> np.ndarray | None:
+        """The physical position of this agent in its space.
 
         This property implements the Locatable protocol. For FixedAgents,
-        the position is derived from the cell's coordinate.
+        the position is derived from the cell's physical position as
+        introduced by #3268 (Distinguish Logical Index from Physical Position).
 
         Returns:
-            The cell's coordinate tuple, or None if not yet placed.
+            np.ndarray of the cell's physical position, or None if not yet placed.
 
         """
-        return self.cell.coordinate if self.cell is not None else None
+        return self.cell.position if self.cell is not None else None
 
     def remove(self):
         """Remove the agent from the model."""
