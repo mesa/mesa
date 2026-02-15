@@ -16,7 +16,10 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.schelling.model import SchellingScenario
 from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
@@ -105,7 +108,7 @@ def run_model_test(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
     """Test schelling model behavior and visualization."""
-    model = Schelling(rng=42)
+    model = Schelling(scenario=SchellingScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -132,7 +135,7 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         Wolf,
     )
 
-    model = WolfSheep(rng=42)
+    model = WolfSheep(scenario=WolfSheepScenario(rng=42))
 
     def agent_portrayal(agent):
         if agent is None:
@@ -173,7 +176,7 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page):
     """Test boid flockers model behavior and visualization."""
-    model = BoidFlockers(rng=42)
+    model = BoidFlockers(scenario=BoidsScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color="tab:blue")

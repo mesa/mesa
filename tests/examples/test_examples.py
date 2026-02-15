@@ -14,7 +14,10 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.schelling.model import SchellingScenario
 
 
 def test_boltzmann_model():  # noqa: D103
@@ -72,7 +75,7 @@ def test_schelling_model():  # noqa: D103
 
     app.page  # noqa: B018
 
-    model = Schelling(rng=42)
+    model = Schelling(scenario=SchellingScenario(rng=42))
     ref = weakref.ref(model)
 
     model.run_for(10)
@@ -104,7 +107,7 @@ def test_boid_flockers():  # noqa: D103
 
     app.page  # noqa: B018
 
-    model = BoidFlockers(rng=42)
+    model = BoidFlockers(scenario=BoidsScenario(rng=42))
     ref = weakref.ref(model)
 
     model.run_for(10)
@@ -168,7 +171,7 @@ def test_wolf_sheep():  # noqa: D103
 
     app.page  # noqa: B018
 
-    model = WolfSheep(rng=42)
+    model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     ref = weakref.ref(model)
 
     model.run_for(10)
