@@ -304,16 +304,18 @@ This will create an interactive visualization of your model, including:
 
 Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
-Adding Space <tutorials/1_adding_space>
-Collecting Data <tutorials/2_collecting_data>
-AgentSet <tutorials/3_agentset>
-Basic Visualization <tutorials/4_visualization_basic>
-Dynamic Agent Visualization <tutorials/5_visualization_dynamic_agents>
-Visualisation using SpaceRenderer <tutorials/6_visualization_rendering_with_space_renderer>
-Property Layer Visualization <tutorials/7_visualization_propertylayer_visualization>
-Custom Visualization Components <tutorials/8_visualization_custom>
-Parameter Sweeps <tutorials/9_batch_run>
-Comparing Scenarios <tutorials/10_comparing_scenarios>
+AgentSet <tutorials/1_agentset>
+Agent Activation <tutorials/2_agent_activation>
+Event Scheduling <tutorials/3_event_scheduling>
+Adding Space <tutorials/4_adding_space>
+Collecting Data <tutorials/5_collecting_data>
+Basic Visualization <tutorials/6_visualization_basic>
+Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
+Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
+Property Layer Visualization <tutorials/9_visualization_propertylayer_visualization>
+Custom Visualization Components <tutorials/10_visualization_custom>
+Parameter Sweeps <tutorials/11_batch_run>
+Comparing Scenarios <tutorials/12_comparing_scenarios>
 Best Practices <best-practices>
 
 
