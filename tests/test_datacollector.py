@@ -520,31 +520,10 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
 
 
 class TestMethodReporterValidation(unittest.TestCase):
-    """Tests for method reporter validation fix.
-
-    These tests verify that the fix for method reporter validation in
-    DataCollector._validate_model_reporter() works correctly.
-
-    The fix changes:
-        BEFORE: if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-                    pass
-
-        AFTER:  if callable(reporter) and not isinstance(reporter, types.LambdaType):
-                    try:
-                        reporter()
-                    except Exception as e:
-                        raise RuntimeError(...)
-    """
+    """Tests for model reporter error handling in collect()."""
 
     def test_broken_method_reporter_raises_runtime_error(self):
-        """Test that a broken method reporter raises RuntimeError with clear message.
-
-        ORIGINAL BUG: The condition `not callable(reporter)` is False for methods,
-        so method reporters were never validated. Broken methods would only fail
-        during collect(), with an unclear error message.
-
-        FIX: Changed to `callable(reporter)` so methods ARE validated.
-        """
+        """Test that a broken method reporter raises RuntimeError with clear message."""
 
         class BrokenModel(Model):
             def __init__(self):
@@ -566,7 +545,7 @@ class TestMethodReporterValidation(unittest.TestCase):
 
         # Verify error message contains the reporter name for easy debugging
         self.assertIn("Broken", str(context.exception))
-        self.assertIn("failed validation", str(context.exception))
+        self.assertIn("failed collection", str(context.exception))
 
     def test_working_method_reporter_succeeds(self):
         """Test that working method reporters continue to work correctly.
@@ -670,8 +649,28 @@ class TestMethodReporterValidation(unittest.TestCase):
         model = ArgCheckModel()
         model.datacollector.collect(model)
 
-        # Validation call + actual collect call = at least 1
-        self.assertGreaterEqual(model.call_count, 1)
+        self.assertEqual(model.call_count, 1)
+
+    def test_method_reporter_called_once_per_collect(self):
+        """Reporter methods should not be executed during validation."""
+
+        class SideEffectModel(Model):
+            def __init__(self):
+                super().__init__()
+                self.value = 0
+                self.datacollector = DataCollector(
+                    model_reporters={"value": self.bump}
+                )
+
+            def bump(self):
+                self.value += 1
+                return self.value
+
+        model = SideEffectModel()
+        model.datacollector.collect(model)
+
+        self.assertEqual(model.value, 1)
+        self.assertEqual(model.datacollector.model_vars["value"], [1])
 
 
 class TestPartialReporterValidation(unittest.TestCase):

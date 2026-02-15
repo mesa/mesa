@@ -159,30 +159,13 @@ class DataCollector:
             TypeError: If reporter type is not supported
             RuntimeError: If reporter execution fails
         """
-        self._validated = True  # put the change of signal firstly avoid losing efficacy
+        # Type 1: Lambda function, partial function, or method/callable reporter.
+        # These are validated during collection to avoid side effects from executing
+        # reporters twice (once in validation, once in collection).
+        if callable(reporter):
+            return
 
-        # Type 1: Lambda function or partial
-        if isinstance(reporter, (types.LambdaType, partial)):
-            try:
-                reporter(model)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Lambda reporter '{name}' failed validation: {e!s}\n"
-                    f"Example: lambda m: len(m.agents)"
-                ) from e
-
-        # Type 2: Method of class/instance (bound methods are callable)
-        if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
-            try:
-                reporter()  # Call without args for bound methods
-            except Exception as e:
-                raise RuntimeError(
-                    f"Method reporter '{name}' failed validation: {e!s}"
-                ) from e
-        # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-        #     pass
-
-        # Type 3: Model attribute (string)
+        # Type 2: Model attribute (string)
         if isinstance(reporter, str):
             try:
                 if not hasattr(model, reporter):
@@ -194,13 +177,24 @@ class DataCollector:
                 raise AttributeError(
                     f"Model reporter '{name}' attribute validation failed: {e!s}\n"
                 ) from e
+            return
 
-        # Type 4: Function with parameters in list
-        if isinstance(reporter, list) and (not reporter or not callable(reporter[0])):
-            raise ValueError(
-                f"Invalid function list format for reporter '{name}'\n"
-                f"Expected: [function, [param1, param2]], got: {reporter}"
-            )
+        # Type 3: Function with parameters in list
+        if isinstance(reporter, list):
+            if (
+                len(reporter) < 2
+                or not callable(reporter[0])
+                or not isinstance(reporter[1], (list, tuple))
+            ):
+                raise ValueError(
+                    f"Invalid function list format for reporter '{name}'\n"
+                    f"Expected: [function, [param1, param2]], got: {reporter}"
+                )
+            return
+
+        raise TypeError(
+            f"Model reporter '{name}' has unsupported type {type(reporter).__name__}"
+        )
 
     def _new_model_reporter(self, name, reporter):
         """Add a new model-level reporter to collect.
@@ -366,24 +360,41 @@ class DataCollector:
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
+                self._validated = True
 
             for var, reporter in self.model_reporters.items():
-                # Check if lambda or partial function
-                if isinstance(reporter, types.LambdaType | partial):
-                    # Use deepcopy to store a copy of the data,
-                    # preventing references from being updated across steps.
-                    self.model_vars[var].append(deepcopy(reporter(model)))
-                # Check if model attribute
-                elif isinstance(reporter, str):
-                    self.model_vars[var].append(
-                        deepcopy(getattr(model, reporter, None))
-                    )
-                # Check if function with arguments
-                elif isinstance(reporter, list):
-                    self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
-                # Assume it's a callable otherwise (e.g., method)
-                else:
-                    self.model_vars[var].append(deepcopy(reporter()))
+                try:
+                    # Check if lambda or partial function
+                    if isinstance(reporter, (types.LambdaType, partial)):
+                        # Use deepcopy to store a copy of the data,
+                        # preventing references from being updated across steps.
+                        self.model_vars[var].append(deepcopy(reporter(model)))
+                    # Check if model attribute
+                    elif isinstance(reporter, str):
+                        self.model_vars[var].append(
+                            deepcopy(getattr(model, reporter, None))
+                        )
+                    # Check if function with arguments
+                    elif isinstance(reporter, list):
+                        self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
+                    # Assume it's a callable otherwise (e.g., method)
+                    else:
+                        self.model_vars[var].append(deepcopy(reporter()))
+                except Exception as e:
+                    if isinstance(reporter, types.LambdaType):
+                        raise RuntimeError(
+                            f"Lambda reporter '{var}' failed collection: {e!s}\n"
+                            f"Example: lambda m: len(m.agents)"
+                        ) from e
+                    if isinstance(reporter, partial):
+                        raise RuntimeError(
+                            f"Partial reporter '{var}' failed collection: {e!s}"
+                        ) from e
+                    if callable(reporter):
+                        raise RuntimeError(
+                            f"Method reporter '{var}' failed collection: {e!s}"
+                        ) from e
+                    raise
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
