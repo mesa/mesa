@@ -658,9 +658,7 @@ class TestMethodReporterValidation(unittest.TestCase):
             def __init__(self):
                 super().__init__()
                 self.value = 0
-                self.datacollector = DataCollector(
-                    model_reporters={"value": self.bump}
-                )
+                self.datacollector = DataCollector(model_reporters={"value": self.bump})
 
             def bump(self):
                 self.value += 1
