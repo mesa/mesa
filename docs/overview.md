@@ -100,7 +100,7 @@ space = mesa.space.ContinuousSpace(x_max, y_max, torus=True)
 space.move_agent(agent, (new_x, new_y))
 ```
 
-> **Note:** The legacy `mesa.space` module (including `MultiGrid`, `SingleGrid`, etc.) is in maintenance-only mode. For new projects, use `mesa.discrete_space` instead.
+> **Note:** The legacy `mesa.space` module (including `MultiGrid`, `SingleGrid`, etc.) is in maintenance-only mode. For new projects, use `mesa.discrete_space` and `mesa.experimental.continuous_space` instead.
 
 ### Time Advancement and Agent Activation
 
