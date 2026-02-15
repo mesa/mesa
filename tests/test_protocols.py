@@ -14,7 +14,6 @@ class PositionAgent(Agent, HasPosition):
     """Test agent using the HasPosition mixin."""
 
 
-
 def test_has_position_default():
     """HasPosition starts as None."""
     model = Model()
