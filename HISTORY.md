@@ -64,6 +64,7 @@ class MyModel(Model):
     def __init__(self, width=40, scenario=None):
         super().__init__(scenario=scenario)
 
+# 'density' is auto-detected as a Scenario parameter
 page = SolaraViz(MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)})
 ```
 
