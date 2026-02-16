@@ -117,7 +117,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """
         super().__init__(*args, **kwargs)
         self.running: bool = True
-        self.steps: int = 0
+        self.time: float = 0.0
         self.time: float = 0.0
         self.agent_id_counter: int = 1
         self.rng = None
@@ -154,7 +154,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self._user_step = self.step
         self._default_schedule: EventGenerator = EventGenerator(
             self,
-            self._do_step,
+            self._user_step,
             Schedule(interval=1.0, start=1.0),
             priority=Priority.HIGH,
         ).start()
@@ -195,12 +195,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
                 break
 
         self.time = until
-
-    def _do_step(self) -> None:
-        """Execute one step. Rescheduling is handled by the EventGenerator."""
-        self.steps += 1
-        _mesa_logger.info(f"Step {self.steps} at time {self.time}")
-        self._user_step()
 
     @property
     def agents(self) -> _HardKeyAgentSet[A]:
@@ -436,4 +430,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         Args:
             end_time: Absolute time to run until
         """
+        if self.time > end_time:
+            return
         self._advance_time(end_time)
