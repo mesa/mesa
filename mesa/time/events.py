@@ -175,6 +175,12 @@ class Schedule:
                 f"Schedule count must be > 0 if provided, got {self.count}"
             )
 
+        if self.start is not None and self.end is not None:
+            if self.start > self.end:
+                raise ValueError(
+                    f"Schedule start ({self.start}) cannot be after end ({self.end})"
+                )
+
 
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.

@@ -212,3 +212,9 @@ class TestScheduleValidation:
 
         with pytest.raises(ValueError):
             Schedule(interval=1.0, count=-5)
+    
+    def test_start_after_end_raises(self):
+        """Test that Schedule raises an error if start is greater than end."""
+        with pytest.raises(ValueError):
+            Schedule(interval=1.0, start=10, end=5)
+
