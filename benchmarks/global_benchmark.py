@@ -70,7 +70,7 @@ def run_experiments(model_class, config):
     for seed in range(1, config["seeds"] + 1):
         fastest_init = float("inf")
         fastest_run = float("inf")
-        run_kwargs = {**base_params, "seed": seed}
+        run_kwargs = {**base_params, "rng": seed}
 
         # Warm-up: run 3 times before starting measurement
         # This eliminates cold start penalty
