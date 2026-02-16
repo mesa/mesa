@@ -145,6 +145,19 @@ class TestScheduleEvent:
         with pytest.raises(ValueError):
             model.schedule_event(noop)
 
+    def test_inline_lambda_survives_gc(self):
+        model = SimpleModel()
+        state = {"fired": 0}
+
+        model.schedule_event(
+            lambda: state.__setitem__("fired", state["fired"] + 1),
+            at=1.0,
+        )
+        gc.collect()
+        model.run_for(2.0)
+
+        assert state["fired"] == 1
+
 
 # --- schedule_recurring ---
 class TestScheduleRecurring:

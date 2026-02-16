@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from heapq import heapify, heappop, heappush, nsmallest
-from types import MethodType
+from types import FunctionType, MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
@@ -57,9 +57,10 @@ class Event:
 
 
     Notes:
-        simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
-        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently.
+        Bound methods are stored as weak references so events tied to deleted
+        objects fail silently instead of keeping those objects alive.
+        Inline lambda functions are stored as strong references so they can be
+        scheduled safely without needing a separate variable.
 
     """
 
@@ -94,15 +95,23 @@ class Event:
         self.priority = priority.value
         self._canceled = False
 
-        if isinstance(function, MethodType):
-            function = WeakMethod(function)
-        else:
-            function = ref(function)
-
-        self.fn = function
+        self.fn = self._reference_for_callable(function)
         self.unique_id = next(self._ids)
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
+
+    @staticmethod
+    def _reference_for_callable(function: Callable):
+        """Return an object with `__call__` that resolves to the callable."""
+        if isinstance(function, MethodType):
+            return WeakMethod(function)
+
+        # Lambdas often have no external strong reference and would otherwise
+        # be GC'd before execution.
+        if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
+            return lambda: function
+
+        return ref(function)
 
     def execute(self):
         """Execute this event."""
@@ -139,12 +148,9 @@ class Event:
         """Restore state after unpickling."""
         fn = state.pop("_fn_strong")
         self.__dict__.update(state)
-        # Recreate weak reference
+        # Recreate callable reference strategy.
         if fn is not None:
-            if isinstance(fn, MethodType):
-                self.fn = WeakMethod(fn)
-            else:
-                self.fn = ref(fn)
+            self.fn = self._reference_for_callable(fn)
         else:
             self.fn = None
 
