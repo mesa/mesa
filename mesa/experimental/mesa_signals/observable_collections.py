@@ -43,6 +43,11 @@ class ObservableList(BaseObservable):
 
         """
         old_value = getattr(instance, self.private_name, self.fallback_value)
+        # Snapshot into batch context before replacing the list
+        ctx = instance._batch_context
+        if ctx is not None:
+            old_value = [] if old_value is None else list(old_value)
+            ctx.capture_original_value_once(self.public_name, old_value)
         setattr(
             instance,
             self.private_name,
@@ -74,28 +79,59 @@ class SignalingList(MutableSequence[Any]):
         self.name: str = name
         self.data = list(iterable)
 
-    def __setitem__(self, index: int, value: Any) -> None:
-        """Set item to index.
+    def _snapshot_if_batching(self):
+        """Snapshot list state into the batch context before the first mutation."""
+        ctx = self.owner._batch_context
+        if ctx is not None:
+            ctx.capture_original_value_once(self.name, list(self.data))
+
+    def __setitem__(self, index: int | slice, value: Any) -> None:
+        """Set item(s) by index or slice.
 
         Args:
-            index: the index to set item to
-            value: the item to set
+            index: the index or slice to set
+            value: the item (or iterable for slices) to set
 
         """
-        old_value = self.data[index]
-        self.data[index] = value
-        self.owner.notify(
-            self.name, ListSignals.REPLACED, index=index, old=old_value, new=value
-        )
+        self._snapshot_if_batching()
+        if isinstance(index, slice):
+            # this resolves negative numbers in slice
+            index = slice(*index.indices(len(self.data)))
+            old_value = self.data[index]
+            new_value = list(value)
+            self.data[index] = new_value
+            self.owner.notify(
+                self.name,
+                ListSignals.REPLACED,
+                index=index,
+                old=old_value,
+                new=new_value,
+            )
+        else:
+            if index < 0:
+                index += len(self.data)
+            old_value = self.data[index]
+            self.data[index] = value
+            self.owner.notify(
+                self.name, ListSignals.REPLACED, index=index, old=old_value, new=value
+            )
 
-    def __delitem__(self, index: int) -> None:
-        """Delete item at index.
+    def __delitem__(self, index: int | slice) -> None:
+        """Delete item(s) by index or slice.
 
         Args:
-            index: The index of the item to remove
+            index: the index or slice to delete
 
         """
-        old_value = self.data[index]
+        self._snapshot_if_batching()
+        if isinstance(index, slice):
+            # this resolves negative numbers in slice
+            index = slice(*index.indices(len(self.data)))
+            old_value = self.data[index]
+        else:
+            if index < 0:
+                index += len(self.data)
+            old_value = self.data[index]
         del self.data[index]
         self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
 
@@ -122,6 +158,12 @@ class SignalingList(MutableSequence[Any]):
             value: the value to insert
 
         """
+        self._snapshot_if_batching()
+        # Normalize before insert: clamp to [0, len] to match list.insert behavior
+        if index < 0:
+            index = max(0, index + len(self.data))
+        elif index > len(self.data):
+            index = len(self.data)
         self.data.insert(index, value)
         self.owner.notify(self.name, ListSignals.INSERTED, index=index, new=value)
 
@@ -132,6 +174,7 @@ class SignalingList(MutableSequence[Any]):
             value: the value to append
 
         """
+        self._snapshot_if_batching()
         index = len(self.data)
         self.data.append(value)
         self.owner.notify(self.name, ListSignals.APPENDED, index=index, new=value)

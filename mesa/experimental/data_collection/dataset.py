@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from mesa.agent import AbstractAgentSet, Agent
+from mesa.agent import Agent
+from mesa.agentset import AbstractAgentSet
 from mesa.experimental.data_collection import BaseDataRecorder, DatasetConfig
 
 if TYPE_CHECKING:

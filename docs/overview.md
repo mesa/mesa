@@ -12,7 +12,8 @@ Most models consist of one class to represent the model itself and one or more c
 
 - [mesa.model](apis/model)
 - [mesa.agent](apis/agent)
-- [mesa.space](apis/space)
+- [mesa.agentset](apis/agentset)
+- [mesa.discrete_space](apis/discrete_space)
 
 The skeleton of a model might look like this:
 
@@ -32,15 +33,21 @@ class MyAgent(mesa.Agent):
 class MyModel(mesa.Model):
     def __init__(self, n_agents):
         super().__init__()
-        self.grid = mesa.space.MultiGrid(10, 10, torus=True)
-        for _ in range(n_agents):
-            initial_age = self.random.randint(0, 80)
-            a = MyAgent(self, initial_age)
-            coords = (self.random.randrange(0, 10), self.random.randrange(0, 10))
-            self.grid.place_agent(a, coords)
+        self.grid = mesa.discrete_space.OrthogonalMooreGrid((10, 10), torus=True)
+        initial_ages = self.rng.integers(0, 80, size=n_agents)
+        agents = MyAgent.create_agents(self, n_agents, initial_ages)
+        for agent in agents:
+            agent.cell = self.grid.all_cells.select_random_cell()
 
     def step(self):
         self.agents.shuffle_do("step")
+```
+
+You can instantiate a model and run it for one step with:
+
+```python
+model = MyModel(n_agents=5)
+model.run_for(1)
 ```
 
 ### Spaces in Mesa
@@ -48,30 +55,30 @@ class MyModel(mesa.Model):
 Mesa provides several types of spaces where agents can exist and interact:
 
 #### Discrete Spaces
-Mesa implements discrete spaces using a doubly-linked structure where each cell maintains connections to its neighbors. Available variants include:
+Mesa implements discrete spaces through the `mesa.discrete_space` module, using a doubly-linked structure where each cell maintains connections to its neighbors. Available variants include:
 
 1. **Grid-based Spaces:**
    ```python
    # Create a Von Neumann grid (4 neighbors per cell)
-   grid = mesa.space.OrthogonalVonNeumannGrid((width, height), torus=False)
+   grid = mesa.discrete_space.OrthogonalVonNeumannGrid((width, height), torus=False)
 
    # Create a Moore grid (8 neighbors per cell)
-   grid = mesa.space.OrthogonalMooreGrid((width, height), torus=True)
+   grid = mesa.discrete_space.OrthogonalMooreGrid((width, height), torus=True)
 
    # Create a hexagonal grid
-   grid = mesa.space.HexGrid((width, height), torus=False)
+   grid = mesa.discrete_space.HexGrid((width, height), torus=False)
    ```
 
 2. **Network Space:**
    ```python
    # Create a network-based space
-   network = mesa.space.NetworkGrid(network)
+   network = mesa.discrete_space.Network(graph)
    ```
 
 3. **Voronoi Space:**
    ```python
    # Create an irregular tessellation
-   mesh = mesa.space.VoronoiMesh(points)
+   mesh = mesa.discrete_space.VoronoiMesh(points)
    ```
 
 #### Property Layers
@@ -94,21 +101,24 @@ space = mesa.space.ContinuousSpace(x_max, y_max, torus=True)
 space.move_agent(agent, (new_x, new_y))
 ```
 
+> **Note:** The legacy `mesa.space` module (including `MultiGrid`, `SingleGrid`, etc.) is in maintenance-only mode. For new projects, use `mesa.discrete_space` and `mesa.experimental.continuous_space` instead.
+
 ### Time Advancement and Agent Activation
 
-Mesa supports multiple approaches to advancing time and activating agents:
+Mesa supports multiple approaches to advancing time and activating agents.
 
-#### Basic Time Steps
-The simplest approach runs the model for a specified number of steps:
+#### Running the model
+Use the time advancement methods on `Model` to run your simulation:
 
 ```python
-model = MyModel(seed=42)
-for _ in range(100):
-    model.step()
+model = MyModel()
+model.run_for(100)     # Run for 100 time units
+model.run_until(50.0)  # Run until absolute time 50
 ```
+By default, the model's `step()` method is scheduled to run every 1.0 time units, so `model.run_for(10)` executes 10 steps.
 
 #### Agent Activation Patterns
-Mesa 3.0 provides flexible agent activation through the AgentSet API:
+Mesa provides flexible agent activation through the AgentSet API:
 
 ```python
 # Sequential activation
@@ -126,22 +136,38 @@ for klass in model.agent_types:
     model.agents_by_type[klass].do("step")
 ```
 
-#### Event-Based Scheduling
-Mesa also supports event-based time progression (experimental):
+#### Event Scheduling
+Mesa supports event-based time progression directly on the `Model`:
 
 ```python
-# Pure event-based
-simulator = mesa.experimental.DiscreteEventSimulator()
-model = MyModel(seed=42, simulator=simulator)
-simulator.schedule_event_relative(some_function, 3.1415)
+# Schedule one-off events
+model.schedule_event(some_function, at=25.0)     # At absolute time
+model.schedule_event(some_function, after=5.0)   # Relative to now
 
-# Hybrid time-step and event scheduling
-model = MyModel(seed=42, simulator=mesa.experimental.ABMSimulator())
-model.simulator.schedule_event_next_tick(some_function)
+# Cancel a scheduled event
+event = model.schedule_event(callback, at=100.0)
+event.cancel()
+
+# Schedule recurring events
+from mesa.time import Schedule
+
+model.schedule_recurring(func, Schedule(interval=10))            # Every 10 time units
+model.schedule_recurring(func, Schedule(interval=10, start=0))   # Starting immediately
+model.schedule_recurring(func, Schedule(interval=1.0, count=10)) # Limited to 10 executions
+
+# Stop a recurring event
+gen = model.schedule_recurring(func, Schedule(interval=5.0))
+gen.stop()
+
+# Advance time, processing all scheduled events along the way
+model.run_for(50)
+model.run_until(100.0)
 ```
 
+This enables pure event-driven models, hybrid approaches combining agent-based steps with scheduled events, and everything in between.
+
 ### AgentSet and model.agents
-Mesa 3.0 makes `model.agents` and the AgentSet class central in managing and activating agents.
+`model.agents` and the AgentSet class are central in managing and activating agents.
 
 #### model.agents
 `model.agents` is an AgentSet containing all agents in the model. It's automatically updated when agents are added or removed:
@@ -187,7 +213,7 @@ AgentSet offers several methods for efficient agent management:
    ```
 `model.agents` can also be accessed within a model instance using `self.agents`.
 
-These are just some examples of using the AgentSet, there are many more possibilities, see the [AgentSet API docs](apis/agent).
+These are just some examples of using the AgentSet, there are many more possibilities, see the [AgentSet API docs](apis/agentset).
 
 ### Analysis modules
 
@@ -222,8 +248,7 @@ The data collector will collect the specified model- and agent-level data at eac
 
 ```python
 model = MyModel(5)
-for t in range(10):
-    model.step()
+model.run_for(10)
 model_df = model.datacollector.get_model_vars_dataframe()
 agent_df = model.datacollector.get_agent_vars_dataframe()
 ```
@@ -232,12 +257,17 @@ To batch-run the model while varying, for example, the n_agents parameter, you'd
 
 ```python
 import mesa
+import numpy as np
+import sys
+
+rng = np.random.default_rng(42)
+rng_values = rng.integers(0, sys.maxsize, size=(5,))
 
 parameters = {"n_agents": range(1, 6)}
 results = mesa.batch_run(
     MyModel,
     parameters,
-    iterations=5,
+    rng=rng_values.tolist(),
     max_steps=100,
     data_collection_period=1,
     number_processes=1  # Change to use multiple CPU cores for parallel execution
@@ -247,17 +277,17 @@ results = mesa.batch_run(
 The results are returned as a list of dictionaries, which can be easily converted to a pandas DataFrame for further analysis.
 
 ### Visualization
-Mesa now uses a new browser-based visualization system called SolaraViz. This allows for interactive, customizable visualizations of your models.
+Mesa uses a browser-based visualization system called SolaraViz. This allows for interactive, customizable visualizations of your models.
 
-Note: SolaraViz is experimental and still in active development in Mesa 3.x. While we attempt to minimize them, there might be API breaking changes in minor releases.
+Note: SolaraViz is in active development in Mesa 3.x. While we attempt to minimize them, there might be API breaking changes in minor releases.
 > **Note:** SolaraViz instantiates new models using `**model_parameters.value`, so all model inputs must be keyword arguments.
 
 Ensure your model's `__init__` method accepts keyword arguments matching the `model_params` keys.
 
 ```python
 class MyModel(Model):
-    def __init__(self, n_agents=10, seed=None):
-        super().__init__(seed=seed)
+    def __init__(self, n_agents=10):
+        super().__init__()
         # Initialize the model with N agents
 ```
 The core functionality for building your own visualizations resides in the [`mesa.visualization`](apis/visualization) namespace.
@@ -269,7 +299,7 @@ from mesa.visualization import SolaraViz, make_space_component, make_plot_compon
 
 
 def agent_portrayal(agent):
-    return {"color": "blue", "size": 50}
+    return AgentPortrayalStyle(color="blue", size=50)
 
 
 model_params = {
@@ -304,16 +334,18 @@ This will create an interactive visualization of your model, including:
 
 Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
-Adding Space <tutorials/1_adding_space>
-Collecting Data <tutorials/2_collecting_data>
-AgentSet <tutorials/3_agentset>
-Basic Visualization <tutorials/4_visualization_basic>
-Dynamic Agent Visualization <tutorials/5_visualization_dynamic_agents>
-Visualisation using SpaceRenderer <tutorials/6_visualization_rendering_with_space_renderer>
-Property Layer Visualization <tutorials/7_visualization_propertylayer_visualization>
-Custom Visualization Components <tutorials/8_visualization_custom>
-Parameter Sweeps <tutorials/9_batch_run>
-Comparing Scenarios <tutorials/10_comparing_scenarios>
+AgentSet <tutorials/1_agentset>
+Agent Activation <tutorials/2_agent_activation>
+Event Scheduling <tutorials/3_event_scheduling>
+Adding Space <tutorials/4_adding_space>
+Collecting Data <tutorials/5_collecting_data>
+Basic Visualization <tutorials/6_visualization_basic>
+Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
+Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
+Property Layer Visualization <tutorials/9_visualization_propertylayer_visualization>
+Custom Visualization Components <tutorials/10_visualization_custom>
+Parameter Sweeps <tutorials/11_batch_run>
+Comparing Scenarios <tutorials/12_comparing_scenarios>
 Best Practices <best-practices>
 
 
