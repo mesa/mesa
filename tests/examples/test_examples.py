@@ -75,6 +75,7 @@ def test_schelling_model():  # noqa: D103
 
     app.page  # noqa: B018
 
+    _model = Schelling(scenario=None)
     model = Schelling(scenario=SchellingScenario(rng=42))
     ref = weakref.ref(model)
 
@@ -106,6 +107,8 @@ def test_boid_flockers():  # noqa: D103
     from mesa.examples.basic.boid_flockers import app  # noqa: PLC0415
 
     app.page  # noqa: B018
+
+    _model = BoidFlockers(scenario=None)
 
     model = BoidFlockers(scenario=BoidsScenario(rng=42))
     ref = weakref.ref(model)
@@ -170,6 +173,8 @@ def test_wolf_sheep():  # noqa: D103
     from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
 
     app.page  # noqa: B018
+
+    _model = WolfSheep(scenario=None)
 
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     ref = weakref.ref(model)
