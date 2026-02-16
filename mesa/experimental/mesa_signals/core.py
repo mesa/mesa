@@ -107,7 +107,7 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed.
+    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
 
     """
 
@@ -129,7 +129,8 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            send_notify = True
+            if old_value != value:
+                send_notify = True
         setattr(instance, self.private_name, value)
 
         if send_notify:
@@ -281,6 +282,8 @@ class HasObservables:
         """Initialize a HasObservables."""
         super().__init__(*args, **kwargs)
         self.subscribers = defaultdict(list)
+        self._batch_context = None
+        self._suppress = False
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -401,6 +404,19 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
+        if self._suppress:
+            return
+
+        if self._batch_context is not None:
+            signal = Message(
+                name=observable,
+                owner=self,
+                signal_type=signal_type,
+                additional_kwargs=kwargs,
+            )
+            self._batch_context.capture(signal)
+            return
+
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
         key = (observable, signal_type)
@@ -445,6 +461,35 @@ class HasObservables:
             self.subscribers[key] = active_observers
         else:
             del self.subscribers[key]
+
+    def batch(self):
+        """Return a context manager that batches signals.
+
+        Signals emitted during the batch are buffered and aggregated on exit.
+        Nested batches merge into the outer batch; only the outermost dispatches.
+
+        Note:
+            Computed properties may return stale cached values during the batch.
+            They will be updated when aggregated signals are dispatched on exit.
+
+        """
+        from .batching import _BatchContext  # noqa: PLC0415
+
+        return _BatchContext(self)
+
+    def suppress(self):
+        """Return a context manager that suppresses all signals.
+
+        No signals are emitted, buffered, or dispatched during suppression.
+
+        Note:
+            Computed properties may become permanently stale because their
+            triggering signals are dropped entirely.
+
+        """
+        from .batching import _SuppressContext  # noqa: PLC0415
+
+        return _SuppressContext(self)
 
     def _process_name(self, name: ObservableName) -> Iterable[str]:
         """Convert name to an iterable of observable names."""

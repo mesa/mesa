@@ -779,6 +779,7 @@ def test_parquet_recorder_list_data_storage():
         recorder.clear()
 
         model.step()
+        recorder.collect()  # force collect after step
 
         # Check list was stored correctly
         df = recorder.get_table_dataframe("agent_data")
@@ -1028,7 +1029,8 @@ def test_recorder_start_time_behavior():
 
     # Step to start_time
     model.step()  # t=1 (should not collect)
-    model.step()  # t=2 (should collect)
+    model.step()  # t=2 (should not collect)
+    model.step()  # the change to t=3 triggers a single collect for t=2
 
     df = recorder.get_table_dataframe("model_data")
     times = df["time"].unique()

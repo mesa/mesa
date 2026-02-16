@@ -27,7 +27,8 @@ from mesa.experimental.mesa_signals import (
 if TYPE_CHECKING:
     from mesa.experimental.devs import Simulator
 
-from mesa.agent import Agent, _HardKeyAgentSet
+from mesa.agent import Agent
+from mesa.agentset import _HardKeyAgentSet
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 from mesa.time import (
@@ -128,7 +129,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         # Event list for event-based execution
         self._event_list: EventList = EventList()
         # Strong references to active EventGenerators (prevent GC)
-        self._event_generators: list[EventGenerator] = []
+        self._event_generators: set[EventGenerator] = set()
 
         # check if `scenario` is provided
         # and if so, whether rng is the same or not
@@ -449,7 +450,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """
         generator = EventGenerator(self, function, schedule, priority)
         generator.start()
-        self._event_generators.append(generator)
         return generator
 
     def run_for(self, duration: float | int) -> None:

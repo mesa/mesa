@@ -121,8 +121,6 @@ API Documentation <apis/api_main>
 [mesa]: https://github.com/mesa/mesa/
 [mesa overview]: overview
 [mesa examples]: https://mesa.readthedocs.io/stable/examples.html
-[mesa introductory tutorial]: tutorials/intro_tutorial
-[mesa visualization tutorial]: tutorials/visualization_tutorial
 [migration guide]: migration_guide
 [Getting started]: getting_started
 [Mesa Extensions]: mesa_extension.md
