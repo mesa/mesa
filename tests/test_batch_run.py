@@ -770,8 +770,8 @@ def test_batch_run_agenttype_and_agent_reporters():
     class MixedReportersModel(Model):
         """Model with both agent_reporters and agenttype_reporters."""
 
-        def __init__(self, n_agents=3, seed=None):
-            super().__init__(seed=seed)
+        def __init__(self, n_agents=3, rng=None):
+            super().__init__(rng=rng)
             self.n_agents = n_agents
             self.datacollector = DataCollector(
                 model_reporters={"agent_count": lambda m: len(m.agents)},
@@ -789,7 +789,9 @@ def test_batch_run_agenttype_and_agent_reporters():
         MixedReportersModel,
         parameters={"n_agents": [2]},
         number_processes=1,
-        rng=[None],
+        rng=[
+            None,
+        ],
         max_steps=5,
         data_collection_period=-1,
         display_progress=False,
