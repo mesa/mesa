@@ -16,66 +16,79 @@ import numpy as np
 from mesa import Model
 from mesa.examples.basic.boid_flockers.agents import Boid
 from mesa.experimental.continuous_space import ContinuousSpace
+from mesa.experimental.scenarios import Scenario
+
+
+class BoidsScenario(Scenario):
+    """Scenario parameters for the Boids Flocking model.
+
+    Args:
+        population_size: Number of Boids in the simulation (default: 100)
+        width: Width of the space (default: 100)
+        height: Height of the space (default: 100)
+        speed: How fast the Boids move (default: 1)
+        vision: How far each Boid can see (default: 10)
+        separation: Minimum distance between Boids (default: 2)
+        cohere: Weight of cohesion behavior (default: 0.03)
+        separate: Weight of separation behavior (default: 0.015)
+        match: Weight of alignment behavior (default: 0.05)
+        rng: Random rng for reproducibility (default: None)
+    """
+
+    population_size: int = 100
+    width: int = 100
+    height: int = 100
+    speed: float = 1.0
+    vision: float = 10.0
+    separation: float = 2.0
+    cohere: float = 0.03
+    separate: float = 0.015
+    match: float = 0.05
 
 
 class BoidFlockers(Model):
     """Flocker model class. Handles agent creation, placement and scheduling."""
 
-    def __init__(
-        self,
-        population_size=100,
-        width=100,
-        height=100,
-        speed=1,
-        vision=10,
-        separation=2,
-        cohere=0.03,
-        separate=0.015,
-        match=0.05,
-        rng=None,
-    ):
+    def __init__(self, scenario=None):
         """Create a new Boids Flocking model.
 
         Args:
-            population_size: Number of Boids in the simulation (default: 100)
-            width: Width of the space (default: 100)
-            height: Height of the space (default: 100)
-            speed: How fast the Boids move (default: 1)
-            vision: How far each Boid can see (default: 10)
-            separation: Minimum distance between Boids (default: 2)
-            cohere: Weight of cohesion behavior (default: 0.03)
-            separate: Weight of separation behavior (default: 0.015)
-            match: Weight of alignment behavior (default: 0.05)
-            rng: Random rng for reproducibility (default: None)
+            scenario: BoidsScenario object containing model parameters.
         """
-        super().__init__(rng=rng)
+        if scenario is None:
+            scenario = BoidsScenario()
+
+        super().__init__(scenario=scenario)
+
         self.agent_angles = np.zeros(
-            population_size
+            scenario.population_size
         )  # holds the angle representing the direction of all agents at a given step
 
         # Set up the space
         self.space = ContinuousSpace(
-            [[0, width], [0, height]],
+            [[0, scenario.width], [0, scenario.height]],
             torus=True,
             random=self.random,
-            n_agents=population_size,
+            n_agents=scenario.population_size,
         )
 
         # Create and place the Boid agents
-        positions = self.rng.random(size=(population_size, 2)) * self.space.size
-        directions = self.rng.uniform(-1, 1, size=(population_size, 2))
+        positions = (
+            self.rng.random(size=(scenario.population_size, 2)) * self.space.size
+        )
+        directions = self.rng.uniform(-1, 1, size=(scenario.population_size, 2))
         Boid.create_agents(
             self,
-            population_size,
+            scenario.population_size,
             self.space,
             position=positions,
             direction=directions,
-            cohere=cohere,
-            separate=separate,
-            match=match,
-            speed=speed,
-            vision=vision,
-            separation=separation,
+            cohere=scenario.cohere,
+            separate=scenario.separate,
+            match=scenario.match,
+            speed=scenario.speed,
+            vision=scenario.vision,
+            separation=scenario.separation,
         )
 
         # For tracking statistics
