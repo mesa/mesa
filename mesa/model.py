@@ -181,6 +181,8 @@ class Model[A: Agent, S: Scenario](HasObservables):
             until: The time to advance to
 
         """
+        if until<=self.time:
+            return 
         while True:
             try:
                 event = self._event_list.pop_event()
