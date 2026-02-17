@@ -41,9 +41,7 @@ def _create_callable_reference(function: Callable):
         try:
             function_ref = ref(function)
         except TypeError as exc:
-            raise TypeError(
-                "Event callback must support weak references."
-            ) from exc
+            raise TypeError("Event callback must support weak references.") from exc
 
     if function_ref() is None:
         raise TypeError("Event callback weak reference resolved to None at creation.")
