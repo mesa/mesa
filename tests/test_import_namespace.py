@@ -7,7 +7,6 @@ def test_import():
     See https://github.com/mesa/mesa/pull/1294.
     """
     import mesa  # noqa: PLC0415
-
     from mesa.datacollection import DataCollector  # noqa: PLC0415
 
     _ = DataCollector

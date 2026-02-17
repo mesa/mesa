@@ -11,8 +11,8 @@ from matplotlib.colors import to_rgb
 
 import mesa
 from mesa.discrete_space import DiscreteSpace, Grid, PropertyLayer
-from mesa.visualization.utils import update_counter
 from mesa.experimental.continuous_space import ContinuousSpace
+from mesa.visualization.utils import update_counter
 
 
 def make_space_altair(*args, **kwargs):  # noqa: D103

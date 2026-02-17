@@ -23,6 +23,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
@@ -31,7 +32,6 @@ from mesa.visualization.space_drawers import (
     OrthogonalSpaceDrawer,
     VoronoiSpaceDrawer,
 )
-from mesa.experimental.continuous_space import ContinuousSpace
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid

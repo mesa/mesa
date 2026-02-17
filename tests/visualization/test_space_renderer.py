@@ -20,9 +20,6 @@ from mesa.discrete_space import (
 from mesa.visualization.backends import altair_backend, matplotlib_backend
 from mesa.visualization.components import PropertyLayerStyle
 from mesa.visualization.space_drawers import (
-    ContinuousSpaceDrawer,
-    HexSpaceDrawer,
-    NetworkSpaceDrawer,
     OrthogonalSpaceDrawer,
     VoronoiSpaceDrawer,
 )
