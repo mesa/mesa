@@ -9,7 +9,7 @@ import solara
 
 import mesa
 
-from mesa.discrete_space import OrthogonalMooreGrid, PropertyLayer
+from mesa.discrete_space import OrthogonalMooreGrid, PropertyLayer, CellAgent
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
@@ -119,12 +119,13 @@ def test_solara_viz_backends(mocker, backend):
         def __init__(self):
             super().__init__()
             # Include property layer to verify it gets drawn
-            layer = PropertyLayer("sugar", 10, 10, 10.0, dtype=float)
+            layer = PropertyLayer("sugar", (10, 10), default_value=10.0, dtype=float)
 
             self.grid = OrthogonalMooreGrid((10, 10), torus=True)
-            self.grid.add_propertylayer(layer)
+            self.grid.add_property_layer(layer)
 
-            self.grid.place_agent(mesa.Agent(self), (5, 5))
+            agent = CellAgent(self)
+            agent.cell = self.grid[(5,5,)]
 
     model = MockModel()
 
