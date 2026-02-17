@@ -7,6 +7,7 @@ Core Objects: Model
 from __future__ import annotations
 
 import random
+import warnings
 from collections.abc import Callable, Sequence
 
 # mypy
@@ -181,6 +182,14 @@ class Model[A: Agent, S: Scenario](HasObservables):
             until: The time to advance to
 
         """
+        if until <= self.time:
+            warnings.warn(
+                f"end time {until} is larger than time {self.time}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+            return
         while True:
             try:
                 event = self._event_list.pop_event()
