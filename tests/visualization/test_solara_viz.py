@@ -8,8 +8,7 @@ import pytest
 import solara
 
 import mesa
-
-from mesa.discrete_space import OrthogonalMooreGrid, PropertyLayer, CellAgent
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid, PropertyLayer
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
@@ -125,7 +124,12 @@ def test_solara_viz_backends(mocker, backend):
             self.grid.add_property_layer(layer)
 
             agent = CellAgent(self)
-            agent.cell = self.grid[(5,5,)]
+            agent.cell = self.grid[
+                (
+                    5,
+                    5,
+                )
+            ]
 
     model = MockModel()
 
