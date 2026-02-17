@@ -189,6 +189,14 @@ def test_simulation_event():
             time, None, priority=Priority.DEFAULT, function_args=[], function_kwargs={}
         )
 
+    with pytest.raises(ValueError, match="Lambda functions are not supported"):
+        Event(time, lambda: None, priority=Priority.DEFAULT)
+
+    with pytest.raises(
+        ValueError, match=r"functools\.partial callbacks are not supported"
+    ):
+        Event(time, partial(some_test_function, "x"), priority=Priority.DEFAULT)
+
     # check calling with arguments
     some_test_function = MagicMock()
     event = Event(

@@ -24,6 +24,7 @@ import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import partial
 from heapq import heapify, heappop, heappush, nsmallest
 from types import FunctionType, MethodType
 from typing import TYPE_CHECKING, Any
@@ -57,10 +58,9 @@ class Event:
 
 
     Notes:
-        Bound methods are stored as weak references so events tied to deleted
-        objects fail silently instead of keeping those objects alive.
-        Inline lambda functions are stored as strong references so they can be
-        scheduled safely without needing a separate variable.
+        Event callables are weak-referenced. To keep callback lifetime
+        semantics explicit, lambda functions and functools.partial callables
+        are rejected and should be replaced with named functions or methods.
 
     """
 
@@ -90,6 +90,7 @@ class Event:
         super().__init__()
         if not callable(function):
             raise Exception()
+        self._validate_callable_supported(function)
 
         self.time = time
         self.priority = priority.value
@@ -101,15 +102,24 @@ class Event:
         self.function_kwargs = function_kwargs if function_kwargs else {}
 
     @staticmethod
+    def _validate_callable_supported(function: Callable) -> None:
+        if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
+            raise ValueError(
+                "Lambda functions are not supported for Event callbacks. "
+                "Use a named function or method."
+            )
+
+        if isinstance(function, partial):
+            raise ValueError(
+                "functools.partial callbacks are not supported for Event callbacks. "
+                "Use a named function or method."
+            )
+
+    @staticmethod
     def _reference_for_callable(function: Callable):
         """Return an object with `__call__` that resolves to the callable."""
         if isinstance(function, MethodType):
             return WeakMethod(function)
-
-        # Lambdas often have no external strong reference and would otherwise
-        # be GC'd before execution.
-        if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
-            return lambda: function
 
         return ref(function)
 

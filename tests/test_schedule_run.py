@@ -2,6 +2,7 @@
 # ruff: noqa: D101 D102 D107
 
 import gc
+from functools import partial
 
 import pytest
 
@@ -145,18 +146,21 @@ class TestScheduleEvent:
         with pytest.raises(ValueError):
             model.schedule_event(noop)
 
-    def test_inline_lambda_survives_gc(self):
+    def test_inline_lambda_rejected(self):
         model = SimpleModel()
-        state = {"fired": 0}
+        with pytest.raises(ValueError, match="Lambda functions are not supported"):
+            model.schedule_event(lambda: None, at=1.0)
 
-        model.schedule_event(
-            lambda: state.__setitem__("fired", state["fired"] + 1),
-            at=1.0,
-        )
-        gc.collect()
-        model.run_for(2.0)
+    def test_partial_callback_rejected(self):
+        model = SimpleModel()
 
-        assert state["fired"] == 1
+        def fire(label):
+            return None
+
+        with pytest.raises(
+            ValueError, match=r"functools\.partial callbacks are not supported"
+        ):
+            model.schedule_event(partial(fire, "x"), at=1.0)
 
 
 # --- schedule_recurring ---
