@@ -118,13 +118,13 @@ class Event:
         self.function_args = []
         self.function_kwargs = {}
 
-    def __lt__(self, other):  # noqa
-        # Define a total ordering for events to be used by the heapq
-        return (self.time, self.priority, self.unique_id) < (
-            other.time,
-            other.priority,
-            other.unique_id,
-        )
+    def __lt__(self, other):
+        """Define a total ordering for events to be used by the heapq."""
+        if self.time != other.time:
+            return self.time < other.time
+        if self.priority != other.priority:
+            return self.priority < other.priority
+        return self.unique_id < other.unique_id
 
     def __getstate__(self):
         """Prepare state for pickling."""
