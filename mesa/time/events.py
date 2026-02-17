@@ -24,14 +24,31 @@ import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from functools import partial
 from heapq import heapify, heappop, heappush, nsmallest
-from types import FunctionType, MethodType
+from types import MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
 if TYPE_CHECKING:
     from mesa import Model
+
+
+def _create_callable_reference(function: Callable):
+    """Create a weak reference wrapper for an event callback."""
+    if isinstance(function, MethodType):
+        function_ref = WeakMethod(function)
+    else:
+        try:
+            function_ref = ref(function)
+        except TypeError as exc:
+            raise TypeError(
+                "Event callback must support weak references."
+            ) from exc
+
+    if function_ref() is None:
+        raise TypeError("Event callback weak reference resolved to None at creation.")
+
+    return function_ref
 
 
 class Priority(IntEnum):
@@ -58,9 +75,8 @@ class Event:
 
 
     Notes:
-        Event callables are weak-referenced. To keep callback lifetime
-        semantics explicit, lambda functions and functools.partial callables
-        are rejected and should be replaced with named functions or methods.
+        Event callables are weak-referenced. If the callback object is garbage
+        collected before execution, the event fails silently.
 
     """
 
@@ -90,38 +106,15 @@ class Event:
         super().__init__()
         if not callable(function):
             raise Exception()
-        self._validate_callable_supported(function)
 
         self.time = time
         self.priority = priority.value
         self._canceled = False
 
-        self.fn = self._reference_for_callable(function)
+        self.fn = _create_callable_reference(function)
         self.unique_id = next(self._ids)
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
-
-    @staticmethod
-    def _validate_callable_supported(function: Callable) -> None:
-        if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
-            raise ValueError(
-                "Lambda functions are not supported for Event callbacks. "
-                "Use a named function or method."
-            )
-
-        if isinstance(function, partial):
-            raise ValueError(
-                "functools.partial callbacks are not supported for Event callbacks. "
-                "Use a named function or method."
-            )
-
-    @staticmethod
-    def _reference_for_callable(function: Callable):
-        """Return an object with `__call__` that resolves to the callable."""
-        if isinstance(function, MethodType):
-            return WeakMethod(function)
-
-        return ref(function)
 
     def execute(self):
         """Execute this event."""
@@ -160,7 +153,7 @@ class Event:
         self.__dict__.update(state)
         # Recreate callable reference strategy.
         if fn is not None:
-            self.fn = self._reference_for_callable(fn)
+            self.fn = _create_callable_reference(fn)
         else:
             self.fn = None
 

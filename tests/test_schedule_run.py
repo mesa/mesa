@@ -146,21 +146,28 @@ class TestScheduleEvent:
         with pytest.raises(ValueError):
             model.schedule_event(noop)
 
-    def test_inline_lambda_rejected(self):
+    def test_inline_lambda_with_strong_reference(self):
         model = SimpleModel()
-        with pytest.raises(ValueError, match="Lambda functions are not supported"):
-            model.schedule_event(lambda: None, at=1.0)
+        log = []
 
-    def test_partial_callback_rejected(self):
+        def callback():
+            log.append("fired")
+
+        model.schedule_event(callback, at=1.0)
+        model.run_for(2.0)
+        assert log == ["fired"]
+
+    def test_partial_callback_with_strong_reference(self):
         model = SimpleModel()
+        log = []
 
         def fire(label):
-            return None
+            log.append(label)
 
-        with pytest.raises(
-            ValueError, match=r"functools\.partial callbacks are not supported"
-        ):
-            model.schedule_event(partial(fire, "x"), at=1.0)
+        callback = partial(fire, "x")
+        model.schedule_event(callback, at=1.0)
+        model.run_for(2.0)
+        assert log == ["x"]
 
 
 # --- schedule_recurring ---
