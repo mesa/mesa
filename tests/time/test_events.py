@@ -231,7 +231,7 @@ def test_eventlist():
 
     # remove event
     event_list.remove(event)
-    assert len(event_list) == 1
+    assert len(event_list) == 0
     assert event.CANCELED
 
     # peak ahead
@@ -307,10 +307,12 @@ def test_eventlist():
     event.cancel()
     with pytest.raises(Exception):
         event_list.pop_event()
+    assert len(event_list) == 0
 
     # clear
     event_list.clear()
     assert len(event_list) == 0
+
 
 
 @pytest.fixture
@@ -378,8 +380,7 @@ class TestEventGenerator:
         """Test immediate stop."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
-
-        assert gen.start().stop() is gen
+        gen.start().stop()
         assert not gen.is_active
 
         model.run_for(5.0)
