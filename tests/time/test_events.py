@@ -131,6 +131,36 @@ def test_simulation_event():
     assert event1 > event2
 
 
+def test_schedule():
+    """Tests for Schedule."""
+    schedule = Schedule()
+    assert schedule.start is None
+    assert schedule.end is None
+    assert schedule.count is None
+    assert schedule.interval == 1
+
+    schedule = Schedule(start=5, end=10, interval=2)
+    assert schedule.start == 5
+    assert schedule.end == 10
+    assert schedule.count is None
+    assert schedule.interval == 2
+
+    schedule = Schedule(start=5, interval=2, count=5)
+    assert schedule.start == 5
+    assert schedule.end is None
+    assert schedule.count == 5
+    assert schedule.interval == 2
+
+    with pytest.raises(ValueError):
+        _ = Schedule(start=10, end=5)
+
+    with pytest.raises(ValueError):
+        _ = Schedule(count=-1)
+
+    with pytest.raises(ValueError):
+        _ = Schedule(interval=-1)
+
+
 def test_simulation_event_pickle():
     """Test pickling and unpickling of Event."""
 
