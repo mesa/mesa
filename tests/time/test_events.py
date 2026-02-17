@@ -1,9 +1,11 @@
 """Tests for experimental Simulator classes."""
 
 from functools import partial
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
+
+from typing import Callable
 
 from mesa import Model
 from mesa.time import (
@@ -150,6 +152,12 @@ def test_schedule():
     assert schedule.end is None
     assert schedule.count == 5
     assert schedule.interval == 2
+
+    schedule = Schedule(start=5, interval=lambda m: m.time+1, count=5)
+    assert schedule.start == 5
+    assert schedule.end is None
+    assert schedule.count == 5
+    assert isinstance(schedule.interval, Callable)
 
     with pytest.raises(ValueError):
         _ = Schedule(start=10, end=5)
@@ -311,32 +319,6 @@ def setup():
     model = Model()
     return model, MagicMock()
 
-
-class TestSchedule:
-    """Tests for Schedule dataclass."""
-
-    def test_defaults(self):
-        """Test default values."""
-        s = Schedule()
-        assert s.interval == 1.0
-        assert s.start is None
-        assert s.end is None
-        assert s.count is None
-
-    def test_custom_values(self):
-        """Test custom values."""
-        s = Schedule(interval=7, start=100, end=500, count=10)
-        assert s.interval == 7
-        assert s.start == 100
-        assert s.end == 500
-        assert s.count == 10
-
-    def test_callable_interval(self):
-        """Test callable interval."""
-        s = Schedule(interval=lambda m: m.time * 2)
-        assert callable(s.interval)
-
-
 class TestEventGenerator:
     """Tests for EventGenerator."""
 
@@ -455,6 +437,15 @@ class TestEventGenerator:
 
         model.run_for(4.5)
         assert fn.call_count == 4  # t=0, 1, 3, 4
+
+    def test_callable_interval_raises(self, setup):
+        with pytest.raises(ValueError):
+            model, fn = setup
+            gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: -0.5))
+            gen.start()
+
+            model.run_for(3)
+
 
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""

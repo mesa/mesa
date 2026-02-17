@@ -232,7 +232,10 @@ class EventGenerator:
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
         if callable(self.schedule.interval):
-            return self.schedule.interval(self.model)
+            interval = self.schedule.interval(self.model)
+            if interval < 0:
+                raise ValueError(f"Interval must be > 0, got {interval}")
+            return interval
         return self.schedule.interval
 
     def _should_stop(self, next_time: float) -> bool:
