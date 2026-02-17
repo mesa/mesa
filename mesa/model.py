@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 
 # mypy
 from typing import TYPE_CHECKING, Any
-
+import warnings
 import numpy as np
 
 from mesa.experimental.data_collection.dataset import DataRegistry
@@ -182,6 +182,10 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         """
         if until<=self.time:
+            warnings.warn(
+            f"Attempted to advance time to {until}, but current time is {self.time}. Time did not change.",
+            UserWarning,
+            stacklevel=2 )
             return 
         while True:
             try:
