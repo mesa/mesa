@@ -218,11 +218,6 @@ class EventGenerator:
             schedule: The Schedule defining timing
             priority: Priority level for generated events
         """
-        if isinstance(function, MethodType):
-            function = WeakMethod(function)
-        else:
-            function = ref(function)
-
         self.model = model
         self.function = function
         self.schedule = schedule
@@ -263,11 +258,7 @@ class EventGenerator:
         if not self._active:
             return
 
-        func = self.function()  # unwraps the weakref
-        if func is None:
-            self.stop()
-
-        func()
+        self.function()
         self._execution_count += 1
 
         # Schedule next event if we shouldn't stop
