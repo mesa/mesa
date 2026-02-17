@@ -233,6 +233,7 @@ def test_eventlist():
     event_list.remove(event)
     assert len(event_list) == 0
     assert event.CANCELED
+    assert not event in event_list
 
     # peak ahead
     event_list = EventList()

@@ -379,6 +379,8 @@ class EventList:
         return len(self) == 0
 
     def __contains__(self, event: Event) -> bool:  # noqa
+        if event.CANCELED:
+            return False
         return event in self._events
 
     def __len__(self) -> int:  # noqa
