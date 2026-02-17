@@ -8,7 +8,6 @@ import pytest
 import solara
 
 import mesa
-
 from mesa.discrete_space import OrthogonalMooreGrid, PropertyLayer
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend

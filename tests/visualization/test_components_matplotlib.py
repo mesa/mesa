@@ -3,7 +3,7 @@
 import networkx as nx
 from matplotlib.figure import Figure
 
-from mesa import Agent, Model
+from mesa import Model
 from mesa.discrete_space import (
     CellAgent,
     HexGrid,
@@ -13,7 +13,6 @@ from mesa.discrete_space import (
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.mpl_space_drawing import (
-    draw_continuous_space,
     draw_hex_grid,
     draw_network,
     draw_orthogonal_grid,
@@ -126,6 +125,7 @@ def test_draw_orthogonal_grid():
     ax = fig.add_subplot()
     draw_orthogonal_grid(grid, agent_portrayal, ax)
 
+
 def test_draw_network():
     """Test drawing network."""
     n = 10
@@ -146,6 +146,7 @@ def test_draw_network():
 
 def test_draw_property_layers():
     """Test drawing property layers."""
+
     def propertylayer_portrayal(_):
         return PropertyLayerStyle(colormap="viridis", colorbar=True)
 

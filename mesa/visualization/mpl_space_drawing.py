@@ -28,9 +28,10 @@ from PIL import Image
 
 import mesa
 from mesa.discrete_space import (
+    DiscreteSpace,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
-    VoronoiGrid, DiscreteSpace,
+    VoronoiGrid,
 )
 from mesa.experimental.continuous_space import ContinuousSpace
 
@@ -206,9 +207,7 @@ def draw_space(
         # order matters here given the class structure of old-style grid spaces
         case mesa.discrete_space.HexGrid():
             draw_hex_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case (
-            OrthogonalMooreGrid() | OrthogonalVonNeumannGrid()
-        ):
+        case OrthogonalMooreGrid() | OrthogonalVonNeumannGrid():
             draw_orthogonal_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
         case mesa.discrete_space.Network():
             draw_network(space, agent_portrayal, ax=ax, **space_drawing_kwargs)

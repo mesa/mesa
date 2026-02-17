@@ -8,8 +8,9 @@ from abc import ABC, abstractmethod
 
 import mesa
 from mesa.discrete_space import (
+    DiscreteSpace,
     OrthogonalMooreGrid,
-    OrthogonalVonNeumannGrid, DiscreteSpace,
+    OrthogonalVonNeumannGrid,
 )
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
