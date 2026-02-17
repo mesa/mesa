@@ -7,9 +7,9 @@ Core Objects: Model
 from __future__ import annotations
 
 import random
-from collections.abc import Callable, Sequence
+import warnings
 
-# mypy
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -440,6 +440,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         """
         if self.time > end_time:
+            warnings.warn(f"end_time {end_time} is larger than time {self.time}", RuntimeWarning, stacklevel=2)
             return
 
         self._advance_time(end_time)
