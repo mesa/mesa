@@ -79,7 +79,10 @@ class TestRunUntil:
 with pytest.warns(RuntimeWarning):
     model.run_until(5.0)  # already past t=5
     assert model.steps == 10  # no additional steps
-    assert model.time == 10
+        with pytest.warns(RuntimeWarning):
+            model.run_until(5.0)  # already past t=5
+            assert model.steps == 10  # no additional steps
+            assert model.time == 10
 
     def test_sequential(self):
         model = SimpleModel()
