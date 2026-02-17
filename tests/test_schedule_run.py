@@ -75,10 +75,6 @@ class TestRunUntil:
         model = SimpleModel()
         model.run_for(10)
 
-
-with pytest.warns(RuntimeWarning):
-    model.run_until(5.0)  # already past t=5
-    assert model.steps == 10  # no additional steps
         with pytest.warns(RuntimeWarning):
             model.run_until(5.0)  # already past t=5
             assert model.steps == 10  # no additional steps
