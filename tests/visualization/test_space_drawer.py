@@ -213,7 +213,9 @@ class TestContinuousSpaceDrawer:
 
     def test_continuous_space_with_custom_bounds(self):  # noqa: D102
         # Test with custom x_min, y_min
-        space = ContinuousSpace(((5, 20), (3, 15)), torus=False, random=random.Random(42))
+        space = ContinuousSpace(
+            ((5, 20), (3, 15)), torus=False, random=random.Random(42)
+        )
         drawer = ContinuousSpaceDrawer(space)
 
         expected_xmin = space.x_min - space.width / 20
