@@ -77,13 +77,6 @@ def test_draw_space():
     ax = fig.add_subplot()
     draw_space(grid, my_portrayal, ax=ax)
 
-    # draw network
-    n = 10
-    m = 20
-    rng = 42
-    graph = nx.gnm_random_graph(n, m, seed=rng)
-
-
 def test_draw_hex_grid():
     """Test drawing hexgrids."""
     model = Model(rng=42)
