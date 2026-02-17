@@ -31,7 +31,7 @@ def hex_grid():  # noqa: D103
 
 @pytest.fixture
 def continuous_space():  # noqa: D103
-    return ContinuousSpace(((0, 10), (0, 10)), torus=False)
+    return ContinuousSpace(((0, 10), (0, 10)), torus=False, random=random.Random(42))
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ class TestContinuousSpaceDrawer:
 
     def test_continuous_space_with_custom_bounds(self):  # noqa: D102
         # Test with custom x_min, y_min
-        space = ContinuousSpace(((5, 20), (3, 15)), torus=False)
+        space = ContinuousSpace(((5, 20), (3, 15)), torus=False, random=random.Random(42))
         drawer = ContinuousSpaceDrawer(space)
 
         expected_xmin = space.x_min - space.width / 20
@@ -295,7 +295,7 @@ class TestEdgeCases:  # noqa: D101
         assert drawer.viz_xmax is not None
 
     def test_continuous_space_zero_size(self):  # noqa: D102
-        space = ContinuousSpace(((0, 0), (0, 0)), torus=False)
+        space = ContinuousSpace(((0, 0), (0, 0)), torus=False, random=random.Random(42))
         drawer = ContinuousSpaceDrawer(space)
         assert drawer.s_default == 1  # Default when width/height is 0
 
