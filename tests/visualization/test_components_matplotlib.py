@@ -77,6 +77,7 @@ def test_draw_space():
     ax = fig.add_subplot()
     draw_space(grid, my_portrayal, ax=ax)
 
+
 def test_draw_hex_grid():
     """Test drawing hexgrids."""
     model = Model(rng=42)
