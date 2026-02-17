@@ -9,7 +9,7 @@ import pytest
 from matplotlib.collections import LineCollection
 
 from mesa.discrete_space import HexGrid, Network, OrthogonalMooreGrid, VoronoiGrid
-from mesa.space import ContinuousSpace
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
     HexSpaceDrawer,

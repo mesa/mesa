@@ -46,7 +46,7 @@ def test_matplotlib_backend_collects_agent_data():
     mb = MatplotlibBackend(space_drawer=MagicMock())
 
     class DummyAgent:
-        pos = (0, 0)
+        position = (0, 0)
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
@@ -184,7 +184,7 @@ def test_altair_backend_collects_agent_data():
     ab = AltairBackend(space_drawer=MagicMock())
 
     class DummyAgent:
-        pos = (0, 0)
+        position = (0, 0)
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
@@ -307,13 +307,13 @@ def test_backend_get_agent_pos():
     mb = MatplotlibBackend(space_drawer=MagicMock())
 
     class AgentWithPos:
-        pos = (1, 2)
+        position = (1, 2)
 
     x, y = mb._get_agent_pos(AgentWithPos(), None)
     assert (x, y) == (1, 2)
 
     class AgentWithCell:
-        pos = None
+        position = (3, 4)
         cell = types.SimpleNamespace(coordinate=(3, 4))
 
     x, y = mb._get_agent_pos(AgentWithCell(), None)
