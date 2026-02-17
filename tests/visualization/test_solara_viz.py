@@ -1,5 +1,6 @@
 """Test Solara visualizations - Modern API."""
 
+import random
 import re
 import unittest
 
@@ -120,7 +121,7 @@ def test_solara_viz_backends(mocker, backend):
             # Include property layer to verify it gets drawn
             layer = PropertyLayer("sugar", (10, 10), default_value=10.0, dtype=float)
 
-            self.grid = OrthogonalMooreGrid((10, 10), torus=True)
+            self.grid = OrthogonalMooreGrid((10, 10), torus=True, random=random.Random(42))
             self.grid.add_property_layer(layer)
 
             agent = CellAgent(self)
