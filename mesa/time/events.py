@@ -308,18 +308,13 @@ class EventGenerator:
         self._schedule_next(start_time)
         return self
 
-    def stop(self) -> EventGenerator:
-        """Stop the event generator immediately.
-
-        Returns:
-            Self for method chaining
-        """
+    def stop(self):
+        """Stop the event generator immediately."""
         self._active = False
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
-        return self
 
 
 class EventList:
