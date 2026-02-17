@@ -183,10 +183,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         """
         if until <= self.time:
-            warnings.warn(
-                f"Attempted to advance time to {until}, but current time is {self.time}. Time did not change.",
-                UserWarning,
-                stacklevel=2,
+            warnings.warn(f"end_time {end_time} is larger than time {self.time}", RuntimeWarning, stacklevel=2)
             )
             return
         while True:
