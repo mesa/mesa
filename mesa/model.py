@@ -435,5 +435,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Args:
             end_time: Absolute time to run until
+
+        If model.time is larger than end_time, the method returns directly. 
+
         """
+        if self.time > end_time:
+            return
+
         self._advance_time(end_time)

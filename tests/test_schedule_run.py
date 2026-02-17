@@ -75,7 +75,8 @@ class TestRunUntil:
         model = SimpleModel()
         model.run_for(10)
         model.run_until(5.0)  # already past t=5
-        assert model.steps == 10  # no additional steps
+        assert model.steps == 10
+        assert model.time == 10
 
     def test_sequential(self):
         model = SimpleModel()
