@@ -7,11 +7,12 @@ Core Objects: Model
 from __future__ import annotations
 
 import random
+import warnings
 from collections.abc import Callable, Sequence
 
 # mypy
 from typing import TYPE_CHECKING, Any
-import warnings
+
 import numpy as np
 
 from mesa.experimental.data_collection.dataset import DataRegistry
@@ -181,12 +182,13 @@ class Model[A: Agent, S: Scenario](HasObservables):
             until: The time to advance to
 
         """
-        if until<=self.time:
+        if until <= self.time:
             warnings.warn(
-            f"Attempted to advance time to {until}, but current time is {self.time}. Time did not change.",
-            UserWarning,
-            stacklevel=2 )
-            return 
+                f"Attempted to advance time to {until}, but current time is {self.time}. Time did not change.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return
         while True:
             try:
                 event = self._event_list.pop_event()
