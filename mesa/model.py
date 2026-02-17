@@ -184,7 +184,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
         """
         if until <= self.time:
             warnings.warn(
-                f"end_time {end_time} is larger than time {self.time}",
+                f"end time {until} is larger than time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
