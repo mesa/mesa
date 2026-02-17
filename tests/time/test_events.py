@@ -450,8 +450,10 @@ class TestEventGenerator:
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""
         model, fn = setup
+        partial_func = partial(fn, "a", k="v")
+
         gen = EventGenerator(
-            model, partial(fn, "a", k="v"), Schedule(interval=1.0, start=0.0)
+            model, partial_func, Schedule(interval=1.0, start=0.0)
         )
         gen.start()
 
@@ -463,15 +465,21 @@ class TestEventGenerator:
         model, _ = setup
         order = []
 
+        def func_a():
+            order.append("L")
+
+        def func_b():
+            order.append("H")
+
         low = EventGenerator(
             model,
-            lambda: order.append("L"),
+            func_a,
             Schedule(interval=1.0, start=1.0),
             Priority.LOW,
         )
         high = EventGenerator(
             model,
-            lambda: order.append("H"),
+            func_b,
             Schedule(interval=1.0, start=1.0),
             Priority.HIGH,
         )

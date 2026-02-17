@@ -57,9 +57,10 @@ class Event:
 
 
     Notes:
-        simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
+        Simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
         A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently.
+        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        prior to creating the event.
 
     """
 
@@ -192,6 +193,13 @@ class EventGenerator:
         function: The callable to execute for each generated event
         schedule: The Schedule defining when events occur
         priority: Priority level for generated events
+
+    Notes:
+        Event generators use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
+        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
+        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        prior to creating the generator.
+
     """
 
     def __init__(
