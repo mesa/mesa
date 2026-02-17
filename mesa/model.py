@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import random
 import warnings
-
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -440,7 +439,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         """
         if self.time > end_time:
-            warnings.warn(f"end_time {end_time} is larger than time {self.time}", RuntimeWarning, stacklevel=2)
+            warnings.warn(
+                f"end_time {end_time} is larger than time {self.time}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             return
 
         self._advance_time(end_time)

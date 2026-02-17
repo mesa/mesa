@@ -1,11 +1,10 @@
 """Tests for experimental Simulator classes."""
 
+from collections.abc import Callable
 from functools import partial
 from unittest.mock import MagicMock
 
 import pytest
-
-from typing import Callable
 
 from mesa import Model
 from mesa.time import (
@@ -18,6 +17,7 @@ from mesa.time import (
 
 # Ignore deprecation warnings for Simulator classes in this test file
 pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
+
 
 def test_simulation_event():
     """Tests for Event class."""
@@ -153,7 +153,7 @@ def test_schedule():
     assert schedule.count == 5
     assert schedule.interval == 2
 
-    schedule = Schedule(start=5, interval=lambda m: m.time+1, count=5)
+    schedule = Schedule(start=5, interval=lambda m: m.time + 1, count=5)
     assert schedule.start == 5
     assert schedule.end is None
     assert schedule.count == 5
@@ -233,7 +233,7 @@ def test_eventlist():
     event_list.remove(event)
     assert len(event_list) == 0
     assert event.CANCELED
-    assert not event in event_list
+    assert event not in event_list
 
     # peak ahead
     event_list = EventList()
@@ -315,12 +315,12 @@ def test_eventlist():
     assert len(event_list) == 0
 
 
-
 @pytest.fixture
 def setup():
     """Create a model with simulator and mock function."""
     model = Model()
     return model, MagicMock()
+
 
 class TestEventGenerator:
     """Tests for EventGenerator."""
@@ -448,15 +448,12 @@ class TestEventGenerator:
 
             model.run_for(3)
 
-
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""
         model, fn = setup
         partial_func = partial(fn, "a", k="v")
 
-        gen = EventGenerator(
-            model, partial_func, Schedule(interval=1.0, start=0.0)
-        )
+        gen = EventGenerator(model, partial_func, Schedule(interval=1.0, start=0.0))
         gen.start()
 
         model.run_for(0.5)

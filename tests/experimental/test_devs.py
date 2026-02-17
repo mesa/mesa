@@ -1,6 +1,5 @@
 """Tests for experimental Simulator classes."""
 
-from functools import partial
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -156,6 +155,7 @@ def test_simulator_time_deprecation():
 
     with pytest.warns(FutureWarning, match="simulator.time is deprecated"):
         _ = simulator.time
+
 
 def test_simulator_uses_model_event_list():
     """Test that simulator uses model's internal event list."""
