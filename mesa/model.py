@@ -7,8 +7,6 @@ Core Objects: Model
 from __future__ import annotations
 
 import random
-import sys
-import warnings
 from collections.abc import Callable, Sequence
 
 # mypy
@@ -94,7 +92,6 @@ class Model[A: Agent, S: Scenario](HasObservables):
     def __init__(
         self,
         *args: Any,
-        seed: float | None = None,
         rng: RNGLike | SeedLike | None = None,
         scenario: S | None = None,
         **kwargs: Any,
@@ -106,10 +103,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Args:
             args: arguments to pass onto super
-            seed: the seed for the random number generator
             rng: Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
                   using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
-                  `numpy.random.default_rng` to instantiate a `Generator`.
+                  `numpy.random.default_rng` to instantiate a `Generator`. `rng` is also used to try to seed a
+                  `random.Random` instance, if this fails, a random integer will be generated using the seeded
+                  numpy random number generator with which to seed `random.Random`.
             scenario: the scenario specifying the computational experiment to run
             kwargs: keyword arguments to pass onto super
 
@@ -122,6 +120,10 @@ class Model[A: Agent, S: Scenario](HasObservables):
         self.steps: int = 0
         self.time: float = 0.0
         self.agent_id_counter: int = 1
+        self.rng = None
+        self._rng = None
+        self.random = None
+        self._seed = None
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -139,44 +141,12 @@ class Model[A: Agent, S: Scenario](HasObservables):
             else:
                 rng = scenario.rng
 
-        if (seed is not None) and (rng is not None):
-            raise ValueError("you have to pass either rng or seed, not both")
-        elif seed is None:
-            self.rng: np.random.Generator = np.random.default_rng(rng)
-            self._rng = (
-                self.rng.bit_generator.state
-            )  # this allows for reproducing the rng
-
-            # If rng is an integer, use it directly.
-            # Otherwise (None, Generator, etc.), generate a new integer seed.
-            if isinstance(rng, (int, np.integer)):
-                seed = rng
-                self.random = random.Random(seed)
-            else:
-                seed = int(self.rng.integers(np.iinfo(np.int32).max))
-                self.random = random.Random(seed)
-            self._seed = seed  # this allows for reproducing stdlib.random
-        elif rng is None:
-            warnings.warn(
-                "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
-                FutureWarning,
-                stacklevel=2,
-            )
-
-            self.random = random.Random(seed)
-            self._seed = seed  # this allows for reproducing stdlib.random
-
-            try:
-                self.rng: np.random.Generator = np.random.default_rng(seed)
-            except TypeError:
-                rng = self.random.randint(0, sys.maxsize)
-                self.rng: np.random.Generator = np.random.default_rng(rng)
-            self._rng = self.rng.bit_generator.state
+        self.reset_rng(rng)
 
         # now that we have figured out the seed value for rng
         # we can set create a scenario with this if needed
         if scenario is None:
-            scenario = Scenario(rng=seed)  # type: ignore[assignment]
+            scenario = Scenario(rng=rng)  # type: ignore[assignment]
         self.scenario = scenario
 
         # Store user's step method and create the default step schedule.
@@ -353,38 +323,38 @@ class Model[A: Agent, S: Scenario](HasObservables):
     def step(self) -> None:
         """A single step. Fill in here."""
 
-    def reset_randomizer(self, seed: int | None = None) -> None:
-        """Reset the model random number generator.
-
-        Args:
-            seed: A new seed for the RNG; if None, reset using the current seed
-        """
-        warnings.warn(
-            "The use of the `seed` keyword argument is deprecated, use `rng` instead. No functional changes.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        if seed is None:
-            seed = self._seed
-        self.random.seed(seed)
-        self._seed = seed
-
     def reset_rng(self, rng: RNGLike | SeedLike | None = None) -> None:
         """Reset the model random number generator.
 
         Args:
             rng: A new seed for the RNG; if None, reset using the current seed
         """
+        failed = True
         if rng is None:
             # Restore from saved initial state
-            bg_class = getattr(np.random, self._rng["bit_generator"])
-            bg = bg_class()
-            bg.state = self._rng
-            self.rng = np.random.Generator(bg)
+            try:
+                bg_class = getattr(np.random, self._rng["bit_generator"])
+            except TypeError:
+                rng = None
+            else:
+                failed = False
+                bg = bg_class()
+                bg.state = self._rng
+                self.rng = np.random.Generator(bg)
+
+        if failed:
+            self.rng: np.random.Generator = np.random.default_rng(rng)
+
+        self._rng = self.rng.bit_generator.state  # this allows for reproducing the rng
+
+        try:
+            self.random = random.Random(rng)
+        except TypeError:
+            seed = int(self.rng.integers(np.iinfo(np.int32).max))
+            self.random = random.Random(seed)
         else:
-            self.rng = np.random.default_rng(rng)
-            self._rng = self.rng.bit_generator.state
+            seed = rng
+        self._seed = seed  # this allows for reproducing stdlib.random
 
     def remove_all_agents(self):
         """Remove all agents from the model.
