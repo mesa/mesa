@@ -39,15 +39,6 @@
     :show-inheritance:
 ```
 
-## mesa.space module
-
-```{eval-rst}
-.. automodule:: mesa.space
-    :members:
-    :undoc-members:
-    :show-inheritance:
-```
-
 ## Module contents
 
 ```{eval-rst}

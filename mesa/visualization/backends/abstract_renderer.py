@@ -8,20 +8,14 @@ from abc import ABC, abstractmethod
 
 import mesa
 from mesa.discrete_space import (
+    DiscreteSpace,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
 )
-from mesa.space import (
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 class AbstractRenderer(ABC):
@@ -43,14 +37,10 @@ class AbstractRenderer(ABC):
 
     def _get_agent_pos(self, agent, space):
         """Get agent position based on space type."""
-        if isinstance(space, NetworkGrid):
-            return agent.pos, agent.pos
-        elif isinstance(space, Network):
-            return agent.cell.coordinate, agent.cell.coordinate
+        if isinstance(space, DiscreteSpace):
+            return agent.cell.position
         else:
-            x = agent.pos[0] if agent.pos is not None else agent.cell.coordinate[0]
-            y = agent.pos[1] if agent.pos is not None else agent.cell.coordinate[1]
-            return x, y
+            return agent.position
 
     @abstractmethod
     def initialize_canvas(self):

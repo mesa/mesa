@@ -119,7 +119,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
         self._cells = {
-            coord: self.cell_klass(coord, capacity, random=self.random)
+            coord: self.cell_klass(coord, capacity=capacity, random=self.random)
             for coord in coordinates
         }
         self._celllist = list(self._cells.values())
