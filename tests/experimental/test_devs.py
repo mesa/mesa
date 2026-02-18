@@ -192,10 +192,22 @@ def test_simulation_event():
         def __call__(self):
             return None
 
-    with pytest.raises(
-        ValueError, match="function must be weak referenceable at Event creation"
-    ):
+    with pytest.raises(TypeError, match="function must be weak referenceable"):
         Event(time, NonWeakRefCallable(), priority=Priority.DEFAULT)
+
+    try:
+        Event(time, lambda: None, priority=Priority.DEFAULT)
+    except ValueError as exc:
+        assert "function must be alive at Event creation." in str(exc)
+    else:
+        pytest.fail("Expected ValueError for inline lambda callback")
+
+    try:
+        Event(time, partial(some_test_function, "x"), priority=Priority.DEFAULT)
+    except ValueError as exc:
+        assert "function must be alive at Event creation." in str(exc)
+    else:
+        pytest.fail("Expected ValueError for inline functools.partial callback")
 
     lambda_called = []
 

@@ -21,11 +21,13 @@ combining agent-based modeling with event scheduling.
 from __future__ import annotations
 
 import itertools
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import partial
 from heapq import heapify, heappop, heappush, nsmallest
-from types import MethodType
+from types import FunctionType, MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
@@ -40,10 +42,24 @@ def _create_callable_reference(function: Callable):
     else:
         try:
             function_ref = ref(function)
-        except TypeError:
-            return None
+        except TypeError as exc:
+            raise TypeError("function must be weak referenceable") from exc
 
     return function_ref
+
+
+def _is_creation_time_ephemeral_callback(function: Callable) -> bool:
+    """Detect callbacks that have no durable external owner at init time."""
+    is_lambda = isinstance(function, FunctionType) and function.__name__ == "<lambda>"
+    is_partial = isinstance(function, partial)
+    if is_lambda:
+        return True
+    if not is_partial:
+        return False
+
+    # In Event.__init__ call context, ephemeral inline callables typically have
+    # one fewer reference than variable-held equivalents.
+    return sys.getrefcount(function) <= 6
 
 
 class Priority(IntEnum):
@@ -70,10 +86,12 @@ class Event:
 
 
     Notes:
-        Simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
-        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
-        prior to creating the event.
+        Simulation events use a weak reference to the callable.
+        If the callback no longer exists at execution time (e.g., because an agent
+        has been removed), execution will fail silently.
+        If the callback already resolves to None during Event creation
+        (for example, when passing an inline lambda or inline functools.partial),
+        Event initialization raises ValueError.
 
     """
 
@@ -109,8 +127,8 @@ class Event:
         self._canceled = False
 
         weak_ref_fn = _create_callable_reference(function)
-        if weak_ref_fn is None:
-            raise ValueError("function must be weak referenceable at Event creation.")
+        if weak_ref_fn() is None or _is_creation_time_ephemeral_callback(function):
+            raise ValueError("function must be alive at Event creation.")
         self.fn = weak_ref_fn
 
         self.unique_id = next(self._ids)
