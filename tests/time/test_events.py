@@ -441,6 +441,8 @@ class TestEventGenerator:
         assert fn.call_count == 4  # t=0, 1, 3, 4
 
     def test_callable_interval_raises(self, setup):
+        """Test if callable interval raises exception if return is negative."""
+
         with pytest.raises(ValueError):
             model, fn = setup
             gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: -0.5))
