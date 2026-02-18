@@ -16,8 +16,3 @@ def test_import():
 
     _ = DataCollector
     _ = mesa.DataCollector
-
-    from mesa.batchrunner import batch_run  # noqa: PLC0415
-
-    _ = batch_run
-    _ = mesa.batch_run

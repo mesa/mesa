@@ -70,8 +70,10 @@ class Event:
 
 
     Notes:
-        Event callables are weak-referenced. If the callback object is garbage
-        collected before execution, the event fails silently.
+        Simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
+        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
+        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        prior to creating the event.
 
     """
 
@@ -100,7 +102,7 @@ class Event:
         """
         super().__init__()
         if not callable(function):
-            raise Exception()
+            raise TypeError("function must be a callable")
 
         self.time = time
         self.priority = priority.value
@@ -200,6 +202,13 @@ class EventGenerator:
         function: The callable to execute for each generated event
         schedule: The Schedule defining when events occur
         priority: Priority level for generated events
+
+    Notes:
+        Event generators use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
+        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
+        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        prior to creating the generator.
+
     """
 
     def __init__(
@@ -240,7 +249,10 @@ class EventGenerator:
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
         if callable(self.schedule.interval):
-            return self.schedule.interval(self.model)
+            interval = self.schedule.interval(self.model)
+            if interval < 0:
+                raise ValueError(f"Interval must be > 0, got {interval}")
+            return interval
         return self.schedule.interval
 
     def _should_stop(self, next_time: float) -> bool:
@@ -296,18 +308,13 @@ class EventGenerator:
         self._schedule_next(start_time)
         return self
 
-    def stop(self) -> EventGenerator:
-        """Stop the event generator immediately.
-
-        Returns:
-            Self for method chaining
-        """
+    def stop(self):
+        """Stop the event generator immediately."""
         self._active = False
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
-        return self
 
 
 class EventList:
@@ -372,10 +379,12 @@ class EventList:
         return len(self) == 0
 
     def __contains__(self, event: Event) -> bool:  # noqa
+        if event.CANCELED:
+            return False
         return event in self._events
 
     def __len__(self) -> int:  # noqa
-        return len(self._events)
+        return len([e for e in self._events if not e.CANCELED])
 
     def __repr__(self) -> str:
         """Return a string representation of the event list."""

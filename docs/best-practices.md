@@ -14,7 +14,6 @@ underscores, such as `wolf_sheep`. Within that directory:
 
 You can add more files as needed, for example:
 - `run.py` could contain the code to run the model.
-- `batch_run.py` could contain the code to run the model multiple times.
 - `analysis.py` could contain any analysis code.
 
 Input data can be stored in a `data` directory, output data in an `output`, processed results in a `results` directory, images in an `images` directory, etc.
