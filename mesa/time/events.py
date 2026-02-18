@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import itertools
 import sys
+import types
+from functools import partial
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from functools import partial
 from heapq import heapify, heappop, heappush, nsmallest
-from types import FunctionType, MethodType
+from types import MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
@@ -48,18 +49,14 @@ def _create_callable_reference(function: Callable):
     return function_ref
 
 
-def _is_creation_time_ephemeral_callback(function: Callable) -> bool:
-    """Detect callbacks that have no durable external owner at init time."""
-    is_lambda = isinstance(function, FunctionType) and function.__name__ == "<lambda>"
-    is_partial = isinstance(function, partial)
-    if is_lambda:
-        return True
-    if not is_partial:
-        return False
+def _is_lambda_callback(function: Callable) -> bool:
+    """Return True when callback is a Python lambda function."""
+    return isinstance(function, types.FunctionType) and function.__name__ == "<lambda>"
 
-    # In Event.__init__ call context, ephemeral inline callables typically have
-    # one fewer reference than variable-held equivalents.
-    return sys.getrefcount(function) <= 6
+
+def _is_inline_partial_callback(function: Callable) -> bool:
+    """Return True for partial callbacks that only exist as call-site temporaries."""
+    return isinstance(function, partial) and sys.getrefcount(function) <= 6
 
 
 class Priority(IntEnum):
@@ -127,7 +124,17 @@ class Event:
         self._canceled = False
 
         weak_ref_fn = _create_callable_reference(function)
-        if weak_ref_fn() is None or _is_creation_time_ephemeral_callback(function):
+        if (
+            weak_ref_fn() is None
+            or _is_lambda_callback(function)
+            or _is_inline_partial_callback(function)
+        ):
+            raise ValueError("function must be alive at Event creation.")
+
+        # Drop Event.__init__'s local strong reference and verify the callback
+        # still has an external owner at creation time.
+        function = None
+        if weak_ref_fn() is None:
             raise ValueError("function must be alive at Event creation.")
         self.fn = weak_ref_fn
 
