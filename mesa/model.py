@@ -400,7 +400,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
             raise ValueError("Specify exactly one of 'at' or 'after'")
 
         time = at if at is not None else self.time + after
-        #Enforce monotonic time progression
+        # Enforce monotonic time progression
         if time < self.time:
             raise ValueError(
                 f"Cannot schedule event in the past. "
@@ -425,7 +425,7 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Returns:
             The EventGenerator (can be used to stop)
-            
+
         Raises:
             ValueError: If the schedule start time is in the past.
         """
