@@ -143,3 +143,12 @@ def test_agent_remove():
 
     model.remove_all_agents()
     assert len(model.agents) == 0
+
+def test_schedule_event_rejects_past_time():
+    """Model.schedule_event should not allow scheduling in the past."""
+    model = Model()
+    model.run_until(10)
+
+    # Scheduling in the past should fail
+    with pytest.raises(ValueError):
+        model.schedule_event(lambda: None, at=5)

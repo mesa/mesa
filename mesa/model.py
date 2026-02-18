@@ -399,6 +399,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
             raise ValueError("Specify exactly one of 'at' or 'after'")
 
         time = at if at is not None else self.time + after
+        #Enforce monotonic time progression
+        if time < self.time:
+            raise ValueError(
+                f"Cannot schedule event at time {time}, current time is {self.time}"
+            )
         event = Event(time, function, priority=priority)
         self._event_list.add_event(event)
         return event
