@@ -14,18 +14,11 @@ from mesa.discrete_space import (
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
 )
-from mesa.space import (
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
 from mesa.visualization.backends.abstract_renderer import AbstractRenderer
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 class AltairBackend(AbstractRenderer):

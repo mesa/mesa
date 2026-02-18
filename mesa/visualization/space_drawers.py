@@ -21,18 +21,11 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
+from mesa.experimental.continuous_space import ContinuousSpace
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 class BaseSpaceDrawer:

@@ -16,7 +16,6 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from mesa.model import Model
-    from mesa.space import Position
 
 from mesa.agentset import AgentSet
 
@@ -27,7 +26,6 @@ class Agent[M: Model]:
     Attributes:
         model (Model): A reference to the model instance.
         unique_id (int): A unique identifier for this agent.
-        pos (Position): A reference to the position where this agent is located.
 
     Notes:
         Agents must be hashable to be used in an AgentSet.
@@ -64,7 +62,6 @@ class Agent[M: Model]:
 
         self.model: M = model
         self.unique_id = None
-        self.pos: Position | None = None
         self.model.register_agent(self)
 
         for dataset in self._datasets:

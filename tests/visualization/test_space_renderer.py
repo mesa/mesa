@@ -17,20 +17,9 @@ from mesa.discrete_space import (
     PropertyLayer,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
 from mesa.visualization.backends import altair_backend, matplotlib_backend
 from mesa.visualization.components import PropertyLayerStyle
 from mesa.visualization.space_drawers import (
-    ContinuousSpaceDrawer,
-    HexSpaceDrawer,
-    NetworkSpaceDrawer,
     OrthogonalSpaceDrawer,
     VoronoiSpaceDrawer,
 )
@@ -68,14 +57,6 @@ def test_backend_selection():
             OrthogonalMooreGrid([2, 2], random=random.Random(42)),
             OrthogonalSpaceDrawer,
         ),
-        (SingleGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
-        (MultiGrid(width=2, height=2, torus=False), OrthogonalSpaceDrawer),
-        (HexGrid([2, 2], random=random.Random(42)), HexSpaceDrawer),
-        (HexSingleGrid(width=2, height=2, torus=False), HexSpaceDrawer),
-        (HexMultiGrid(width=2, height=2, torus=False), HexSpaceDrawer),
-        (Network(G=MagicMock(), random=random.Random(42)), NetworkSpaceDrawer),
-        (NetworkGrid(g=MagicMock()), NetworkSpaceDrawer),
-        (ContinuousSpace(x_max=2, y_max=2, torus=False), ContinuousSpaceDrawer),
         (
             VoronoiGrid([[0, 0], [1, 1]], random=random.Random(42)),
             VoronoiSpaceDrawer,

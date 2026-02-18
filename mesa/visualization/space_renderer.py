@@ -23,15 +23,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-    _HexGrid,
-)
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
@@ -41,9 +33,9 @@ from mesa.visualization.space_drawers import (
     VoronoiSpaceDrawer,
 )
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 class SpaceRenderer:
@@ -107,13 +99,13 @@ class SpaceRenderer:
         Raises:
             ValueError: If the space type is not supported.
         """
-        if isinstance(self.space, HexGrid | _HexGrid):
+        if isinstance(self.space, HexGrid):
             return HexSpaceDrawer(self.space)
         elif isinstance(self.space, OrthogonalGrid):
             return OrthogonalSpaceDrawer(self.space)
         elif isinstance(
             self.space,
-            ContinuousSpace | mesa.experimental.continuous_space.ContinuousSpace,
+            mesa.experimental.continuous_space.ContinuousSpace,
         ):
             return ContinuousSpaceDrawer(self.space)
         elif isinstance(self.space, VoronoiGrid):

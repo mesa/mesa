@@ -28,25 +28,19 @@ from PIL import Image
 
 import mesa
 from mesa.discrete_space import (
+    DiscreteSpace,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
+from mesa.experimental.continuous_space import ContinuousSpace
 
 CORRECTION_FACTOR_MARKER_ZOOM = 0.6
 DEFAULT_MARKER_SIZE = 50
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 def collect_agent_data(
@@ -67,21 +61,12 @@ def collect_agent_data(
 
     def get_agent_pos(agent, space):
         """Helper function to get the agent position depending on the grid type."""
-        if isinstance(space, NetworkGrid):
-            agent_x, agent_y = agent.pos, agent.pos
-        elif isinstance(space, Network):
-            agent_x, agent_y = agent.cell.coordinate, agent.cell.coordinate
-        elif isinstance(space, VoronoiGrid):
-            agent_x, agent_y = (
-                agent.pos if agent.pos is not None else agent.cell.position
-            )
+        if isinstance(space, Network):
+            agent_x, agent_y = agent.cell.coordinate, 0
+        elif isinstance(space, DiscreteSpace):
+            agent_x, agent_y = agent.cell.position
         else:
-            agent_x = (
-                agent.pos[0] if agent.pos is not None else agent.cell.coordinate[0]
-            )
-            agent_y = (
-                agent.pos[1] if agent.pos is not None else agent.cell.coordinate[1]
-            )
+            agent_x, agent_y = agent.position
         return agent_x, agent_y
 
     arguments = {
@@ -220,21 +205,13 @@ def draw_space(
     # https://stackoverflow.com/questions/67524641/convert-multiple-isinstance-checks-to-structural-pattern-matching
     match space:
         # order matters here given the class structure of old-style grid spaces
-        case HexSingleGrid() | HexMultiGrid() | mesa.discrete_space.HexGrid():
+        case mesa.discrete_space.HexGrid():
             draw_hex_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case (
-            mesa.space.SingleGrid()
-            | OrthogonalMooreGrid()
-            | OrthogonalVonNeumannGrid()
-            | mesa.space.MultiGrid()
-        ):
+        case OrthogonalMooreGrid() | OrthogonalVonNeumannGrid():
             draw_orthogonal_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case mesa.space.NetworkGrid() | mesa.discrete_space.Network():
+        case mesa.discrete_space.Network():
             draw_network(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case (
-            mesa.space.ContinuousSpace()
-            | mesa.experimental.continuous_space.ContinuousSpace()
-        ):
+        case ContinuousSpace():
             draw_continuous_space(space, agent_portrayal, ax=ax)
         case VoronoiGrid():
             draw_voronoi_grid(space, agent_portrayal, ax=ax)
@@ -287,7 +264,7 @@ def draw_property_layers(
     """Draw PropertyLayers on the given axes.
 
     Args:
-        space (mesa.space._Grid): The space containing the PropertyLayers.
+        space: The space containing the PropertyLayers.
         propertylayer_portrayal (Callable): A function that accepts a property layer object
             and returns either a `PropertyLayerStyle` object defining its visualization,
             or `None` to skip drawing this particular layer.

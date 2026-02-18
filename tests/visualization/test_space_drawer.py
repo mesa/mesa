@@ -9,7 +9,7 @@ import pytest
 from matplotlib.collections import LineCollection
 
 from mesa.discrete_space import HexGrid, Network, OrthogonalMooreGrid, VoronoiGrid
-from mesa.space import ContinuousSpace
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
     HexSpaceDrawer,
@@ -31,7 +31,7 @@ def hex_grid():  # noqa: D103
 
 @pytest.fixture
 def continuous_space():  # noqa: D103
-    return ContinuousSpace(x_max=10, y_max=10, torus=False)
+    return ContinuousSpace(((0, 10), (0, 10)), torus=False, random=random.Random(42))
 
 
 @pytest.fixture
@@ -213,7 +213,9 @@ class TestContinuousSpaceDrawer:
 
     def test_continuous_space_with_custom_bounds(self):  # noqa: D102
         # Test with custom x_min, y_min
-        space = ContinuousSpace(x_max=20, y_max=15, torus=False, x_min=5, y_min=3)
+        space = ContinuousSpace(
+            ((5, 20), (3, 15)), torus=False, random=random.Random(42)
+        )
         drawer = ContinuousSpaceDrawer(space)
 
         expected_xmin = space.x_min - space.width / 20
@@ -295,7 +297,7 @@ class TestEdgeCases:  # noqa: D101
         assert drawer.viz_xmax is not None
 
     def test_continuous_space_zero_size(self):  # noqa: D102
-        space = ContinuousSpace(x_max=0, y_max=0, torus=False)
+        space = ContinuousSpace(((0, 0), (0, 0)), torus=False, random=random.Random(42))
         drawer = ContinuousSpaceDrawer(space)
         assert drawer.s_default == 1  # Default when width/height is 0
 
