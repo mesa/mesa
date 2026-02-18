@@ -196,9 +196,10 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         self.x_spacing = np.sqrt(3) * size
         self.y_spacing = 1.5 * size
 
-        positions = np.array([cell.position for cell in self.space.all_cells])
-        x_min, y_min = positions.min(axis=0)
-        x_max, y_max = positions.max(axis=0)
+        x_max = self.space.width * self.x_spacing + (self.space.height % 2) * (
+            self.x_spacing / 2
+        )
+        y_max = self.space.height * self.y_spacing
 
         x_padding = size * np.sqrt(3) / 2
         y_padding = size
@@ -206,10 +207,10 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         self.hexagons = self._get_hexmesh(size)
 
         # Parameters for visualization limits
-        self.viz_xmin = x_min - x_padding
-        self.viz_xmax = x_max + x_padding
-        self.viz_ymin = y_min - y_padding
-        self.viz_ymax = y_max + y_padding
+        self.viz_xmin = -1.8 * x_padding
+        self.viz_xmax = x_max
+        self.viz_ymin = -1.8 * y_padding
+        self.viz_ymax = y_max
 
     def _get_hexmesh(self, size: float = 1.0) -> list[list[tuple[float, float]]]:
         """Generate hexagon vertices for the mesh. Yields list of list of vertex coordinates for each hexagon."""
