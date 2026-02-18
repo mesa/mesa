@@ -21,9 +21,7 @@ combining agent-based modeling with event scheduling.
 from __future__ import annotations
 
 import itertools
-import sys
 import types
-from functools import partial
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
@@ -54,11 +52,6 @@ def _is_lambda_callback(function: Callable) -> bool:
     return isinstance(function, types.FunctionType) and function.__name__ == "<lambda>"
 
 
-def _is_inline_partial_callback(function: Callable) -> bool:
-    """Return True for partial callbacks that only exist as call-site temporaries."""
-    return isinstance(function, partial) and sys.getrefcount(function) <= 6
-
-
 class Priority(IntEnum):
     """Enumeration of priority levels."""
 
@@ -87,7 +80,7 @@ class Event:
         If the callback no longer exists at execution time (e.g., because an agent
         has been removed), execution will fail silently.
         If the callback already resolves to None during Event creation
-        (for example, when passing an inline lambda or inline functools.partial),
+        (for example, when passing an inline lambda),
         Event initialization raises ValueError.
 
     """
@@ -124,11 +117,7 @@ class Event:
         self._canceled = False
 
         weak_ref_fn = _create_callable_reference(function)
-        if (
-            weak_ref_fn() is None
-            or _is_lambda_callback(function)
-            or _is_inline_partial_callback(function)
-        ):
+        if weak_ref_fn() is None or _is_lambda_callback(function):
             raise ValueError("function must be alive at Event creation.")
 
         # Drop Event.__init__'s local strong reference and verify the callback

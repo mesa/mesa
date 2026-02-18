@@ -202,12 +202,7 @@ def test_simulation_event():
     else:
         pytest.fail("Expected ValueError for inline lambda callback")
 
-    try:
-        Event(time, partial(some_test_function, "x"), priority=Priority.DEFAULT)
-    except ValueError as exc:
-        assert "function must be alive at Event creation." in str(exc)
-    else:
-        pytest.fail("Expected ValueError for inline functools.partial callback")
+    Event(time, partial(some_test_function, "x"), priority=Priority.DEFAULT)
 
     lambda_called = []
 
