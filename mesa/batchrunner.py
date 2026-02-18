@@ -203,7 +203,7 @@ def _model_run_func(
     run_id, iteration, kwargs = run
 
     model = model_cls(**kwargs)
-    while model.running and model.steps < max_steps:
+    while model.running and model.time < max_steps:
         model.step()
 
     data = []
@@ -213,9 +213,9 @@ def _model_run_func(
         recorded_steps = model.datacollector._collection_steps
     except AttributeError:
         # Fallback for legacy models without _collection_steps
-        steps = list(range(0, model.steps, data_collection_period))
-        if not steps or steps[-1] != model.steps - 1:
-            steps.append(model.steps - 1)
+        steps = list(range(0, round(model.time), data_collection_period))
+        if not steps or steps[-1] != round(model.time) - 1:
+            steps.append(model.time - 1)
     else:
         match data_collection_period:
             case -1:

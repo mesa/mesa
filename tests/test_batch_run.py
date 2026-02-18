@@ -367,10 +367,9 @@ def test_batch_run_legacy():
 
     class LegacyModel(Model):
         def __init__(self, *args, **kwargs):
-            self.schedule = None
             super().__init__()
             self.datacollector = DataCollector(
-                model_reporters={"Step": lambda m: m.steps},
+                model_reporters={"Step": lambda m: m.time},
                 agent_reporters={"Dummy": lambda a: 1},
             )
             # FORCE LEGACY: Delete _collection_steps attribute manually
@@ -504,12 +503,12 @@ class SparseCollectionModel(Model):
 
     def step(self):
         """Execute one model step, collecting data at specified intervals."""
-        if self.steps % self.collect_interval == 0:
+        if self.time % self.collect_interval == 0:
             self.datacollector.collect(self)
 
         self.agent.step()
 
-        if self.steps >= 20:
+        if self.time >= 20:
             self.running = False
 
 
