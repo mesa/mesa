@@ -195,7 +195,9 @@ def test_simulation_event():
         def __call__(self):
             return None
 
-    with pytest.raises(TypeError, match="Event callback must support weak references"):
+    with pytest.raises(
+        ValueError, match="function must be weak referenceable at Event creation"
+    ):
         Event(time, NonWeakRefCallable(), priority=Priority.DEFAULT)
 
     lambda_called = []
