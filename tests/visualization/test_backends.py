@@ -9,7 +9,6 @@ import numpy as np
 import pytest
 
 from mesa.discrete_space.grid import OrthogonalMooreGrid
-from mesa.discrete_space.property_layer import PropertyLayer
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
@@ -131,44 +130,35 @@ def test_matplotlib_backend_draw_propertylayer():
 
     # set up space and layer
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    layer = PropertyLayer("test", [2, 2], default_value=0.0)
-    space.add_property_layer(layer)
-
-    # Test with color
-    def propertylayer_portrayal_color(layer):
-        return PropertyLayerStyle(
-            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
-        )
+    space.create_property("test", default_value=0.0)
 
     result = mb.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_color
+        space,
+        space._properties,
+        lambda l: PropertyLayerStyle(
+            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+        ),
     )
     assert result[0] == mb.ax
     assert result[1] is None
 
-    # Test with colormap
-    def propertylayer_portrayal_colormap(layer):
-        return PropertyLayerStyle(
-            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
-        )
-
     result = mb.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_colormap
+        space,
+        space._properties,
+        lambda l: PropertyLayerStyle(
+            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+        ),
     )
     assert result[0] == mb.ax
     assert result[1] is not None
 
-    # Test with no color or colormap
-    def propertylayer_portrayal_no_color_colormap(layer):
-        return PropertyLayerStyle(
-            color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
-        )
-
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
         mb.draw_propertylayer(
             space,
-            space._mesa_property_layers,
-            propertylayer_portrayal_no_color_colormap,
+            space._properties,
+            lambda l: PropertyLayerStyle(
+                color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
+            ),
         )
 
 
@@ -259,46 +249,42 @@ def test_altair_backend_draw_agents():
     assert ab.draw_agents(arguments) is not None
 
 
-def test_altair_backend_draw_propertylayer():
-    """Test drawing propertylayer."""
+def test_altair_backend_draw_property():
+    """Test drawing property."""
     ab = AltairBackend(space_drawer=MagicMock())
 
-    # set up space and layer
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    layer = PropertyLayer("test", [2, 2], default_value=0.0)
-    space.add_property_layer(layer)
+    space.create_property("test", default_value=0.0)
 
-    # Test with color
-    def propertylayer_portrayal_color(layer):
-        return PropertyLayerStyle(
-            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+    assert (
+        ab.draw_propertylayer(
+            space,
+            space._properties,
+            lambda l: PropertyLayerStyle(
+                color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+            ),
         )
-
-    result = ab.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_color
+        is not None
     )
-    assert result is not None
 
-    # Test with colormap
-    def propertylayer_portrayal_colormap(layer):
-        return PropertyLayerStyle(
-            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+    assert (
+        ab.draw_propertylayer(
+            space,
+            space._properties,
+            lambda l: PropertyLayerStyle(
+                colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+            ),
         )
-
-    result = ab.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_colormap
+        is not None
     )
-    assert result is not None
-
-    # Test with no color or colormap
-    def propertylayer_portrayal(layer):
-        return PropertyLayerStyle(
-            color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
-        )
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
         ab.draw_propertylayer(
-            space, space._mesa_property_layers, propertylayer_portrayal
+            space,
+            space._properties,
+            lambda l: PropertyLayerStyle(
+                color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
+            ),
         )
 
 

@@ -365,12 +365,12 @@ class AltairBackend(AbstractRenderer):
                 continue
 
             layer = property_layers.get(layer_name)
-            portrayal = propertylayer_portrayal(layer)
+            portrayal = propertylayer_portrayal(layer_name)
 
             if portrayal is None:
                 continue
 
-            data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+            data = layer.astype(float) if layer.dtype == bool else layer
 
             # Check dimensions
             if (space.width, space.height) != data.shape:

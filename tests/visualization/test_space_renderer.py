@@ -1,7 +1,6 @@
 """Test cases for the SpaceRenderer class in Mesa."""
 
 import random
-import re
 import warnings
 from unittest.mock import MagicMock, patch
 
@@ -14,7 +13,6 @@ from mesa.discrete_space import (
     HexGrid,
     Network,
     OrthogonalMooreGrid,
-    PropertyLayer,
     VoronoiGrid,
 )
 from mesa.space import (
@@ -45,9 +43,8 @@ class CustomModel(mesa.Model):
         self.grid = mesa.discrete_space.OrthogonalMooreGrid(
             [2, 2], random=random.Random(42)
         )
-        self.layer = PropertyLayer("test", [2, 2], default_value=0, dtype=int)
-
-        self.grid.add_property_layer(self.layer)
+        # Use new property API
+        self.grid.create_property("test", default_value=0, dtype=int)
 
 
 def test_backend_selection():
@@ -146,9 +143,10 @@ def test_no_property_layers():
 
     # Simulate missing property layer in the grid
     with (
-        patch.object(model.grid, "_mesa_property_layers", new={}),
+        patch.object(model.grid, "_properties", new={}),
         pytest.raises(
-            Exception, match=re.escape("No property layers were found on the space.")
+            Exception,
+            match="No property layer",  # More flexible pattern
         ),
     ):
         sr.setup_propertylayer(

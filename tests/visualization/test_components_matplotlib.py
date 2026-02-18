@@ -15,7 +15,6 @@ from mesa.space import (
     ContinuousSpace,
     HexSingleGrid,
     NetworkGrid,
-    PropertyLayer,
     SingleGrid,
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
@@ -233,12 +232,9 @@ def test_draw_network():
 
 
 def test_draw_property_layers():
-    """Test drawing property layers."""
     model = Model(rng=42)
     grid = SingleGrid(10, 10, torus=True)
-    grid.add_property_layer(
-        PropertyLayer("test", grid.width, grid.height, 0, dtype=int)
-    )
+    grid.add_property("test", 0, dtype=int)
 
     def propertylayer_portrayal(_):
         return PropertyLayerStyle(colormap="viridis", colorbar=True)
@@ -249,7 +245,7 @@ def test_draw_property_layers():
 
     model = Model(rng=42)
     grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
-    grid.create_property_layer("test", 0.0)
+    grid.create_property("test", 0.0)
 
     fig = Figure()
     ax = fig.add_subplot()

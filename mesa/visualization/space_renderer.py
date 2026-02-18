@@ -336,7 +336,7 @@ class SpaceRenderer:
             """
 
             def style_callable(layer_object):
-                layer_name = layer_object.name
+                layer_name = layer_object
                 params = portrayal_dict.get(layer_name)
 
                 warnings.warn(
@@ -364,13 +364,7 @@ class SpaceRenderer:
 
             return style_callable
 
-        # Get property layers
-        try:
-            # old style spaces
-            property_layers = self.space.properties
-        except AttributeError:
-            # new style spaces
-            property_layers = self.space._mesa_property_layers
+        property_layers = self.space._properties
 
         # Convert portrayal to callable if needed
         if isinstance(self.propertylayer_portrayal, dict):
