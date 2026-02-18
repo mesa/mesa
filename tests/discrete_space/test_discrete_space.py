@@ -24,6 +24,12 @@ from mesa.discrete_space import (
     PropertyLayer,
     VoronoiGrid,
 )
+from mesa.exceptions import (
+    AgentMissingException,
+    CellFullException,
+    ConnectionMissingException,
+    DimensionException,
+)
 
 
 def test_orthogonal_grid_neumann():
@@ -587,7 +593,8 @@ def test_cell():
     assert cell2 not in cell1.connections.values()
 
     # remove cell not in connections
-    cell1.disconnect(cell2)
+    with pytest.raises(ConnectionMissingException):
+        cell1.disconnect(cell2)
 
     # add_agent
     model = Model()
@@ -600,19 +607,19 @@ def test_cell():
     cell1.remove_agent(agent)
     assert agent not in cell1.agents
 
-    with pytest.raises(ValueError):
+    with pytest.raises(AgentMissingException):
         cell1.remove_agent(agent)
 
     cell1 = Cell((1,), capacity=1, random=random.Random())
     cell1.add_agent(CellAgent(model))
     assert cell1.is_full
 
-    with pytest.raises(Exception):
+    with pytest.raises(CellFullException):
         cell1.add_agent(CellAgent(model))
 
     # Test capacity=0 (no agents allowed)
     cell_zero = Cell((1,), capacity=0, random=random.Random())
-    with pytest.raises(Exception):
+    with pytest.raises(CellFullException):
         cell_zero.add_agent(CellAgent(model))
 
 
@@ -962,7 +969,7 @@ def test_property_layer():
     elevation.set_cells(np.ones((5, 5)))
     assert np.all(elevation.data == 1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(DimensionException):
         elevation.set_cells(np.ones((6, 6)))
 
     data = np.random.default_rng(42).random((5, 5))

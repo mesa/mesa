@@ -23,6 +23,7 @@ from typing import Any, TypeVar
 import numpy as np
 
 from mesa.discrete_space import Cell
+from mesa.exceptions import DimensionException
 
 Coordinate = Sequence[int]
 T = TypeVar("T", bound=Cell)
@@ -116,6 +117,10 @@ class PropertyLayer:
             condition: (Optional) A callable that returns a boolean array when applied to the data.
         """
         if condition is None:
+            if isinstance(value, np.ndarray) and value.shape != self.dimensions:
+                raise DimensionException(
+                    f"Dimensions of data {value.shape} do not match the grid dimensions {self.dimensions}."
+                )
             self.data[:] = value
         else:
             vectorized_condition = np.vectorize(condition)
