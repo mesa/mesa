@@ -1,5 +1,6 @@
 """Tests for experimental Simulator classes."""
 
+from functools import partial
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -8,6 +9,7 @@ from mesa import Model
 from mesa.experimental.devs.simulator import ABMSimulator, DEVSimulator
 from mesa.time import (
     Event,
+    EventList,
     Priority,
 )
 
@@ -356,7 +358,8 @@ def test_eventlist():
 
     # remove event
     event_list.remove(event)
-    assert len(event_list) == 1
+    assert len(event_list) == 0
+    assert event not in event_list
     assert event.CANCELED
 
     # peak ahead
