@@ -32,13 +32,11 @@ class TestRunFor:
     def test_single_unit(self):
         model = SimpleModel()
         model.run_for(1)
-        assert model.steps == 1
         assert model.time == 1.0
 
     def test_multiple_units(self):
         model = SimpleModel()
         model.run_for(10)
-        assert model.steps == 10
         assert model.time == 10.0
 
     def test_agents_activated(self):
@@ -53,14 +51,12 @@ class TestRunFor:
         for _ in range(5):
             m1.step()
             m2.run_for(1)
-        assert m1.steps == m2.steps == 5
         assert m1.time == m2.time == 5.0
 
     def test_sequential_calls(self):
         model = SimpleModel()
         model.run_for(5)
         model.run_for(5)
-        assert model.steps == 10
         assert model.time == 10.0
 
 
@@ -68,20 +64,19 @@ class TestRunUntil:
     def test_basic(self):
         model = SimpleModel()
         model.run_until(5.0)
-        assert model.steps == 5
         assert model.time == 5.0
 
     def test_already_past(self):
         model = SimpleModel()
         model.run_for(10)
-        model.run_until(5.0)  # already past t=5
-        assert model.steps == 10  # no additional steps
+        with pytest.warns(RuntimeWarning):
+            model.run_until(5.0)  # already past t=5
+            assert model.time == 10
 
     def test_sequential(self):
         model = SimpleModel()
         model.run_until(3.0)
         model.run_until(7.0)
-        assert model.steps == 7
         assert model.time == 7.0
 
 

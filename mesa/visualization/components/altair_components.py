@@ -10,8 +10,8 @@ import solara
 from matplotlib.colors import to_rgb
 
 import mesa
-from mesa.discrete_space import DiscreteSpace, Grid
-from mesa.space import ContinuousSpace, PropertyLayer, _Grid
+from mesa.discrete_space import DiscreteSpace, Grid, PropertyLayer
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.utils import update_counter
 
 
@@ -105,33 +105,6 @@ def _portrayal_to_dict(portrayal_result, agent):
         return portrayal_result
 
 
-def _get_agent_data_old__discrete_space(space, agent_portrayal):
-    """Format agent portrayal data for old-style discrete spaces.
-
-    Args:
-        space: the mesa.space._Grid instance
-        agent_portrayal: the agent portrayal callable
-
-    Returns:
-        list of dicts
-
-    """
-    all_agent_data = []
-    for content, (x, y) in space.coord_iter():
-        if not content:
-            continue
-        if not hasattr(content, "__iter__"):
-            # Is a single grid
-            content = [content]  # noqa: PLW2901
-        for agent in content:
-            # use all data from agent portrayal, and add x,y coordinates
-            agent_data = _portrayal_to_dict(agent_portrayal(agent), agent)
-            agent_data["x"] = x
-            agent_data["y"] = y
-            all_agent_data.append(agent_data)
-    return all_agent_data
-
-
 def _get_agent_data_new_discrete_space(space: DiscreteSpace, agent_portrayal):
     """Format agent portrayal data for new-style discrete spaces.
 
@@ -177,8 +150,6 @@ def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
     match space:
         case Grid():
             all_agent_data = _get_agent_data_new_discrete_space(space, agent_portrayal)
-        case _Grid():
-            all_agent_data = _get_agent_data_old__discrete_space(space, agent_portrayal)
         case ContinuousSpace():
             all_agent_data = _get_agent_data_continuous_space(space, agent_portrayal)
         case _:

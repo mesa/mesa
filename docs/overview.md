@@ -217,10 +217,10 @@ These are just some examples of using the AgentSet, there are many more possibil
 
 ### Analysis modules
 
-If you're using modeling for research, you'll want a way to collect the data each model run generates. You'll probably also want to run the model multiple times, to see how some output changes with different parameters. Data collection and batch running are implemented in the appropriately-named analysis modules:
+If you're using modeling for research, you'll want a way to collect the data each model run generates. You'll probably also want to run the model multiple times, to see how some output changes with different parameters. Data collection is implemented in the appropriately-named analysis modules:
 
 - [mesa.datacollection](apis/datacollection)
-- [mesa.batchrunner](apis/batchrunner)
+
 
 You'd add a data collector to the model like this:
 
@@ -252,29 +252,6 @@ model.run_for(10)
 model_df = model.datacollector.get_model_vars_dataframe()
 agent_df = model.datacollector.get_agent_vars_dataframe()
 ```
-
-To batch-run the model while varying, for example, the n_agents parameter, you'd use the [`batch_run`](apis/batchrunner) function:
-
-```python
-import mesa
-import numpy as np
-import sys
-
-rng = np.random.default_rng(42)
-rng_values = rng.integers(0, sys.maxsize, size=(5,))
-
-parameters = {"n_agents": range(1, 6)}
-results = mesa.batch_run(
-    MyModel,
-    parameters,
-    rng=rng_values.tolist(),
-    max_steps=100,
-    data_collection_period=1,
-    number_processes=1  # Change to use multiple CPU cores for parallel execution
-)
-```
-
-The results are returned as a list of dictionaries, which can be easily converted to a pandas DataFrame for further analysis.
 
 ### Visualization
 Mesa uses a browser-based visualization system called SolaraViz. This allows for interactive, customizable visualizations of your models.
@@ -344,8 +321,6 @@ Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
 Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
 Property Layer Visualization <tutorials/9_visualization_propertylayer_visualization>
 Custom Visualization Components <tutorials/10_visualization_custom>
-Parameter Sweeps <tutorials/11_batch_run>
-Comparing Scenarios <tutorials/12_comparing_scenarios>
 Best Practices <best-practices>
 
 
