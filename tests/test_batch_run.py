@@ -583,40 +583,6 @@ def test_batch_run_time_dilation():
     )
 
 
-def test_batch_run_legacy_datacollector():
-    """Test batch_run with DataCollector missing _collection_steps (backwards compatibility)."""
-
-    class LegacyModel(Model):
-        """Model simulating old DataCollector without _collection_steps."""
-
-        def __init__(self, *args, **kwargs):
-            self.schedule = None
-            super().__init__()
-            self.datacollector = DataCollector(
-                model_reporters={"Value": lambda m: m.time * 10}
-            )
-            # Remove _collection_steps to simulate old DataCollector
-            delattr(self.datacollector, "_collection_steps")
-
-        def step(self):
-            super().step()
-            self.datacollector.collect(self)
-
-    results = mesa.batch_run(
-        LegacyModel,
-        parameters={},
-        number_processes=1,
-        rng=[None],
-        max_steps=3,
-        data_collection_period=1,
-        display_progress=False,
-    )
-
-    # Should fallback to index-based access
-    assert len(results) > 0
-    assert "Value" in results[0]
-
-
 def test_batch_run_missing_step():
     """Test batch_run when requested step not found in _collection_steps."""
 

@@ -53,12 +53,18 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+
+        space_locator = page_session.locator("img").first
+        space_locator.wait_for(state="attached")
+        initial_space = space_locator.screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+
+            graph_locator = page_session.locator("img").last
+            graph_locator.wait_for(state="attached")
+            initial_graph = graph_locator.screenshot()
 
         # Run the model for specified number of steps
         model.run_for(steps)
@@ -75,12 +81,18 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+
+        space_locator = page_session.locator("img").first
+        space_locator.wait_for(state="attached")
+        changed_space = space_locator.screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+
+            graph_locator = page_session.locator("img").last
+            graph_locator.wait_for(state="attached")
+            changed_graph = graph_locator.screenshot()
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()

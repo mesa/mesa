@@ -211,6 +211,11 @@ def _model_run_func(
     # Use the DataCollector's actual history to capture ALL data (including sub-steps)
     try:
         recorded_steps = model.datacollector._collection_steps
+        if recorded_steps is None:
+            raise AttributeError
+        # Filter steps to respect max_steps (fixes off-by-one in legacy tests)
+        if recorded_steps:
+            recorded_steps = [s for s in recorded_steps if s <= max_steps]
     except AttributeError:
         # Fallback for legacy models without _collection_steps
         steps = list(range(0, model.steps, data_collection_period))
@@ -268,7 +273,7 @@ def _collect_data(
     dc = model.datacollector
 
     # Check if modern DataCollector with _collection_steps exists (handles time dilation)
-    if hasattr(dc, "_collection_steps"):
+    if hasattr(dc, "_collection_steps") and dc._collection_steps is not None:
         idx = bisect.bisect_right(dc._collection_steps, step) - 1
         if (
             idx >= 0
