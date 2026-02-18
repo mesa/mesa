@@ -110,8 +110,7 @@ class Event:
         if weak_ref_fn is None:
             raise ValueError("function must be weak referenceable at Event creation.")
         self.fn = weak_ref_fn
-        
-        
+
         self.unique_id = next(self._ids)
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
