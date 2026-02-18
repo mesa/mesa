@@ -16,10 +16,9 @@ from __future__ import annotations
 import copyreg
 import math
 from collections.abc import Sequence
-from itertools import product
+from itertools import chain, product
 from random import Random
 from typing import Any, TypeVar
-from itertools import chain
 
 import numpy as np
 from scipy.spatial import KDTree
