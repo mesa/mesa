@@ -190,45 +190,35 @@ class Grid(DiscreteSpace[T]):
 
     def select_cells(
         self,
-        conditions: dict | None = None,
-        extreme_values: dict | None = None,
         masks=None,
+        extreme_values: dict | None = None,
         only_empty: bool = False,
-        return_list: bool = True,
-    ):
-        """Select cells using vectorised NumPy operations on property arrays.
+    ) -> np.ndarray:
+        if masks is None:
+            combined = np.ones(self.dimensions, dtype=bool)
+        elif isinstance(masks, np.ndarray):
+            combined = masks.copy()
+        else:
+            combined = np.logical_and.reduce(masks)
 
-        Args:
-            conditions: ``{prop_name: callable}`` — callable receives the array, returns boolean mask.
-            extreme_values: ``{prop_name: "highest"|"lowest"}``.
-            masks: Boolean array or list of boolean arrays (AND-combined).
-            only_empty: Restrict to empty cells.
-            return_list: If True return coordinate tuples; if False return the boolean mask.
-        """
-        combined = np.ones(self.dimensions, dtype=bool)
-        if masks is not None:
-            for m in [masks] if isinstance(masks, np.ndarray) else masks:
-                combined &= m
         if only_empty:
             combined &= self._properties["empty"]
-        if conditions:
-            for prop_name, cond in conditions.items():
-                combined &= cond(self._properties[prop_name])
+            if not combined.any():
+                return combined
+
         if extreme_values:
             for prop_name, mode in extreme_values.items():
                 prop = self._properties[prop_name]
-                masked_prop = np.ma.array(prop, mask=~combined)
-                if mode == "highest":
-                    target = masked_prop.max()
-                elif mode == "lowest":
-                    target = masked_prop.min()
-                else:
-                    raise ValueError(
-                        f"Invalid mode '{mode}'. Use 'highest' or 'lowest'."
-                    )
+                prop_filtered = prop[combined]
+                if prop_filtered.size == 0:
+                    return np.zeros(self.dimensions, dtype=bool)
+                target = (
+                    prop_filtered.max() if mode == "highest" else prop_filtered.min()
+                )
                 combined &= prop == target
-        if return_list:
-            return list(zip(*np.where(combined)))
+                if not combined.any():
+                    return combined
+
         return combined
 
     def get_neighborhood_mask(
