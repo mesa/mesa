@@ -394,11 +394,18 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Raises:
             ValueError: If both or neither of at/after are specified
+            ValueError: If both or neither of at/after are specified, or if the scheduled time is in the past.
         """
         if (at is None) == (after is None):
             raise ValueError("Specify exactly one of 'at' or 'after'")
 
         time = at if at is not None else self.time + after
+        # Enforce monotonic time progression
+        if time < self.time:
+            raise ValueError(
+                f"Cannot schedule event in the past. "
+                f"Scheduled time is {time}, but current time is {self.time}"
+            )
         event = Event(time, function, priority=priority)
         self._event_list.add_event(event)
         return event
@@ -418,7 +425,15 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         Returns:
             The EventGenerator (can be used to stop)
+
+        Raises:
+            ValueError: If the schedule start time is in the past.
         """
+        if schedule.start is not None and schedule.start < self.time:
+            raise ValueError(
+                f"Cannot start recurring schedule in the past. "
+                f"Start time is {schedule.start}, current time is {self.time}"
+            )
         generator = EventGenerator(self, function, schedule, priority)
         generator.start()
         return generator
