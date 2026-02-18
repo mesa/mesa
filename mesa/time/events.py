@@ -106,7 +106,12 @@ class Event:
         self.priority = priority.value
         self._canceled = False
 
-        self.fn = _create_callable_reference(function)
+        weak_ref_fn = _create_callable_reference(function)
+        if weak_ref_fn is None:
+            raise ValueError("function must be weak referenceable at Event creation.")
+        self.fn = weak_ref_fn
+        
+        
         self.unique_id = next(self._ids)
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
