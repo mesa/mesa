@@ -35,7 +35,13 @@ if TYPE_CHECKING:
 
 
 def _create_callable_reference(function: Callable):
-    """Create a weak reference wrapper for an event callback."""
+    """Validate and create a weak-reference wrapper for an event callback."""
+    if not callable(function):
+        raise TypeError("function must be a callable")
+
+    if isinstance(function, types.FunctionType) and function.__name__ == "<lambda>":
+        raise ValueError("function must be alive at Event creation.")
+
     if isinstance(function, MethodType):
         function_ref = WeakMethod(function)
     else:
@@ -45,11 +51,6 @@ def _create_callable_reference(function: Callable):
             raise TypeError("function must be weak referenceable") from exc
 
     return function_ref
-
-
-def _is_lambda_callback(function: Callable) -> bool:
-    """Return True when callback is a Python lambda function."""
-    return isinstance(function, types.FunctionType) and function.__name__ == "<lambda>"
 
 
 class Priority(IntEnum):
@@ -109,16 +110,11 @@ class Event:
             function_kwargs: keyword arguments for the callable
         """
         super().__init__()
-        if not callable(function):
-            raise TypeError("function must be a callable")
-
         self.time = time
         self.priority = priority.value
         self._canceled = False
 
         weak_ref_fn = _create_callable_reference(function)
-        if weak_ref_fn() is None or _is_lambda_callback(function):
-            raise ValueError("function must be alive at Event creation.")
 
         # Drop Event.__init__'s local strong reference and verify the callback
         # still has an external owner at creation time.
