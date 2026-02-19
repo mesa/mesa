@@ -112,6 +112,8 @@ class AgentDataSet[A: Agent](BaseDataSet):
         name: the name of the data set
         agents: the agents to collect data from
         fields: fields to collect
+        use_dirty_flag: if True, enables manual dirty-flag caching optimization.
+                        Default is False (always recompute snapshot).
     """
 
     def __init__(
@@ -119,6 +121,8 @@ class AgentDataSet[A: Agent](BaseDataSet):
         name: str,
         agents: AbstractAgentSet[A],
         fields: str | list[str] | None = None,
+        *,
+        use_dirty_flag: bool = False,
     ):
         """Init. of AgentDataSet."""
         if fields is None:
@@ -129,9 +133,8 @@ class AgentDataSet[A: Agent](BaseDataSet):
         super().__init__(name, fields=["unique_id", *fields])
         self.agents = agents
 
-        # Dirty-flag optimization (manual invalidation, pull-based only)
-        # Cache stores last computed snapshot.
-        # Returned list is intentionally mutable (same semantics as before).
+        # Dirty-flag behavior (opt-in only)
+        self._use_dirty_flag: bool = use_dirty_flag
         self._is_dirty: bool = True
         self._cache: list[dict[str, Any]] | None = None
 
@@ -140,6 +143,14 @@ class AgentDataSet[A: Agent](BaseDataSet):
         """Return the data of the dataset."""
         self._check_closed()
 
+        # Default behavior: always recompute (backward compatible)
+        if not self._use_dirty_flag:
+            return [
+                dict(zip(self._attributes, self._collector(agent)))
+                for agent in self.agents
+            ]
+
+        # Dirty-flag caching behavior (opt-in)
         if self._is_dirty or self._cache is None:
             self._cache = [
                 dict(zip(self._attributes, self._collector(agent)))
@@ -152,12 +163,13 @@ class AgentDataSet[A: Agent](BaseDataSet):
     def set_dirty_flag(self) -> None:
         """Mark the dataset as dirty.
 
-        The next access to `.data` will recompute the snapshot
-        from the underlying agents instead of returning the
-        cached data.
+        Only meaningful if `use_dirty_flag=True`.
+        The next access to `.data` will recompute the snapshot.
         """
         self._check_closed()
-        self._is_dirty = True
+
+        if self._use_dirty_flag:
+            self._is_dirty = True
 
     def close(self):
         """Close the data set."""

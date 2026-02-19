@@ -442,7 +442,7 @@ def test_table_dataset():
 
 
 def test_agent_dataset_dirty_flag():
-    """Test manual dirty flag caching behavior in AgentDataSet."""
+    """Test optional manual dirty flag caching behavior in AgentDataSet."""
 
     class MyAgent(Agent):
         def __init__(self, model, value):
@@ -455,33 +455,46 @@ def test_agent_dataset_dirty_flag():
             MyAgent.create_agents(self, 5, [1, 2, 3, 4, 5])
 
     model = MyModel()
+
+    # Default behavior (no cache)
     dataset = AgentDataSet("wealth", model.agents, fields="wealth")
 
-    # First computation
     first = dataset.data
-
-    # Cached identity reuse
     second = dataset.data
-    assert first is second
 
-    # Mutate underlying agent
+    assert first is not second
     agent = model.agents.to_list()[0]
     agent.wealth = 999
 
-    # Still cached (no invalidation)
+    third = dataset.data
+    assert third[0]["wealth"] == 999
+
+    dataset.close()
+
+    # Opt-in dirty flag caching behavior
+    dataset = AgentDataSet(
+        "wealth_cached",
+        model.agents,
+        fields="wealth",
+        use_dirty_flag=True, 
+    )
+
+    first = dataset.data
+    second = dataset.data
+    assert first is second
+
+    agent.wealth = 1234
+
     third = dataset.data
     assert third is first
-    assert third[0]["wealth"] != 999  # stale by design
+    assert third[0]["wealth"] != 1234
 
-    # Invalidate manually
     dataset.set_dirty_flag()
     fourth = dataset.data
 
-    # Recomputed
     assert fourth is not first
-    assert fourth[0]["wealth"] == 999
+    assert fourth[0]["wealth"] == 1234
 
-    # Closed contract
     dataset.close()
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
