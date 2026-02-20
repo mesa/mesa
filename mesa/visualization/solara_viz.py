@@ -124,7 +124,7 @@ def SolaraViz(
             (
                 components_altair.make_altair_space(
                     agent_portrayal=None,
-                    propertylayer_portrayal=None,
+                    property_portrayal=None,
                     post_process=None,
                 ),
                 0,
@@ -277,8 +277,8 @@ def SpaceRendererComponent(
             renderer.draw_structure()
         if renderer.agent_mesh:
             renderer.draw_agents()
-        if renderer.propertylayer_mesh:
-            renderer.draw_propertylayer()
+        if renderer.property_mesh:
+            renderer.draw_property()
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
@@ -294,18 +294,16 @@ def SpaceRendererComponent(
     else:
         structure = renderer.space_mesh if renderer.space_mesh else None
         agents = renderer.agent_mesh if renderer.agent_mesh else None
-        propertylayer = renderer.propertylayer_mesh or None
+        props = renderer.property_mesh or None
 
         if renderer.space_mesh:
             structure = renderer.draw_structure()
         if renderer.agent_mesh:
             agents = renderer.draw_agents()
-        if renderer.propertylayer_mesh:
-            propertylayer = renderer.draw_propertylayer()
+        if renderer.property_mesh:
+            props = renderer.draw_property()
 
-        spatial_charts_list = [
-            chart for chart in [structure, propertylayer, agents] if chart
-        ]
+        spatial_charts_list = [chart for chart in [structure, props, agents] if chart]
 
         final_chart = None
         if spatial_charts_list:
@@ -1014,12 +1012,12 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
 
     attributes_to_copy = [
         "agent_portrayal",
-        "propertylayer_portrayal",
+        "property_portrayal",
         "space_kwargs",
         "agent_kwargs",
         "space_mesh",
         "agent_mesh",
-        "propertylayer_mesh",
+        "property_mesh",
         "post_process_func",
     ]
 

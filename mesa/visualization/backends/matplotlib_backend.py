@@ -312,24 +312,23 @@ class MatplotlibBackend(AbstractRenderer):
 
         return self.ax
 
-    def draw_propertylayer(self, space, property_layers, propertylayer_portrayal):
+    def draw_property(self, space, properties, property_portrayal):
         """Draw property layers using matplotlib backend.
 
         Args:
             space: The Mesa space object.
-            property_layers (dict): Dictionary of property layers to visualize.
-            propertylayer_portrayal (Callable): Function that returns PropertyLayerStyle.
+            property_layers (dict): Dictionary of properties to visualize.
+            property_portrayal (Callable): Function that returns PropertyLayerStyle.
 
         Returns:
             tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
         """
         # Draw each layer
-        for layer_name in property_layers:
+        for layer_name, layer in properties.items():
             if layer_name == "empty":
                 continue
 
-            layer = property_layers.get(layer_name)
-            portrayal = propertylayer_portrayal(layer_name)
+            portrayal = property_portrayal(layer_name)
 
             if portrayal is None:
                 continue
