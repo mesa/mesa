@@ -80,3 +80,4 @@ class ModelSignals(SignalType):
 
     AGENT_ADDED = "agent_added"
     AGENT_REMOVED = "agent_removed"
+    RUN_ENDED = "run_ended"

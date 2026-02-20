@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.mesa_signals import ObservableSignals
+from mesa.experimental.mesa_signals import ModelSignals, ObservableSignals
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -179,6 +179,7 @@ class BaseDataRecorder(ABC):
         """Subscribe to model.time for automatic collection."""
         # Subscribe to time units observable
         self.model.observe("time", ObservableSignals.CHANGED, self._on_time_change)
+        self.model.observe("run", ModelSignals.RUN_ENDED, self._on_run_ended)
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
@@ -195,6 +196,10 @@ class BaseDataRecorder(ABC):
 
             # Update next collection time (may auto-disable)
             config.update_next_collection(current_time)
+
+    def _on_run_ended(self, signal) -> None:
+        """Handle run ended signal by capturing terminal state."""
+        self.finalise()
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -237,8 +242,6 @@ class BaseDataRecorder(ABC):
             - Safe to call multiple times (subsequent calls just re-capture current state)
             - Does not check if we're at a scheduled collection time
         """
-        # FIXME: We might want to add explicit RUN_ENDED signal handling in the future,
-        # but for now we can just call this method manually at the end of the run.
         self.collect()
 
     @abstractmethod

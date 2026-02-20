@@ -1036,3 +1036,43 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+def test_recorder_collects_terminal_snapshot_on_run_for():
+    """Recorder should collect final state when a run ends."""
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"model_data": DatasetConfig(interval=1)})
+    recorder.clear()
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+    assert 2.0 in times
+    assert times.count(2.0) == 1
+
+
+def test_recorder_collects_terminal_snapshot_on_run_until():
+    """Recorder should collect final state at end_time."""
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"model_data": DatasetConfig(interval=1)})
+    recorder.clear()
+
+    model.run_until(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+    assert 2.0 in times
+    assert times.count(2.0) == 1
+
+
+def test_recorder_no_run_ended_when_run_until_is_noop():
+    """No final snapshot should be collected if run_until doesn't advance time."""
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"model_data": DatasetConfig(interval=1)})
+    recorder.clear()
+
+    with pytest.warns(RuntimeWarning, match="end_time"):
+        model.run_until(-1)
+
+    assert len(recorder.storage["model_data"].blocks) == 0

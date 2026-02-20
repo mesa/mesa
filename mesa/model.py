@@ -444,7 +444,10 @@ class Model[A: Agent, S: Scenario](HasObservables):
         Args:
             duration: Time units to advance
         """
+        start_time = self.time
         self._advance_time(self.time + duration)
+        if self.time > start_time:
+            self._notify_run_ended(start_time=start_time)
 
     def run_until(self, end_time: float | int) -> None:
         """Run the model until the specified time.
@@ -463,4 +466,11 @@ class Model[A: Agent, S: Scenario](HasObservables):
             )
             return
 
+        start_time = self.time
         self._advance_time(end_time)
+        if self.time > start_time:
+            self._notify_run_ended(start_time=start_time)
+
+    @emit("run", ModelSignals.RUN_ENDED)
+    def _notify_run_ended(self, **kwargs) -> None:
+        """Emit a run-ended lifecycle signal."""
