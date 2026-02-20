@@ -135,9 +135,7 @@ def test_matplotlib_backend_draw_property():
     result = mb.draw_property(
         space,
         space._properties,
-        lambda l: PropertyStyle(
-            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
-        ),
+        lambda l: PropertyStyle(color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False),
     )
     assert result[0] == mb.ax
     assert result[1] is None

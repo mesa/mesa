@@ -130,9 +130,7 @@ def test_no_property_layers():
             match="No property layer",  # More flexible pattern
         ),
     ):
-        sr.setup_property(
-            lambda _: PropertyStyle(color="red")
-        ).draw_property()
+        sr.setup_property(lambda _: PropertyStyle(color="red")).draw_property()
 
 
 def test_post_process():

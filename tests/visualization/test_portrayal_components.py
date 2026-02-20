@@ -107,9 +107,7 @@ def test_property_layer_style_default_values_with_color():
 
 def test_property_layer_style_custom_initialization_with_colormap():
     """Test custom initialization of PropertyStyle with colormap."""
-    style = PropertyStyle(
-        colormap="plasma", alpha=0.5, colorbar=False, vmin=0, vmax=1
-    )
+    style = PropertyStyle(colormap="plasma", alpha=0.5, colorbar=False, vmin=0, vmax=1)
     assert style.colormap == "plasma"
     assert style.color is None
     assert style.alpha == 0.5

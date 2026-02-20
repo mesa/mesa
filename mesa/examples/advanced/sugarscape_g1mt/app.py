@@ -16,9 +16,7 @@ def agent_portrayal(agent):
 
 def property_portrayal(layer):
     if layer == "sugar":
-        return PropertyStyle(
-            color="blue", alpha=0.8, colorbar=True, vmin=0, vmax=10
-        )
+        return PropertyStyle(color="blue", alpha=0.8, colorbar=True, vmin=0, vmax=10)
     return PropertyStyle(color="red", alpha=0.8, colorbar=True, vmin=0, vmax=10)
 
 
