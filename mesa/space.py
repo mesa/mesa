@@ -19,7 +19,6 @@ Classes
 
 # Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
-from mesa.discrete_space.property_layer import PropertyLayer
 
 import collections
 import contextlib
@@ -31,6 +30,8 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from numbers import Real
 from typing import Any, TypeVar, cast, overload
 from warnings import warn
+
+from mesa.discrete_space.property_layer import PropertyLayer
 
 with contextlib.suppress(ImportError):
     import networkx as nx
