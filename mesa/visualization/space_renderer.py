@@ -11,7 +11,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from mesa.visualization.components import PropertyLayerStyle
+    from mesa.visualization.components import PropertyStyle
 
 import altair as alt
 import numpy as np
@@ -62,13 +62,13 @@ class SpaceRenderer:
 
         self.space_mesh = None
         self.agent_mesh = None
-        self.propertylayer_mesh = None
+        self.property_mesh = None
 
         self.draw_agent_kwargs = {}
         self.draw_space_kwargs = {}
 
         self.agent_portrayal = None
-        self.propertylayer_portrayal = None
+        self.property_portrayal = None
 
         self.post_process_func = None
         # Keep track of whether post-processing has been applied
@@ -211,20 +211,20 @@ class SpaceRenderer:
 
         return self
 
-    def setup_propertylayer(
-        self, propertylayer_portrayal: Callable | dict | PropertyLayerStyle
+    def setup_property(
+        self, property_portrayal: Callable | dict | PropertyStyle
     ) -> SpaceRenderer:
         """Setup property layers on the space without drawing.
 
         Args:
-            propertylayer_portrayal (Callable | dict | PropertyLayerStyle): A PropertyLayerStyle,
-                a function that produces a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
+            property_portrayal (Callable | dict | PropertyStyle): A PropertyStyle,
+                a function that produces a PropertyStyle instance, or a dictionary specifying portrayal parameters.
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
         """
-        self.propertylayer_portrayal = propertylayer_portrayal
-        self.propertylayer_mesh = None
+        self.property_portrayal = property_portrayal
+        self.property_mesh = None
 
         return self
 
@@ -290,13 +290,13 @@ class SpaceRenderer:
         )
         return self.agent_mesh
 
-    def draw_propertylayer(self, propertylayer_portrayal=None):
+    def draw_property(self, property_portrayal=None):
         """Draw property layers on the space.
 
         Args:
-            propertylayer_portrayal: (Deprecated) A PropertyLayerStyle, a function that produces
-            a PropertyLayerStyle instance, or a dictionary specifying portrayal parameters.
-            Use setup_propertylayer() instead.
+            property_portrayal: (Deprecated) A PropertyStyle, a function that produces
+            a PropertyStyle instance, or a dictionary specifying portrayal parameters.
+            Use setup_property() instead.
 
         Returns:
             The visual representation of the property layers.
@@ -304,18 +304,18 @@ class SpaceRenderer:
         Raises:
             Exception: If no property layers are found on the space.
         """
-        if propertylayer_portrayal is not None:
+        if property_portrayal is not None:
             warnings.warn(
-                "Passing propertylayer_portrayal to draw_propertylayer() is deprecated and will be removed in Mesa 4.0. "
-                "Use setup_propertylayer(propertylayer_portrayal) before calling draw_propertylayer()."
+                "Passing property_portrayal to draw_property() is deprecated and will be removed in Mesa 4.0. "
+                "Use setup_property(property_portrayal) before calling draw_property()."
                 "See https://mesa.readthedocs.io/latest/migration_guide.html#passing-portrayal-arguments-to-draw-methods",
                 FutureWarning,
                 stacklevel=2,
             )
-            self.propertylayer_portrayal = propertylayer_portrayal
+            self.property_portrayal = property_portrayal
 
         # Import here to avoid circular imports
-        from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
+        from mesa.visualization.components import PropertyStyle  # noqa: PLC0415
 
         def _dict_to_callable(portrayal_dict):
             """Convert legacy dict portrayal to callable.
@@ -324,7 +324,7 @@ class SpaceRenderer:
                 portrayal_dict (dict): Dictionary with portrayal parameters.
 
             Returns:
-                Callable: Function that returns PropertyLayerStyle.
+                Callable: Function that returns PropertyStyle.
             """
 
             def style_callable(layer_object):
@@ -333,8 +333,8 @@ class SpaceRenderer:
 
                 warnings.warn(
                     (
-                        "The propertylayer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
-                        "Please use a callable that returns a PropertyLayerStyle instance instead. "
+                        "The property_portrayal dict is deprecated and will be removed in Mesa 4.0. "
+                        "Please use a callable that returns a PropertyStyle instance instead. "
                         "For more information, refer to the migration guide: "
                         "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                     ),
@@ -345,13 +345,13 @@ class SpaceRenderer:
                 if params is None:
                     return None
 
-                return PropertyLayerStyle(
+                return PropertyStyle(
                     color=params.get("color"),
                     colormap=params.get("colormap"),
-                    alpha=params.get("alpha", PropertyLayerStyle.alpha),
+                    alpha=params.get("alpha", PropertyStyle.alpha),
                     vmin=params.get("vmin"),
                     vmax=params.get("vmax"),
-                    colorbar=params.get("colorbar", PropertyLayerStyle.colorbar),
+                    colorbar=params.get("colorbar", PropertyStyle.colorbar),
                 )
 
             return style_callable
@@ -359,46 +359,46 @@ class SpaceRenderer:
         property_layers = self.space._properties
 
         # Convert portrayal to callable if needed
-        if isinstance(self.propertylayer_portrayal, dict):
-            self.propertylayer_portrayal = _dict_to_callable(
-                self.propertylayer_portrayal
+        if isinstance(self.property_portrayal, dict):
+            self.property_portrayal = _dict_to_callable(
+                self.property_portrayal
             )
-        elif isinstance(self.propertylayer_portrayal, PropertyLayerStyle):
+        elif isinstance(self.property_portrayal, PropertyStyle):
             # Capture the style instance to avoid circular reference
-            style = self.propertylayer_portrayal
-            self.propertylayer_portrayal = lambda _: style
+            style = self.property_portrayal
+            self.property_portrayal = lambda _: style
         # else: already a callable, use as-is
 
-        number_of_propertylayers = sum(
+        number_of_props = sum(
             [1 for layer in property_layers if layer != "empty"]
         )
-        if number_of_propertylayers < 1:
+        if number_of_props < 1:
             raise Exception("No property layers were found on the space.")
 
-        self.propertylayer_mesh = self.backend_renderer.draw_propertylayer(
-            self.space, property_layers, self.propertylayer_portrayal
+        self.property_mesh = self.backend_renderer.draw_property(
+            self.space, property_layers, self.property_portrayal
         )
-        return self.propertylayer_mesh
+        return self.property_mesh
 
-    def render(self, agent_portrayal=None, propertylayer_portrayal=None, **kwargs):
+    def render(self, agent_portrayal=None, property_portrayal=None, **kwargs):
         """Render the complete space with structure, agents, and property layers.
 
         Args:
             agent_portrayal: (Deprecated) Function for agent portrayal. Use setup_agents() instead.
-            propertylayer_portrayal: (Deprecated) Function for property layer portrayal. Use setup_propertylayer() instead.
+            property_portrayal: (Deprecated) Function for property layer portrayal. Use setup_property() instead.
             **kwargs: (Deprecated) Additional keyword arguments.
         """
-        if agent_portrayal is not None or propertylayer_portrayal is not None or kwargs:
+        if agent_portrayal is not None or property_portrayal is not None or kwargs:
             warnings.warn(
                 "Passing parameters to render() is deprecated. "
-                "Use setup_structure(), setup_agents(), and setup_propertylayer() before calling render().",
+                "Use setup_structure(), setup_agents(), and setup_property() before calling render().",
                 PendingDeprecationWarning,
                 stacklevel=2,
             )
             if agent_portrayal is not None:
                 self.agent_portrayal = agent_portrayal
-            if propertylayer_portrayal is not None:
-                self.propertylayer_portrayal = propertylayer_portrayal
+            if property_portrayal is not None:
+                self.property_portrayal = property_portrayal
 
             deprecated_kwargs_map = {
                 "space_kwargs": self.draw_space_kwargs,
@@ -417,8 +417,8 @@ class SpaceRenderer:
             self.draw_structure()
         if self.agent_mesh is None and self.agent_portrayal is not None:
             self.draw_agents()
-        if self.propertylayer_mesh is None and self.propertylayer_portrayal is not None:
-            self.draw_propertylayer()
+        if self.property_mesh is None and self.property_portrayal is not None:
+            self.draw_property()
 
         return self
 
@@ -438,14 +438,14 @@ class SpaceRenderer:
         elif self.backend == "altair":
             structure = self.space_mesh if self.space_mesh else None
             agents = self.agent_mesh if self.agent_mesh else None
-            prop_base, prop_cbar = self.propertylayer_mesh or (None, None)
+            prop_base, prop_cbar = self.property_mesh or (None, None)
 
             if self.space_mesh:
                 structure = self.draw_structure()
             if self.agent_mesh:
                 agents = self.draw_agents()
-            if self.propertylayer_mesh:
-                prop_base, prop_cbar = self.draw_propertylayer()
+            if self.property_mesh:
+                prop_base, prop_cbar = self.draw_property()
 
             spatial_charts_list = [
                 chart for chart in [structure, prop_base, agents] if chart

@@ -179,7 +179,7 @@ def collect_agent_data(
 def draw_space(
     space,
     agent_portrayal: Callable,
-    propertylayer_portrayal: Callable | None = None,
+    property_portrayal: Callable | None = None,
     ax: Axes | None = None,
     **space_drawing_kwargs,
 ):
@@ -188,7 +188,7 @@ def draw_space(
     Args:
         space: the space of the mesa model
         agent_portrayal: A callable that returns a AgnetPortrayalStyle specifying how to show the agent
-        propertylayer_portrayal: A callable that returns a PropertyLayerStyle specifying how to show the property layer
+        property_portrayal: A callable that returns a PropertyStyle specifying how to show the property layer
         ax: the axes upon which to draw the plot
         space_drawing_kwargs: any additional keyword arguments to be passed on to the underlying function for drawing the space.
 
@@ -218,8 +218,8 @@ def draw_space(
         case _:
             raise ValueError(f"Unknown space type: {type(space)}")
 
-    if propertylayer_portrayal:
-        draw_property_layers(space, propertylayer_portrayal, ax=ax)
+    if property_portrayal:
+        draw_property_layers(space, property_portrayal, ax=ax)
 
     return ax
 
@@ -259,34 +259,34 @@ def _get_hexmesh(
 
 
 def draw_property_layers(
-    space, propertylayer_portrayal: dict[str, dict[str, Any]] | Callable, ax: Axes
+    space, property_portrayal: dict[str, dict[str, Any]] | Callable, ax: Axes
 ):
-    """Draw PropertyLayers on the given axes.
+    """Draw Property on the given axes.
 
     Args:
-        space: The space containing the PropertyLayers.
-        propertylayer_portrayal (Callable): A function that accepts a property layer object
-            and returns either a `PropertyLayerStyle` object defining its visualization,
+        space: The space having the Property.
+        property_portrayal (Callable): A function that accepts a property layer object
+            and returns either a `PropertyStyle` object defining its visualization,
             or `None` to skip drawing this particular layer.
         ax (matplotlib.axes.Axes): The axes to draw on.
 
     """
     # Importing here to avoid circular import issues
-    from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
+    from mesa.visualization.components import PropertyStyle  # noqa: PLC0415
 
-    def _propertylayer_portryal_dict_to_callable(
-        propertylayer_portrayal: dict[str, dict[str, Any]],
+    def _property_portryal_dict_to_callable(
+        property_portrayal: dict[str, dict[str, Any]],
     ):
-        """Helper function to convert a propertylayer_portrayal dict to a callable that return a PropertyLayerStyle."""
+        """Helper function to convert a property_portrayal dict to a callable that return a PropertyStyle."""
 
         def style_callable(layer_object: Any):
             layer_name = layer_object
-            params = propertylayer_portrayal.get(layer_name)
+            params = property_portrayal.get(layer_name)
 
             warnings.warn(
                 (
-                    "The propertylayer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
-                    "Please use a callable that returns a PropertyLayerStyle instance instead. "
+                    "The property_portrayal dict is deprecated and will be removed in Mesa 4.0. "
+                    "Please use a callable that returns a PropertyStyle instance instead. "
                     "For more information, refer to the migration guide: "
                     "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
                 ),
@@ -297,28 +297,28 @@ def draw_property_layers(
             if params is None:
                 return None  # Layer not specified in the dict, so skip.
 
-            return PropertyLayerStyle(
+            return PropertyStyle(
                 color=params.get("color"),
                 colormap=params.get("colormap"),
                 alpha=params.get(
-                    "alpha", PropertyLayerStyle.alpha
+                    "alpha", PropertyStyle.alpha
                 ),  # Use defaults defined in the dataclass itself
                 vmin=params.get("vmin"),
                 vmax=params.get("vmax"),
-                colorbar=params.get("colorbar", PropertyLayerStyle.colorbar),
+                colorbar=params.get("colorbar", PropertyStyle.colorbar),
             )
 
         return style_callable
 
     property_layers = space._properties
 
-    callable_portrayal: Callable[[Any], PropertyLayerStyle | None]
-    if isinstance(propertylayer_portrayal, dict):
-        callable_portrayal = _propertylayer_portryal_dict_to_callable(
-            propertylayer_portrayal
+    callable_portrayal: Callable[[Any], PropertyStyle | None]
+    if isinstance(property_portrayal, dict):
+        callable_portrayal = _property_portryal_dict_to_callable(
+            property_portrayal
         )
     else:
-        callable_portrayal = propertylayer_portrayal
+        callable_portrayal = property_portrayal
 
     for layer_name in property_layers:
         if layer_name == "empty":
@@ -360,7 +360,7 @@ def draw_property_layers(
                 cmap = plt.get_cmap(cmap)
         else:
             raise ValueError(
-                f"PropertyLayer {layer_name} portrayal must include 'color' or 'colormap'."
+                f"Property {layer_name} portrayal must include 'color' or 'colormap'."
             )
 
         if isinstance(space, OrthogonalGrid):
@@ -397,7 +397,7 @@ def draw_property_layers(
             ax.add_collection(collection)
         else:
             raise NotImplementedError(
-                f"PropertyLayer visualization not implemented for {type(space)}."
+                f"Property visualization not implemented for {type(space)}."
             )
         if portrayal.colorbar:
             norm = Normalize(vmin=vmin, vmax=vmax)

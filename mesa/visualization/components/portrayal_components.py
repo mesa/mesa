@@ -5,7 +5,7 @@ It provides user-facing classes to specify how agents and property layers should
 
 Classes:
 1. AgentPortrayalStyle: Controls the appearance of individual agents (e.g., color, shape, size, etc.).
-2. PropertyLayerStyle: Controls the appearance of background property layers (e.g., color gradients or uniform fills).
+2. PropertyStyle: Controls the appearance of background property layers (e.g., color gradients or uniform fills).
 
 These components are designed to be passed into Mesa visualizations to customize and standardize how data is presented.
 """
@@ -83,7 +83,7 @@ class AgentPortrayalStyle:
 
 
 @dataclass
-class PropertyLayerStyle:
+class PropertyStyle:
     """Represents the visual styling options for a property layer in a visualization.
 
     User facing component to control how property layers are drawn.
@@ -98,11 +98,11 @@ class PropertyLayerStyle:
     'color' (for a uniform layer appearance), but not both simultaneously.
 
     Example:
-        >>> def propertylayer_portrayal(layer):
-        >>>     return PropertyLayerStyle(colormap="viridis", vmin=0, vmax=100, alpha=0.5, colorbar=True)
+        >>> def property_portrayal(layer):
+        >>>     return PropertyStyle(colormap="viridis", vmin=0, vmax=100, alpha=0.5, colorbar=True)
         >>> # or for a uniform color layer
-        >>> def propertylayer_portrayal(layer):
-        >>>     return PropertyLayerStyle(color="lightblue", alpha=0.8, colorbar=False)
+        >>> def property_portrayal(layer):
+        >>>     return PropertyStyle(color="lightblue", alpha=0.8, colorbar=False)
     """
 
     colormap: str | None = None
