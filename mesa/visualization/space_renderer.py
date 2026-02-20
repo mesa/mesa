@@ -214,6 +214,17 @@ class SpaceRenderer:
             )
             self.draw_space_kwargs.update(kwargs)
 
+        # Network-specific: the space instance is replaced on every model reset.
+        # If the drawer still references the old space its layout positions belong
+        # to the previous (now stale) graph.  Rebuild before drawing edges so that
+        # the structure is always consistent with the current space.
+        if (
+            isinstance(self.space, Network)
+            and self.space_drawer.space is not self.space
+        ):
+            self.space_drawer = self._get_space_drawer()
+            self.backend_renderer.space_drawer = self.space_drawer
+
         self.space_mesh = self.backend_renderer.draw_structure(**self.draw_space_kwargs)
         return self.space_mesh
 
