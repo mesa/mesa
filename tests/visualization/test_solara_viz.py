@@ -9,7 +9,7 @@ import pytest
 import solara
 
 import mesa
-from mesa.discrete_space import CellAgent, OrthogonalMooreGrid, PropertyLayer
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
