@@ -314,12 +314,14 @@ def test_eventlist():
     event_list.clear()
     assert len(event_list) == 0
 
+
 def test_eventlist_fifo_same_time_same_priority_execution():
     """Events with identical time and priority execute in insertion order."""
     event_list = EventList()
     execution_order = []
 
     for i in range(10):
+
         def fn(i=i):
             execution_order.append(i)
 
@@ -350,6 +352,7 @@ def test_eventlist_recursive_same_timestamp_execution():
 
     assert execution_trace == ["A", "B"]
 
+
 def test_eventlist_execution_skips_canceled_events():
     """Canceled events are never executed."""
     event_list = EventList()
@@ -357,6 +360,7 @@ def test_eventlist_execution_skips_canceled_events():
 
     events = []
     for i in range(10):
+
         def fn(i=i):
             execution.append(i)
 
@@ -372,6 +376,7 @@ def test_eventlist_execution_skips_canceled_events():
         event_list.pop_event().execute()
 
     assert execution == list(range(5, 10))
+
 
 @pytest.fixture
 def setup():
