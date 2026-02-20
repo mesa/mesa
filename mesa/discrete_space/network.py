@@ -45,6 +45,8 @@ class Network(DiscreteSpace[Cell]):
             layout: A dictionary mapping node IDs to physical positions (x, y),
                 or a callable that generates them (e.g. nx.spring_layout).
                 It defaults to nx.circular_layout
+                This ensures all nodes possess physical (x, y) positions for visualization and
+                spatial queries without introducing performance bottlenecks on large graphs
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
