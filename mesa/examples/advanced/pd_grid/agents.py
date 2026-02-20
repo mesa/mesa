@@ -35,9 +35,6 @@ class PDAgent(CellAgent):
         best_neighbor = max(neighbors, key=lambda a: a.score)
         self.next_move = best_neighbor.move
 
-        if self.model.activation_order != "Simultaneous":
-            self.advance()
-
     def advance(self):
         self.move = self.next_move
         self.score += self.increment_score()
