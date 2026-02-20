@@ -360,18 +360,14 @@ class SpaceRenderer:
 
         # Convert portrayal to callable if needed
         if isinstance(self.property_portrayal, dict):
-            self.property_portrayal = _dict_to_callable(
-                self.property_portrayal
-            )
+            self.property_portrayal = _dict_to_callable(self.property_portrayal)
         elif isinstance(self.property_portrayal, PropertyStyle):
             # Capture the style instance to avoid circular reference
             style = self.property_portrayal
             self.property_portrayal = lambda _: style
         # else: already a callable, use as-is
 
-        number_of_props = sum(
-            [1 for layer in property_layers if layer != "empty"]
-        )
+        number_of_props = sum([1 for layer in property_layers if layer != "empty"])
         if number_of_props < 1:
             raise Exception("No property layers were found on the space.")
 

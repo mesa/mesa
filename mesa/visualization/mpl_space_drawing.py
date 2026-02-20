@@ -314,9 +314,7 @@ def draw_property_layers(
 
     callable_portrayal: Callable[[Any], PropertyStyle | None]
     if isinstance(property_portrayal, dict):
-        callable_portrayal = _property_portryal_dict_to_callable(
-            property_portrayal
-        )
+        callable_portrayal = _property_portryal_dict_to_callable(property_portrayal)
     else:
         callable_portrayal = property_portrayal
 
