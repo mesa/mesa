@@ -18,7 +18,7 @@ import math
 from collections.abc import Sequence
 from itertools import chain, product
 from random import Random
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -191,9 +191,21 @@ class Grid(DiscreteSpace[T]):
     def select_cells(
         self,
         masks=None,
-        extreme_values: dict | None = None,
+        extreme_values: dict[str, Literal["highest", "lowest"]] | None = None,
         only_empty: bool = False,
     ) -> np.ndarray:
+        """Select cells using vectorised NumPy operations on property arrays.
+
+        Args:
+            masks: Boolean array or list of boolean arrays (AND-combined).
+                Build from ``_properties`` directly, e.g. ``grid._properties["sugar"] > 2``.
+            extreme_values: ``{prop_name: "highest"|"lowest"}``.
+            only_empty: Restrict to empty cells.
+
+        Returns:
+            Boolean mask of shape ``self.dimensions``.
+            To get coordinates: ``list(zip(*np.where(mask)))``.
+        """
         if masks is None:
             combined = np.ones(self.dimensions, dtype=bool)
         elif isinstance(masks, np.ndarray):
@@ -208,6 +220,10 @@ class Grid(DiscreteSpace[T]):
 
         if extreme_values:
             for prop_name, mode in extreme_values.items():
+                if mode not in ("highest", "lowest"):
+                    raise ValueError(
+                        f"Invalid mode '{mode}'. Use 'highest' or 'lowest'."
+                    )
                 prop = self._properties[prop_name]
                 prop_filtered = prop[combined]
                 if prop_filtered.size == 0:
