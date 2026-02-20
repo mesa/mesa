@@ -314,6 +314,7 @@ def test_eventlist():
     event_list.clear()
     assert len(event_list) == 0
 
+
 def test_eventlist_fifo_same_time_same_priority_execution():
     """Events with identical time and priority execute in insertion order."""
     event_list = EventList()
@@ -321,9 +322,11 @@ def test_eventlist_fifo_same_time_same_priority_execution():
     functions = []  # keep strong references
 
     for i in range(10):
+
         def make_fn(i=i):
             def fn():
                 execution_order.append(i)
+
             return fn
 
         fn = make_fn()
@@ -367,9 +370,11 @@ def test_eventlist_execution_skips_canceled_events():
 
     events = []
     for i in range(10):
+
         def make_fn(i=i):
             def fn():
                 execution.append(i)
+
             return fn
 
         fn = make_fn()
@@ -386,6 +391,7 @@ def test_eventlist_execution_skips_canceled_events():
         event_list.pop_event().execute()
 
     assert execution == list(range(5, 10))
+
 
 @pytest.fixture
 def setup():
