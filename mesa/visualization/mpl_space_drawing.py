@@ -280,7 +280,7 @@ def draw_property_layers(
         """Helper function to convert a propertylayer_portrayal dict to a callable that return a PropertyLayerStyle."""
 
         def style_callable(layer_object: Any):
-            layer_name = layer_object.name
+            layer_name = layer_object
             params = propertylayer_portrayal.get(layer_name)
 
             warnings.warn(
@@ -310,12 +310,7 @@ def draw_property_layers(
 
         return style_callable
 
-    try:
-        # old style spaces
-        property_layers = space.properties
-    except AttributeError:
-        # new style spaces
-        property_layers = space._mesa_property_layers
+    property_layers = space._properties
 
     callable_portrayal: Callable[[Any], PropertyLayerStyle | None]
     if isinstance(propertylayer_portrayal, dict):
@@ -331,13 +326,13 @@ def draw_property_layers(
             continue
 
         layer = property_layers.get(layer_name, None)
-        portrayal = callable_portrayal(layer)
+        portrayal = callable_portrayal(layer_name)
 
         if portrayal is None:
             # Not visualizing layers that do not have a defined visual encoding.
             continue
 
-        data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+        data = layer.astype(float) if layer.dtype == bool else layer
 
         if (space.width, space.height) != data.shape:
             warnings.warn(

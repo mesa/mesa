@@ -38,7 +38,7 @@ class DiscreteSpace[T: Cell]:
         random (Random): The random number generator
         cell_klass (Type) : the type of cell class
         empties (CellCollection) : collection of all cells that are empty
-        property_layers (dict[str, PropertyLayer]): the property layers of the discrete space
+        _properties (dict[str, np.ndarray]): property arrays of the discrete space
 
     Notes:
         A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly

@@ -81,13 +81,13 @@ Mesa implements discrete spaces through the `mesa.discrete_space` module, using 
    mesh = mesa.discrete_space.VoronoiMesh(points)
    ```
 
-#### Property Layers
-Discrete spaces support PropertyLayers - efficient numpy-based arrays for storing cell-level properties:
+#### Properties
+Discrete spaces support numpy-based property arrays for storing cell-level data:
 
 ```python
-# Create and use a property layer
-grid.create_property_layer("elevation", default_value=10)
-high_ground = grid.elevation.select_cells(lambda x: x > 50)
+# Create and use a property
+grid.create_property("elevation", default_value=10.0)
+high_ground = grid.select_cells(masks=grid._properties["elevation"] > 50)
 ```
 
 #### Continuous Space

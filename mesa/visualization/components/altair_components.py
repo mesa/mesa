@@ -9,8 +9,7 @@ import pandas as pd
 import solara
 from matplotlib.colors import to_rgb
 
-import mesa
-from mesa.discrete_space import DiscreteSpace, Grid, PropertyLayer
+from mesa.discrete_space import DiscreteSpace, Grid
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.utils import update_counter
 
@@ -230,23 +229,15 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
     Returns:
         Altair Chart
     """
-    try:
-        # old style spaces
-        property_layers = space.properties
-    except AttributeError:
-        # new style spaces
-        property_layers = space._mesa_property_layers
+    property_layers = space._properties
     base = None
     bar_chart = None
     for layer_name, portrayal in propertylayer_portrayal.items():
         layer = property_layers.get(layer_name, None)
-        if not isinstance(
-            layer,
-            PropertyLayer | mesa.discrete_space.property_layer.PropertyLayer,
-        ):
+        if layer is None:
             continue
 
-        data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+        data = layer.astype(float) if layer.dtype == bool else layer
 
         if (space.width, space.height) != data.shape:
             warnings.warn(
