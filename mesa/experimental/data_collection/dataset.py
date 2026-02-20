@@ -545,17 +545,17 @@ class DataRegistry:
         self,
         agents: AbstractAgentSet,
         name: str,
+        fields: str | list[str] | None = None,
         *,
         use_dirty_flag: bool = False,
-        fields: str | list[str] | None = None,
     ) -> AgentDataSet:
         """Track the specified fields for the agents in the AgentSet."""
         return self.create_dataset(
             AgentDataSet,
             name,
             agents,
-            use_dirty_flag=use_dirty_flag,
             fields=fields,
+            use_dirty_flag=use_dirty_flag,
         )
 
     def track_model(
