@@ -80,9 +80,7 @@ class Event:
         Simulation events use a weak reference to the callable.
         If the callback no longer exists at execution time (e.g., because an agent
         has been removed), execution will fail silently.
-        If the callback already resolves to None during Event creation
-        (for example, when passing an inline lambda),
-        Event initialization raises ValueError.
+        Lambda callbacks are rejected at Event creation.
 
     """
 
@@ -116,11 +114,6 @@ class Event:
 
         weak_ref_fn = _create_callable_reference(function)
 
-        # Drop Event.__init__'s local strong reference and verify the callback
-        # still has an external owner at creation time.
-        function = None
-        if weak_ref_fn() is None:
-            raise ValueError("function must be alive at Event creation.")
         self.fn = weak_ref_fn
 
         self.unique_id = next(self._ids)

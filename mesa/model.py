@@ -35,6 +35,7 @@ from mesa.time import (
     Priority,
     Schedule,
 )
+from mesa.time.events import _create_callable_reference
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
@@ -406,6 +407,13 @@ class Model[A: Agent, S: Scenario](HasObservables):
                 f"Cannot schedule event in the past. "
                 f"Scheduled time is {time}, but current time is {self.time}"
             )
+
+        callback_ref = _create_callable_reference(function)
+        function = None
+        function = callback_ref()
+        if function is None:
+            raise ValueError("function must be alive at Event creation.")
+
         event = Event(time, function, priority=priority)
         self._event_list.add_event(event)
         return event
