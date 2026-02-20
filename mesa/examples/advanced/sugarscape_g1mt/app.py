@@ -1,6 +1,6 @@
 from mesa.examples.advanced.sugarscape_g1mt.model import SugarscapeG1mt
 from mesa.visualization import Slider, SolaraViz, SpaceRenderer, make_plot_component
-from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
 
 
 def agent_portrayal(agent):
@@ -14,12 +14,12 @@ def agent_portrayal(agent):
     )
 
 
-def propertylayer_portrayal(layer):
+def property_portrayal(layer):
     if layer == "sugar":
-        return PropertyLayerStyle(
+        return PropertyStyle(
             color="blue", alpha=0.8, colorbar=True, vmin=0, vmax=10
         )
-    return PropertyLayerStyle(color="red", alpha=0.8, colorbar=True, vmin=0, vmax=10)
+    return PropertyStyle(color="red", alpha=0.8, colorbar=True, vmin=0, vmax=10)
 
 
 def post_process(chart):
@@ -60,11 +60,11 @@ model = SugarscapeG1mt()
 renderer = (
     SpaceRenderer(model, backend="altair")
     .setup_agents(agent_portrayal)
-    .setup_propertylayer(propertylayer_portrayal)
+    .setup_property(property_portrayal)
 )
 # Specifically, avoid drawing the grid to hide the grid lines.
 renderer.draw_agents()
-renderer.draw_propertylayer()
+renderer.draw_property()
 
 renderer.post_process = post_process
 

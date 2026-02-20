@@ -20,7 +20,7 @@ If you want to learn how to build agent-based models step by step using Mesa, fo
 - [Basic Visualization](tutorials/6_visualization_basic): Learn how to build an interactive dashboard with Mesa's visualization module.
 - [Dynamic Agent Visualization](tutorials/7_visualization_dynamic_agents): Learn how to dynamically represent your agents in your interactive dashboard.
 - [Visualization using SpaceRenderer](tutorials/8_visualization_rendering_with_space_renderer): Learn how to use SpaceRenderer to its full extent to enhance your visualizations.
-- [Property Layer Visualization](tutorials/9_visualization_propertylayer_visualization): Learn how to visualize property layers in Mesa.
+- [Property Layer Visualization](tutorials/9_visualization_property_visualization): Learn how to visualize property layers in Mesa.
 - [Custom Visualization Components](tutorials/10_visualization_custom): Learn how to add custom visual components to your interactive dashboard.
 
 ## Examples

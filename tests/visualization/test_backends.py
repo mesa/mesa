@@ -10,7 +10,7 @@ import pytest
 
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
-from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
 
 
 def test_matplotlib_initialize_canvas():
@@ -122,7 +122,7 @@ def test_matplotlib_backend_draw_agents_bad_marker(monkeypatch):
         mb.draw_agents(arguments.copy())
 
 
-def test_matplotlib_backend_draw_propertylayer():
+def test_matplotlib_backend_draw_property():
     """Test drawing property layer."""
     # Test with color
     mb = MatplotlibBackend(space_drawer=MagicMock())
@@ -132,20 +132,20 @@ def test_matplotlib_backend_draw_propertylayer():
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
     space.create_property("test", default_value=0.0)
 
-    result = mb.draw_propertylayer(
+    result = mb.draw_property(
         space,
         space._properties,
-        lambda l: PropertyLayerStyle(
+        lambda l: PropertyStyle(
             color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
         ),
     )
     assert result[0] == mb.ax
     assert result[1] is None
 
-    result = mb.draw_propertylayer(
+    result = mb.draw_property(
         space,
         space._properties,
-        lambda l: PropertyLayerStyle(
+        lambda l: PropertyStyle(
             colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
         ),
     )
@@ -153,10 +153,10 @@ def test_matplotlib_backend_draw_propertylayer():
     assert result[1] is not None
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        mb.draw_propertylayer(
+        mb.draw_property(
             space,
             space._properties,
-            lambda l: PropertyLayerStyle(
+            lambda l: PropertyStyle(
                 color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -257,10 +257,10 @@ def test_altair_backend_draw_property():
     space.create_property("test", default_value=0.0)
 
     assert (
-        ab.draw_propertylayer(
+        ab.draw_property(
             space,
             space._properties,
-            lambda l: PropertyLayerStyle(
+            lambda l: PropertyStyle(
                 color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -268,10 +268,10 @@ def test_altair_backend_draw_property():
     )
 
     assert (
-        ab.draw_propertylayer(
+        ab.draw_property(
             space,
             space._properties,
-            lambda l: PropertyLayerStyle(
+            lambda l: PropertyStyle(
                 colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
             ),
         )
@@ -279,10 +279,10 @@ def test_altair_backend_draw_property():
     )
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        ab.draw_propertylayer(
+        ab.draw_property(
             space,
             space._properties,
-            lambda l: PropertyLayerStyle(
+            lambda l: PropertyStyle(
                 color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -307,7 +307,7 @@ def test_backend_get_agent_pos():
 
 
 def test_backends_handle_errors():
-    """Test error handling scenarios for invalid agent/propertylayer data."""
+    """Test error handling scenarios for invalid agent/property data."""
     mb = MatplotlibBackend(space_drawer=MagicMock())
     mb.initialize_canvas()
     arguments = {

@@ -319,7 +319,7 @@ Collecting Data <tutorials/5_collecting_data>
 Basic Visualization <tutorials/6_visualization_basic>
 Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
 Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
-Property Layer Visualization <tutorials/9_visualization_propertylayer_visualization>
+Property Layer Visualization <tutorials/9_visualization_property_visualization>
 Custom Visualization Components <tutorials/10_visualization_custom>
 Best Practices <best-practices>
 

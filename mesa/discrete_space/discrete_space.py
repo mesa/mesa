@@ -3,7 +3,7 @@
 DiscreteSpace provides the core functionality needed by all cell-based spaces:
 - Cell creation and tracking
 - Agent-cell relationship management
-- Property layer support
+- Property support
 - Random selection capabilities
 - Capacity management
 

@@ -16,7 +16,7 @@ from mesa.discrete_space import (
     VoronoiGrid,
 )
 from mesa.visualization.backends import altair_backend, matplotlib_backend
-from mesa.visualization.components import PropertyLayerStyle
+from mesa.visualization.components import PropertyStyle
 from mesa.visualization.space_drawers import (
     OrthogonalSpaceDrawer,
     VoronoiSpaceDrawer,
@@ -106,15 +106,15 @@ def test_render_calls():
 
     sr.draw_structure = MagicMock()
     sr.draw_agents = MagicMock()
-    sr.draw_propertylayer = MagicMock()
+    sr.draw_property = MagicMock()
 
-    sr.setup_agents(agent_portrayal=lambda _: {}).setup_propertylayer(
-        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red")
+    sr.setup_agents(agent_portrayal=lambda _: {}).setup_property(
+        property_portrayal=lambda _: PropertyStyle(color="red")
     ).render()
 
     sr.draw_structure.assert_called_once()
     sr.draw_agents.assert_called_once()
-    sr.draw_propertylayer.assert_called_once()
+    sr.draw_property.assert_called_once()
 
 
 def test_no_property_layers():
@@ -130,9 +130,9 @@ def test_no_property_layers():
             match="No property layer",  # More flexible pattern
         ),
     ):
-        sr.setup_propertylayer(
-            lambda _: PropertyLayerStyle(color="red")
-        ).draw_propertylayer()
+        sr.setup_property(
+            lambda _: PropertyStyle(color="red")
+        ).draw_property()
 
 
 def test_post_process():
@@ -172,19 +172,19 @@ def test_post_process():
 
 
 def test_property_layer_style_instance():
-    """Test that draw_propertylayer accepts a PropertyLayerStyle instance."""
+    """Test that draw_property accepts a PropertyStyle instance."""
     model = CustomModel()
     sr = SpaceRenderer(model)
     sr.backend_renderer = MagicMock()
 
-    style = PropertyLayerStyle(color="blue")
-    sr.setup_propertylayer(style).draw_propertylayer()
+    style = PropertyStyle(color="blue")
+    sr.setup_property(style).draw_property()
 
-    # Verify that the backend renderer's draw_propertylayer was called
-    sr.backend_renderer.draw_propertylayer.assert_called_once()
+    # Verify that the backend renderer's draw_property was called
+    sr.backend_renderer.draw_property.assert_called_once()
 
     # Verify that the portrayal passed to the backend is a callable that returns the style
-    call_args = sr.backend_renderer.draw_propertylayer.call_args
+    call_args = sr.backend_renderer.draw_property.call_args
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style

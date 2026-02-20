@@ -780,9 +780,9 @@ def test_empty_cell_collection():
     assert at_most_result._capacity is None
 
 
-### PropertyLayer tests
+### Property tests
 def test_property_layer_integration():
-    """Test integration of PropertyLayer with DiscrateSpace and Cell."""
+    """Test integration of Property with DiscrateSpace and Cell."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
@@ -790,7 +790,7 @@ def test_property_layer_integration():
     assert "elevation" in grid._properties
     assert len(grid._properties) == 2
 
-    # Test accessing PropertyLayer from a cell
+    # Test accessing Property from a cell
     cell = grid._cells[(0, 0)]
     assert hasattr(cell, "elevation")
     assert cell.elevation == 0.0
@@ -874,39 +874,41 @@ def test_select_cells():
 
     data = np.random.default_rng(12456).random((5, 5))
     grid.add_property("elevation", data.copy())
+    elevation = grid._properties["elevation"]
 
-    # fixme, add an agent and update the np.all test accordingly
-    mask = grid.select_cells(
-        conditions={"elevation": lambda x: x > 0.5}, return_list=False, only_empty=True
-    )
+    # condition via mask — only_empty=True (grid is empty so result is same)
+    mask = grid.select_cells(masks=elevation > 0.5, only_empty=True)
     assert mask.shape == (5, 5)
     assert np.all(mask == (data > 0.5))
 
-    mask = grid.select_cells(
-        conditions={"elevation": lambda x: x > 0.5}, return_list=False, only_empty=False
-    )
+    # condition via mask
+    mask = grid.select_cells(masks=elevation > 0.5)
     assert mask.shape == (5, 5)
     assert np.all(mask == (data > 0.5))
 
-    # fixme add extreme_values highest and lowest
-    mask = grid.select_cells(
-        extreme_values={"elevation": "highest"}, return_list=False, only_empty=False
-    )
+    # extreme_values highest
+    mask = grid.select_cells(extreme_values={"elevation": "highest"})
     assert mask.shape == (5, 5)
     assert np.all(mask == (data == data.max()))
 
-    mask = grid.select_cells(
-        extreme_values={"elevation": "lowest"}, return_list=False, only_empty=False
-    )
+    # extreme_values lowest
+    mask = grid.select_cells(extreme_values={"elevation": "lowest"})
     assert mask.shape == (5, 5)
     assert np.all(mask == (data == data.min()))
 
     with pytest.raises(ValueError):
-        grid.select_cells(
-            extreme_values={"elevation": "weird"}, return_list=False, only_empty=False
-        )
+        grid.select_cells(extreme_values={"elevation": "weird"})
 
-    # fixme add pre-specified mask to any other option
+    # pre-specified mask combined with extreme_values
+    pre_mask = elevation > 0.3
+    mask = grid.select_cells(masks=pre_mask, extreme_values={"elevation": "highest"})
+    assert mask.shape == (5, 5)
+    expected = data == data[data > 0.3].max()
+    assert np.all(mask == (expected & pre_mask))
+
+    # multiple masks AND-combined
+    mask = grid.select_cells(masks=[elevation > 0.3, elevation < 0.8])
+    assert np.all(mask == ((data > 0.3) & (data < 0.8)))
 
 
 def test_cell_agent():  # noqa: D103

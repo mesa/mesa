@@ -13,7 +13,7 @@ from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
-from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
@@ -113,18 +113,15 @@ def test_solara_viz_backends(mocker, backend):
     """Validates BOTH backends using the modern API."""
     spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
     spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
-    spy_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
+    spy_properties = mocker.spy(SpaceRenderer, "draw_property")
 
     class MockModel(mesa.Model):
         def __init__(self):
             super().__init__()
-            # Include property layer to verify it gets drawn
-            layer = PropertyLayer("sugar", (10, 10), default_value=10.0, dtype=float)
-
             self.grid = OrthogonalMooreGrid(
                 (10, 10), torus=True, random=random.Random(42)
             )
-            self.grid.add_property_layer(layer)
+            self.grid.create_property("sugar", default_value=10.0, dtype=float)
 
             agent = CellAgent(self)
             agent.cell = self.grid[
@@ -140,12 +137,12 @@ def test_solara_viz_backends(mocker, backend):
         return AgentPortrayalStyle(marker="o", color="gray")
 
     def property_portrayal(_):
-        return PropertyLayerStyle(colormap="viridis")
+        return PropertyStyle(colormap="viridis")
 
     renderer = (
         SpaceRenderer(model, backend=backend)
         .setup_agents(agent_portrayal)
-        .setup_propertylayer(property_portrayal)
+        .setup_property(property_portrayal)
         .render()
     )
 
