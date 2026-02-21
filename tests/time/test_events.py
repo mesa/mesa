@@ -310,6 +310,39 @@ def test_eventlist():
         event_list.pop_event()
     assert len(event_list) == 0
 
+    # heavy cancellation should not affect correctness
+    event_list = EventList()
+    some_test_function = MagicMock()
+
+    N = 1000
+
+    events = []
+    for i in range(N):
+        event = Event(
+            i,
+            some_test_function,
+            priority=Priority.DEFAULT,
+            function_args=[],
+            function_kwargs={},
+        )
+        events.append(event)
+        event_list.add_event(event)
+
+    # Cancel 90% of events
+    for e in events[: int(0.9 * N)]:
+        event_list.remove(e)
+
+    # Only remaining events should execute in correct order
+    remaining_times = []
+
+    while not event_list.is_empty():
+        ev = event_list.pop_event()
+        remaining_times.append(ev.time)
+
+    # Expected times are the last 10%
+    expected_times = list(range(int(0.9 * N), N))
+    assert remaining_times == expected_times
+    
     # clear
     event_list.clear()
     assert len(event_list) == 0
