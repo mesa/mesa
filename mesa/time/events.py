@@ -219,13 +219,47 @@ class EventGenerator:
             priority: Priority level for generated events
         """
         self.model = model
-        self.function = function
+
+        # If the function is not callable raise Typeerror
+
+        if not callable(function):
+            raise TypeError(f"function must be callable, got {type(function).__name__}")
+
+        # Here it will raise a Typeerror if the function is not weakly referncable
+
+        try:
+            if isinstance(function, MethodType):
+                weak_fun = WeakMethod(function)
+            else:
+                weak_fun = ref(function)
+        except TypeError as e:
+            raise TypeError(
+                f"function {function} is not weakly referenceable. "
+                f"Use a user-defined function or method instead."
+            ) from e
+        # Here it will raise a value error if the function returns none
+
+        del function  # dropping the strong ref
+
+        if weak_fun() is None:
+            raise ValueError(
+                "Cannot create EventGenerator with a function that is already garbage collected"
+            )
+
+        self._function = weak_fun
         self.schedule = schedule
         self.priority = priority
 
         self._active: bool = False
         self._current_event: Event | None = None
         self._execution_count: int = 0
+
+    @property
+    def function(self) -> Callable:
+        """Get the function. If garbage collected, returns no-op."""
+        func = self._function()
+
+        return func if func is not None else lambda: None
 
     @property
     def is_active(self) -> bool:
@@ -258,7 +292,16 @@ class EventGenerator:
         if not self._active:
             return
 
-        self.function()
+        # FIXED: Check weakref HERE (execution time), not in property getter
+        # This matches Event class behavior - weakref check during execution
+        func = self._function()
+        if func is None:
+            # Stop the generator if weakref is dead
+            self.stop()
+            return  # Silent no-op (no error raised)
+
+        # Execute the function
+        func()
         self._execution_count += 1
 
         # Schedule next event if we shouldn't stop
@@ -306,6 +349,31 @@ class EventGenerator:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
+
+    def __getstate__(self):
+        """Prepare state for pickling."""
+        state = self.__dict__.copy()
+        fn = self._function() if self._function is not None else None
+        state["_fn_strong"] = fn
+        state["_function"] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore state after unpickling."""
+        # Keep strong reference alive during entire method
+        fn = state.pop("_fn_strong")
+
+        # Update state first (keeps references alive)
+        self.__dict__.update(state)
+
+        # Now recreate weak reference
+        if fn is not None:
+            if isinstance(fn, MethodType):
+                self._function = WeakMethod(fn)
+            else:
+                self._function = ref(fn)
+        else:
+            self._function = None
 
 
 class EventList:
