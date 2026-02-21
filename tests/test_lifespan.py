@@ -183,6 +183,15 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         self.assertEqual(new_gen.schedule, schedule)
         self.assertEqual(new_gen.priority, Priority.DEFAULT)
 
+        # 3. Cover branch where fn is None in __setstate__
+        state_with_none = state.copy()
+        state_with_none["_fn_strong"] = None
+
+        none_gen = EventGenerator.__new__(EventGenerator)
+        none_gen.__setstate__(state_with_none)
+
+        self.assertIsNone(none_gen._function)
+
     def test_no_op_during_execution_when_weakref_dies(self):
         """Test generator stops silently when weakref dies during execution."""
         model = Model()
