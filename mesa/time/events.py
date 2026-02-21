@@ -219,14 +219,14 @@ class EventGenerator:
             priority: Priority level for generated events
         """
         self.model = model
-        
-        #If the function is not callable raise Typeerror
+
+        # If the function is not callable raise Typeerror
 
         if not callable(function):
-            raise TypeError(f"function must be callable, got {type(function).__name__}") 
-        
+            raise TypeError(f"function must be callable, got {type(function).__name__}")
+
         # Here it will raise a Typeerror if the function is not weakly referncable
-        
+
         try:
             if isinstance(function, MethodType):
                 weak_fun = WeakMethod(function)
@@ -237,12 +237,14 @@ class EventGenerator:
                 f"function {function} is not weakly referenceable. "
                 f"Use a user-defined function or method instead."
             ) from e
-        # Here it will raise a value error if the function returns none 
+        # Here it will raise a value error if the function returns none
 
-        del function #dropping the strong ref
+        del function  # dropping the strong ref
 
         if weak_fun() is None:
-            raise ValueError("Cannot create EventGenerator with a function that is already garbage collected")    
+            raise ValueError(
+                "Cannot create EventGenerator with a function that is already garbage collected"
+            )
 
         self._function = weak_fun
         self.schedule = schedule
@@ -254,10 +256,11 @@ class EventGenerator:
 
     @property
     def function(self) -> Callable:
-        """ Get the function. If garbage collected, returns no-op."""
+        """Get the function. If garbage collected, returns no-op."""
         func = self._function()
-        
+
         return func if func is not None else lambda: None
+
     @property
     def is_active(self) -> bool:
         """Return whether the generator is currently active."""
@@ -288,7 +291,7 @@ class EventGenerator:
         """Execute the function and schedule the next event."""
         if not self._active:
             return
-        
+
         # FIXED: Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         func = self._function()
@@ -296,7 +299,7 @@ class EventGenerator:
             # Stop the generator if weakref is dead
             self.stop()
             return  # Silent no-op (no error raised)
-        
+
         # Execute the function
         func()
         self._execution_count += 1
@@ -371,6 +374,7 @@ class EventGenerator:
                 self._function = ref(fn)
         else:
             self._function = None
+
 
 class EventList:
     """An event list.
