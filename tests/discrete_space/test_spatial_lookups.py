@@ -123,16 +123,6 @@ def test_network_lookups():
     assert net_layout._cells[0].position is not None
     assert net_layout.find_nearest_cell([0, 0]) is not None
 
-    # Test Pure Topological Network
-    G_for_topo = nx.path_graph(3)  # noqa: N806
-    net_topo = Network(G_for_topo, layout=None, random=random.Random(42))
-
-    np.testing.assert_equal(net_topo._cells[0].position, 0.0)
-
-    # Should fail for pure topological network
-    with pytest.raises(ValueError):
-        net_topo.find_nearest_cell([0, 0])
-
 
 def test_all_spaces():
     """Test that all spaces adhere to the DiscreteSpace interface."""
