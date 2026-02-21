@@ -112,13 +112,16 @@ class AgentDataSet[A: Agent](BaseDataSet):
         name: the name of the data set
         agents: the agents to collect data from
         fields: fields to collect
-
+        use_dirty_flag: if True, enables manual dirty-flag caching optimization.
+                        Default is False (always recompute snapshot).
     """
 
     def __init__(
         self,
         name: str,
         agents: AbstractAgentSet[A],
+        *,
+        use_dirty_flag: bool = False,
         fields: str | list[str] | None = None,
     ):
         """Init. of AgentDataSet."""
@@ -130,18 +133,46 @@ class AgentDataSet[A: Agent](BaseDataSet):
         super().__init__(name, fields=["unique_id", *fields])
         self.agents = agents
 
+        # Dirty-flag behavior (opt-in only)
+        self._use_dirty_flag: bool = use_dirty_flag
+        self._is_dirty: bool = True
+        self._cache: list[dict[str, Any]] | None = None
+
     @property
     def data(self) -> list[dict[str, Any]]:
         """Return the data of the dataset."""
         self._check_closed()
-        return [
-            dict(zip(self._attributes, self._collector(agent))) for agent in self.agents
-        ]
+
+        if (not self._use_dirty_flag) or self._is_dirty or self._cache is None:
+            snapshot = [
+                dict(zip(self._attributes, self._collector(agent)))
+                for agent in self.agents
+            ]
+
+            if not self._use_dirty_flag:
+                return snapshot
+
+            self._cache = snapshot
+            self._is_dirty = False
+
+        return self._cache
+
+    def set_dirty_flag(self) -> None:
+        """Mark the dataset as dirty.
+
+        Only meaningful if `use_dirty_flag=True`.
+        The next access to `.data` will recompute the snapshot.
+        """
+        self._check_closed()
+
+        if self._use_dirty_flag:
+            self._is_dirty = True
 
     def close(self):
         """Close the data set."""
         super().close()
         self.agents = None
+        self._cache = None
 
 
 class ModelDataSet[M: Model](BaseDataSet):
@@ -515,9 +546,17 @@ class DataRegistry:
         agents: AbstractAgentSet,
         name: str,
         fields: str | list[str] | None = None,
+        *,
+        use_dirty_flag: bool = False,
     ) -> AgentDataSet:
         """Track the specified fields for the agents in the AgentSet."""
-        return self.create_dataset(AgentDataSet, name, agents, fields=fields)
+        return self.create_dataset(
+            AgentDataSet,
+            name,
+            agents,
+            fields=fields,
+            use_dirty_flag=use_dirty_flag,
+        )
 
     def track_model(
         self,
