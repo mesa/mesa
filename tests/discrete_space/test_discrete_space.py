@@ -782,7 +782,7 @@ def test_empty_cell_collection():
 
 ### Property tests
 def test_property_integration():
-    """Test integration of Property with DiscrateSpace and Cell."""
+    """Test integration of Property with DiscreteSpace and Cell."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
