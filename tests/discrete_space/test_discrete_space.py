@@ -781,7 +781,7 @@ def test_empty_cell_collection():
 
 
 ### Property tests
-def test_property_layer_integration():
+def test_property_integration():
     """Test integration of Property with DiscrateSpace and Cell."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
@@ -805,15 +805,26 @@ def test_property_layer_integration():
     cell.elevation = np.add(cell.elevation, 50)
     assert cell.elevation == 200
 
+    with pytest.raises(ValueError):
+        grid.create_property("capacity", 1, dtype=int)
+
+    with pytest.raises(ValueError):
+        grid.add_property("test", np.array([1, 2]))
+    assert "test" not in grid._properties
+
+    with pytest.raises(KeyError):
+        grid.remove_property("foobar")
+
+    with pytest.raises(ValueError):
+        grid._attach_property("elevation", np.array([0, 0]))
+
     grid.remove_property("elevation")
     assert "elevation" not in grid._properties
     assert not hasattr(cell, "elevation")
 
-    with pytest.raises(ValueError):
-        grid.create_property("capacity", 1, dtype=int)
-
 
 def test_copy_pickle_with_properties():
+    """Test deepcopy and pickle with dynamically created GridClass."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
@@ -831,6 +842,7 @@ def test_copy_pickle_with_properties():
 
 
 def test_multiple_properties():
+    """Test initialization of DiscreteSpace with Properties."""
     dimensions = (5, 5)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
