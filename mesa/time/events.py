@@ -239,7 +239,7 @@ class EventGenerator:
             ) from e
         # Here it will raise a value error if the function returns none 
 
-        del function #droping the strong ref
+        del function #dropping the strong ref
 
         if weak_fun() is None:
             raise ValueError("Cannot create EventGenerator with a function that is already garbage collected")    
