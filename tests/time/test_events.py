@@ -342,7 +342,7 @@ def test_eventlist():
     # Expected times are the last 10%
     expected_times = list(range(int(0.9 * n), n))
     assert remaining_times == expected_times
-    
+
     # compaction branch should execute when canceled events dominate
     event_list = EventList()
     some_test_function = MagicMock()
@@ -374,7 +374,7 @@ def test_eventlist():
         remaining.append(event_list.pop_event().time)
 
     assert remaining == [7, 8, 9]
-    
+
     # clear
     event_list.clear()
     assert len(event_list) == 0
