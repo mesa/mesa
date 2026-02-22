@@ -13,6 +13,7 @@ from mesa.discrete_space import CellAgent, OrthogonalMooreGrid, PropertyLayer
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
+from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
@@ -21,6 +22,7 @@ from mesa.visualization.solara_viz import (
     UserInputs,
     _build_model_init_kwargs,
     _check_model_params,
+    _pop_command_console_component,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
@@ -170,6 +172,36 @@ def test_solara_viz_backends(mocker, backend):
     assert spy_structure.call_count == 0
     assert spy_agents.call_count == 0
     assert spy_properties.call_count == 0
+
+
+def test_pop_command_console_component_direct():
+    """Direct CommandConsole entries should be removed and detected."""
+    components = [CommandConsole]
+
+    found = _pop_command_console_component(components)
+
+    assert found is True
+    assert components == []
+
+
+def test_pop_command_console_component_tuple():
+    """Tuple-form CommandConsole entries should be removed and detected."""
+    components = [("dummy_component", 0), (CommandConsole, 1)]
+
+    found = _pop_command_console_component(components)
+
+    assert found is True
+    assert components == [("dummy_component", 0)]
+
+
+def test_pop_command_console_component_absent():
+    """Absent CommandConsole should leave components unchanged."""
+    components = [("dummy_component", 0)]
+
+    found = _pop_command_console_component(components)
+
+    assert found is False
+    assert components == [("dummy_component", 0)]
 
 
 def test_slider():

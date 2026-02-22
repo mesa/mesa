@@ -54,6 +54,26 @@ if TYPE_CHECKING:
 _mesa_logger = create_module_logger()
 
 
+def _pop_command_console_component(components: list[Any]) -> bool:
+    """Remove CommandConsole from components list if present.
+
+    Supports both direct entries (`CommandConsole`) and tuple-form entries
+    (`(CommandConsole, page_index)`).
+    """
+    for idx, component in enumerate(components):
+        if component is CommandConsole:
+            components.pop(idx)
+            return True
+        if (
+            isinstance(component, tuple)
+            and component
+            and component[0] is CommandConsole
+        ):
+            components.pop(idx)
+            return True
+    return False
+
+
 @solara.component
 @function_logger(__name__)
 def SolaraViz(
@@ -209,10 +229,9 @@ def SolaraViz(
             )
         with solara.Card("Information"):
             ShowSteps(model.value)
-        if (
-            CommandConsole in display_components
+        if _pop_command_console_component(
+            display_components
         ):  # If command console in components show it in sidebar
-            display_components.remove(CommandConsole)
             additional_imports = console_kwargs.get("additional_imports", {})
             with solara.Card("Command Console"):
                 CommandConsole(model.value, additional_imports=additional_imports)
