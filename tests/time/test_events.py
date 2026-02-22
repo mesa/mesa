@@ -315,6 +315,77 @@ def test_eventlist():
     assert len(event_list) == 0
 
 
+def test_eventlist_event_id_tie_breaking():
+    """Events with identical time and priority execute in event_id order."""
+    event_list = EventList()
+    execution_order = []
+
+    def make_fn(i: int):
+        def fn():
+            execution_order.append(i)
+
+        return fn
+
+    functions = [make_fn(i) for i in range(10)]
+    events = [Event(5, fn, priority=Priority.DEFAULT) for fn in functions]
+
+    for e in reversed(events):
+        event_list.add_event(e)
+
+    while not event_list.is_empty():
+        event_list.pop_event().execute()
+
+    assert execution_order == list(range(10))
+
+
+def test_eventlist_recursive_same_timestamp_execution():
+    """Events scheduled at same timestamp during execution execute in same cycle."""
+    event_list = EventList()
+    execution_trace = []
+
+    def event_b():
+        execution_trace.append("B")
+
+    def event_a():
+        execution_trace.append("A")
+        event_list.add_event(Event(5, event_b, priority=Priority.DEFAULT))
+
+    event_list.add_event(Event(5, event_a, priority=Priority.DEFAULT))
+
+    while not event_list.is_empty():
+        event_list.pop_event().execute()
+
+    assert execution_trace == ["A", "B"]
+
+
+def test_eventlist_execution_skips_canceled_events():
+    """Canceled events are never executed."""
+    event_list = EventList()
+    execution = []
+
+    def make_fn(i: int):
+        def fn():
+            execution.append(i)
+
+        return fn
+
+    functions = [make_fn(i) for i in range(10)]
+
+    events = []
+    for fn in functions:
+        e = Event(5, fn, priority=Priority.DEFAULT)
+        events.append(e)
+        event_list.add_event(e)
+
+    for e in events[:5]:
+        e.cancel()
+
+    while not event_list.is_empty():
+        event_list.pop_event().execute()
+
+    assert execution == list(range(5, 10))
+
+
 @pytest.fixture
 def setup():
     """Create a model with simulator and mock function."""
