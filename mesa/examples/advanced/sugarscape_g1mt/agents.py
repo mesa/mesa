@@ -225,6 +225,10 @@ class Trader(CellAgent):
             if cell.is_empty
         ]
 
+        if not neighboring_cells:
+            # all neighboring cells are occupied
+            return
+
         # 2. determine which move maximizes welfare
 
         welfares = [
@@ -273,6 +277,14 @@ class Trader(CellAgent):
 
         if self.is_starved():
             self.remove()
+
+    def step(self):
+        """Agent step method."""
+        self.prices = []
+        self.trade_partners = []
+        self.move()
+        self.eat()
+        self.maybe_die()
 
     def trade_with_neighbors(self):
         """
