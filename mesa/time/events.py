@@ -375,7 +375,7 @@ class EventList:
             return event
 
         raise IndexError("Event list is empty")
-    
+
     def _compact(self) -> None:
         """Remove canceled events from the heap when they dominate."""
         self._events = [e for e in self._events if not e.CANCELED]
