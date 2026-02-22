@@ -124,7 +124,7 @@ def SolaraViz(
             (
                 components_altair.make_altair_space(
                     agent_portrayal=None,
-                    property_portrayal=None,
+                    property_layer_portrayal=None,
                     post_process=None,
                 ),
                 0,
@@ -277,8 +277,8 @@ def SpaceRendererComponent(
             renderer.draw_structure()
         if renderer.agent_mesh:
             renderer.draw_agents()
-        if renderer.property_mesh:
-            renderer.draw_property()
+        if renderer.property_layer_mesh:
+            renderer.draw_property_layer()
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
@@ -294,14 +294,14 @@ def SpaceRendererComponent(
     else:
         structure = renderer.space_mesh if renderer.space_mesh else None
         agents = renderer.agent_mesh if renderer.agent_mesh else None
-        props = renderer.property_mesh or None
+        props = renderer.property_layer_mesh or None
 
         if renderer.space_mesh:
             structure = renderer.draw_structure()
         if renderer.agent_mesh:
             agents = renderer.draw_agents()
-        if renderer.property_mesh:
-            props = renderer.draw_property()
+        if renderer.property_layer_mesh:
+            props = renderer.draw_property_layer()
 
         spatial_charts_list = [chart for chart in [structure, props, agents] if chart]
 
@@ -1012,12 +1012,12 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
 
     attributes_to_copy = [
         "agent_portrayal",
-        "property_portrayal",
+        "property_layer_portrayal",
         "space_kwargs",
         "agent_kwargs",
         "space_mesh",
         "agent_mesh",
-        "property_mesh",
+        "property_layer_mesh",
         "post_process_func",
     ]
 

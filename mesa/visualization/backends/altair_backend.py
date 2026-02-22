@@ -329,11 +329,11 @@ class AltairBackend(AbstractRenderer):
 
         return chart
 
-    def draw_property(
+    def draw_property_layer(
         self,
         space,
-        properties: dict[str, np.ndarray],
-        property_portrayal: Callable,
+        property_layers: dict[str, np.ndarray],
+        property_layer_portrayal: Callable,
         chart_width: int = 450,
         chart_height: int = 350,
     ):
@@ -341,8 +341,8 @@ class AltairBackend(AbstractRenderer):
 
         Args:
             space: The Mesa space object containing the property layers.
-            properties: A dictionary mapping property names to numpy arrays.
-            property_portrayal: A function that returns PropertyLayerStyle
+            property_layers: A dictionary mapping property_layer names to numpy arrays.
+            property_layer_portrayal: A function that returns PropertyLayerStyle
                 that contains the visualization parameters.
             chart_width: The width of the chart.
             chart_height: The height of the chart.
@@ -352,11 +352,11 @@ class AltairBackend(AbstractRenderer):
         """
         main_charts = []
 
-        for layer_name, layer in properties.items():
+        for layer_name, layer in property_layers.items():
             if layer_name == "empty":
                 continue
 
-            portrayal = property_portrayal(layer_name)
+            portrayal = property_layer_portrayal(layer_name)
 
             if portrayal is None:
                 continue
@@ -366,7 +366,7 @@ class AltairBackend(AbstractRenderer):
             # Check dimensions
             if (space.width, space.height) != data.shape:
                 warnings.warn(
-                    f"Property {layer_name} dimensions ({data.shape}) "
+                    f"Property Layer {layer_name} dimensions ({data.shape}) "
                     f"don't match space dimensions ({space.width}, {space.height})",
                     UserWarning,
                     stacklevel=2,
@@ -407,7 +407,7 @@ class AltairBackend(AbstractRenderer):
 
             else:
                 raise ValueError(
-                    f"Property {layer_name} portrayal must include 'color' or 'colormap'."
+                    f"Property Layer {layer_name} portrayal must include 'color' or 'colormap'."
                 )
 
             current_chart = (

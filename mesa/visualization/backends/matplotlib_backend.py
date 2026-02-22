@@ -312,23 +312,23 @@ class MatplotlibBackend(AbstractRenderer):
 
         return self.ax
 
-    def draw_property(self, space, properties, property_portrayal):
+    def draw_property_layer(self, space, property_layers, property_layer_portrayal):
         """Draw property layers using matplotlib backend.
 
         Args:
             space: The Mesa space object.
-            property_layers (dict): Dictionary of properties to visualize.
-            property_portrayal (Callable): Function that returns PropertyLayerStyle.
+            property_layers (dict): Dictionary of property layers to visualize.
+            property_layer_portrayal (Callable): Function that returns PropertyLayerStyle.
 
         Returns:
             tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
         """
         # Draw each layer
-        for layer_name, layer in properties.items():
+        for layer_name, layer in property_layers.items():
             if layer_name == "empty":
                 continue
 
-            portrayal = property_portrayal(layer_name)
+            portrayal = property_layer_portrayal(layer_name)
 
             if portrayal is None:
                 continue
@@ -366,7 +366,7 @@ class MatplotlibBackend(AbstractRenderer):
                     cmap = plt.get_cmap(cmap)
             else:
                 raise ValueError(
-                    f"PropertyLayer {layer_name} must include 'color' or 'colormap'"
+                    f"Property Layer {layer_name} must include 'color' or 'colormap'"
                 )
 
             # Draw based on space type
@@ -404,7 +404,7 @@ class MatplotlibBackend(AbstractRenderer):
                 self.ax.add_collection(collection)
             else:
                 raise NotImplementedError(
-                    f"PropertyLayer visualization not implemented for {type(space)}"
+                    f"Property Layer visualization not implemented for {type(space)}"
                 )
 
             # Add colorbar if requested

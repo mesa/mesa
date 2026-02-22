@@ -43,7 +43,7 @@ def run_model_test(
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, property_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         initial_graph = None
 
@@ -65,7 +65,7 @@ def run_model_test(
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, property_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         changed_graph = None
 

@@ -10,7 +10,7 @@ import pytest
 
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
-from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
 
 def test_matplotlib_initialize_canvas():
@@ -130,20 +130,22 @@ def test_matplotlib_backend_draw_property():
 
     # set up space and layer
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    space.create_property("test", default_value=0.0)
+    space.create_property_layer("test", default_value=0.0)
 
-    result = mb.draw_property(
+    result = mb.draw_property_layer(
         space,
-        space._properties,
-        lambda l: PropertyStyle(color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False),
+        space._property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
+            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+        ),
     )
     assert result[0] == mb.ax
     assert result[1] is None
 
-    result = mb.draw_property(
+    result = mb.draw_property_layer(
         space,
-        space._properties,
-        lambda l: PropertyStyle(
+        space._property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
             colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
         ),
     )
@@ -151,10 +153,10 @@ def test_matplotlib_backend_draw_property():
     assert result[1] is not None
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        mb.draw_property(
+        mb.draw_property_layer(
             space,
-            space._properties,
-            lambda l: PropertyStyle(
+            space._property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
                 color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -247,18 +249,18 @@ def test_altair_backend_draw_agents():
     assert ab.draw_agents(arguments) is not None
 
 
-def test_altair_backend_draw_property():
-    """Test drawing property."""
+def test_altair_backend_draw_property_layer():
+    """Test drawing property_layer."""
     ab = AltairBackend(space_drawer=MagicMock())
 
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    space.create_property("test", default_value=0.0)
+    space.create_property_layer("test", default_value=0.0)
 
     assert (
-        ab.draw_property(
+        ab.draw_property_layer(
             space,
-            space._properties,
-            lambda l: PropertyStyle(
+            space._property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
                 color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -266,10 +268,10 @@ def test_altair_backend_draw_property():
     )
 
     assert (
-        ab.draw_property(
+        ab.draw_property_layer(
             space,
-            space._properties,
-            lambda l: PropertyStyle(
+            space._property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
                 colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
             ),
         )
@@ -277,10 +279,10 @@ def test_altair_backend_draw_property():
     )
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        ab.draw_property(
+        ab.draw_property_layer(
             space,
-            space._properties,
-            lambda l: PropertyStyle(
+            space._property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
                 color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
             ),
         )
@@ -305,7 +307,7 @@ def test_backend_get_agent_pos():
 
 
 def test_backends_handle_errors():
-    """Test error handling scenarios for invalid agent/property data."""
+    """Test error handling scenarios for invalid agent/property_layer data."""
     mb = MatplotlibBackend(space_drawer=MagicMock())
     mb.initialize_canvas()
     arguments = {

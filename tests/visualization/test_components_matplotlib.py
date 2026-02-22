@@ -11,7 +11,7 @@ from mesa.discrete_space import (
     OrthogonalMooreGrid,
     VoronoiGrid,
 )
-from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.mpl_space_drawing import (
     draw_hex_grid,
     draw_network,
@@ -141,13 +141,13 @@ def test_draw_network():
 def test_draw_property_layers():
     """Test drawing property layers."""
 
-    def property_portrayal(_):
-        return PropertyStyle(colormap="viridis", colorbar=True)
+    def property_layer_portrayal(_):
+        return PropertyLayerStyle(colormap="viridis", colorbar=True)
 
     model = Model(rng=42)
     grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
-    grid.create_property("test", 0.0)
+    grid.create_property_layer("test", 0.0)
 
     fig = Figure()
     ax = fig.add_subplot()
-    draw_property_layers(grid, property_portrayal, ax)
+    draw_property_layers(grid, property_layer_portrayal, ax)

@@ -780,22 +780,22 @@ def test_empty_cell_collection():
     assert at_most_result._capacity is None
 
 
-### Property tests
-def test_property_integration():
-    """Test integration of Property with DiscreteSpace and Cell."""
+### Property Layer tests
+def test_property_layer_integration():
+    """Test integration of Property Layer with DiscreteSpace and Cell."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
-    grid.create_property("elevation", default_value=0.0)
-    assert "elevation" in grid._properties
-    assert len(grid._properties) == 2
+    grid.create_property_layer("elevation", default_value=0.0)
+    assert "elevation" in grid._property_layers
+    assert len(grid._property_layers) == 2
 
-    # Test accessing Property from a cell
+    # Test accessing Property Layer from a cell
     cell = grid._cells[(0, 0)]
     assert hasattr(cell, "elevation")
     assert cell.elevation == 0.0
 
-    # Test setting property value for a cell
+    # Test setting property_layer value for a cell
     cell.elevation = 100
     assert cell.elevation == 100
 
@@ -806,24 +806,24 @@ def test_property_integration():
     assert cell.elevation == 200
 
     with pytest.raises(ValueError):
-        grid.create_property("capacity", 1, dtype=int)
+        grid.create_property_layer("capacity", 1, dtype=int)
 
     with pytest.raises(ValueError):
-        grid.add_property("test", np.array([1, 2]))
-    assert "test" not in grid._properties
+        grid.add_property_layer("test", np.array([1, 2]))
+    assert "test" not in grid._property_layers
 
     with pytest.raises(KeyError):
-        grid.remove_property("foobar")
+        grid.remove_property_layer("foobar")
 
     with pytest.raises(ValueError):
-        grid._attach_property("elevation", np.array([0, 0]))
+        grid._attach_property_layer("elevation", np.array([0, 0]))
 
-    grid.remove_property("elevation")
-    assert "elevation" not in grid._properties
+    grid.remove_property_layer("elevation")
+    assert "elevation" not in grid._property_layers
     assert not hasattr(cell, "elevation")
 
 
-def test_copy_pickle_with_properties():
+def test_copy_pickle_with_property_layers():
     """Test deepcopy and pickle with dynamically created GridClass."""
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
@@ -831,29 +831,29 @@ def test_copy_pickle_with_properties():
     grid2 = copy.deepcopy(grid)
     assert grid2._cells[(0, 0)].empty
     grid2._cells[(0, 0)].empty = False
-    assert grid2._cells[(0, 0)].empty == grid2._properties["empty"][0, 0]
+    assert grid2._cells[(0, 0)].empty == grid2._property_layers["empty"][0, 0]
 
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
     dump = pickle.dumps(grid)
     grid2 = pickle.loads(dump)  # noqa: S301
     assert grid2._cells[(0, 0)].empty
     grid2._cells[(0, 0)].empty = False
-    assert grid2._cells[(0, 0)].empty == grid2._properties["empty"][0, 0]
+    assert grid2._cells[(0, 0)].empty == grid2._property_layers["empty"][0, 0]
 
 
-def test_multiple_properties():
-    """Test initialization of DiscreteSpace with Properties."""
+def test_multiple_property_layers():
+    """Test initialization of DiscreteSpace with Property Layers."""
     dimensions = (5, 5)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
-    grid.create_property("elevation", default_value=0.0)
-    grid.create_property("temperature", default_value=20.0)
-    assert "elevation" in grid._properties
-    assert "temperature" in grid._properties
-    assert len(grid._properties) == 3  # empty + elevation + temperature
+    grid.create_property_layer("elevation", default_value=0.0)
+    grid.create_property_layer("temperature", default_value=20.0)
+    assert "elevation" in grid._property_layers
+    assert "temperature" in grid._property_layers
+    assert len(grid._property_layers) == 3  # empty + elevation + temperature
 
-    grid._properties["elevation"][:] += 10
-    grid._properties["temperature"][:] += 5
+    grid._property_layers["elevation"][:] += 10
+    grid._property_layers["temperature"][:] += 5
 
     for cell in grid.all_cells:
         assert cell.elevation == 10
@@ -864,7 +864,7 @@ def test_get_neighborhood_mask():
     """Test get_neighborhood_mask."""
     dimensions = (5, 5)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
-    grid.create_property("elevation", default_value=0.0)
+    grid.create_property_layer("elevation", default_value=0.0)
 
     grid.get_neighborhood_mask((2, 2))
 
@@ -877,50 +877,6 @@ def test_get_neighborhood_mask():
     for cell in grid._cells[(2, 2)].connections.values():
         assert mask[cell.coordinate]
     assert not mask[grid._cells[(2, 2)].coordinate]
-
-
-def test_select_cells():
-    """Test select_cells."""
-    dimensions = (5, 5)
-    grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
-
-    data = np.random.default_rng(12456).random((5, 5))
-    grid.add_property("elevation", data.copy())
-    elevation = grid._properties["elevation"]
-
-    # condition via mask — only_empty=True (grid is empty so result is same)
-    mask = grid.select_cells(masks=elevation > 0.5, only_empty=True)
-    assert mask.shape == (5, 5)
-    assert np.all(mask == (data > 0.5))
-
-    # condition via mask
-    mask = grid.select_cells(masks=elevation > 0.5)
-    assert mask.shape == (5, 5)
-    assert np.all(mask == (data > 0.5))
-
-    # extreme_values highest
-    mask = grid.select_cells(extreme_values={"elevation": "highest"})
-    assert mask.shape == (5, 5)
-    assert np.all(mask == (data == data.max()))
-
-    # extreme_values lowest
-    mask = grid.select_cells(extreme_values={"elevation": "lowest"})
-    assert mask.shape == (5, 5)
-    assert np.all(mask == (data == data.min()))
-
-    with pytest.raises(ValueError):
-        grid.select_cells(extreme_values={"elevation": "weird"})
-
-    # pre-specified mask combined with extreme_values
-    pre_mask = elevation > 0.3
-    mask = grid.select_cells(masks=pre_mask, extreme_values={"elevation": "highest"})
-    assert mask.shape == (5, 5)
-    expected = data == data[data > 0.3].max()
-    assert np.all(mask == (expected & pre_mask))
-
-    # multiple masks AND-combined
-    mask = grid.select_cells(masks=[elevation > 0.3, elevation < 0.8])
-    assert np.all(mask == ((data > 0.3) & (data < 0.8)))
 
 
 def test_cell_agent():  # noqa: D103
@@ -1095,8 +1051,8 @@ def test_select_random_empty_cell_fallback():
     assert selected_cell.is_empty
 
     # Ensure the property layer data was actually correct (the fallback relies on this)
-    assert grid._properties["empty"][5, 5]
-    assert not grid._properties["empty"][0, 0]
+    assert grid._property_layers["empty"][5, 5]
+    assert not grid._property_layers["empty"][0, 0]
 
 
 def test_fixed_agent_removal_state():

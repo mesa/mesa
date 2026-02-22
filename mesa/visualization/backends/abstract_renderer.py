@@ -77,11 +77,11 @@ class AbstractRenderer(ABC):
         """
 
     @abstractmethod
-    def draw_property(self, space, properties, property_portrayal):
-        """Draw properties on the visualization.
+    def draw_property_layer(self, space, property_layers, property_layer_portrayal):
+        """Draw property layers on the visualization.
 
         Args:
             space: The model's space object.
-            properties (dict): Dictionary of properties to visualize.
-            property_portrayal (Callable): Function that returns PropertyStyle.
+            property_layers (dict): Dictionary of property layers to visualize.
+            property_layer_portrayal (Callable): Function that returns PropertyLayerStyle.
         """

@@ -5,7 +5,7 @@ from dataclasses import is_dataclass
 
 import pytest
 
-from mesa.visualization.components import AgentPortrayalStyle, PropertyStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
 
 def test_agent_portrayal_style_is_dataclass():
@@ -79,13 +79,13 @@ def test_agent_portrayal_style_update_with_no_arguments():
 
 
 def test_property_layer_style_is_dataclass():
-    """Test if PropertyStyle is a dataclass."""
-    assert is_dataclass(PropertyStyle)
+    """Test if PropertyLayerStyle is a dataclass."""
+    assert is_dataclass(PropertyLayerStyle)
 
 
 def test_property_layer_style_default_values_with_colormap():
-    """Test default values of PropertyStyle with colormap."""
-    style = PropertyStyle(colormap="viridis")
+    """Test default values of PropertyLayerStyle with colormap."""
+    style = PropertyLayerStyle(colormap="viridis")
     assert style.colormap == "viridis"
     assert style.color is None
     assert style.alpha == 0.8
@@ -95,8 +95,8 @@ def test_property_layer_style_default_values_with_colormap():
 
 
 def test_property_layer_style_default_values_with_color():
-    """Test default values of PropertyStyle with color."""
-    style = PropertyStyle(color="red")
+    """Test default values of PropertyLayerStyle with color."""
+    style = PropertyLayerStyle(color="red")
     assert style.colormap is None
     assert style.color == "red"
     assert style.alpha == 0.8
@@ -106,8 +106,10 @@ def test_property_layer_style_default_values_with_color():
 
 
 def test_property_layer_style_custom_initialization_with_colormap():
-    """Test custom initialization of PropertyStyle with colormap."""
-    style = PropertyStyle(colormap="plasma", alpha=0.5, colorbar=False, vmin=0, vmax=1)
+    """Test custom initialization of PropertyLayerStyle with colormap."""
+    style = PropertyLayerStyle(
+        colormap="plasma", alpha=0.5, colorbar=False, vmin=0, vmax=1
+    )
     assert style.colormap == "plasma"
     assert style.color is None
     assert style.alpha == 0.5
@@ -117,8 +119,8 @@ def test_property_layer_style_custom_initialization_with_colormap():
 
 
 def test_property_layer_style_custom_initialization_with_color():
-    """Test custom initialization of PropertyStyle with color."""
-    style = PropertyStyle(color="blue", alpha=0.9, colorbar=False)
+    """Test custom initialization of PropertyLayerStyle with color."""
+    style = PropertyLayerStyle(color="blue", alpha=0.9, colorbar=False)
     assert style.colormap is None
     assert style.color == "blue"
     assert style.alpha == 0.9
@@ -130,7 +132,7 @@ def test_property_layer_style_post_init_both_color_and_colormap_error():
     with pytest.raises(
         ValueError, match=re.escape("Specify either 'color' or 'colormap', not both.")
     ):
-        PropertyStyle(colormap="viridis", color="red")
+        PropertyLayerStyle(colormap="viridis", color="red")
 
 
 def test_property_layer_style_post_init_neither_color_nor_colormap_error():
@@ -138,4 +140,4 @@ def test_property_layer_style_post_init_neither_color_nor_colormap_error():
     with pytest.raises(
         ValueError, match=re.escape("Specify one of 'color' or 'colormap'")
     ):
-        PropertyStyle()
+        PropertyLayerStyle()

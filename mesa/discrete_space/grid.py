@@ -18,7 +18,7 @@ import math
 from collections.abc import Sequence
 from itertools import chain, product
 from random import Random
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -41,7 +41,7 @@ def unpickle_gridcell(parent, fields):
     cell_klass = type(
         "GridCell",
         (parent,),
-        {"_properties": set(), "__slots__": ()},
+        {"_property_layers": set(), "__slots__": ()},
     )
     instance = cell_klass(
         (0, 0)
@@ -66,7 +66,7 @@ class Grid(DiscreteSpace[T]):
         _try_random (bool): whether to get empty cell be repeatedly trying random cell
 
     Notes:
-        width and height are accessible via properties, higher dimensions can be retrieved via dimensions
+        width and height are accessible via property_layers, higher dimensions can be retrieved via dimensions
 
     """
 
@@ -106,9 +106,9 @@ class Grid(DiscreteSpace[T]):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"_properties": set(), "__slots__": ()},
+            {"_property_layers": set(), "__slots__": ()},
         )
-        self._properties: dict[str, np.ndarray] = {}
+        self._property_layers: dict[str, np.ndarray] = {}
 
         # we register the pickle_gridcell helper function
         copyreg.pickle(self.cell_klass, pickle_gridcell)
@@ -121,47 +121,47 @@ class Grid(DiscreteSpace[T]):
         }
         self._celllist = list(self._cells.values())
         self._connect_cells()
-        self.create_property("empty", default_value=True, dtype=bool)
+        self.create_property_layer("empty", default_value=True, dtype=bool)
 
-    def create_property(
+    def create_property_layer(
         self,
         name: str,
         default_value=0.0,
         dtype=float,
         read_only: bool = False,
     ) -> np.ndarray:
-        """Create a property array and attach it to cells."""
+        """Create a property layer array and attach it to cells."""
         array = np.full(self.dimensions, default_value, dtype=dtype)
-        self._attach_property(name, array, read_only=read_only)
+        self._attach_property_layer(name, array, read_only=read_only)
         return array
 
-    def add_property(
+    def add_property_layer(
         self, name: str, array: np.ndarray, read_only: bool = False
     ) -> None:
-        """Attach an existing array as a property.  Shape must match `self.dimensions`."""
+        """Attach an existing array as a property layer.  Shape must match `self.dimensions`."""
         if tuple(array.shape) != tuple(self.dimensions):
             raise ValueError(
                 f"Array shape {array.shape} does not match grid dimensions {self.dimensions}."
             )
-        self._attach_property(name, array, read_only=read_only)
+        self._attach_property_layer(name, array, read_only=read_only)
 
-    def remove_property(self, name: str) -> None:
-        """Remove a property.
+    def remove_property_layer(self, name: str) -> None:
+        """Remove a property_layer.
 
         Args:
-            name: Property name.
+            name: property_layer name.
         """
-        if name not in self._properties:
-            raise KeyError(f"No property named '{name}'.")
-        del self._properties[name]
+        if name not in self._property_layers:
+            raise KeyError(f"No property_layer named '{name}'.")
+        del self._property_layers[name]
         delattr(self.cell_klass, name)
-        self.cell_klass._properties.discard(name)
+        self.cell_klass._property_layers.discard(name)
 
-    def _attach_property(
+    def _attach_property_layer(
         self, name: str, array: np.ndarray, read_only: bool = False
     ) -> None:
-        if name in self._properties:
-            raise ValueError(f"Property '{name}' already exists.")
+        if name in self._property_layers:
+            raise ValueError(f"property_layer '{name}' already exists.")
 
         slots = set(
             chain.from_iterable(
@@ -170,9 +170,9 @@ class Grid(DiscreteSpace[T]):
         )
         if name in slots:
             raise ValueError(
-                f"Property name '{name}' clashes with existing slot '{name}'."
+                f"property_layer name '{name}' clashes with existing slot '{name}'."
             )
-        self._properties[name] = array
+        self._property_layers[name] = array
 
         def getter(self_cell):
             return array[self_cell.coordinate]
@@ -181,61 +181,12 @@ class Grid(DiscreteSpace[T]):
             array[self_cell.coordinate] = value
 
         accessor = (
-            property(getter, doc=f"Property '{name}'")
+            property(getter, doc=f"property_layer '{name}'")
             if read_only
-            else property(getter, setter, doc=f"Property '{name}'")
+            else property(getter, setter, doc=f"property_layer '{name}'")
         )
         setattr(self.cell_klass, name, accessor)
-        self.cell_klass._properties.add(name)
-
-    def select_cells(
-        self,
-        masks=None,
-        extreme_values: dict[str, Literal["highest", "lowest"]] | None = None,
-        only_empty: bool = False,
-    ) -> np.ndarray:
-        """Select cells using vectorised NumPy operations on property arrays.
-
-        Args:
-            masks: Boolean array or list of boolean arrays (AND-combined).
-                Build from ``_properties`` directly, e.g. ``grid._properties["sugar"] > 2``.
-            extreme_values: ``{prop_name: "highest"|"lowest"}``.
-            only_empty: Restrict to empty cells.
-
-        Returns:
-            Boolean mask of shape ``self.dimensions``.
-            To get coordinates: ``list(zip(*np.where(mask)))``.
-        """
-        if masks is None:
-            combined = np.ones(self.dimensions, dtype=bool)
-        elif isinstance(masks, np.ndarray):
-            combined = masks.copy()
-        else:
-            combined = np.logical_and.reduce(masks)
-
-        if only_empty:
-            combined &= self._properties["empty"]
-            if not combined.any():
-                return combined
-
-        if extreme_values:
-            for prop_name, mode in extreme_values.items():
-                if mode not in ("highest", "lowest"):
-                    raise ValueError(
-                        f"Invalid mode '{mode}'. Use 'highest' or 'lowest'."
-                    )
-                prop = self._properties[prop_name]
-                prop_filtered = prop[combined]
-                if prop_filtered.size == 0:
-                    return np.zeros(self.dimensions, dtype=bool)
-                target = (
-                    prop_filtered.max() if mode == "highest" else prop_filtered.min()
-                )
-                combined &= prop == target
-                if not combined.any():
-                    return combined
-
-        return combined
+        self.cell_klass._property_layers.add(name)
 
     def get_neighborhood_mask(
         self, coordinate, include_center: bool = True, radius: int = 1
@@ -317,7 +268,7 @@ class Grid(DiscreteSpace[T]):
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self._properties["empty"])
+        empty_coords = np.argwhere(self._property_layers["empty"])
         random_coord = self.random.choice(empty_coords)
         return self._cells[tuple(random_coord)]
 
@@ -343,15 +294,15 @@ class Grid(DiscreteSpace[T]):
                 cell.connect(self._cells[ni, nj], (di, dj))
 
     def __getstate__(self) -> dict[str, Any]:
-        """Custom __getstate__ for handling dynamic GridCell class and PropertyDescriptors."""
+        """Custom __getstate__ for handling dynamic GridCell class and property_layer accessors."""
         state = super().__getstate__()
         state = {k: v for k, v in state.items() if k != "cell_klass"}
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Restore state and re-attach property descriptors to the cell class."""
+        """Restore state and re-attach property_layer accessors to the cell class."""
         super().__setstate__(state)
-        for name, array in self._properties.items():
+        for name, array in self._property_layers.items():
             setattr(
                 self.cell_klass,
                 name,
@@ -360,7 +311,7 @@ class Grid(DiscreteSpace[T]):
                     lambda self_cell, v, a=array: a.__setitem__(
                         self_cell.coordinate, v
                     ),
-                    doc=f"Property '{name}'",
+                    doc=f"property_layer '{name}'",
                 ),
             )
 

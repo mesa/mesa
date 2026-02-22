@@ -83,8 +83,8 @@ class SugarscapeG1mt(mesa.Model):
         self.sugar_distribution = np.genfromtxt(Path(__file__).parent / "sugar-map.txt")
         self.spice_distribution = np.flip(self.sugar_distribution, 1)
 
-        self.grid.add_property("sugar", self.sugar_distribution.copy())
-        self.grid.add_property("spice", self.spice_distribution.copy())
+        self.grid.add_property_layer("sugar", self.sugar_distribution.copy())
+        self.grid.add_property_layer("spice", self.spice_distribution.copy())
 
         Trader.create_agents(
             self,
@@ -112,8 +112,8 @@ class SugarscapeG1mt(mesa.Model):
         Unique step function that does staged activation of sugar and spice
         and then randomly activates traders
         """
-        sugar = self.grid._properties["sugar"]
-        spice = self.grid._properties["spice"]
+        sugar = self.grid._property_layers["sugar"]
+        spice = self.grid._property_layers["spice"]
 
         np.minimum(sugar + 1, self.sugar_distribution, out=sugar)
         np.minimum(spice + 1, self.spice_distribution, out=spice)
