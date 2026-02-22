@@ -11,18 +11,18 @@ import solara
 import mesa
 from mesa.discrete_space import CellAgent, OrthogonalMooreGrid, PropertyLayer
 from mesa.experimental.scenarios import Scenario
-from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
+from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
     ModelCreator,
     Slider,
     SolaraViz,
-    _pop_command_console_component,
     UserInputs,
     _build_model_init_kwargs,
     _check_model_params,
+    _pop_command_console_component,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
