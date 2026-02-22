@@ -364,15 +364,12 @@ class EventList:
             event = heappop(self._events)
 
             if event.CANCELED:
-                if self._canceled_count > 0:
-                    self._canceled_count -= 1
+                # Track actual canceled density in heap
+                self._canceled_count += 1
                 continue
 
             # Adaptive compaction check
-            if (
-                self._canceled_count > 0
-                and self._canceled_count > len(self._events) // 2
-            ):
+            if self._canceled_count > len(self._events) // 2:
                 self._compact()
 
             return event
@@ -421,7 +418,6 @@ class EventList:
         # adaptive compaction if they dominate the heap.
         if not event.CANCELED:
             event.cancel()
-            self._canceled_count += 1
 
     def clear(self):
         """Clear the event list."""
