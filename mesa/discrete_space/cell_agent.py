@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
+import numpy as np
+
 from mesa.agent import Agent
 
 if TYPE_CHECKING:
@@ -93,6 +95,20 @@ class CellAgent(Agent, HasCell, BasicMovement):
         cell (Cell): The cell the agent is currently in.
     """
 
+    @property
+    def position(self) -> np.ndarray | None:
+        """The physical position of this agent in its space.
+
+        This property implements the Locatable protocol. For CellAgents,
+        the position is derived from the cell's physical position as
+        introduced by #3268 (Distinguish Logical Index from Physical Position).
+
+        Returns:
+            np.ndarray of the cell's physical position, or None if not placed.
+
+        """
+        return self.cell.position if self.cell is not None else None
+
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
@@ -100,7 +116,28 @@ class CellAgent(Agent, HasCell, BasicMovement):
 
 
 class FixedAgent(Agent, FixedCell):
-    """A patch in a 2D grid."""
+    """An agent permanently fixed to a cell.
+
+    Unlike CellAgent, FixedAgent cannot move after being placed.
+    Attempting to change the cell property raises ValueError.
+
+    Attributes:
+        cell (Cell): The cell to which this agent is permanently fixed.
+    """
+
+    @property
+    def position(self) -> np.ndarray | None:
+        """The physical position of this agent in its space.
+
+        This property implements the Locatable protocol. For FixedAgents,
+        the position is derived from the cell's physical position as
+        introduced by #3268 (Distinguish Logical Index from Physical Position).
+
+        Returns:
+            np.ndarray of the cell's physical position, or None if not yet placed.
+
+        """
+        return self.cell.position if self.cell is not None else None
 
     def remove(self):
         """Remove the agent from the model."""

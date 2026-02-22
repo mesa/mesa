@@ -1081,6 +1081,42 @@ def test_cell_agent():  # noqa: D103
     assert agent in cell2.agents
 
 
+def test_cell_agent_position():
+    """Test that CellAgent.position returns the cell's physical position."""
+    cell1 = Cell((3, 4), capacity=None, random=random.Random())
+
+    model = Model()
+    agent = CellAgent(model)
+
+    # Before placing, position is None
+    assert agent.position is None
+
+    # After placing in a cell, position comes from cell.position
+    agent.cell = cell1
+    assert agent.position is not None
+    np.testing.assert_array_equal(agent.position, cell1.position)
+
+    # Removing from cell sets position back to None
+    agent.cell = None
+    assert agent.position is None
+
+
+def test_fixed_agent_position():
+    """Test that FixedAgent.position returns the cell's physical position."""
+    cell1 = Cell((5, 6), capacity=None, random=random.Random())
+
+    model = Model()
+    agent = FixedAgent(model)
+
+    # Before placing, position is None
+    assert agent.position is None
+
+    # After placing in a cell, position comes from cell.position
+    agent.cell = cell1
+    assert agent.position is not None
+    np.testing.assert_array_equal(agent.position, cell1.position)
+
+
 def test_grid2DMovingAgent():  # noqa: D103
     # we first test on a moore grid because all directions are defined
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))

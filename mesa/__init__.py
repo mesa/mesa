@@ -11,11 +11,15 @@ import mesa.time as time
 from mesa.agent import Agent
 from mesa.datacollection import DataCollector
 from mesa.model import Model
+from mesa.protocols import HasPosition, Locatable, PositionLike
 
 __all__ = [
     "Agent",
     "DataCollector",
+    "HasPosition",
+    "Locatable",
     "Model",
+    "PositionLike",
     "discrete_space",
     "experimental",
     "time",
