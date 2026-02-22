@@ -141,7 +141,7 @@ def test_draw_network():
 def test_draw_property_layers():
     """Test drawing property layers."""
 
-    def propertylayer_portrayal(_):
+    def property_layer_portrayal(_):
         return PropertyLayerStyle(colormap="viridis", colorbar=True)
 
     model = Model(rng=42)
@@ -150,4 +150,4 @@ def test_draw_property_layers():
 
     fig = Figure()
     ax = fig.add_subplot()
-    draw_property_layers(grid, propertylayer_portrayal, ax)
+    draw_property_layers(grid, property_layer_portrayal, ax)
