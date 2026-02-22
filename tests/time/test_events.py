@@ -314,6 +314,7 @@ def test_eventlist():
     event_list.clear()
     assert len(event_list) == 0
 
+
 def test_eventlist_event_id_tie_breaking():
     """Events with identical time and priority execute in event_id order."""
     event_list = EventList()
@@ -322,14 +323,12 @@ def test_eventlist_event_id_tie_breaking():
     def make_fn(i: int):
         def fn():
             execution_order.append(i)
+
         return fn
-    
+
     functions = [make_fn(i) for i in range(10)]
-    events = [
-        Event(5, fn, priority=Priority.DEFAULT)
-        for fn in functions
-    ]
-    
+    events = [Event(5, fn, priority=Priority.DEFAULT) for fn in functions]
+
     for e in reversed(events):
         event_list.add_event(e)
 
@@ -358,6 +357,7 @@ def test_eventlist_recursive_same_timestamp_execution():
 
     assert execution_trace == ["A", "B"]
 
+
 def test_eventlist_execution_skips_canceled_events():
     """Canceled events are never executed."""
     event_list = EventList()
@@ -366,6 +366,7 @@ def test_eventlist_execution_skips_canceled_events():
     def make_fn(i: int):
         def fn():
             execution.append(i)
+
         return fn
 
     functions = [make_fn(i) for i in range(10)]
@@ -383,6 +384,7 @@ def test_eventlist_execution_skips_canceled_events():
         event_list.pop_event().execute()
 
     assert execution == list(range(5, 10))
+
 
 @pytest.fixture
 def setup():
