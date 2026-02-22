@@ -322,6 +322,7 @@ class EventList:
         """Initialize an event list."""
         self._events: list[Event] = []
         heapify(self._events)
+        self._canceled_count: int = 0
 
     def add_event(self, event: Event):
         """Add the event to the event list.
@@ -361,9 +362,25 @@ class EventList:
         """Pop the first element from the event list."""
         while self._events:
             event = heappop(self._events)
-            if not event.CANCELED:
-                return event
+
+            if event.CANCELED:
+                # Track actual canceled density in heap
+                self._canceled_count += 1
+                continue
+
+            # Adaptive compaction check
+            if self._canceled_count > len(self._events) // 2:
+                self._compact()
+
+            return event
+
         raise IndexError("Event list is empty")
+
+    def _compact(self) -> None:
+        """Remove canceled events from the heap when they dominate."""
+        self._events = [e for e in self._events if not e.CANCELED]
+        heapify(self._events)
+        self._canceled_count = 0
 
     def is_empty(self) -> bool:
         """Return whether the event list is empty."""
@@ -395,12 +412,14 @@ class EventList:
             event (Event): The event to be removed
 
         """
-        # we cannot simply remove items from _eventlist because this breaks
-        # heap structure invariant. So, we use a form of lazy deletion.
-        # SimEvents have a CANCELED flag that we set to True, while popping and peek_ahead
-        # silently ignore canceled events
-        event.cancel()
+        # We use lazy deletion: mark the event as canceled without
+        # removing it from the heap to preserve heap invariants.
+        # Canceled events are skipped during pop and may trigger
+        # adaptive compaction if they dominate the heap.
+        if not event.CANCELED:
+            event.cancel()
 
     def clear(self):
         """Clear the event list."""
         self._events.clear()
+        self._canceled_count = 0
