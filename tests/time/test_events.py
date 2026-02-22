@@ -314,8 +314,8 @@ def test_eventlist():
     event_list.clear()
     assert len(event_list) == 0
 
-def test_eventlist_fifo_same_time_same_priority_execution():
-    """Events with identical time and priority execute in insertion order."""
+def test_eventlist_event_id_tie_breaking():
+    """Events with identical time and priority execute in event_id order."""
     event_list = EventList()
     execution_order = []
 
@@ -323,11 +323,15 @@ def test_eventlist_fifo_same_time_same_priority_execution():
         def fn():
             execution_order.append(i)
         return fn
-
+    
     functions = [make_fn(i) for i in range(10)]
-
-    for fn in functions:
-        event_list.add_event(Event(5, fn, priority=Priority.DEFAULT))
+    events = [
+        Event(5, fn, priority=Priority.DEFAULT)
+        for fn in functions
+    ]
+    
+    for e in reversed(events):
+        event_list.add_event(e)
 
     while not event_list.is_empty():
         event_list.pop_event().execute()
