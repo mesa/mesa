@@ -39,6 +39,7 @@ dependencies = [
   "pandas",
   "tqdm",
   "scipy",
+  "networkx",
   "pythran>=0.17.0 ; sys_platform == 'darwin'", # required for darwin scipy overrides in nix
 
 ]
