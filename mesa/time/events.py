@@ -232,29 +232,7 @@ class EventGenerator:
         """
         self.model = model
         
-        #If the function is not callable raise Typeerror
-
-        if not callable(function):
-            raise TypeError(f"function must be callable, got {type(function).__name__}") 
-        
-        # Here it will raise a Typeerror if the function is not weakly referncable
-        
-        try:
-            if isinstance(function, MethodType):
-                weak_fun = WeakMethod(function)
-            else:
-                weak_fun = ref(function)
-        except TypeError as e:
-            raise TypeError(
-                f"function {function} is not weakly referenceable. "
-                f"Use a user-defined function or method instead."
-            ) from e
-        # Here it will raise a value error if the function returns none 
-
-        del function #dropping the strong ref
-
-        if weak_fun() is None:
-            raise ValueError("Cannot create EventGenerator with a function that is already garbage collected")    
+        weak_fun=_create_callable_reference(function)   
 
         self._function = weak_fun
         self.schedule = schedule
@@ -264,12 +242,7 @@ class EventGenerator:
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
-    @property
-    def function(self) -> Callable:
-        """ Get the function. If garbage collected, returns no-op."""
-        func = self._function()
-        
-        return func if func is not None else lambda: None
+    
     @property
     def is_active(self) -> bool:
         """Return whether the generator is currently active."""
@@ -301,16 +274,16 @@ class EventGenerator:
         if not self._active:
             return
         
-        # FIXED: Check weakref HERE (execution time), not in property getter
+        # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
-        func = self._function()
-        if func is None:
+        fn = self._function()
+        if fn is None:
             # Stop the generator if weakref is dead
             self.stop()
             return  # Silent no-op (no error raised)
         
         # Execute the function
-        func()
+        fn()
         self._execution_count += 1
 
         # Schedule next event if we shouldn't stop
