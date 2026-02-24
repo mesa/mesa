@@ -1080,6 +1080,7 @@ def test_cell_agent():  # noqa: D103
     assert agent not in cell1.agents
     assert agent in cell2.agents
 
+
 def test_cell_assignment_atomic_on_capacity_failure():
     """Ensure cell assignment remains atomic if capacity is exceeded."""
     model = Model()
@@ -1106,6 +1107,7 @@ def test_cell_assignment_atomic_on_capacity_failure():
     # Invariant must hold
     if a2.cell is not None:
         assert a2 in a2.cell.agents
+
 
 def test_grid2DMovingAgent():  # noqa: D103
     # we first test on a moore grid because all directions are defined

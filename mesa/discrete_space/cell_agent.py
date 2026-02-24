@@ -44,7 +44,7 @@ class HasCell:
         if cell is old_cell:
             return
 
-        # Attempt to add first 
+        # Attempt to add first
         if cell is not None:
             cell.add_agent(self)
 
@@ -52,6 +52,7 @@ class HasCell:
             old_cell.remove_agent(self)
 
         self._mesa_cell = cell
+
 
 class BasicMovement:
     """Mixin for moving agents in discrete space."""
