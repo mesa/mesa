@@ -38,16 +38,20 @@ class HasCell:
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
-        # remove from current cell
-        if self.cell is not None:
-            self.cell.remove_agent(self)
+        old_cell = self._mesa_cell
 
-        # update private attribute
-        self._mesa_cell = cell
+        # No-op if assigning to same cell
+        if cell is old_cell:
+            return
 
-        # add to new cell
+        # Attempt to add first
         if cell is not None:
             cell.add_agent(self)
+
+        if old_cell is not None:
+            old_cell.remove_agent(self)
+
+        self._mesa_cell = cell
 
 
 class BasicMovement:
