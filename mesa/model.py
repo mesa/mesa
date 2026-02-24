@@ -314,10 +314,15 @@ class Model[A: Agent, S: Scenario](HasObservables):
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
 
+    @emit("model", ModelSignals.RUN_ENDED)
     def run_model(self) -> None:
         """Run the model until the end condition is reached.
 
         Overload as needed.
+
+        Notes:
+            Emits ModelSignals.RUN_ENDED after the run loop completes,
+            allowing data recorders to capture the final simulation state.
         """
         while self.running:
             self.step()

@@ -21,6 +21,7 @@ from mesa.experimental.data_collection import (
     SQLDataRecorder,
 )
 from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
+from mesa.experimental.mesa_signals import ModelSignals
 from mesa.model import Model
 
 
@@ -1036,3 +1037,297 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+# --- RUN_ENDED signal and auto-finalize tests ---
+
+
+class SteppingAgent(Agent):
+    """A separate agent class for RUN_ENDED tests (avoids NumpyAgentDataSet conflicts)."""
+
+    def __init__(self, model, value):
+        """Initialize the agent."""
+        super().__init__(model)
+        self.value = value
+
+
+class SteppingModel(Model):
+    """A model that stops after a configurable number of steps."""
+
+    def __init__(self, max_steps=5, n=3):
+        """Initialize the model."""
+        super().__init__()
+        self.max_steps = max_steps
+        self.model_val = 0
+
+        self.data_registry.track_model(self, "model_data", fields=["model_val"])
+
+        agents = SteppingAgent.create_agents(self, n, list(range(n)))
+        self.data_registry.track_agents(agents, "agent_data", fields=["value"])
+
+    def step(self):
+        """Increment model_val and stop after max_steps."""
+        self.model_val += 1
+        for agent in self.agents:
+            agent.value += 1
+        if self.model_val >= self.max_steps:
+            self.running = False
+
+
+def test_run_ended_signal_exists():
+    """Test that RUN_ENDED signal type exists in ModelSignals."""
+    assert hasattr(ModelSignals, "RUN_ENDED")
+    assert ModelSignals.RUN_ENDED == "run_ended"
+
+
+def test_run_ended_signal_is_observable():
+    """Test that 'model' is registered as an observable on Model."""
+    model = SteppingModel()
+    assert "model" in model.observables
+
+
+def test_run_model_emits_run_ended():
+    """Test that run_model() emits the RUN_ENDED signal."""
+    model = SteppingModel(max_steps=3)
+
+    signal_received = []
+
+    def handler(signal):
+        signal_received.append(signal)
+
+    model.observe("model", ModelSignals.RUN_ENDED, handler)
+    model.run_model()
+
+    assert len(signal_received) == 1
+    assert signal_received[0].signal_type == ModelSignals.RUN_ENDED
+
+
+def test_run_ended_auto_finalise_captures_final_state():
+    """Test that RUN_ENDED auto-finalise captures the final simulation state.
+
+    Without RUN_ENDED, the last time point is not recorded because
+    _on_time_change only records at the OLD time. This test verifies
+    that the final state at the current model time is now captured.
+    """
+    model = SteppingModel(max_steps=5)
+    recorder = DataRecorder(
+        model,
+        {"model_data": DatasetConfig(), "agent_data": DatasetConfig()},
+    )
+    recorder.clear()
+
+    model.run_model()
+
+    # The final time should be 5.0 (5 steps from time 0)
+    df_model = recorder.get_table_dataframe("model_data")
+    times = sorted(df_model["time"].unique())
+
+    # Time 5.0 (the final state) should be captured via RUN_ENDED
+    assert 5.0 in times, f"Final time 5.0 not found in recorded times: {times}"
+
+    # The final model_val should be 5
+    final_row = df_model[df_model["time"] == 5.0]
+    assert final_row["model_val"].values[0] == 5
+
+    # Agent data should also have the final state
+    df_agent = recorder.get_table_dataframe("agent_data")
+    agent_times = sorted(df_agent["time"].unique())
+    assert 5.0 in agent_times
+
+
+def test_finalise_deduplication():
+    """Test that calling finalise() multiple times at the same time is idempotent."""
+    model = SteppingModel(max_steps=3)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder.clear()
+
+    model.run_model()
+
+    # run_model already triggered finalise via RUN_ENDED
+    df_before = recorder.get_table_dataframe("model_data")
+    count_before = len(df_before)
+
+    # Calling finalise again should NOT add duplicate data
+    recorder.finalise()
+    df_after = recorder.get_table_dataframe("model_data")
+    count_after = len(df_after)
+
+    assert count_before == count_after, (
+        f"Duplicate data added: {count_before} rows before, {count_after} after"
+    )
+
+
+def test_finalise_deduplication_resets_on_new_time():
+    """Test that dedup tracking allows new snapshots at new times."""
+    model = SteppingModel(max_steps=10)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder.clear()
+
+    # Run for 3 steps manually
+    model.step()  # t=1
+    model.step()  # t=2
+    model.step()  # t=3
+
+    # Finalise at t=3
+    recorder.finalise()
+    df1 = recorder.get_table_dataframe("model_data")
+    count_at_3 = len(df1[df1["time"] == 3.0])
+    assert count_at_3 == 1
+
+    # Advance further
+    model.step()  # t=4
+
+    # Finalise at t=4 should work (new time)
+    recorder.finalise()
+    df2 = recorder.get_table_dataframe("model_data")
+    assert 4.0 in df2["time"].values
+
+
+def test_run_ended_with_manual_stepping():
+    """Test that run_model() emits RUN_ENDED even with few steps."""
+    model = SteppingModel(max_steps=1)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder.clear()
+
+    model.run_model()
+
+    df = recorder.get_table_dataframe("model_data")
+    # Should have captured the final state at t=1.0
+    assert 1.0 in df["time"].values
+
+
+def test_run_ended_disabled_dataset_not_collected():
+    """Test that disabled datasets are not collected on RUN_ENDED."""
+    model = SteppingModel(max_steps=3)
+    recorder = DataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(enabled=True),
+            "agent_data": DatasetConfig(enabled=False),
+        },
+    )
+    recorder.clear()
+
+    model.run_model()
+
+    # model_data should have data (enabled)
+    assert len(recorder.storage["model_data"].blocks) > 0
+
+    # agent_data should have no data (disabled)
+    assert len(recorder.storage["agent_data"].blocks) == 0
+
+
+def test_run_ended_with_json_recorder():
+    """Test that RUN_ENDED works with JSONDataRecorder."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = SteppingModel(max_steps=3)
+        recorder = JSONDataRecorder(
+            model,
+            {"model_data": DatasetConfig()},
+            output_dir=temp_dir,
+        )
+
+        model.run_model()
+
+        df = recorder.get_table_dataframe("model_data")
+        times = sorted(df["time"].unique())
+        assert 3.0 in times, f"Final time 3.0 not in JSON recorder times: {times}"
+
+
+def test_run_ended_with_sql_recorder():
+    """Test that RUN_ENDED works with SQLDataRecorder."""
+    model = SteppingModel(max_steps=3)
+    recorder = SQLDataRecorder(
+        model,
+        {"model_data": DatasetConfig()},
+        db_path=":memory:",
+    )
+
+    model.run_model()
+
+    df = recorder.get_table_dataframe("model_data")
+    times = sorted(df["time"].unique())
+    assert 3.0 in times, f"Final time 3.0 not in SQL recorder times: {times}"
+
+
+def test_run_ended_data_completeness():
+    """Test that all time points are captured across a full run.
+
+    Before this fix, using run_model() with periodic time-change collection
+    would miss the final time point. Now with RUN_ENDED, the complete
+    timeline should be captured.
+    """
+    max_steps = 5
+    model = SteppingModel(max_steps=max_steps)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder.clear()
+
+    model.run_model()
+
+    df = recorder.get_table_dataframe("model_data")
+    recorded_times = sorted(df["time"].unique())
+
+    # _on_time_change records at old time (0, 1, 2, 3, 4)
+    # RUN_ENDED finalise records at current time (5)
+    # So we should have all times from 0 through 5
+    for t in range(max_steps + 1):
+        assert float(t) in recorded_times, (
+            f"Time {t} missing from recorded times: {recorded_times}"
+        )
+
+
+def test_run_ended_model_val_progression():
+    """Test that model values progress correctly across recorded snapshots."""
+    model = SteppingModel(max_steps=4)
+    recorder = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder.clear()
+
+    model.run_model()
+
+    df = recorder.get_table_dataframe("model_data")
+    df_sorted = df.sort_values("time")
+
+    # model_val increments by 1 each step
+    # t=0: model_val=0 (before any step), t=1: model_val=1, ..., t=4: model_val=4
+    for _, row in df_sorted.iterrows():
+        t = row["time"]
+        expected_val = int(t)
+        assert row["model_val"] == expected_val, (
+            f"At time {t}, expected model_val={expected_val}, got {row['model_val']}"
+        )
+
+
+def test_step_without_run_model_no_run_ended():
+    """Test that manual step() calls do not emit RUN_ENDED."""
+    model = SteppingModel(max_steps=10)
+
+    signal_received = []
+
+    def handler(signal):
+        signal_received.append(signal)
+
+    model.observe("model", ModelSignals.RUN_ENDED, handler)
+
+    # Manual steps should not emit RUN_ENDED
+    model.step()
+    model.step()
+    model.step()
+
+    assert len(signal_received) == 0
+
+
+def test_multiple_recorders_both_receive_run_ended():
+    """Test that multiple recorders all receive the RUN_ENDED signal."""
+    model = SteppingModel(max_steps=3)
+    recorder1 = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder2 = DataRecorder(model, {"model_data": DatasetConfig()})
+    recorder1.clear()
+    recorder2.clear()
+
+    model.run_model()
+
+    df1 = recorder1.get_table_dataframe("model_data")
+    df2 = recorder2.get_table_dataframe("model_data")
+
+    assert 3.0 in df1["time"].values
+    assert 3.0 in df2["time"].values

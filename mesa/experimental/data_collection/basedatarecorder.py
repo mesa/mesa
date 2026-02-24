@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.mesa_signals import ObservableSignals
+from mesa.experimental.mesa_signals import ModelSignals, ObservableSignals
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -141,6 +141,9 @@ class BaseDataRecorder(ABC):
         if self.registry is None:
             raise AttributeError("Model must have a DataRegistry (model.data_registry)")
 
+        # Track last finalized time per dataset to prevent duplicate snapshots
+        self._last_finalized_times: dict[str, float] = {}
+
         if config is None:
             config = {}
 
@@ -176,9 +179,23 @@ class BaseDataRecorder(ABC):
         self._subscribe_to_model()
 
     def _subscribe_to_model(self) -> None:
-        """Subscribe to model.time for automatic collection."""
-        # Subscribe to time units observable
+        """Subscribe to model signals for automatic collection.
+
+        Subscribes to:
+            - model.time CHANGED: for periodic data collection during simulation
+            - model RUN_ENDED: for capturing the final simulation state
+        """
         self.model.observe("time", ObservableSignals.CHANGED, self._on_time_change)
+        self.model.observe("model", ModelSignals.RUN_ENDED, self._on_run_ended)
+
+    def _on_run_ended(self, signal) -> None:
+        """Handle run ended signal by capturing the final simulation state.
+
+        This ensures the state after the last step is recorded without
+        requiring a manual call to finalise(). Deduplication prevents
+        storing the same time point twice if finalise() is also called.
+        """
+        self.finalise()
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
@@ -227,19 +244,32 @@ class BaseDataRecorder(ABC):
     def finalise(self) -> None:
         """Capture final snapshot at the end of a simulation run.
 
-        This method should be called when the simulation ends to ensure the final
-        state is recorded. It collects data for all
-        enabled datasets at the current model time.
+        This method is called automatically via the RUN_ENDED signal when
+        run_model() completes. It can also be called manually.
+
+        Deduplication ensures that calling finalise() multiple times at the
+        same model time (e.g., both via RUN_ENDED signal and manually) only
+        stores one snapshot per dataset per time point.
 
         Notes:
             - Respects enabled/disabled status of datasets
             - Does not update collection schedules
-            - Safe to call multiple times (subsequent calls just re-capture current state)
-            - Does not check if we're at a scheduled collection time
+            - Safe to call multiple times (deduplicates by time)
         """
-        # FIXME: We might want to add explicit RUN_ENDED signal handling in the future,
-        # but for now we can just call this method manually at the end of the run.
-        self.collect()
+        current_time = self.model.time
+
+        for name, config in self.configs.items():
+            if not config.enabled:
+                continue
+
+            # Deduplicate: skip if we already finalized this dataset at this time
+            if self._last_finalized_times.get(name) == current_time:
+                continue
+
+            dataset = self.registry.datasets[name]
+            data_snapshot = dataset.data
+            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            self._last_finalized_times[name] = current_time
 
     @abstractmethod
     def clear(self, dataset_name: str | None = None) -> None:
