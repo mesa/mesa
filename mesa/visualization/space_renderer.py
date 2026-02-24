@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from mesa.visualization.components import PropertyLayerStyle
 
 import altair as alt
-import numpy as np
 import pandas as pd
 
 import mesa
@@ -128,7 +127,9 @@ class SpaceRenderer:
         """
         mapped_arguments = arguments.copy()
 
-        if isinstance(self.space, OrthogonalGrid | VoronoiGrid | ContinuousSpace):
+        if isinstance(
+            self.space, OrthogonalGrid | VoronoiGrid | ContinuousSpace | Network
+        ):
             # Use the coordinates directly for Orthogonal grids, Voronoi grids and Continuous spaces
             mapped_arguments["loc"] = arguments["loc"].astype(float)
 
@@ -142,40 +143,6 @@ class SpaceRenderer:
                 ) * (self.space_drawer.x_spacing / 2)
                 loc[:, 1] = loc[:, 1] * self.space_drawer.y_spacing
             mapped_arguments["loc"] = loc
-
-        elif isinstance(self.space, Network):
-            # Map network node IDs to positions using vectorized dictionary lookup
-            loc = arguments["loc"].astype(float)
-            pos_dict = self.space_drawer.pos
-            node_ids = loc[:, 0].astype(int)
-
-            # Process unique node IDs once, then broadcast to all agents
-            unique_ids, inverse_indices = np.unique(node_ids, return_inverse=True)
-            unique_positions = np.full((len(unique_ids), 2), np.nan)
-            missing_nodes = []
-
-            for idx, node_id in enumerate(unique_ids):
-                if node_id in pos_dict:
-                    unique_positions[idx] = pos_dict[node_id]
-                else:
-                    missing_nodes.append(node_id)
-
-            mapped_locs = unique_positions[inverse_indices]
-
-            # Warn if significant nodes missing (likely layout issue, not race condition)
-            if missing_nodes and len(missing_nodes) > len(pos_dict) / 10:
-                sample = missing_nodes[: min(5, len(missing_nodes))]
-                warnings.warn(
-                    f"Many nodes {sample}{'...' if len(missing_nodes) > 5 else ''} not found "
-                    f"in position layout ({len(missing_nodes)}/{len(node_ids)} agents). "
-                    f"This may indicate the network layout needs to be updated or regenerated.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-
-            mapped_arguments["loc"] = (
-                mapped_locs if len(mapped_locs) > 0 else mapped_locs.reshape(0, 2)
-            )
 
         return mapped_arguments
 
@@ -246,6 +213,17 @@ class SpaceRenderer:
                 stacklevel=2,
             )
             self.draw_space_kwargs.update(kwargs)
+
+        # Network-specific: the space instance is replaced on every model reset.
+        # If the drawer still references the old space its layout positions belong
+        # to the previous (now stale) graph.  Rebuild before drawing edges so that
+        # the structure is always consistent with the current space.
+        if (
+            isinstance(self.space, Network)
+            and self.space_drawer.space is not self.space
+        ):
+            self.space_drawer = self._get_space_drawer()
+            self.backend_renderer.space_drawer = self.space_drawer
 
         self.space_mesh = self.backend_renderer.draw_structure(**self.draw_space_kwargs)
         return self.space_mesh
