@@ -1,0 +1,9 @@
+import random
+
+trials = 1000
+X = []
+
+for _ in range(trials):
+    X.append(random.choice([0, 1]))  # 1=head, 0=tail
+
+print("Sample outcomes:", X[:10])
