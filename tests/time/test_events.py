@@ -616,8 +616,8 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
 
         # Verify state contains expected keys
         self.assertIn("_fn_strong", state)
-        self.assertIn("_function", state)
-        self.assertIsNone(state["_function"])
+        self.assertIn("function", state)
+        self.assertIsNone(state["function"])
 
         # Verify _fn_strong is the actual function
         self.assertEqual(state["_fn_strong"](), "hello")
@@ -637,7 +637,7 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         # 3. Test __setstate__ with None function (edge case)
         state_with_none = {
             "_fn_strong": None,
-            "_function": None,
+            "function": None,
             "schedule": schedule,
             "priority": Priority.DEFAULT,
             "_active": False,

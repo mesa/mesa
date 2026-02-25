@@ -333,7 +333,7 @@ class EventGenerator:
         state = self.__dict__.copy()
         fn = self.function() if self.function is not None else None
         state["_fn_strong"] = fn
-        state["_function"] = None
+        state["function"] = None
         return state
 
     def __setstate__(self, state):
