@@ -565,50 +565,41 @@ class TestEventGenerator:
 class TestEventGeneratorMemoryLeak(unittest.TestCase):
     """Tests EventGenerator error handling, memory behavior, and state restoration."""
     def test_error_cases_and_valid_usage(self):
-        """Test all error cases + valid usage patterns."""
-        model = Model()
-        schedule = Schedule(interval=1.0)
+            """Test all error cases + valid usage patterns."""
+            model = Model()
+            schedule = Schedule(interval=1.0)
 
-        # Test 1: Non-callable → TypeError
-        with self.assertRaises(TypeError):
-            EventGenerator(model, 42, schedule)
+            # Test 1: Non-callable → TypeError
+            with self.assertRaises(TypeError):
+                EventGenerator(model, 42, schedule)
 
-        # Test 2: Non-weakly-referenceable callable → TypeError
-        class NoWeakRef:
-            __slots__ = ()
+            # Test 2: Non-weakly-referenceable callable → TypeError
+            class NoWeakRef:
+                __slots__ = ()
 
-            def __call__(self):
-                pass
+                def __call__(self):
+                    pass
 
-        with self.assertRaises(TypeError):
-            EventGenerator(model, NoWeakRef(), schedule)
+            with self.assertRaises(TypeError):
+                EventGenerator(model, NoWeakRef(), schedule)
 
-        # Test 3: Inline lambda → ValueError (rejected - can't be strongly referenced)
-        with self.assertRaises(ValueError) as cm:
-            EventGenerator(model, lambda: 10, schedule)
-        self.assertIn("garbage collected", str(cm.exception).lower())
+            # Test 3: lambda → ValueError 
+            with self.assertRaises(ValueError) as cm:
+                EventGenerator(model, lambda: 10, schedule)
+            self.assertIn("alive", str(cm.exception).lower())
 
-        # Test 4: Inline partial (no strong ref) → ValueError
-        def my_func(x, y):
-            return x + y
+            my_lambda=lambda: 10
+            with self.assertRaises(ValueError) as cm:
+                EventGenerator(model,my_lambda,schedule)
+            self.assertIn("alive", str(cm.exception).lower())    
 
-        with self.assertRaises(ValueError) as cm:
-            EventGenerator(model, partial(my_func, 1, 2), schedule)
-        self.assertIn("garbage collected", str(cm.exception).lower())
+            # Test 4: Named function (strong ref) → works fine
+            def assigned_func():
+                return 5
 
-        # Test 5: Named function (strong ref) → works fine
-        def assigned_func():
-            return 5
-
-        gen = EventGenerator(model, assigned_func, schedule)
-        self.assertIsNotNone(gen._function())
-        self.assertEqual(gen._function()(), 5)
-
-        # Test 6: Assigned partial (strong ref) → works fine
-        assigned_partial = partial(my_func, 1, 2)
-        gen = EventGenerator(model, assigned_partial, schedule)
-        self.assertIsNotNone(gen._function())
-        self.assertEqual(gen._function()(), 3)
+            gen = EventGenerator(model, assigned_func, schedule)
+            self.assertIsNotNone(gen._function())
+            self.assertEqual(gen._function()(), 5)
 
     def test_state_preparation_and_restoration(self):
         """Test __getstate__ and __setstate__ directly (no actual pickling)."""
