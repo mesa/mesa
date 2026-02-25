@@ -10,8 +10,9 @@ to attributes, computing derived values, and managing collections that emit sign
 when modified.
 """
 
+from .batching import aggregate
 from .core import (
-    HasObservables,
+    HasEmitters,
     Observable,
     computed_property,
     emit,
@@ -22,7 +23,7 @@ from .signals_util import ALL, Message, SignalType
 
 __all__ = [
     "ALL",
-    "HasObservables",
+    "HasEmitters",
     "ListSignals",
     "Message",
     "ModelSignals",
@@ -30,6 +31,7 @@ __all__ = [
     "ObservableList",
     "ObservableSignals",
     "SignalType",
+    "aggregate",
     "computed_property",
     "emit",
 ]

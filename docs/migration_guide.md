@@ -4,6 +4,78 @@ This guide contains breaking changes between major Mesa versions and how to reso
 Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
 
 ## Mesa 3.5.0
+### Event scheduling and time advancement
+Mesa 3.5 introduces public methods for event scheduling and time advancement directly on `Model`, replacing the need for `Simulator` classes.
+
+#### Time-based advancement replaces step loops
+```python
+# Old
+for _ in range(10):
+    model.step()
+
+# New
+model.run_for(10)    # Functionally equivalent for standard ABMs
+model.run_until(10)  # You can now also run until a specific time
+```
+`run_for(1)` produces identical results to `step()` for traditional models.
+
+#### One-off event scheduling
+
+```python
+# Schedule a single event at or after a specific time
+model.schedule_event(callback, at=50.0)    # Absolute time
+model.schedule_event(callback, after=5.0)  # Relative time
+
+# Cancel if needed
+event = model.schedule_event(callback, at=100.0)
+event.cancel()
+```
+
+#### Recurring event scheduling
+```python
+from mesa.time import Schedule
+
+# Schedule an event every 10 time units
+model.schedule_recurring(func, Schedule(interval=10))  # By default, starting after 1 interval (t=10 in this case)
+model.schedule_recurring(func, Schedule(interval=10, start=0))  # Start immediately or at any other time
+
+# Save the event and stop it when needed
+gen = model.schedule_recurring(func, Schedule(interval=5.0))
+gen.stop()
+
+# Limit executions
+model.schedule_recurring(func, Schedule(interval=1.0, count=10))
+```
+
+#### Replacing Simulator classes
+The experimental Simulator classes are now also deprecated.
+```python
+# Old - ABMSimulator
+from mesa.experimental.devs.simulator import ABMSimulator
+simulator = ABMSimulator()
+simulator.setup(model)
+simulator.run_for(100)
+
+# New
+model.run_for(100)
+```
+
+```python
+# Old - DEVSimulator
+from mesa.experimental.devs.simulator import DEVSimulator
+simulator = DEVSimulator()
+simulator.setup(model)
+simulator.schedule_event_absolute(callback, time=10.5)
+simulator.run_for(50)
+
+# New
+model.schedule_event(callback, at=10.5)
+model.run_for(50)
+```
+
+Mesa 3.5 doesn't introduce any breaking changes. Mesa 4 will clean up many deprecated components and thus will break unmodified models.
+
+* Ref: [Discussion #2921](https://github.com/mesa/mesa/discussions/2921), [PR #3266](https://github.com/projectmesa/mesa/pull/3266)
 
 ### AgentSet sequence behavior
 The Sequence behavior (indexing and slicing) on `AgentSet` is deprecated and will be removed in Mesa 4.0. Use the new `to_list()` method instead.

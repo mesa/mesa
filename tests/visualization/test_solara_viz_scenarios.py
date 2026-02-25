@@ -1,0 +1,166 @@
+"""Test Solara visualizations with Scenarios."""
+
+import solara
+
+import mesa
+from mesa.examples.basic.boltzmann_wealth_model.model import (
+    BoltzmannScenario,
+    BoltzmannWealth,
+)
+from mesa.experimental.scenarios import Scenario
+from mesa.visualization.solara_viz import Slider, SolaraViz, _build_model_init_kwargs
+
+
+class MyScenario(Scenario):
+    """A mock scenario for testing."""
+
+    density: float = 0.7
+    vision: int = 7
+
+
+class MyModel(mesa.Model):
+    """A mock model for testing."""
+
+    def __init__(self, height=40, width=40, scenario: MyScenario | None = None):
+        """Initialize the mock model."""
+        super().__init__(scenario=scenario)
+        self.height = height
+        self.width = width
+
+
+def test_mixed_params_rendering():
+    """Test that mixing model and scenario parameters renders correctly."""
+    model = MyModel()
+    model_params = {
+        "height": 50,
+        "density": Slider("Density", 0.8, 0.1, 1.0, 0.1),  # Scenario param
+        "width": Slider("Width", 40, 10, 100, 10),  # Model param
+    }
+
+    # Check if it renders without error.
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_scenario_subclass_with_type_hints():
+    """Test that scenario subclasses with type hints work correctly."""
+
+    class TypedScenario(Scenario):
+        agent_density: float = 0.8
+        agent_vision: int = 7
+        movement_enabled: bool = True
+        speed: float = 1.0
+
+    class TypedModel(mesa.Model):
+        def __init__(self, grid_size=10, scenario: TypedScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.grid_size = grid_size
+
+    scenario = TypedScenario(agent_density=0.5, agent_vision=10)
+    model = TypedModel(scenario=scenario)
+
+    model_params = {
+        "grid_size": 20,
+        "agent_density": Slider("Density", 0.7, 0.0, 1.0, 0.1),
+        "movement_enabled": Slider("Movement", False, True, True, True),
+    }
+
+    # Should render without error.
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+    # Verify type hints are preserved.
+    assert isinstance(scenario.agent_density, float)
+    assert isinstance(scenario.agent_vision, int)
+    assert isinstance(scenario.movement_enabled, bool)
+
+
+def test_empty_scenario_params():
+    """Test handling of empty scenario parameters."""
+
+    class EmptyScenario(Scenario):
+        pass
+
+    class ModelWithEmptyScenario(mesa.Model):
+        def __init__(self, height=20, scenario: EmptyScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.height = height
+
+    scenario = EmptyScenario()
+    model = ModelWithEmptyScenario(scenario=scenario)
+
+    model_params = {
+        "height": 25,
+    }
+
+    # Should work without errors.
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_scenario_with_defaults():
+    """Test scenario with default values."""
+
+    class ScenarioWithDefaults(Scenario):
+        density: float = 0.5
+        vision: int = 5
+        speed: float = 1.0
+
+    class ModelWithDefaults(mesa.Model):
+        def __init__(self, width=10, scenario: ScenarioWithDefaults | None = None):
+            super().__init__(scenario=scenario)
+            self.width = width
+
+    # Test with default scenario values.
+    scenario = ScenarioWithDefaults()
+    ModelWithDefaults(scenario=scenario)
+
+    assert scenario.density == 0.5
+    assert scenario.vision == 5
+    assert scenario.speed == 1.0
+
+    # Test with overridden values.
+    scenario = ScenarioWithDefaults(density=0.8, vision=10)
+    ModelWithDefaults(scenario=scenario)
+
+    assert scenario.density == 0.8
+    assert scenario.vision == 10
+    assert scenario.speed == 1.0  # Still default.
+
+
+def test_reset_with_scenario():
+    """Test reset init kwargs route scenario fields (including rng) to Scenario."""
+    model = BoltzmannWealth(scenario=BoltzmannScenario(n=50, width=10, height=10))
+    model_parameters = {
+        "n": 60,
+        "width": 12,
+        "height": 11,
+        "rng": 42,
+    }
+
+    kwargs = _build_model_init_kwargs(
+        model,
+        model_parameters,
+        add_scenario_when_empty=False,
+        require_model_accepts_scenario=False,
+    )
+
+    assert "scenario" in kwargs
+    assert "rng" not in kwargs
+    assert isinstance(kwargs["scenario"], BoltzmannScenario)
+    assert kwargs["scenario"].n == 60
+    assert kwargs["scenario"].width == 12
+    assert kwargs["scenario"].height == 11
+    assert kwargs["scenario"].rng == 42
+
+
+def test_boltzmann_scenario_integration():
+    """Integration test for Boltzmann Wealth model with scenario params in SolaraViz."""
+    scenario = BoltzmannScenario(n=50, width=10, height=10)
+    model = BoltzmannWealth(scenario=scenario)
+
+    model_params = {
+        "n": Slider("Agents", 60, 10, 100, 1),
+        "width": Slider("Width", 12, 5, 20, 1),
+        "height": Slider("Height", 11, 5, 20, 1),
+        "rng": 42,
+    }
+
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)

@@ -11,7 +11,7 @@ simulation events in chronological order while respecting event priorities. Key 
 
 The module contains three main components:
 - Priority: An enumeration defining event priority levels (HIGH, DEFAULT, LOW)
-- SimulationEvent: A class representing individual events with timing and execution details
+- Event: A class representing individual events with timing and execution details
 - EventList: A heap-based priority queue managing the chronological ordering of events
 
 The implementation supports both pure discrete event simulation and hybrid approaches
@@ -21,6 +21,7 @@ combining agent-based modeling with event scheduling.
 from __future__ import annotations
 
 import itertools
+import types
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
@@ -33,6 +34,25 @@ if TYPE_CHECKING:
     from mesa import Model
 
 
+def _create_callable_reference(function: Callable):
+    """Validate and create a weak-reference wrapper for an event callback."""
+    if not callable(function):
+        raise TypeError("function must be a callable")
+
+    if isinstance(function, types.FunctionType) and function.__name__ == "<lambda>":
+        raise ValueError("function must be alive at Event creation.")
+
+    if isinstance(function, MethodType):
+        function_ref = WeakMethod(function)
+    else:
+        try:
+            function_ref = ref(function)
+        except TypeError as exc:
+            raise TypeError("function must be weak referenceable") from exc
+
+    return function_ref
+
+
 class Priority(IntEnum):
     """Enumeration of priority levels."""
 
@@ -41,7 +61,7 @@ class Priority(IntEnum):
     HIGH = 1
 
 
-class SimulationEvent:
+class Event:
     """A simulation event.
 
     The callable is wrapped using weakref, so there is no need to explicitly cancel event if e.g., an agent
@@ -57,9 +77,10 @@ class SimulationEvent:
 
 
     Notes:
-        simulation events use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
-        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently.
+        Simulation events use a weak reference to the callable.
+        If the callback no longer exists at execution time (e.g., because an agent
+        has been removed), execution will fail silently.
+        Lambda callbacks are rejected at Event creation.
 
     """
 
@@ -87,19 +108,14 @@ class SimulationEvent:
             function_kwargs: keyword arguments for the callable
         """
         super().__init__()
-        if not callable(function):
-            raise Exception()
-
         self.time = time
         self.priority = priority.value
         self._canceled = False
 
-        if isinstance(function, MethodType):
-            function = WeakMethod(function)
-        else:
-            function = ref(function)
+        weak_ref_fn = _create_callable_reference(function)
 
-        self.fn = function
+        self.fn = weak_ref_fn
+
         self.unique_id = next(self._ids)
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
@@ -118,13 +134,13 @@ class SimulationEvent:
         self.function_args = []
         self.function_kwargs = {}
 
-    def __lt__(self, other):  # noqa
-        # Define a total ordering for events to be used by the heapq
-        return (self.time, self.priority, self.unique_id) < (
-            other.time,
-            other.priority,
-            other.unique_id,
-        )
+    def __lt__(self, other):
+        """Define a total ordering for events to be used by the heapq."""
+        if self.time != other.time:
+            return self.time < other.time
+        if self.priority != other.priority:
+            return self.priority < other.priority
+        return self.unique_id < other.unique_id
 
     def __getstate__(self):
         """Prepare state for pickling."""
@@ -139,12 +155,9 @@ class SimulationEvent:
         """Restore state after unpickling."""
         fn = state.pop("_fn_strong")
         self.__dict__.update(state)
-        # Recreate weak reference
+        # Recreate callable reference strategy.
         if fn is not None:
-            if isinstance(fn, MethodType):
-                self.fn = WeakMethod(fn)
-            else:
-                self.fn = ref(fn)
+            self.fn = _create_callable_reference(fn)
         else:
             self.fn = None
 
@@ -165,11 +178,26 @@ class Schedule:
     end: float | None = None
     count: int | None = None
 
+    def __post_init__(self):
+        """Validate schedule parameters."""
+        if not callable(self.interval) and self.interval <= 0:
+            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
+
+        if self.count is not None and self.count <= 0:
+            raise ValueError(
+                f"Schedule count must be > 0 if provided, got {self.count}"
+            )
+
+        if self.start is not None and self.end is not None and self.start > self.end:
+            raise ValueError(
+                f"Schedule start ({self.start}) cannot be after end ({self.end})"
+            )
+
 
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
 
-    Unlike a single SimulationEvent, an EventGenerator is persistent and can be
+    Unlike a single Event, an EventGenerator is persistent and can be
     stopped or configured with stop conditions.
 
     Attributes:
@@ -177,6 +205,13 @@ class EventGenerator:
         function: The callable to execute for each generated event
         schedule: The Schedule defining when events occur
         priority: Priority level for generated events
+
+    Notes:
+        Event generators use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
+        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
+        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        prior to creating the generator.
+
     """
 
     def __init__(
@@ -201,7 +236,7 @@ class EventGenerator:
         self.priority = priority
 
         self._active: bool = False
-        self._current_event: SimulationEvent | None = None
+        self._current_event: Event | None = None
         self._execution_count: int = 0
 
     @property
@@ -217,7 +252,10 @@ class EventGenerator:
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
         if callable(self.schedule.interval):
-            return self.schedule.interval(self.model)
+            interval = self.schedule.interval(self.model)
+            if interval < 0:
+                raise ValueError(f"Interval must be > 0, got {interval}")
+            return interval
         return self.schedule.interval
 
     def _should_stop(self, next_time: float) -> bool:
@@ -242,10 +280,11 @@ class EventGenerator:
         else:
             self._active = False
             self._current_event = None
+            self.model._event_generators.discard(self)
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
-        self._current_event = SimulationEvent(
+        self._current_event = Event(
             time,
             self._execute_and_reschedule,
             priority=self.priority,
@@ -268,20 +307,17 @@ class EventGenerator:
             start_time = self.model.time + self._get_interval()
 
         self._active = True
+        self.model._event_generators.add(self)
         self._schedule_next(start_time)
         return self
 
-    def stop(self) -> EventGenerator:
-        """Stop the event generator immediately.
-
-        Returns:
-            Self for method chaining
-        """
+    def stop(self):
+        """Stop the event generator immediately."""
         self._active = False
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
-        return self
+        self.model._event_generators.discard(self)
 
 
 class EventList:
@@ -296,26 +332,26 @@ class EventList:
 
     def __init__(self):
         """Initialize an event list."""
-        self._events: list[SimulationEvent] = []
+        self._events: list[Event] = []
         heapify(self._events)
 
-    def add_event(self, event: SimulationEvent):
+    def add_event(self, event: Event):
         """Add the event to the event list.
 
         Args:
-            event (SimulationEvent): The event to be added
+            event (Event): The event to be added
 
         """
         heappush(self._events, event)
 
-    def peek_ahead(self, n: int = 1) -> list[SimulationEvent]:
+    def peek_ahead(self, n: int = 1) -> list[Event]:
         """Look at the first n non-canceled event in the event list.
 
         Args:
             n (int): The number of events to look ahead
 
         Returns:
-            list[SimulationEvent]
+            list[Event]
 
         Raises:
             IndexError: If the eventlist is empty
@@ -333,7 +369,7 @@ class EventList:
         valid_events = [e for e in self._events if not e.CANCELED]
         return nsmallest(n, valid_events)
 
-    def pop_event(self) -> SimulationEvent:
+    def pop_event(self) -> Event:
         """Pop the first element from the event list."""
         while self._events:
             event = heappop(self._events)
@@ -345,11 +381,13 @@ class EventList:
         """Return whether the event list is empty."""
         return len(self) == 0
 
-    def __contains__(self, event: SimulationEvent) -> bool:  # noqa
+    def __contains__(self, event: Event) -> bool:  # noqa
+        if event.CANCELED:
+            return False
         return event in self._events
 
     def __len__(self) -> int:  # noqa
-        return len(self._events)
+        return len([e for e in self._events if not e.CANCELED])
 
     def __repr__(self) -> str:
         """Return a string representation of the event list."""
@@ -362,11 +400,11 @@ class EventList:
         )
         return f"EventList([{events_str}])"
 
-    def remove(self, event: SimulationEvent) -> None:
+    def remove(self, event: Event) -> None:
         """Remove an event from the event list.
 
         Args:
-            event (SimulationEvent): The event to be removed
+            event (Event): The event to be removed
 
         """
         # we cannot simply remove items from _eventlist because this breaks

@@ -512,6 +512,10 @@ def test_networkgrid():
 
 def test_voronoigrid():
     """Test VoronoiGrid."""
+    # Index 0: [0, 1]
+    # Index 1: [1, 3]
+    # Index 2: [1.1, 1]
+    # Index 3: [1, 1]
     points = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
 
     grid = VoronoiGrid(points, random=random.Random(42))
@@ -521,7 +525,7 @@ def test_voronoigrid():
     # Check cell neighborhood
     assert len(grid._cells[0].connections.values()) == 2
     for connection in grid._cells[0].connections.values():
-        assert connection.coordinate in [[1, 1], [1, 3]]
+        assert connection.coordinate in [1, 3]
 
     with pytest.raises(ValueError):
         VoronoiGrid(points, capacity="str", random=random.Random(42))
@@ -1075,6 +1079,34 @@ def test_cell_agent():  # noqa: D103
     agent.move_to(cell2)
     assert agent not in cell1.agents
     assert agent in cell2.agents
+
+
+def test_cell_assignment_atomic_on_capacity_failure():
+    """Ensure cell assignment remains atomic if capacity is exceeded."""
+    model = Model()
+
+    cell = Cell((0,), capacity=1, random=random.Random())
+
+    a1 = CellAgent(model)
+    a2 = CellAgent(model)
+
+    # Fill the cell
+    a1.cell = cell
+    assert a1 in cell.agents
+
+    # Capture original state of a2
+    original_cell = a2.cell
+
+    # Attempt invalid placement
+    with pytest.raises(Exception):
+        a2.cell = cell
+
+    # Agent state must remain unchanged
+    assert a2.cell is original_cell
+
+    # Invariant must hold
+    if a2.cell is not None:
+        assert a2 in a2.cell.agents
 
 
 def test_grid2DMovingAgent():  # noqa: D103

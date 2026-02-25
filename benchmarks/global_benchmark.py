@@ -12,41 +12,32 @@ sys.path.insert(0, os.path.abspath(".."))
 
 from configurations import configurations
 
-from mesa.experimental.devs.simulator import ABMSimulator
+from mesa.experimental.scenarios import Scenario
 
 
 # Generic function to initialize and run a model
-def run_model(model_class, seed, parameters):
+def run_model(model_class, steps, **scenario_kwargs):
     """Run model for given seed and parameter values.
 
     Args:
         model_class: a model class
-        seed: the seed
-        parameters: parameters for the run
+        steps: number of steps to run the model
+        **scenario_kwargs: parameters for Scenario object
 
     Returns:
         startup time and run time
     """
-    uses_simulator = ["WolfSheep"]
     # Explicitly collect garbage before the run to ensure a clean memory state
     gc.collect()
 
     # Disable GC during timed runs to avoid random slowdowns
     gc.disable()
     start_init = time.perf_counter()
-    if model_class.__name__ in uses_simulator:
-        simulator = ABMSimulator()
-        model = model_class(simulator=simulator, rng=seed, **parameters)
-    else:
-        model = model_class(rng=seed, **parameters)
+    model = model_class(scenario=Scenario(**scenario_kwargs))
 
     end_init_start_run = time.perf_counter()
 
-    if model_class.__name__ in uses_simulator:
-        simulator.run_for(config["steps"])
-    else:
-        for _ in range(config["steps"]):
-            model.step()
+    model.run_for(steps)
 
     end_run = time.perf_counter()
     gc.enable()  # Re-enable GC after benchmarking
@@ -72,18 +63,23 @@ def run_experiments(model_class, config):
 
     init_times = []
     run_times = []
+
+    steps = config["steps"]
+    base_params = config["parameters"]
+
     for seed in range(1, config["seeds"] + 1):
         fastest_init = float("inf")
         fastest_run = float("inf")
+        run_kwargs = {**base_params, "rng": seed}
 
         # Warm-up: run 3 times before starting measurement
         # This eliminates cold start penalty
         for _ in range(3):
-            run_model(model_class, seed, config["parameters"])
+            run_model(model_class, steps, **run_kwargs)
 
         # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
-            init_time, run_time = run_model(model_class, seed, config["parameters"])
+            init_time, run_time = run_model(model_class, steps, **run_kwargs)
             if init_time < fastest_init:
                 fastest_init = init_time
             if run_time < fastest_run:

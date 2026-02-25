@@ -6,7 +6,7 @@ functionality:
 - BaseObservable: Abstract base class defining the interface for all observables
 - Observable: Main class for creating observable properties that emit change signals
 - computed_property: Decorator for creating properties that automatically update based on dependencies
-- HasObservables: Mixin class that enables an object to contain and manage observables
+- HasEmitters: Mixin class that enables an object to contain and manage observables
 - emit: Decorator for methods that emit signals
 
 The module implements a robust reactive system where changes to observable properties
@@ -34,7 +34,7 @@ from .signal_types import ObservableSignals
 
 __all__ = [
     "BaseObservable",
-    "HasObservables",
+    "HasEmitters",
     "Observable",
     "computed_property",
     "emit",
@@ -63,7 +63,7 @@ class BaseObservable:
         self.private_name: str
         self.fallback_value = fallback_value
 
-    def __get__(self, instance: HasObservables, owner):  # noqa: D105
+    def __get__(self, instance: HasEmitters, owner):  # noqa: D105
         value = getattr(instance, self.private_name)
 
         # fixme this makes signaling list part of computed
@@ -78,11 +78,11 @@ class BaseObservable:
 
         return value
 
-    def __set_name__(self, owner: HasObservables, name: str):  # noqa: D105
+    def __set_name__(self, owner: HasEmitters, name: str):  # noqa: D105
         self.public_name = name
         self.private_name = f"_{name}"
 
-    def __set__(self, instance: HasObservables, value):  # noqa: D105
+    def __set__(self, instance: HasEmitters, value):  # noqa: D105
         # If no one is listening, Avoid overhead of fetching old value and
         # creating Message object.
         if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
@@ -107,7 +107,7 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed.
+    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
 
     """
 
@@ -115,7 +115,7 @@ class Observable(BaseObservable):
     #    instead of descriptor, which is likely to be more performant
     signal_types = ObservableSignals
 
-    def __set__(self, instance: HasObservables, value):  # noqa D103
+    def __set__(self, instance: HasEmitters, value):  # noqa D103
         if (
             CURRENT_COMPUTED is not None
             and _hashable_signal(instance, self.public_name) in PROCESSING_SIGNALS
@@ -129,7 +129,8 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            send_notify = True
+            if old_value != value:
+                send_notify = True
         setattr(instance, self.private_name, value)
 
         if send_notify:
@@ -147,13 +148,13 @@ class ComputedState:
 
     __slots__ = ["__weakref__", "func", "is_dirty", "name", "owner", "parents", "value"]
 
-    def __init__(self, owner: HasObservables, name: str, func: Callable):
+    def __init__(self, owner: HasEmitters, name: str, func: Callable):
         self.owner = owner
         self.name = name
         self.func = func
         self.value = None
         self.is_dirty = True
-        self.parents: weakref.WeakKeyDictionary[HasObservables, dict[str, Any]] = (
+        self.parents: weakref.WeakKeyDictionary[HasEmitters, dict[str, Any]] = (
             weakref.WeakKeyDictionary()
         )
 
@@ -162,13 +163,11 @@ class ComputedState:
             self.is_dirty = True
             self.owner.notify(self.name, ObservableSignals.CHANGED, old=self.value)
 
-    def _add_parent(
-        self, parent: HasObservables, name: str, current_value: Any
-    ) -> None:
+    def _add_parent(self, parent: HasEmitters, name: str, current_value: Any) -> None:
         """Add a parent Observable.
 
         Args:
-            parent: the HasObservable instance to which the Observable belongs
+            parent: the HasEmitters instance to which the Observable belongs
             name: the public name of the Observable
             current_value: the current value of the Observable
 
@@ -203,7 +202,7 @@ def computed_property(func: Callable) -> property:
     key = f"_computed_{func.__name__}"
 
     @functools.wraps(func)
-    def wrapper(self: HasObservables):
+    def wrapper(self: HasEmitters):
         global CURRENT_COMPUTED  # noqa: PLW0603
 
         if not hasattr(self, key):
@@ -254,14 +253,14 @@ def computed_property(func: Callable) -> property:
     return ComputedProperty(wrapper)
 
 
-class HasObservables:
-    """HasObservables class.
+class HasEmitters:
+    """HasEmitters class.
 
     Attributes:
         subscribers: mapping of observables/emitters and signal type to subscribers
         observables: mapping of observables/emitters to their available signal types
 
-    HasObservables automatically discovers the observables/emitters defined on the class.
+    HasEmitters automatically discovers the observables/emitters defined on the class.
 
     """
 
@@ -273,14 +272,16 @@ class HasObservables:
     observables: dict[str, type[SignalType] | frozenset[SignalType]]
 
     def __init_subclass__(cls, **kwargs):
-        """Initialize a HasObservables subclass."""
+        """Initialize a HasEmitters subclass."""
         super().__init_subclass__(**kwargs)
         cls.observables = dict(descriptor_generator(cls))
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initialize a HasObservables."""
+        """Initialize a HasEmitters."""
         super().__init__(*args, **kwargs)
         self.subscribers = defaultdict(list)
+        self._batch_context = None
+        self._suppress = False
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
@@ -401,6 +402,19 @@ class HasObservables:
             kwargs: additional keyword arguments to include in the signal
 
         """
+        if self._suppress:
+            return
+
+        if self._batch_context is not None:
+            signal = Message(
+                name=observable,
+                owner=self,
+                signal_type=signal_type,
+                additional_kwargs=kwargs,
+            )
+            self._batch_context.capture(signal)
+            return
+
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
         key = (observable, signal_type)
@@ -445,6 +459,35 @@ class HasObservables:
             self.subscribers[key] = active_observers
         else:
             del self.subscribers[key]
+
+    def batch(self):
+        """Return a context manager that batches signals.
+
+        Signals emitted during the batch are buffered and aggregated on exit.
+        Nested batches merge into the outer batch; only the outermost dispatches.
+
+        Note:
+            Computed properties may return stale cached values during the batch.
+            They will be updated when aggregated signals are dispatched on exit.
+
+        """
+        from .batching import _BatchContext  # noqa: PLC0415
+
+        return _BatchContext(self)
+
+    def suppress(self):
+        """Return a context manager that suppresses all signals.
+
+        No signals are emitted, buffered, or dispatched during suppression.
+
+        Note:
+            Computed properties may become permanently stale because their
+            triggering signals are dropped entirely.
+
+        """
+        from .batching import _SuppressContext  # noqa: PLC0415
+
+        return _SuppressContext(self)
 
     def _process_name(self, name: ObservableName) -> Iterable[str]:
         """Convert name to an iterable of observable names."""
@@ -499,7 +542,7 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
         signal_to_emit: the signal to emit
         when: whether to emit the signal before or after the function call.
 
-    This only works on HasObservables subclasses.
+    This only works on HasEmitters subclasses.
 
     """
 

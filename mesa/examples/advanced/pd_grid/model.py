@@ -62,12 +62,11 @@ class PdGrid(mesa.Model):
         # Activate all agents, based on the activation regime
         match self.activation_order:
             case "Sequential":
-                self.agents.do("step")
+                self.agents.do(lambda a: (a.step(), a.advance()))
             case "Random":
-                self.agents.shuffle_do("step")
+                self.agents.shuffle_do(lambda a: (a.step(), a.advance()))
             case "Simultaneous":
-                self.agents.do("step")
-                self.agents.do("advance")
+                self.agents.do("step").do("advance")
             case _:
                 raise ValueError(f"Unknown activation order: {self.activation_order}")
 

@@ -7,7 +7,7 @@ import pytest
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
     ALL,
-    HasObservables,
+    HasEmitters,
     ListSignals,
     Observable,
     ObservableList,
@@ -22,7 +22,7 @@ from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 def test_observables():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -36,13 +36,16 @@ def test_observables():
     agent.observe("some_attribute", ObservableSignals.CHANGED, handler)
 
     agent.some_attribute = 10
+    handler.assert_not_called()  # we change it to the same value so no signal
+
+    agent.some_attribute = 20
     handler.assert_called_once()
 
 
-def test_HasObservables():
+def test_HasEmitters():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
         some_other_attribute = Observable()
 
@@ -168,7 +171,7 @@ def test_HasObservables():
 def test_ObservableList():
     """Test ObservableList."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(
@@ -267,7 +270,7 @@ def test_ObservableList():
 def test_Message():
     """Test Message."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -298,7 +301,7 @@ def test_Message():
 def test_computed_property():
     """Test @computed_property."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_other_attribute = Observable()
 
         def __init__(self, model, value):
@@ -340,7 +343,7 @@ def test_computed_property():
     # Cyclical dependencies
     # Scenario: A computed property tries to modify an observable
     # that it also reads (or that is currently locked).
-    class CyclicalAgent(Agent, HasObservables):
+    class CyclicalAgent(Agent, HasEmitters):
         o1 = Observable()
 
         def __init__(self, model, value):
@@ -369,7 +372,7 @@ def test_computed_dynamic_dependencies():
     it stops listening to that dependency (Zombie Dependencies).
     """
 
-    class DynamicAgent(Agent, HasObservables):
+    class DynamicAgent(Agent, HasEmitters):
         use_a = Observable()
         val_a = Observable()
         val_b = Observable()
@@ -415,7 +418,7 @@ def test_computed_dynamic_dependencies():
 def test_chained_computations():
     """Test that a computed property can depend on another computed property."""
 
-    class ChainedAgent(Agent, HasObservables):
+    class ChainedAgent(Agent, HasEmitters):
         base = Observable()
 
         def __init__(self, model, val):
@@ -450,7 +453,7 @@ def test_chained_computations():
 def test_dead_parent_fallback():
     """Test defensive check for garbage collected parents."""
 
-    class SimpleAgent(Agent, HasObservables):
+    class SimpleAgent(Agent, HasEmitters):
         @computed_property
         def prop(self):
             return 1
@@ -481,7 +484,7 @@ def test_dead_parent_fallback():
 def test_list_support():
     """Test using list of strings for name and signal_type in observe/unobserve."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         attr1 = Observable()
         attr2 = Observable()
         attr3 = Observable()
@@ -565,6 +568,264 @@ def test_emit():
             signal_type=TestSignals.AFTER,
             owner=model,
             additional_kwargs={"args": (), "some_value": 10},
+        )
+    )
+
+
+def test_ObservableList_negative_index_normalization():
+    """Test that __setitem__ with negative index emits normalized positive index."""
+
+    class MyAgent(Agent, HasEmitters):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3]
+
+    # replaced
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REPLACED, handler)
+
+    # Replace last element with -1
+    agent.my_list[-1] = 99
+    assert agent.my_list[2] == 99
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={"index": 2, "old": 3, "new": 99},
+        )
+    )
+
+    # Replace first element with -len
+    handler.reset_mock()
+    agent.my_list[-3] = 50
+    assert agent.my_list[0] == 50
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={"index": 0, "old": 1, "new": 50},
+        )
+    )
+
+    # removed
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REMOVED, handler)
+
+    # Delete last element with -1
+    del agent.my_list[-1]
+    assert list(agent.my_list) == [1, 2]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": 2, "old": 3},
+        )
+    )
+
+    # Delete first element with -2 (on now 2-element list)
+    handler.reset_mock()
+    del agent.my_list[-2]
+    assert list(agent.my_list) == [2]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": 0, "old": 1},
+        )
+    )
+
+    # inserted
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.INSERTED, handler)
+
+    # Insert with -1 (before last element, normalized to index 2)
+    agent.my_list.insert(-1, 99)
+    assert list(agent.my_list) == [1, 2, 99, 3]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": 2, "new": 99},
+        )
+    )
+
+    # Insert with large negative (clamped to 0)
+    handler.reset_mock()
+    agent.my_list.insert(-100, 50)
+    assert agent.my_list[0] == 50
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": 0, "new": 50},
+        )
+    )
+
+    # Insert beyond length (clamped to len)
+    handler.reset_mock()
+    current_len = len(agent.my_list)
+    agent.my_list.insert(100, 77)
+    assert agent.my_list[-1] == 77
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.INSERTED,
+            owner=agent,
+            additional_kwargs={"index": current_len, "new": 77},
+        )
+    )
+
+
+def test_ObservableList_slice_setitem():
+    """Test that __setitem__ with a slice emits a REPLACED signal with normalized index."""
+
+    class MyAgent(Agent, HasEmitters):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3, 4, 5]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REPLACED, handler)
+
+    # Replace a slice
+    agent.my_list[1:3] = [20, 30]
+    assert list(agent.my_list) == [1, 20, 30, 4, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(1, 3, 1),
+                "old": [2, 3],
+                "new": [20, 30],
+            },
+        )
+    )
+
+    # Replace with different length (shrink)
+    handler.reset_mock()
+    agent.my_list[1:4] = [99]
+    assert list(agent.my_list) == [1, 99, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(1, 4, 1),
+                "old": [20, 30, 4],
+                "new": [99],
+            },
+        )
+    )
+
+    # Replace with a generator
+    handler.reset_mock()
+    agent.my_list[0:2] = (x * 10 for x in range(3))
+    assert list(agent.my_list) == [0, 10, 20, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(0, 2, 1),
+                "old": [1, 99],
+                "new": [0, 10, 20],
+            },
+        )
+    )
+
+    # Replace with negative slice
+    handler.reset_mock()
+    agent.my_list[-2:] = [10, 20, 30]
+    assert list(agent.my_list) == [0, 10, 10, 20, 30]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REPLACED,
+            owner=agent,
+            additional_kwargs={
+                "index": slice(2, 4, 1),
+                "old": [20, 5],
+                "new": [10, 20, 30],
+            },
+        )
+    )
+
+
+def test_ObservableList_slice_delitem():
+    """Test that __delitem__ with a slice emits a REMOVED signal with normalized index."""
+
+    class MyAgent(Agent, HasEmitters):
+        my_list = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.my_list = [1, 2, 3, 4, 5]
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    handler = Mock()
+    agent.observe("my_list", ListSignals.REMOVED, handler)
+
+    del agent.my_list[1:3]
+    assert list(agent.my_list) == [1, 4, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(1, 3, 1), "old": [2, 3]},
+        )
+    )
+
+    # Step slice
+    handler.reset_mock()
+    agent.my_list = [1, 2, 3, 4, 5]
+    handler.reset_mock()
+    del agent.my_list[::2]
+    assert list(agent.my_list) == [2, 4]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(0, 5, 2), "old": [1, 3, 5]},
+        )
+    )
+
+    # Negative slice
+    handler.reset_mock()
+    agent.my_list = [1, 2, 3, 4, 5]
+    handler.reset_mock()
+    del agent.my_list[-3:-1]
+    assert list(agent.my_list) == [1, 2, 5]
+    handler.assert_called_once_with(
+        Message(
+            name="my_list",
+            signal_type=ListSignals.REMOVED,
+            owner=agent,
+            additional_kwargs={"index": slice(2, 4, 1), "old": [3, 4]},
         )
     )
 

@@ -18,6 +18,8 @@ from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
 
@@ -31,7 +33,8 @@ class Cell:
     """The cell represents a position in a discrete space.
 
     Attributes:
-        coordinate (Tuple[int, int]) : the position of the cell in the discrete space
+        coordinate (Coordinate) : the logical position(or index) of the cell in the discrete space
+        position (np.ndarray | None): the physical position of the cell in the discrete space
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell
         random (Random): the random number generator
@@ -41,9 +44,10 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_position",  # physical position
         "capacity",
         "connections",
-        "coordinate",
+        "coordinate",  # Logical index
         "properties",
         "random",
     ]
@@ -56,9 +60,26 @@ class Cell:
     def empty(self, value: bool) -> None:
         self._empty = value
 
+    @property
+    def position(self) -> np.ndarray:
+        """Get the physical position of the cell.
+
+        Returns:
+            np.ndarray: Physical position of the cell
+        """
+        if self._position is not None:
+            return self._position
+        # Default for implicit grids
+        return np.asarray(self.coordinate, dtype=float)
+
+    @position.setter
+    def position(self, value: np.ndarray | None) -> None:
+        self._position = value
+
     def __init__(
         self,
         coordinate: Coordinate,
+        position: np.ndarray | None = None,
         capacity: int | None = None,
         random: Random | None = None,
     ) -> None:
@@ -66,12 +87,14 @@ class Cell:
 
         Args:
             coordinate: coordinates of the cell
+            position: physical coordinates of the cell
             capacity (int) : the capacity of the cell. If None, the capacity is infinite
             random (Random) : the random number generator to use
 
         """
         super().__init__()
-        self.coordinate = coordinate
+        self.coordinate = coordinate  # Logical index
+        self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
         self._agents: list[
             CellAgent

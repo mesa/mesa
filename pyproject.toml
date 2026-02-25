@@ -69,6 +69,7 @@ dev = [
   "pytest-ipywidgets",
   "playwright",
   "ipython>=9.2.0",
+  "pyarrow",
 ]
 examples = [
   "mesa[rec]",

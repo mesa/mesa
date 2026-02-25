@@ -164,11 +164,11 @@ class SugarscapeG1mt(mesa.Model):
         """
         # Need to remove excess data
         # Create local variable to store trade data
-        agent_trades = self.datacollector._agent_records[self.steps]
+        agent_trades = self.datacollector._agent_records[self.time]
         # Get rid of all None to reduce data storage needs
         agent_trades = [agent for agent in agent_trades if agent[2] is not None]
         # Reassign the dictionary value with lean trade data
-        self.datacollector._agent_records[self.steps] = agent_trades
+        self.datacollector._agent_records[self.time] = agent_trades
 
     def run_model(self, step_count=1000):
         for _ in range(step_count):

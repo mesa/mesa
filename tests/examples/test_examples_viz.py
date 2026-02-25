@@ -16,6 +16,10 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers.model import BoidsScenario
+from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.schelling.model import SchellingScenario
 from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
@@ -57,8 +61,7 @@ def run_model_test(
             initial_graph = page_session.locator("img").screenshot()
 
         # Run the model for specified number of steps
-        for _ in range(steps):
-            model.step()
+        model.run_for(steps)
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
@@ -105,7 +108,7 @@ def run_model_test(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
     """Test schelling model behavior and visualization."""
-    model = Schelling(rng=42)
+    model = Schelling(scenario=SchellingScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -131,9 +134,8 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         Sheep,
         Wolf,
     )
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
-    model = WolfSheep(simulator=ABMSimulator(), rng=42)
+    model = WolfSheep(scenario=WolfSheepScenario(rng=42))
 
     def agent_portrayal(agent):
         if agent is None:
@@ -174,7 +176,7 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page):
     """Test boid flockers model behavior and visualization."""
-    model = BoidFlockers(rng=42)
+    model = BoidFlockers(scenario=BoidsScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color="tab:blue")
@@ -191,7 +193,7 @@ def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Boltzmann wealth model behavior and visualization."""
-    model = BoltzmannWealth(rng=42)
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color=agent.wealth)
@@ -278,7 +280,7 @@ def test_epstein_civil_violence_model(
         agent_colors,
     )
 
-    model = EpsteinCivilViolence(rng=42)
+    model = EpsteinCivilViolence()
 
     def agent_portrayal(agent):
         if agent is None:

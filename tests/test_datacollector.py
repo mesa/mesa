@@ -716,7 +716,7 @@ def test_mutable_data_independence():
 
         def step(self):
             self.datacollector.collect(self)
-            self.agent.data.append(self.steps)  # Modify after collection
+            self.agent.data.append(self.time)  # Modify after collection
 
     model = MutableModel()
 
