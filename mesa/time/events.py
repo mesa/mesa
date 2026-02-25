@@ -231,10 +231,7 @@ class EventGenerator:
             priority: Priority level for generated events
         """
         self.model = model
-
-        weak_fun = _create_callable_reference(function)
-
-        self._function = weak_fun
+        self._function = _create_callable_reference(function)
         self.schedule = schedule
         self.priority = priority
 
