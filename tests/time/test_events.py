@@ -596,8 +596,8 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
             return 5
 
         gen = EventGenerator(model, assigned_func, schedule)
-        self.assertIsNotNone(gen._function())
-        self.assertEqual(gen._function()(), 5)
+        self.assertIsNotNone(gen.function())
+        self.assertEqual(gen.function()(), 5)
 
     def test_state_preparation_and_restoration(self):
         """Test __getstate__ and __setstate__ directly (no actual pickling)."""
@@ -627,8 +627,8 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         new_gen.__setstate__(state)
 
         # Verify weak reference was recreated correctly
-        self.assertIsNotNone(new_gen._function())
-        self.assertEqual(new_gen._function()(), "hello")
+        self.assertIsNotNone(new_gen.function())
+        self.assertEqual(new_gen.function()(), "hello")
 
         # Verify other state was preserved
         self.assertEqual(new_gen.schedule, schedule)
@@ -649,7 +649,7 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         none_gen.__setstate__(state_with_none)
 
         # Verify _function is None when _fn_strong was None
-        self.assertIsNone(none_gen._function)
+        self.assertIsNone(none_gen.function)
         self.assertEqual(none_gen.schedule, schedule)
 
     def test_no_op_during_execution_when_weakref_dies(self):
