@@ -1,6 +1,10 @@
 """configurations for benchmarks."""
 
 from mesa.examples import BoidFlockers, BoltzmannWealth, Schelling, WolfSheep
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers.model import BoidsScenario
+from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.schelling.model import SchellingScenario
 
 configurations = {
     # BoltzmannWealth Model Configurations
@@ -9,6 +13,7 @@ configurations = {
             "seeds": 50,
             "replications": 5,
             "steps": 125,
+            "scenario_class": BoltzmannScenario,
             "parameters": {
                 "n": 100,
                 "width": 10,
@@ -19,6 +24,7 @@ configurations = {
             "seeds": 10,
             "replications": 3,
             "steps": 10,
+            "scenario_class": BoltzmannScenario,
             "parameters": {
                 "n": 10000,
                 "width": 100,
@@ -32,26 +38,26 @@ configurations = {
             "seeds": 50,
             "replications": 5,
             "steps": 20,
+            "scenario_class": SchellingScenario,
             "parameters": {
                 "height": 40,
                 "width": 40,
                 "homophily": 0.4,
                 "radius": 1,
                 "density": 0.625,
-                "minority_pc": 0.5,
             },
         },
         "large": {
             "seeds": 10,
             "replications": 3,
             "steps": 10,
+            "scenario_class": SchellingScenario,
             "parameters": {
                 "height": 100,
                 "width": 100,
                 "homophily": 1,
                 "radius": 2,
                 "density": 0.8,
-                "minority_pc": 0.5,
             },
         },
     },
@@ -60,6 +66,7 @@ configurations = {
             "seeds": 50,
             "replications": 5,
             "steps": 80,
+            "scenario_class": WolfSheepScenario,
             "parameters": {
                 "height": 25,
                 "width": 25,
@@ -67,16 +74,14 @@ configurations = {
                 "initial_wolves": 40,
                 "sheep_reproduce": 0.2,
                 "wolf_reproduce": 0.1,
-                "wolf_gain_from_food": 20.0,
-                "grass": True,
                 "grass_regrowth_time": 20,
-                "sheep_gain_from_food": 4.0,
             },
         },
         "large": {
             "seeds": 10,
             "replications": 3,
             "steps": 20,
+            "scenario_class": WolfSheepScenario,
             "parameters": {
                 "height": 100,
                 "width": 100,
@@ -84,10 +89,7 @@ configurations = {
                 "initial_wolves": 500,
                 "sheep_reproduce": 0.4,
                 "wolf_reproduce": 0.2,
-                "wolf_gain_from_food": 20.0,
-                "grass": True,
                 "grass_regrowth_time": 10,
-                "sheep_gain_from_food": 4.0,
             },
         },
     },
@@ -96,32 +98,22 @@ configurations = {
             "seeds": 25,
             "replications": 3,
             "steps": 20,
+            "scenario_class": BoidsScenario,
             "parameters": {
                 "population_size": 200,
-                "width": 100,
-                "height": 100,
-                "speed": 1.0,
                 "vision": 5.0,
-                "separation": 2.0,
-                "cohere": 0.03,
-                "separate": 0.015,
-                "match": 0.05,
             },
         },
         "large": {
             "seeds": 10,
             "replications": 3,
             "steps": 10,
+            "scenario_class": BoidsScenario,
             "parameters": {
                 "population_size": 400,
                 "width": 150,
                 "height": 150,
-                "speed": 1.0,
                 "vision": 15.0,
-                "separation": 2.0,
-                "cohere": 0.03,
-                "separate": 0.015,
-                "match": 0.05,
             },
         },
     },

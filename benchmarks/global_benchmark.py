@@ -12,17 +12,15 @@ sys.path.insert(0, os.path.abspath(".."))
 
 from configurations import configurations
 
-from mesa.experimental.scenarios import Scenario
-
 
 # Generic function to initialize and run a model
-def run_model(model_class, steps, **scenario_kwargs):
-    """Run model for given seed and parameter values.
+def run_model(model_class, steps, scenario):
+    """Run model for given scenario.
 
     Args:
         model_class: a model class
         steps: number of steps to run the model
-        **scenario_kwargs: parameters for Scenario object
+        scenario: Scenario instance with model parameters
 
     Returns:
         startup time and run time
@@ -33,7 +31,7 @@ def run_model(model_class, steps, **scenario_kwargs):
     # Disable GC during timed runs to avoid random slowdowns
     gc.disable()
     start_init = time.perf_counter()
-    model = model_class(scenario=Scenario(**scenario_kwargs))
+    model = model_class(scenario=scenario)
 
     end_init_start_run = time.perf_counter()
 
@@ -65,21 +63,24 @@ def run_experiments(model_class, config):
     run_times = []
 
     steps = config["steps"]
+    scenario_class = config["scenario_class"]
     base_params = config["parameters"]
 
     for seed in range(1, config["seeds"] + 1):
         fastest_init = float("inf")
         fastest_run = float("inf")
-        run_kwargs = {**base_params, "rng": seed}
+        seed_params = {**base_params, "rng": seed}
 
         # Warm-up: run 3 times before starting measurement
         # This eliminates cold start penalty
         for _ in range(3):
-            run_model(model_class, steps, **run_kwargs)
+            run_model(model_class, steps, scenario_class(**seed_params))
 
         # Actual measured replications
         for _replication in range(1, config["replications"] + 1):
-            init_time, run_time = run_model(model_class, steps, **run_kwargs)
+            init_time, run_time = run_model(
+                model_class, steps, scenario_class(**seed_params)
+            )
             if init_time < fastest_init:
                 fastest_init = init_time
             if run_time < fastest_run:
