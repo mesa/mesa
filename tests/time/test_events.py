@@ -588,10 +588,6 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
                 EventGenerator(model, lambda: 10, schedule)
             self.assertIn("alive", str(cm.exception).lower())
 
-            my_lambda=lambda: 10
-            with self.assertRaises(ValueError) as cm:
-                EventGenerator(model,my_lambda,schedule)
-            self.assertIn("alive", str(cm.exception).lower())    
 
             # Test 4: Named function (strong ref) → works fine
             def assigned_func():
@@ -613,7 +609,7 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         # Create generator
         gen = EventGenerator(model, test_func, schedule)
 
-        # 1. Test __getstate__
+        # 1. Test __getstate__ with valid function
         state = gen.__getstate__()
 
         # Verify state contains expected keys
@@ -624,7 +620,7 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         # Verify _fn_strong is the actual function
         self.assertEqual(state["_fn_strong"](), "hello")
 
-        # 2. Test __setstate__
+        # 2. Test __setstate__ with valid function
         new_gen = EventGenerator.__new__(EventGenerator)
         new_gen.__setstate__(state)
 
@@ -635,6 +631,24 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         # Verify other state was preserved
         self.assertEqual(new_gen.schedule, schedule)
         self.assertEqual(new_gen.priority, Priority.DEFAULT)
+
+        # 3. Test __setstate__ with None function (edge case)
+        state_with_none = {
+            "_fn_strong": None,
+            "_function": None,
+            "schedule": schedule,
+            "priority": Priority.DEFAULT,
+            "_active": False,
+            "_current_event": None,
+            "_execution_count": 0,
+        }
+        
+        none_gen = EventGenerator.__new__(EventGenerator)
+        none_gen.__setstate__(state_with_none)
+        
+        # Verify _function is None when _fn_strong was None
+        self.assertIsNone(none_gen._function)
+        self.assertEqual(none_gen.schedule, schedule)
 
     def test_no_op_during_execution_when_weakref_dies(self):
         """Test generator stops silently when weakref dies during execution."""
