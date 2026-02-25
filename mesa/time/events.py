@@ -231,8 +231,8 @@ class EventGenerator:
             priority: Priority level for generated events
         """
         self.model = model
-        
-        weak_fun=_create_callable_reference(function)   
+
+        weak_fun = _create_callable_reference(function)
 
         self._function = weak_fun
         self.schedule = schedule
@@ -242,7 +242,6 @@ class EventGenerator:
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
-    
     @property
     def is_active(self) -> bool:
         """Return whether the generator is currently active."""
@@ -273,7 +272,7 @@ class EventGenerator:
         """Execute the function and schedule the next event."""
         if not self._active:
             return
-        
+
         # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         fn = self._function()
@@ -281,7 +280,7 @@ class EventGenerator:
             # Stop the generator if weakref is dead
             self.stop()
             return  # Silent no-op (no error raised)
-        
+
         # Execute the function
         fn()
         self._execution_count += 1
@@ -356,6 +355,7 @@ class EventGenerator:
                 self._function = ref(fn)
         else:
             self._function = None
+
 
 class EventList:
     """An event list.

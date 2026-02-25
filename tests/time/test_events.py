@@ -1,11 +1,12 @@
 """Tests for experimental Simulator classes."""
 
+import gc
+import unittest
 from collections.abc import Callable
 from functools import partial
 from unittest.mock import MagicMock
-import gc
+
 import pytest
-import unittest
 
 from mesa import Model
 from mesa.time import (
@@ -562,40 +563,41 @@ class TestEventGenerator:
         model.run_for(1.5)
         assert order == ["H", "L"]
 
+
 class TestEventGeneratorMemoryLeak(unittest.TestCase):
     """Tests EventGenerator error handling, memory behavior, and state restoration."""
+
     def test_error_cases_and_valid_usage(self):
-            """Test all error cases + valid usage patterns."""
-            model = Model()
-            schedule = Schedule(interval=1.0)
+        """Test all error cases + valid usage patterns."""
+        model = Model()
+        schedule = Schedule(interval=1.0)
 
-            # Test 1: Non-callable → TypeError
-            with self.assertRaises(TypeError):
-                EventGenerator(model, 42, schedule)
+        # Test 1: Non-callable → TypeError
+        with self.assertRaises(TypeError):
+            EventGenerator(model, 42, schedule)
 
-            # Test 2: Non-weakly-referenceable callable → TypeError
-            class NoWeakRef:
-                __slots__ = ()
+        # Test 2: Non-weakly-referenceable callable → TypeError
+        class NoWeakRef:
+            __slots__ = ()
 
-                def __call__(self):
-                    pass
+            def __call__(self):
+                pass
 
-            with self.assertRaises(TypeError):
-                EventGenerator(model, NoWeakRef(), schedule)
+        with self.assertRaises(TypeError):
+            EventGenerator(model, NoWeakRef(), schedule)
 
-            # Test 3: lambda → ValueError 
-            with self.assertRaises(ValueError) as cm:
-                EventGenerator(model, lambda: 10, schedule)
-            self.assertIn("alive", str(cm.exception).lower())
+        # Test 3: lambda → ValueError
+        with self.assertRaises(ValueError) as cm:
+            EventGenerator(model, lambda: 10, schedule)
+        self.assertIn("alive", str(cm.exception).lower())
 
+        # Test 4: Named function (strong ref) → works fine
+        def assigned_func():
+            return 5
 
-            # Test 4: Named function (strong ref) → works fine
-            def assigned_func():
-                return 5
-
-            gen = EventGenerator(model, assigned_func, schedule)
-            self.assertIsNotNone(gen._function())
-            self.assertEqual(gen._function()(), 5)
+        gen = EventGenerator(model, assigned_func, schedule)
+        self.assertIsNotNone(gen._function())
+        self.assertEqual(gen._function()(), 5)
 
     def test_state_preparation_and_restoration(self):
         """Test __getstate__ and __setstate__ directly (no actual pickling)."""
@@ -642,10 +644,10 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
             "_current_event": None,
             "_execution_count": 0,
         }
-        
+
         none_gen = EventGenerator.__new__(EventGenerator)
         none_gen.__setstate__(state_with_none)
-        
+
         # Verify _function is None when _fn_strong was None
         self.assertIsNone(none_gen._function)
         self.assertEqual(none_gen.schedule, schedule)
@@ -654,33 +656,33 @@ class TestEventGeneratorMemoryLeak(unittest.TestCase):
         """Test generator stops silently when weakref dies during execution."""
         model = Model()
         schedule = Schedule(interval=1.0)
-        
+
         # Track calls
         call_count = [0]
-        
+
         def temp_func():
             call_count[0] += 1
-        
+
         # Create and start generator
         gen = EventGenerator(model, temp_func, schedule)
         gen.start()
-        
+
         # First execution
         model.run_for(1.0)
         self.assertEqual(call_count[0], 1)
         self.assertTrue(gen.is_active)
-        
+
         # Remove strong reference
         del temp_func
         gc.collect()
-        
+
         # Second execution - should trigger no-op and stop silently
         model.run_for(1.0)
-        
+
         # Verify generator stopped (no error raised)
         self.assertFalse(gen.is_active)
         self.assertEqual(call_count[0], 1)
 
 
 if __name__ == "__main__":
-    unittest.main()        
+    unittest.main()
