@@ -231,7 +231,7 @@ class EventGenerator:
             priority: Priority level for generated events
         """
         self.model = model
-        self.function = function
+        self.function = _create_callable_reference(function)
         self.schedule = schedule
         self.priority = priority
 
@@ -270,7 +270,16 @@ class EventGenerator:
         if not self._active:
             return
 
-        self.function()
+        # Check weakref HERE (execution time), not in property getter
+        # This matches Event class behavior - weakref check during execution
+        fn = self.function()
+        if fn is None:
+            # Stop the generator if weakref is dead
+            self.stop()
+            return  # Silent no-op (no error raised)
+
+        # Execute the function
+        fn()
         self._execution_count += 1
 
         # Schedule next event if we shouldn't stop
@@ -318,6 +327,31 @@ class EventGenerator:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
+
+    def __getstate__(self):
+        """Prepare state for pickling."""
+        state = self.__dict__.copy()
+        fn = self.function() if self.function is not None else None
+        state["_fn_strong"] = fn
+        state["function"] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore state after unpickling."""
+        # Keep strong reference alive during entire method
+        fn = state.pop("_fn_strong")
+
+        # Update state first (keeps references alive)
+        self.__dict__.update(state)
+
+        # Now recreate weak reference
+        if fn is not None:
+            if isinstance(fn, MethodType):
+                self.function = WeakMethod(fn)
+            else:
+                self.function = ref(fn)
+        else:
+            self.function = None
 
 
 class EventList:
