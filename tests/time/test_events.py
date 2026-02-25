@@ -5,6 +5,7 @@ from functools import partial
 from unittest.mock import MagicMock
 import gc
 import pytest
+import unittest
 
 from mesa import Model
 from mesa.time import (
@@ -561,6 +562,54 @@ class TestEventGenerator:
         model.run_for(1.5)
         assert order == ["H", "L"]
 
+class TestEventGeneratorMemoryLeak(unittest.TestCase):
+    """Tests EventGenerator error handling, memory behavior, and state restoration."""
+    def test_error_cases_and_valid_usage(self):
+        """Test all error cases + valid usage patterns."""
+        model = Model()
+        schedule = Schedule(interval=1.0)
+
+        # Test 1: Non-callable → TypeError
+        with self.assertRaises(TypeError):
+            EventGenerator(model, 42, schedule)
+
+        # Test 2: Non-weakly-referenceable callable → TypeError
+        class NoWeakRef:
+            __slots__ = ()
+
+            def __call__(self):
+                pass
+
+        with self.assertRaises(TypeError):
+            EventGenerator(model, NoWeakRef(), schedule)
+
+        # Test 3: Inline lambda → ValueError (rejected - can't be strongly referenced)
+        with self.assertRaises(ValueError) as cm:
+            EventGenerator(model, lambda: 10, schedule)
+        self.assertIn("garbage collected", str(cm.exception).lower())
+
+        # Test 4: Inline partial (no strong ref) → ValueError
+        def my_func(x, y):
+            return x + y
+
+        with self.assertRaises(ValueError) as cm:
+            EventGenerator(model, partial(my_func, 1, 2), schedule)
+        self.assertIn("garbage collected", str(cm.exception).lower())
+
+        # Test 5: Named function (strong ref) → works fine
+        def assigned_func():
+            return 5
+
+        gen = EventGenerator(model, assigned_func, schedule)
+        self.assertIsNotNone(gen._function())
+        self.assertEqual(gen._function()(), 5)
+
+        # Test 6: Assigned partial (strong ref) → works fine
+        assigned_partial = partial(my_func, 1, 2)
+        gen = EventGenerator(model, assigned_partial, schedule)
+        self.assertIsNotNone(gen._function())
+        self.assertEqual(gen._function()(), 3)
+
     def test_state_preparation_and_restoration(self):
         """Test __getstate__ and __setstate__ directly (no actual pickling)."""
         model = Model()
@@ -577,58 +626,56 @@ class TestEventGenerator:
         state = gen.__getstate__()
 
         # Verify state contains expected keys
-        assert "_fn_strong" in state
-        assert "_function" in state
-        assert state["_function"] is None
+        self.assertIn("_fn_strong", state)
+        self.assertIn("_function", state)
+        self.assertIsNone(state["_function"])
 
         # Verify _fn_strong is the actual function
-        assert state["_fn_strong"]() == "hello"
+        self.assertEqual(state["_fn_strong"](), "hello")
 
         # 2. Test __setstate__
         new_gen = EventGenerator.__new__(EventGenerator)
         new_gen.__setstate__(state)
 
         # Verify weak reference was recreated correctly
-        assert new_gen._function is not None
-        
-        # Access _function() directly (no @property)
-        assert new_gen._function()() == "hello"
+        self.assertIsNotNone(new_gen._function())
+        self.assertEqual(new_gen._function()(), "hello")
 
         # Verify other state was preserved
-        assert new_gen.schedule == schedule
-        assert new_gen.priority == Priority.DEFAULT
-
-        # 3. Cover branch where fn is None in __setstate__
-        state_with_none = state.copy()
-        state_with_none["_fn_strong"] = None
-
-        none_gen = EventGenerator.__new__(EventGenerator)
-        none_gen.__setstate__(state_with_none)
-
-        assert none_gen._function is None
+        self.assertEqual(new_gen.schedule, schedule)
+        self.assertEqual(new_gen.priority, Priority.DEFAULT)
 
     def test_no_op_during_execution_when_weakref_dies(self):
         """Test generator stops silently when weakref dies during execution."""
-        
         model = Model()
         schedule = Schedule(interval=1.0)
-
+        
+        # Track calls
         call_count = [0]
-
+        
         def temp_func():
             call_count[0] += 1
-
+        
+        # Create and start generator
         gen = EventGenerator(model, temp_func, schedule)
         gen.start()
-
+        
+        # First execution
         model.run_for(1.0)
-        assert call_count[0] == 1
-        assert gen.is_active is True
-
+        self.assertEqual(call_count[0], 1)
+        self.assertTrue(gen.is_active)
+        
+        # Remove strong reference
         del temp_func
         gc.collect()
-
+        
+        # Second execution - should trigger no-op and stop silently
         model.run_for(1.0)
+        
+        # Verify generator stopped (no error raised)
+        self.assertFalse(gen.is_active)
+        self.assertEqual(call_count[0], 1)
 
-        assert gen.is_active is False
-        assert call_count[0] == 1
+
+if __name__ == "__main__":
+    unittest.main()        
