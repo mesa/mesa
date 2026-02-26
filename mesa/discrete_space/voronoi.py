@@ -269,9 +269,7 @@ class VoronoiGrid(DiscreteSpace):
         dimension_1 = len(self.centroids_coordinates[0])
         for coordinate in self.centroids_coordinates:
             if dimension_1 != len(coordinate):
-                raise ValueError(
-                    "Centroid coordinates should be a homogeneous array"
-                )
+                raise ValueError("Centroid coordinates should be a homogeneous array")
 
     def _get_voronoi_regions(self) -> tuple:
         if self.voronoi_coordinates is None or self.regions is None:
