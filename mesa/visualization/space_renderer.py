@@ -22,6 +22,10 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.exceptions import (
+    UnsupportedBackendException,
+    UnsupportedSpaceException,
+)
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.space_drawers import (
@@ -85,7 +89,7 @@ class SpaceRenderer:
                 self.space_drawer,
             )
         else:
-            raise ValueError(f"Unsupported backend: {backend}")
+            raise UnsupportedBackendException(f"Unsupported backend: {backend}")
 
         self.backend_renderer.initialize_canvas()
 
@@ -96,7 +100,7 @@ class SpaceRenderer:
             Space drawer instance for the model's space type.
 
         Raises:
-            ValueError: If the space type is not supported.
+            UnsupportedSpaceException: If the space type is not supported.
         """
         if isinstance(self.space, HexGrid):
             return HexSpaceDrawer(self.space)
@@ -111,7 +115,7 @@ class SpaceRenderer:
             return VoronoiSpaceDrawer(self.space)
         elif isinstance(self.space, Network):
             return NetworkSpaceDrawer(self.space)
-        raise ValueError(
+        raise UnsupportedSpaceException(
             f"Unsupported space type: {type(self.space).__name__}. "
             "Supported types are OrthogonalGrid, HexGrid, ContinuousSpace, VoronoiGrid, and Network."
         )

@@ -77,3 +77,71 @@ class DimensionException(MesaException, ValueError):  # noqa: N818
             message: The error message describing the dimension mismatch.
         """
         super().__init__(message)
+
+
+class ModelException(MesaException):
+    """Base exception for errors in the Model class."""
+
+
+class RNGMismatchException(ModelException, ValueError):  # noqa: N818
+    """Raised when there is a mismatch between model and scenario RNGs."""
+
+
+class TimeException(MesaException):
+    """Base exception for errors in the time and scheduling modules."""
+
+
+class PastEventException(TimeException, ValueError):  # noqa: N818
+    """Raised when attempting to schedule an event in the past."""
+
+
+class InvalidCallbackException(TimeException):
+    """Base exception for invalid event callbacks."""
+
+
+class CallbackTypeError(InvalidCallbackException, TypeError):
+    """Raised when an event callback has the wrong type (e.g., not callable)."""
+
+
+class CallbackValueError(InvalidCallbackException, ValueError):
+    """Raised when an event callback has an inappropriate value (e.g., a lambda)."""
+
+
+class InvalidScheduleException(TimeException, ValueError):  # noqa: N818
+    """Raised when a schedule interval or start time is invalid."""
+
+
+class EmptyEventListException(TimeException, IndexError):  # noqa: N818
+    """Raised when attempting to pop or peek an empty event list."""
+
+
+class AgentException(MesaException):
+    """Base exception for errors related to agents."""
+
+
+class AgentNotRegisteredException(AgentException, LookupError):  # noqa: N818
+    """Raised when an operation is performed on an agent not registered with the model."""
+
+
+class DuplicateAgentIDException(AgentException, KeyError):  # noqa: N818
+    """Raised when attempting to register an agent with a duplicate ID."""
+
+
+class AgentSetException(MesaException):
+    """Base exception for errors in AgentSet operations."""
+
+
+class InvalidOptionException(AgentSetException, ValueError):  # noqa: N818
+    """Raised when an invalid option is provided to an AgentSet method."""
+
+
+class VisualizationException(MesaException):
+    """Base exception for visualization-related errors."""
+
+
+class UnsupportedBackendException(VisualizationException, ValueError):  # noqa: N818
+    """Raised when an unsupported visualization backend is specified."""
+
+
+class UnsupportedSpaceException(VisualizationException, ValueError):  # noqa: N818
+    """Raised when an unsupported space type is provided for visualization."""

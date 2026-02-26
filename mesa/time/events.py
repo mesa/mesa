@@ -30,6 +30,13 @@ from types import MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
+from mesa.exceptions import (
+    CallbackTypeError,
+    CallbackValueError,
+    EmptyEventListException,
+    InvalidScheduleException,
+)
+
 if TYPE_CHECKING:
     from mesa import Model
 
@@ -37,10 +44,10 @@ if TYPE_CHECKING:
 def _create_callable_reference(function: Callable):
     """Validate and create a weak-reference wrapper for an event callback."""
     if not callable(function):
-        raise TypeError("function must be a callable")
+        raise CallbackTypeError("function must be a callable")
 
     if isinstance(function, types.FunctionType) and function.__name__ == "<lambda>":
-        raise ValueError("function must be alive at Event creation.")
+        raise CallbackValueError("function must be alive at Event creation.")
 
     if isinstance(function, MethodType):
         function_ref = WeakMethod(function)
@@ -48,7 +55,7 @@ def _create_callable_reference(function: Callable):
         try:
             function_ref = ref(function)
         except TypeError as exc:
-            raise TypeError("function must be weak referenceable") from exc
+            raise CallbackTypeError("function must be weak referenceable") from exc
 
     return function_ref
 
@@ -181,15 +188,17 @@ class Schedule:
     def __post_init__(self):
         """Validate schedule parameters."""
         if not callable(self.interval) and self.interval <= 0:
-            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
+            raise InvalidScheduleException(
+                f"Schedule interval must be > 0, got {self.interval}"
+            )
 
         if self.count is not None and self.count <= 0:
-            raise ValueError(
+            raise InvalidScheduleException(
                 f"Schedule count must be > 0 if provided, got {self.count}"
             )
 
         if self.start is not None and self.end is not None and self.start > self.end:
-            raise ValueError(
+            raise InvalidScheduleException(
                 f"Schedule start ({self.start}) cannot be after end ({self.end})"
             )
 
@@ -254,7 +263,7 @@ class EventGenerator:
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
             if interval < 0:
-                raise ValueError(f"Interval must be > 0, got {interval}")
+                raise InvalidScheduleException(f"Interval must be > 0, got {interval}")
             return interval
         return self.schedule.interval
 
@@ -388,7 +397,7 @@ class EventList:
             list[Event]
 
         Raises:
-            IndexError: If the eventlist is empty
+            EmptyEventListException: If the eventlist is empty
 
         Notes:
             this method can return a list shorted then n if the number of non-canceled events on the event list
@@ -397,7 +406,7 @@ class EventList:
         """
         # look n events ahead
         if self.is_empty():
-            raise IndexError("event list is empty")
+            raise EmptyEventListException("event list is empty")
 
         # Filter out canceled events and get n smallest in correct chronological order
         valid_events = [e for e in self._events if not e.CANCELED]
@@ -409,7 +418,7 @@ class EventList:
             event = heappop(self._events)
             if not event.CANCELED:
                 return event
-        raise IndexError("Event list is empty")
+        raise EmptyEventListException("Event list is empty")
 
     def is_empty(self) -> bool:
         """Return whether the event list is empty."""

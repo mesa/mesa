@@ -17,6 +17,8 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
+from mesa.exceptions import InvalidOptionException
+
 if TYPE_CHECKING:
     from mesa.agent import Agent
 
@@ -167,7 +169,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Raises:
             AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
-            ValueError: If an unknown 'handle_missing' option is provided.
+            InvalidOptionException: If an unknown 'handle_missing' option is provided.
         """
         is_single_attr = isinstance(attr_names, str)
 
@@ -192,7 +194,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                 ]
 
         else:
-            raise ValueError(
+            raise InvalidOptionException(
                 f"Unknown handle_missing option: {handle_missing}, "
                 "should be one of 'error' or 'default'"
             )
