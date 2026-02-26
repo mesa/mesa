@@ -27,6 +27,7 @@ from mesa.discrete_space import (
 from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
+    CellMissingException,
     ConnectionMissingException,
     DimensionException,
     SpaceException,
@@ -557,6 +558,26 @@ def test_empties_space():
     model = Model()
     for i in range(8):
         grid._cells[i].add_agent(CellAgent(model))
+
+
+def test_cell_missing_exception():
+    """Test that CellMissingException is raised when accessing non-existent cells."""
+    grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(100, 100\) does not exist"
+    ):
+        _ = grid[(100, 100)]
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(5, 15\) does not exist"
+    ):
+        _ = grid[(5, 15)]
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(-1, 0\) does not exist"
+    ):
+        _ = grid[(-1, 0)]
 
 
 def test_agents_property():
