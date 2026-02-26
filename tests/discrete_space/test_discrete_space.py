@@ -29,6 +29,7 @@ from mesa.exceptions import (
     CellFullException,
     ConnectionMissingException,
     DimensionException,
+    SpaceException,
 )
 
 
@@ -1342,3 +1343,24 @@ def test_radius_exceeds_reachable_cells():
 
     # Should return all reachable cells (99, since we exclude center by default)
     assert len(neighbors) == 99
+
+
+def test_network_missing_layout_node():
+    """Test that Network raises a SpaceException when nodes are missing from the layout mapping."""
+    g = nx.Graph()
+    g.add_nodes_from([1, 2, 3])
+
+    rng = random.Random(42)
+
+    # Completely empty layout dictionary
+    with pytest.raises(
+        SpaceException, match="is missing from the provided layout dictionary"
+    ):
+        Network(g, layout={}, random=rng)
+
+    # Partially missing layout dictionary
+    partial_layout = {1: (0, 0), 2: (1, 1)}
+    with pytest.raises(
+        SpaceException, match="is missing from the provided layout dictionary"
+    ):
+        Network(g, layout=partial_layout, random=rng)
