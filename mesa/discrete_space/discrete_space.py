@@ -173,7 +173,10 @@ class DiscreteSpace[T: Cell]:
         return iter(self._cells.values())
 
     def __getitem__(self, key: tuple[int, ...]) -> T:  # noqa: D105
-        return self._cells[key]
+        try:
+            return self._cells[key]
+        except KeyError as e:
+            raise CellMissingException(key) from e
 
     @property
     def empties(self) -> CellCollection[T]:

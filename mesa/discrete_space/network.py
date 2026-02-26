@@ -22,6 +22,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.exceptions import SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -58,7 +59,7 @@ class Network(DiscreteSpace[Cell]):
         elif isinstance(layout, Mapping):
             node_positions = layout
         else:
-            raise ValueError(
+            raise SpaceException(
                 "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 
@@ -119,7 +120,7 @@ class Network(DiscreteSpace[Cell]):
             ValueError: If network is not spatial
         """
         if getattr(self, "_kdtree", None) is None:
-            raise ValueError("No nodes with positions found in network")
+            raise SpaceException("No nodes with positions found in network")
 
         _, index = self._kdtree.query(position)
         return self._kdtree_cells[index]

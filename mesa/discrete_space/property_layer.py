@@ -23,7 +23,7 @@ from typing import Any, TypeVar
 import numpy as np
 
 from mesa.discrete_space import Cell
-from mesa.exceptions import DimensionException
+from mesa.exceptions import DimensionException, SpaceException
 
 Coordinate = Sequence[int]
 T = TypeVar("T", bound=Cell)
@@ -84,7 +84,7 @@ class PropertyLayer:
                     stacklevel=2,
                 )
         except (ValueError, TypeError) as e:
-            raise TypeError(
+            raise SpaceException(
                 f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
             ) from e
 
@@ -152,7 +152,9 @@ class PropertyLayer:
         if isinstance(operation, np.ufunc):
             if ufunc_requires_additional_input(operation):
                 if value is None:
-                    raise ValueError("This ufunc requires an additional input value.")
+                    raise SpaceException(
+                        "This ufunc requires an additional input value."
+                    )
                 self.data[mask] = operation(target_data, value)
             else:
                 self.data[mask] = operation(target_data)
@@ -237,17 +239,17 @@ class HasPropertyLayers:
 
         """
         if layer.dimensions != self.dimensions:
-            raise ValueError(
+            raise DimensionException(
                 "Dimensions of property layer do not match the dimensions of the grid"
             )
         if layer.name in self._mesa_property_layers:
-            raise ValueError(f"Property layer {layer.name} already exists.")
+            raise SpaceException(f"Property layer {layer.name} already exists.")
         if layer.name in set(
             chain.from_iterable(
                 getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
             )
         ):
-            raise ValueError(
+            raise SpaceException(
                 f"Property layer {layer.name} clashes with existing attribute in {self.cell_klass.__name__}"
             )
 
@@ -389,7 +391,7 @@ class HasPropertyLayers:
                 elif mode == "lowest":
                     target_value = masked_values.min()
                 else:
-                    raise ValueError(
+                    raise SpaceException(
                         f"Invalid mode {mode}. Choose from 'highest' or 'lowest'."
                     )
 

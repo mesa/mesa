@@ -14,6 +14,7 @@ from mesa.discrete_space import (
     OrthogonalMooreGrid,
     VoronoiGrid,
 )
+from mesa.exceptions import SpaceException
 
 
 def test_grid_lookups():
@@ -29,9 +30,9 @@ def test_grid_lookups():
     found_cell = grid.find_nearest_cell([0.1, 0.1])
     assert found_cell.coordinate == (0, 0)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(SpaceException):
         grid.find_nearest_cell([-1, 5])
-    with pytest.raises(ValueError):
+    with pytest.raises(SpaceException):
         grid.find_nearest_cell([10.1, 5])
 
     torus_grid = OrthogonalMooreGrid((10, 10), torus=True, random=random.Random(42))
@@ -93,7 +94,7 @@ def test_network_lookups():
     G.add_node(0)
     G.add_node(1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(SpaceException):
         _ = Network(G, layout=[], random=random.Random(42))
 
     layout_dict = {0: (0, 0), 1: (10, 0)}

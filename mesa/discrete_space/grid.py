@@ -28,6 +28,7 @@ from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
     create_property_accessors,
 )
+from mesa.exceptions import DimensionException, SpaceException
 
 T = TypeVar("T", bound=Cell)
 
@@ -147,7 +148,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
         # Check bounds for non-torus grids
         elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
-            raise ValueError(
+            raise SpaceException(
                 f"Position {position} is outside grid bounds. "
                 f"Dimensions: {self.dimensions}"
             )
@@ -166,11 +167,11 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
     def _validate_parameters(self):
         if not all(isinstance(dim, int) and dim > 0 for dim in self.dimensions):
-            raise ValueError("Dimensions must be a list of positive integers.")
+            raise DimensionException("Dimensions must be a list of positive integers.")
         if not isinstance(self.torus, bool):
-            raise ValueError("Torus must be a boolean.")
+            raise DimensionException("Torus must be a boolean.")
         if self.capacity is not None and not isinstance(self.capacity, float | int):
-            raise ValueError("Capacity must be a number or None.")
+            raise DimensionException("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
@@ -404,8 +405,8 @@ class HexGrid(Grid[T]):
     def _validate_parameters(self):
         super()._validate_parameters()
         if len(self.dimensions) != 2:
-            raise ValueError("HexGrid must have exactly 2 dimensions.")
+            raise DimensionException("HexGrid must have exactly 2 dimensions.")
         if self.torus and (self.width % 2 != 0 or self.height % 2 != 0):
-            raise ValueError(
+            raise DimensionException(
                 "HexGrid with torus=True requires both width and height to be even."
             )
