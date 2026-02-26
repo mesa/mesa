@@ -94,16 +94,16 @@ class Boid(ContinuousSpaceAgent):
         )
 
         # Build neighbor distances matching self.neighbors exactly
-        neighbor_distances = np.array([
-            d for boid, d in zip(neighbors, distances) if boid is not self
-        ])
+        neighbor_distances = np.array(
+            [d for boid, d in zip(neighbors, distances) if boid is not self]
+        )
         # Clamp to avoid near-zero distances causing weight explosion (decay=2 → 1/d²)
         neighbor_distances = np.clip(neighbor_distances, a_min=1e-2, a_max=None)
 
         # Distance-based weights: closer neighbors have stronger influence
         # decay=2.0 → weight = 1/d² (inverse square law, natural decay)
         # decay=0.0 → weight = 1 for all (falls back to canonical Reynolds)
-        weights = 1.0 / (neighbor_distances ** self.decay + 1e-6)
+        weights = 1.0 / (neighbor_distances**self.decay + 1e-6)
         weights /= weights.sum()  # normalize so weights sum to 1
 
         # Rule 1 — Cohesion: weighted average position of local flockmates

@@ -7,9 +7,7 @@ These tests verify:
 """
 
 import numpy as np
-import pytest
 
-from mesa.examples.basic.boid_flockers.agents import Boid
 from mesa.examples.basic.boid_flockers.model import BoidFlockers, BoidsScenario
 
 
@@ -23,8 +21,7 @@ class TestCanonicalBoids:
         model.step()
         positions_after = [b.position for b in model.agents]
         moved = sum(
-            not np.allclose(a, b)
-            for a, b in zip(positions_before, positions_after)
+            not np.allclose(a, b) for a, b in zip(positions_before, positions_after)
         )
         assert moved > len(model.agents) * 0.8, "Most boids should move each step"
 
