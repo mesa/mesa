@@ -300,34 +300,6 @@ def test_check_model_params_with_positional_only():
     with pytest.raises(ValueError, match="Positional-only parameters"):
         _check_model_params(ModelWithPositionalOnly.__init__, {"param2": 5})
 
-    import inspect
-    from unittest.mock import MagicMock, patch
-
-    mock_param = MagicMock()
-    mock_param.kind = inspect.Parameter.POSITIONAL_ONLY
-    mock_param.default = inspect.Parameter.empty
-
-    mock_sig = MagicMock()
-    mock_sig.parameters = {"pos_param": mock_param}
-
-    with patch("inspect.signature", return_value=mock_sig):
-        with pytest.raises(ValueError, match="Positional-only parameters"):
-            _check_model_params(lambda: None, {})
-
-
-def test_check_model_params_with_positional_only():
-    """Test that _check_model_params raises ValueError for positional-only params."""
-
-    class ModelWithPositionalOnly:
-        def __init__(self, param1, /, param2=10):
-            pass
-
-    with pytest.raises(
-        ValueError,
-        match="Positional-only parameters",
-    ):
-        _check_model_params(ModelWithPositionalOnly.__init__, {"param2": 5})
-
 
 def test_solara_viz_with_scenario():
     """Test SolaraViz with scenario-enabled models."""
