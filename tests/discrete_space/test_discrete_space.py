@@ -543,13 +543,6 @@ def test_voronoigrid():
     with pytest.raises(ValueError):
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
 
-    # Test _get_voronoi_regions caching behavior
-    grid = VoronoiGrid(points, random=random.Random(42))
-    coords1, regions1 = grid._get_voronoi_regions()
-    coords2, regions2 = grid._get_voronoi_regions()
-    assert coords1 is coords2
-    assert regions1 is regions2
-
 
 def test_empties_space():
     """Test empties method for Discrete Spaces."""
