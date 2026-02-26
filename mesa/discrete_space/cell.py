@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from collections.abc import Mapping
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
 from mesa.exceptions import (
@@ -221,6 +220,7 @@ class Cell:
             self._neighborhood(radius=radius, include_center=include_center),
             random=self.random,
         )
+
     # FIXME: Revisit caching strategy on methods
     @cache  # noqa: B019
     def _neighborhood(
