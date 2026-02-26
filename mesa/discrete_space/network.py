@@ -59,7 +59,7 @@ class Network(DiscreteSpace[Cell]):
         elif isinstance(layout, Mapping):
             node_positions = layout
         else:
-            raise SpaceException(
+            raise TypeError(
                 "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 
@@ -117,7 +117,7 @@ class Network(DiscreteSpace[Cell]):
             Cell: The node closest to the position
 
         Raises:
-            ValueError: If network is not spatial
+            SpaceException: If network is not spatial
         """
         if getattr(self, "_kdtree", None) is None:
             raise SpaceException("No nodes with positions found in network")

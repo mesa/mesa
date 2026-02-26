@@ -26,6 +26,7 @@ from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
     ConnectionMissingException,
+    DimensionException,
 )
 
 if TYPE_CHECKING:

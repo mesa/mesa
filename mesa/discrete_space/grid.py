@@ -137,7 +137,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             Cell: The cell containing the position
 
         Raises:
-            KeyError: If position is outside grid bounds and not a torus
+            SpaceException: If position is outside grid bounds and not a torus
         """
         # Floor to get cell coordinate
         coord = tuple(np.floor(position).astype(int))
@@ -167,11 +167,11 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
     def _validate_parameters(self):
         if not all(isinstance(dim, int) and dim > 0 for dim in self.dimensions):
-            raise DimensionException("Dimensions must be a list of positive integers.")
+            raise ValueError("Dimensions must be a list of positive integers.")
         if not isinstance(self.torus, bool):
-            raise DimensionException("Torus must be a boolean.")
+            raise TypeError("Torus must be a boolean.")
         if self.capacity is not None and not isinstance(self.capacity, float | int):
-            raise DimensionException("Capacity must be a number or None.")
+            raise TypeError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
@@ -315,7 +315,7 @@ class HexGrid(Grid[T]):
         When torus=True, both width and height must be even.
 
     Raises:
-        ValueError: If torus=True and either width or height is odd.
+        DimensionException: If torus=True and either width or height is odd.
     """
 
     def __init__(
@@ -405,8 +405,8 @@ class HexGrid(Grid[T]):
     def _validate_parameters(self):
         super()._validate_parameters()
         if len(self.dimensions) != 2:
-            raise DimensionException("HexGrid must have exactly 2 dimensions.")
+            raise ValueError("HexGrid must have exactly 2 dimensions.")
         if self.torus and (self.width % 2 != 0 or self.height % 2 != 0):
-            raise DimensionException(
+            raise ValueError(
                 "HexGrid with torus=True requires both width and height to be even."
             )

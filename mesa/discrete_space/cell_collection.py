@@ -22,6 +22,8 @@ from functools import cached_property
 from random import Random
 from typing import TYPE_CHECKING, TypeVar
 
+from mesa.exceptions import SpaceException
+
 if TYPE_CHECKING:
     from mesa.discrete_space.cell import Cell
     from mesa.discrete_space.cell_agent import CellAgent
@@ -107,7 +109,7 @@ class CellCollection[T: Cell]:
 
         Args:
             default: Value to return if the collection is empty.
-                     If not provided, raises LookupError.
+                     If not provided, raises SpaceException.
 
         Returns:
             CellAgent: A random agent, or the default value if provided and collection is empty.

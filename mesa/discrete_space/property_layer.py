@@ -76,17 +76,12 @@ class PropertyLayer:
         self.dimensions = dimensions
 
         # Check if the dtype is suitable for the data
-        try:
-            if dtype(default_value) != default_value:
-                warnings.warn(
-                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-        except (ValueError, TypeError) as e:
-            raise SpaceException(
-                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
-            ) from e
+        if dtype(default_value) != default_value:
+            warnings.warn(
+                f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # Public attribute exposing the raw data
         self._data = np.full(self.dimensions, default_value, dtype=dtype)
@@ -235,7 +230,7 @@ class HasPropertyLayers:
             layer: The property layer to add.
 
         Raises:
-            ValueError: If the dimensions of the layer and the grid are not the same.
+            DimensionException: If the dimensions of the layer and the grid are not the same.
 
         """
         if layer.dimensions != self.dimensions:
