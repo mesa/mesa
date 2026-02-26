@@ -317,6 +317,20 @@ def test_check_model_params_with_positional_only():
         with pytest.raises(ValueError, match="Positional-only parameters"):
             _check_model_params(lambda: None, {})
 
+def test_check_model_params_with_positional_only():
+    """Test that _check_model_params raises ValueError for positional-only params."""
+
+    class ModelWithPositionalOnly:
+        def __init__(self, param1, /, param2=10):
+            pass
+
+    with pytest.raises(
+        ValueError,
+        match="Positional-only parameters",
+    ):
+        _check_model_params(ModelWithPositionalOnly.__init__, {"param2": 5})
+
+
 def test_solara_viz_with_scenario():
     """Test SolaraViz with scenario-enabled models."""
 
@@ -359,8 +373,6 @@ def test_model_creator_with_scenario():
     scenario = TestScenario(param1=0.8, param2=15)
     model = TestModel(model_param=10, scenario=scenario)
 
-    # Only include model parameters in user_params for ModelCreator
-    # Scenario parameters are handled internally by the parameter splitting logic
     user_params = {
         "model_param": 20,
     }
@@ -419,3 +431,5 @@ def test_parameter_splitting_logic():
     assert kwargs["scenario"].scenario_param2 == 25
     assert kwargs["model_param1"] == 15
     assert kwargs["model_param2"] == 30
+
+    
