@@ -580,6 +580,30 @@ def test_cell_missing_exception():
         _ = grid[(-1, 0)]
 
 
+def test_grid_validate_parameters():
+    """Test that OrthogonalMooreGrid raises DimensionException for invalid parameters."""
+    with pytest.raises(
+        DimensionException, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid((0,), torus=False)
+
+    with pytest.raises(
+        DimensionException, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid((-1, 5), torus=False)
+
+    with pytest.raises(
+        DimensionException, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid(("a", 5), torus=False)
+
+    with pytest.raises(DimensionException, match="Torus must be a boolean"):
+        OrthogonalMooreGrid((5, 5), torus="true")
+
+    with pytest.raises(DimensionException, match="Capacity must be a number or None"):
+        OrthogonalMooreGrid((5, 5), capacity="invalid")
+
+
 def test_agents_property():
     """Test empties method for Discrete Spaces."""
     n = 10
