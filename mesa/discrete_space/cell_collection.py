@@ -97,7 +97,7 @@ class CellCollection[T: Cell]:
             if key in self._cells:
                 return key.agents
             raise KeyError(key)
-    
+
     # @cached_property
     def __len__(self) -> int:  # noqa
         return len(self._cells)
