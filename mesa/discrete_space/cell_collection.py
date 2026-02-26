@@ -58,31 +58,46 @@ class CellCollection[T: Cell]:
             cells: cells to add to the collection
             random: a seeded random number generator.
         """
-        if isinstance(cells, dict):
+        if isinstance(cells, Mapping):
             self._cells = cells
+            self._is_mapping = True
         else:
-            self._cells = {cell: cell._agents for cell in cells}
+            self._cells = tuple(cells)
+            self._is_mapping = False
 
-        # Get capacity from first cell if collection is not empty
-        self._capacity: int | None = (
-            next(iter(self._cells.keys())).capacity if self._cells else None
-        )
+        # restore _capacity logic
+        if self._is_mapping and self._cells:
+            self._capacity = next(iter(self._cells.keys())).capacity
+        elif not self._is_mapping and self._cells:
+            self._capacity = self._cells[0].capacity
+        else:
+            self._capacity = None
 
         if random is None:
             warnings.warn(
-                "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
+                "Random number generator not specified, this can make models non-reproducible. "
+                "Please pass a random number generator explicitly.",
                 UserWarning,
                 stacklevel=2,
             )
             random = Random()
+
         self.random = random
 
     def __iter__(self):  # noqa
+        if self._is_mapping:
+            return iter(self._cells)
         return iter(self._cells)
 
-    def __getitem__(self, key: T) -> Iterable[CellAgent]:  # noqa
-        return self._cells[key]
-
+    def __getitem__(self, key: T) -> Iterable[CellAgent]:
+        if self._is_mapping:
+            return self._cells[key]
+        else:
+            # emulate mapping behavior
+            if key in self._cells:
+                return key.agents
+            raise KeyError(key)
+    
     # @cached_property
     def __len__(self) -> int:  # noqa
         return len(self._cells)
@@ -92,15 +107,22 @@ class CellCollection[T: Cell]:
 
     @cached_property
     def cells(self) -> list[T]:  # noqa
-        return list(self._cells.keys())
+        if self._is_mapping:
+            return list(self._cells.keys())
+        return list(self._cells)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa
-        return itertools.chain.from_iterable(self._cells.values())
+        if self._is_mapping:
+            return itertools.chain.from_iterable(self._cells.values())
+        return itertools.chain.from_iterable(cell._agents for cell in self._cells)
 
     def select_random_cell(self) -> T:
         """Select a random cell."""
-        return self.random.choice(self.cells)
+        if self._is_mapping:
+            keys = tuple(self._cells.keys())
+            return keys[self.random.randrange(len(keys))]
+        return self._cells[self.random.randrange(len(self._cells))]
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
         """Select a random agent from the collection.

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from collections.abc import Mapping
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
 from mesa.exceptions import (
@@ -215,16 +216,15 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection[Cell](
+        return CellCollection(
             self._neighborhood(radius=radius, include_center=include_center),
             random=self.random,
         )
-
     # FIXME: Revisit caching strategy on methods
     @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
-    ) -> dict[Cell, list[Agent]]:
+    ) -> Mapping[Cell, list[Agent]] | tuple[Cell, ...]:
         """Return cells within given radius using iterative BFS.
 
         Note: This implementation uses iterative breadth-first search instead
@@ -235,12 +235,12 @@ class Cell:
 
         # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:
-            neighborhood = {
-                neighbor: neighbor._agents for neighbor in self.connections.values()
-            }
+            neighbors = tuple(self.connections.values())
+
             if include_center:
-                neighborhood[self] = self._agents
-            return neighborhood
+                return neighbors + (self,)
+
+            return neighbors
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
         visited: set[Cell] = {self}
