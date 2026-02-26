@@ -90,6 +90,7 @@ class CellCollection[T: Cell]:
         return iter(self._cells)
 
     def __getitem__(self, key: T) -> Iterable[CellAgent]:
+        """Retrun the agents associated with the given cell key."""
         if self._is_mapping:
             return self._cells[key]
         else:
@@ -97,7 +98,7 @@ class CellCollection[T: Cell]:
             if key in self._cells:
                 return key.agents
             raise KeyError(key)
-
+    
     # @cached_property
     def __len__(self) -> int:  # noqa
         return len(self._cells)
