@@ -68,14 +68,12 @@ class Network(DiscreteSpace[Cell]):
 
         # Create cells and gather KD-Tree data simultaneously
         for node_id in self.G.nodes:
-            raw_pos = node_positions.get(node_id)
-
-            if raw_pos is None:
+            try:
+                pos = np.array(node_positions[node_id])
+            except KeyError as e:
                 raise SpaceException(
                     f"Node ID '{node_id}' is missing from the provided layout dictionary."
-                )
-
-            pos = np.array(raw_pos)
+                ) from e
 
             cell = self.cell_klass(
                 coordinate=node_id,
