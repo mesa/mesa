@@ -884,6 +884,17 @@ def _check_model_params(model_or_func, model_params):
             "Mesa's visualization requires the use of keyword arguments to ensure the parameters are passed to Solara correctly. Please ensure all model parameters are of form param=value"
         )
 
+    has_positional_only = any(
+        param.kind == inspect.Parameter.POSITIONAL_ONLY
+        for param in model_parameters.values()
+    )
+
+    if has_positional_only:
+        raise ValueError(
+            "Mesa's visualization requires all model parameters to be keyword arguments. "
+            "Positional-only parameters (defined before '/' in the signature) are not supported."
+        )
+
     has_var_keyword = any(
         param.kind == inspect.Parameter.VAR_KEYWORD
         for param in model_parameters.values()
@@ -910,7 +921,6 @@ def _check_model_params(model_or_func, model_params):
             and not has_var_keyword
         ):
             raise ValueError(f"Invalid model parameter: {name}")
-
 
 @solara.component
 def UserInputs(user_params, on_change=None):
