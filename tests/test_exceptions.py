@@ -6,20 +6,63 @@ import pytest
 from mesa.agent import Agent
 from mesa.discrete_space import OrthogonalMooreGrid
 from mesa.exceptions import (
+    AgentException,
+    AgentNotRegisteredException,
+    AgentSetException,
     CallbackTypeError,
     CallbackValueError,
+    CellFullException,
+    DimensionException,
+    DuplicateAgentIDException,
     EmptyEventListException,
     InvalidOptionException,
     InvalidScheduleException,
+    MesaException,
+    ModelException,
     PastEventException,
     RNGMismatchException,
+    SpaceException,
+    TimeException,
     UnsupportedBackendException,
     UnsupportedSpaceException,
+    VisualizationException,
 )
 from mesa.experimental.scenarios import Scenario
 from mesa.model import Model
 from mesa.time import Schedule
 from mesa.visualization.space_renderer import SpaceRenderer
+
+
+def test_hierarchy_inheritance():
+    """Verify the structural integrity of the exception hierarchy."""
+    # Core Base
+    assert issubclass(SpaceException, MesaException)
+    assert issubclass(ModelException, MesaException)
+    assert issubclass(TimeException, MesaException)
+    assert issubclass(AgentException, MesaException)
+    assert issubclass(AgentSetException, MesaException)
+    assert issubclass(VisualizationException, MesaException)
+
+    # Backward Compatibility (Multiple Inheritance)
+    assert issubclass(DimensionException, ValueError)
+    assert issubclass(RNGMismatchException, ValueError)
+    assert issubclass(PastEventException, ValueError)
+    assert issubclass(CallbackTypeError, TypeError)
+    assert issubclass(CallbackValueError, ValueError)
+    assert issubclass(InvalidScheduleException, ValueError)
+    assert issubclass(EmptyEventListException, IndexError)
+    assert issubclass(AgentNotRegisteredException, LookupError)
+    assert issubclass(DuplicateAgentIDException, KeyError)
+    assert issubclass(InvalidOptionException, ValueError)
+    assert issubclass(UnsupportedBackendException, ValueError)
+    assert issubclass(UnsupportedSpaceException, ValueError)
+
+
+def test_space_exception_properties():
+    """Test properties of specialized space exceptions."""
+    e = CellFullException((1, 2))
+    assert e.coordinate == (1, 2)
+    assert issubclass(CellFullException, SpaceException)
 
 
 def test_rng_mismatch_exception():
@@ -89,7 +132,7 @@ def test_invalid_option_exception():
 def test_unsupported_backend_exception():
     """Test that UnsupportedBackendException is raised for invalid backends."""
     model = Model()
-    model.grid = OrthogonalMooreGrid((10, 10))
+    model.grid = OrthogonalMooreGrid((10, 10), random=model.random)
     with pytest.raises(UnsupportedBackendException):
         SpaceRenderer(model, backend="invalid")
 
