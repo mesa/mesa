@@ -289,6 +289,7 @@ def test_check_model_params_with_args_only():
     ):
         _check_model_params(ModelWithArgsOnly.__init__, model_params)
 
+
 def test_check_model_params_with_positional_only():
     """Test that _check_model_params raises ValueError for positional-only params."""
 
@@ -296,13 +297,9 @@ def test_check_model_params_with_positional_only():
         def __init__(self, param1, /, param2=10):
             pass
 
-    with pytest.raises(
-        ValueError,
-        match="Positional-only parameters"
-    ):
+    with pytest.raises(ValueError, match="Positional-only parameters"):
         _check_model_params(ModelWithPositionalOnly.__init__, {"param2": 5})
 
-        
     import inspect
     from unittest.mock import MagicMock, patch
 
@@ -316,6 +313,7 @@ def test_check_model_params_with_positional_only():
     with patch("inspect.signature", return_value=mock_sig):
         with pytest.raises(ValueError, match="Positional-only parameters"):
             _check_model_params(lambda: None, {})
+
 
 def test_check_model_params_with_positional_only():
     """Test that _check_model_params raises ValueError for positional-only params."""
@@ -431,5 +429,3 @@ def test_parameter_splitting_logic():
     assert kwargs["scenario"].scenario_param2 == 25
     assert kwargs["model_param1"] == 15
     assert kwargs["model_param2"] == 30
-
-    

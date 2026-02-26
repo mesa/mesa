@@ -922,6 +922,7 @@ def _check_model_params(model_or_func, model_params):
         ):
             raise ValueError(f"Invalid model parameter: {name}")
 
+
 @solara.component
 def UserInputs(user_params, on_change=None):
     """Initialize user inputs for configurable model parameters.
