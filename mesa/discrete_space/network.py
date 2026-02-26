@@ -22,7 +22,6 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
-from mesa.exceptions import SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -117,10 +116,10 @@ class Network(DiscreteSpace[Cell]):
             Cell: The node closest to the position
 
         Raises:
-            SpaceException: If network is not spatial
+            ValueError: If network is not spatial
         """
         if getattr(self, "_kdtree", None) is None:
-            raise SpaceException("No nodes with positions found in network")
+            raise ValueError("No nodes with positions found in network")
 
         _, index = self._kdtree.query(position)
         return self._kdtree_cells[index]

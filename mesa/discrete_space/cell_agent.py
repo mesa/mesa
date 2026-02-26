@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from mesa.agent import Agent
-from mesa.exceptions import SpaceException
 
 if TYPE_CHECKING:
     from mesa.discrete_space import Cell
@@ -72,7 +71,7 @@ class BasicMovement:
         if new_cell is not None:
             self.cell = new_cell
         else:
-            raise SpaceException(f"No cell in direction {direction}")
+            raise ValueError(f"No cell in direction {direction}")
 
 
 class FixedCell(HasCell):
@@ -85,7 +84,7 @@ class FixedCell(HasCell):
     @cell.setter
     def cell(self, cell: Cell) -> None:
         if self.cell is not None:
-            raise SpaceException("Cannot move agent in FixedCell")
+            raise ValueError("Cannot move agent in FixedCell")
         self._mesa_cell = cell
 
         cell.add_agent(self)
@@ -141,7 +140,7 @@ class Grid2DMovingAgent(CellAgent):
         direction = direction.lower()  # Convert direction to lowercase
 
         if direction not in self.DIRECTION_MAP:
-            raise SpaceException(f"Invalid direction: {direction}")
+            raise ValueError(f"Invalid direction: {direction}")
 
         move_vector = self.DIRECTION_MAP[direction]
         for _ in range(distance):

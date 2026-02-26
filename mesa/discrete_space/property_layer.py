@@ -23,7 +23,7 @@ from typing import Any, TypeVar
 import numpy as np
 
 from mesa.discrete_space import Cell
-from mesa.exceptions import DimensionException, SpaceException
+from mesa.exceptions import DimensionException
 
 Coordinate = Sequence[int]
 T = TypeVar("T", bound=Cell)
@@ -152,9 +152,7 @@ class PropertyLayer:
         if isinstance(operation, np.ufunc):
             if ufunc_requires_additional_input(operation):
                 if value is None:
-                    raise SpaceException(
-                        "This ufunc requires an additional input value."
-                    )
+                    raise ValueError("This ufunc requires an additional input value.")
                 self.data[mask] = operation(target_data, value)
             else:
                 self.data[mask] = operation(target_data)
@@ -235,21 +233,21 @@ class HasPropertyLayers:
             layer: The property layer to add.
 
         Raises:
-            DimensionException: If the dimensions of the layer and the grid are not the same.
+            ValueError: If the dimensions of the layer and the grid are not the same.
 
         """
         if layer.dimensions != self.dimensions:
-            raise DimensionException(
+            raise ValueError(
                 "Dimensions of property layer do not match the dimensions of the grid"
             )
         if layer.name in self._mesa_property_layers:
-            raise SpaceException(f"Property layer {layer.name} already exists.")
+            raise ValueError(f"Property layer {layer.name} already exists.")
         if layer.name in set(
             chain.from_iterable(
                 getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
             )
         ):
-            raise SpaceException(
+            raise ValueError(
                 f"Property layer {layer.name} clashes with existing attribute in {self.cell_klass.__name__}"
             )
 
@@ -391,7 +389,7 @@ class HasPropertyLayers:
                 elif mode == "lowest":
                     target_value = masked_values.min()
                 else:
-                    raise SpaceException(
+                    raise ValueError(
                         f"Invalid mode {mode}. Choose from 'highest' or 'lowest'."
                     )
 

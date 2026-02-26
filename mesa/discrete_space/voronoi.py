@@ -21,7 +21,6 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
-from mesa.exceptions import DimensionException, SpaceException
 
 
 class Delaunay:
@@ -262,15 +261,15 @@ class VoronoiGrid(DiscreteSpace):
 
     def _validate_parameters(self) -> None:
         if self.capacity is not None and not isinstance(self.capacity, float | int):
-            raise DimensionException("Capacity must be a number or None.")
+            raise ValueError("Capacity must be a number or None.")
         if not isinstance(self.centroids_coordinates, Sequence) or not isinstance(
             self.centroids_coordinates[0], Sequence
         ):
-            raise SpaceException("Centroids should be a list of lists")
+            raise ValueError("Centroids should be a list of lists")
         dimension_1 = len(self.centroids_coordinates[0])
         for coordinate in self.centroids_coordinates:
             if dimension_1 != len(coordinate):
-                raise SpaceException(
+                raise ValueError(
                     "Centroid coordinates should be a homogeneous array"
                 )
 

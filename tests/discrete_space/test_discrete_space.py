@@ -30,7 +30,6 @@ from mesa.exceptions import (
     CellMissingException,
     ConnectionMissingException,
     DimensionException,
-    SpaceException,
 )
 
 
@@ -535,13 +534,13 @@ def test_voronoigrid():
     for connection in grid._cells[0].connections.values():
         assert connection.coordinate in [1, 3]
 
-    with pytest.raises(DimensionException):
+    with pytest.raises(ValueError):
         VoronoiGrid(points, capacity="str", random=random.Random(42))
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         VoronoiGrid((1, 1), random=random.Random(42))
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
 
     # Test _get_voronoi_regions caching behavior
@@ -588,26 +587,26 @@ def test_cell_missing_exception():
 
 
 def test_grid_validate_parameters():
-    """Test that OrthogonalMooreGrid raises DimensionException for invalid parameters."""
+    """Test that OrthogonalMooreGrid raises standard exceptions for invalid parameters."""
     with pytest.raises(
-        DimensionException, match="Dimensions must be a list of positive integers"
+        ValueError, match="Dimensions must be a list of positive integers"
     ):
         OrthogonalMooreGrid((0,), torus=False, random=random.Random(42))
 
     with pytest.raises(
-        DimensionException, match="Dimensions must be a list of positive integers"
+        ValueError, match="Dimensions must be a list of positive integers"
     ):
         OrthogonalMooreGrid((-1, 5), torus=False, random=random.Random(42))
 
     with pytest.raises(
-        DimensionException, match="Dimensions must be a list of positive integers"
+        ValueError, match="Dimensions must be a list of positive integers"
     ):
         OrthogonalMooreGrid(("a", 5), torus=False, random=random.Random(42))
 
-    with pytest.raises(DimensionException, match="Torus must be a boolean"):
+    with pytest.raises(TypeError, match="Torus must be a boolean"):
         OrthogonalMooreGrid((5, 5), torus="true", random=random.Random(42))
 
-    with pytest.raises(DimensionException, match="Capacity must be a number or None"):
+    with pytest.raises(TypeError, match="Capacity must be a number or None"):
         OrthogonalMooreGrid((5, 5), capacity="invalid", random=random.Random(42))
 
 
@@ -894,7 +893,7 @@ def test_property_layer_integration():
     dimensions = (10, 10)
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         grid.create_property_layer("capacity", 1, dtype=int)
 
 
@@ -1003,7 +1002,7 @@ def test_select_cells():
     assert mask.shape == (5, 5)
     assert np.all(mask == (data == data.min()))
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         grid.select_cells(
             extreme_values={"elevation": "weird"}, return_list=False, only_empty=False
         )
@@ -1051,7 +1050,7 @@ def test_property_layer():
     layer.modify_cells(np.add, value=3, condition=condition)
     assert np.all((layer.data > 3.5) == (data > 0.5))
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         layer.modify_cells(np.add)  # Missing value for ufunc
 
     # aggregate
@@ -1080,7 +1079,7 @@ def test_property_layer_errors():
     # Test adding a PropertyLayer with an existing name
     grid.add_property_layer(elevation)
     with pytest.raises(
-        SpaceException, match=re.escape("Property layer elevation already exists.")
+        ValueError, match=re.escape("Property layer elevation already exists.")
     ):
         grid.add_property_layer(elevation)
 
@@ -1089,7 +1088,7 @@ def test_property_layer_errors():
     grid = OrthogonalMooreGrid(dimensions, torus=False, random=random.Random(42))
     elevation = PropertyLayer("elevation", (10, 10), default_value=0.0)
     with pytest.raises(
-        DimensionException,
+        ValueError,
         match=re.escape(
             "Dimensions of property layer do not match the dimensions of the grid"
         ),
@@ -1100,8 +1099,8 @@ def test_property_layer_errors():
     with pytest.warns(UserWarning):
         PropertyLayer("elevation", (10, 10), default_value=10.5, dtype=int)
 
-    # Test that incompatible types raise SpaceException
-    with pytest.raises(SpaceException):
+    # Test that incompatible types raise TypeError
+    with pytest.raises(TypeError):
         PropertyLayer("elevation", (10, 10), default_value="abc", dtype=int)
 
 
@@ -1186,10 +1185,10 @@ def test_grid2DMovingAgent():  # noqa: D103
     agent = Grid2DMovingAgent(model)
     agent.cell = grid[4, 4]
 
-    with pytest.raises(SpaceException):  # test for invalid direction
+    with pytest.raises(ValueError):  # test for invalid direction
         agent.move("upright")
 
-    with pytest.raises(SpaceException):  # test for unknown direction
+    with pytest.raises(ValueError):  # test for unknown direction
         agent.move("back")
 
 
@@ -1203,7 +1202,7 @@ def test_patch():  # noqa: D103
     agent = FixedAgent(model)
     agent.cell = cell1
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         agent.cell = cell2
 
     agent.remove()

@@ -28,7 +28,6 @@ from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
     create_property_accessors,
 )
-from mesa.exceptions import SpaceException
 
 T = TypeVar("T", bound=Cell)
 
@@ -137,7 +136,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             Cell: The cell containing the position
 
         Raises:
-            SpaceException: If position is outside grid bounds and not a torus
+            ValueError: If position is outside grid bounds and not a torus
         """
         # Floor to get cell coordinate
         coord = tuple(np.floor(position).astype(int))
@@ -148,7 +147,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
         # Check bounds for non-torus grids
         elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
-            raise SpaceException(
+            raise ValueError(
                 f"Position {position} is outside grid bounds. "
                 f"Dimensions: {self.dimensions}"
             )
@@ -315,7 +314,7 @@ class HexGrid(Grid[T]):
         When torus=True, both width and height must be even.
 
     Raises:
-        DimensionException: If torus=True and either width or height is odd.
+        ValueError: If torus=True and either width or height is odd.
     """
 
     def __init__(

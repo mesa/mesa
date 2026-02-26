@@ -107,7 +107,7 @@ class CellCollection[T: Cell]:
 
         Args:
             default: Value to return if the collection is empty.
-                     If not provided, raises SpaceException.
+                     If not provided, raises LookupError.
 
         Returns:
             CellAgent: A random agent, or the default value if provided and collection is empty.
