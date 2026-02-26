@@ -585,23 +585,23 @@ def test_grid_validate_parameters():
     with pytest.raises(
         DimensionException, match="Dimensions must be a list of positive integers"
     ):
-        OrthogonalMooreGrid((0,), torus=False)
+        OrthogonalMooreGrid((0,), torus=False, random=random.Random(42))
 
     with pytest.raises(
         DimensionException, match="Dimensions must be a list of positive integers"
     ):
-        OrthogonalMooreGrid((-1, 5), torus=False)
+        OrthogonalMooreGrid((-1, 5), torus=False, random=random.Random(42))
 
     with pytest.raises(
         DimensionException, match="Dimensions must be a list of positive integers"
     ):
-        OrthogonalMooreGrid(("a", 5), torus=False)
+        OrthogonalMooreGrid(("a", 5), torus=False, random=random.Random(42))
 
     with pytest.raises(DimensionException, match="Torus must be a boolean"):
-        OrthogonalMooreGrid((5, 5), torus="true")
+        OrthogonalMooreGrid((5, 5), torus="true", random=random.Random(42))
 
     with pytest.raises(DimensionException, match="Capacity must be a number or None"):
-        OrthogonalMooreGrid((5, 5), capacity="invalid")
+        OrthogonalMooreGrid((5, 5), capacity="invalid", random=random.Random(42))
 
 
 def test_agents_property():
