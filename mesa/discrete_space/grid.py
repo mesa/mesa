@@ -28,7 +28,7 @@ from mesa.discrete_space.property_layer import (
     HasPropertyLayers,
     create_property_accessors,
 )
-from mesa.exceptions import DimensionException, SpaceException
+from mesa.exceptions import SpaceException
 
 T = TypeVar("T", bound=Cell)
 
