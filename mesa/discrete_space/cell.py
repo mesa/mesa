@@ -26,7 +26,6 @@ from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
     ConnectionMissingException,
-    SpaceException,
 )
 
 if TYPE_CHECKING:
@@ -232,7 +231,7 @@ class Cell:
         of recursion to avoid RecursionError on large radius values.
         """
         if radius < 1:
-            raise SpaceException("radius must be larger than one")
+            raise ValueError("radius must be larger than one")
 
         # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:

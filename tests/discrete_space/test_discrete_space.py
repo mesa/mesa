@@ -398,7 +398,7 @@ def test_cell_neighborhood():
             neighborhood = grid._cells[(0, 0)].get_neighborhood(radius=radius)
         assert len(neighborhood) == n
 
-    with pytest.raises(SpaceException):
+    with pytest.raises(ValueError):
         grid._cells[(0, 0)].get_neighborhood(radius=0)
 
     # hexgrid
