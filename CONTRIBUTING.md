@@ -160,6 +160,19 @@ If you're changing previous Mesa features, please make sure of the following:
 - Additional features or rewrites of current features are accompanied by tests.
 - New features are demonstrated in a model, so folks can understand more easily.
 
+### Exception handling guidance
+
+Across Mesa, prefer clear and predictable exception behavior:
+
+- Avoid raising generic `Exception`; prefer either a specific built-in exception or a Mesa-specific exception.
+- Prefer the most appropriate built-in exception for standard validation and input errors.
+- Use Mesa-specific exceptions when they add clear domain context or hide internal implementation details from users.
+- Use the existing Mesa exception hierarchy consistently: prefer the most specific existing `MesaException` subclass that matches the failure mode before introducing any new custom exception.
+- When wrapping internal exceptions, prefer `raise ... from ...` to preserve the original cause.
+- Keep exception messages actionable so users can quickly understand what went wrong and how to fix it.
+
+When changing exception behavior, update or add tests so they assert the expected exception type and message where relevant.
+
 To ensure that your submission will not break the build, you will need to install Ruff and pytest.
 
 ```bash
