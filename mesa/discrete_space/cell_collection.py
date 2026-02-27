@@ -90,7 +90,7 @@ class CellCollection[T: Cell]:
         return iter(self._cells)
 
     def __getitem__(self, key: T) -> Iterable[CellAgent]:
-        """Retrun the agents associated with the given cell key."""
+        """Return the agents associated with the given cell key."""
         if self._is_mapping:
             return self._cells[key]
         else:

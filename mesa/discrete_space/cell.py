@@ -239,7 +239,7 @@ class Cell:
             neighbors = tuple(self.connections.values())
 
             if include_center:
-                return neighbors + (self,)
+                return (*neighbors, self)
 
             return neighbors
 
