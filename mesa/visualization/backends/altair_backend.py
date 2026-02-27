@@ -276,7 +276,7 @@ class AltairBackend(AbstractRenderer):
             if first_valid_tooltip is not None:
                 # Add tooltip keys to list
                 tooltip_list.extend(first_valid_tooltip.keys())
-                
+
                 # Add tooltip data to DataFrame
                 for i, tooltip in enumerate(arguments["tooltip"]):
                     if tooltip:
