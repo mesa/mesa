@@ -2,6 +2,7 @@
 # ruff: noqa: D101 D102 D107
 
 import gc
+from functools import partial
 
 import pytest
 
@@ -139,6 +140,29 @@ class TestScheduleEvent:
             model.schedule_event(noop, at=1.0, after=1.0)
         with pytest.raises(ValueError):
             model.schedule_event(noop)
+
+    def test_inline_lambda_with_strong_reference(self):
+        model = SimpleModel()
+        log = []
+
+        def callback():
+            log.append("fired")
+
+        model.schedule_event(callback, at=1.0)
+        model.run_for(2.0)
+        assert log == ["fired"]
+
+    def test_partial_callback_with_strong_reference(self):
+        model = SimpleModel()
+        log = []
+
+        def fire(label):
+            log.append(label)
+
+        callback = partial(fire, "x")
+        model.schedule_event(callback, at=1.0)
+        model.run_for(2.0)
+        assert log == ["x"]
 
 
 # --- schedule_recurring ---

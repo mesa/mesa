@@ -16,7 +16,7 @@ changes in collections of agents, resources, or other model elements.
 from collections.abc import Iterable, MutableSequence
 from typing import Any
 
-from .core import BaseObservable, HasObservables
+from .core import BaseObservable, HasEmitters
 from .signal_types import ListSignals
 from .signals_util import SignalType
 
@@ -34,7 +34,7 @@ class ObservableList(BaseObservable):
         """Initialize the ObservableList."""
         super().__init__(fallback_value=[])
 
-    def __set__(self, instance: "HasObservables", value: Iterable):
+    def __set__(self, instance: "HasEmitters", value: Iterable):
         """Set the value of the descriptor attribute.
 
         Args:
@@ -66,16 +66,16 @@ class SignalingList(MutableSequence[Any]):
 
     __slots__ = ["data", "name", "owner"]
 
-    def __init__(self, iterable: Iterable, owner: HasObservables, name: str):
+    def __init__(self, iterable: Iterable, owner: HasEmitters, name: str):
         """Initialize a SignalingList.
 
         Args:
             iterable: initial values in the list
-            owner: the HasObservables instance on which this list is defined
+            owner: the HasEmitters instance on which this list is defined
             name: the attribute name to which this list is assigned
 
         """
-        self.owner: HasObservables = owner
+        self.owner: HasEmitters = owner
         self.name: str = name
         self.data = list(iterable)
 

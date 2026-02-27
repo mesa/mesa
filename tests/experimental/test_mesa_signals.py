@@ -7,7 +7,7 @@ import pytest
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
     ALL,
-    HasObservables,
+    HasEmitters,
     ListSignals,
     Observable,
     ObservableList,
@@ -22,7 +22,7 @@ from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 def test_observables():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -42,10 +42,10 @@ def test_observables():
     handler.assert_called_once()
 
 
-def test_HasObservables():
+def test_HasEmitters():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
         some_other_attribute = Observable()
 
@@ -171,7 +171,7 @@ def test_HasObservables():
 def test_ObservableList():
     """Test ObservableList."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(
@@ -270,7 +270,7 @@ def test_ObservableList():
 def test_Message():
     """Test Message."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -301,7 +301,7 @@ def test_Message():
 def test_computed_property():
     """Test @computed_property."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_other_attribute = Observable()
 
         def __init__(self, model, value):
@@ -343,7 +343,7 @@ def test_computed_property():
     # Cyclical dependencies
     # Scenario: A computed property tries to modify an observable
     # that it also reads (or that is currently locked).
-    class CyclicalAgent(Agent, HasObservables):
+    class CyclicalAgent(Agent, HasEmitters):
         o1 = Observable()
 
         def __init__(self, model, value):
@@ -372,7 +372,7 @@ def test_computed_dynamic_dependencies():
     it stops listening to that dependency (Zombie Dependencies).
     """
 
-    class DynamicAgent(Agent, HasObservables):
+    class DynamicAgent(Agent, HasEmitters):
         use_a = Observable()
         val_a = Observable()
         val_b = Observable()
@@ -418,7 +418,7 @@ def test_computed_dynamic_dependencies():
 def test_chained_computations():
     """Test that a computed property can depend on another computed property."""
 
-    class ChainedAgent(Agent, HasObservables):
+    class ChainedAgent(Agent, HasEmitters):
         base = Observable()
 
         def __init__(self, model, val):
@@ -453,7 +453,7 @@ def test_chained_computations():
 def test_dead_parent_fallback():
     """Test defensive check for garbage collected parents."""
 
-    class SimpleAgent(Agent, HasObservables):
+    class SimpleAgent(Agent, HasEmitters):
         @computed_property
         def prop(self):
             return 1
@@ -484,7 +484,7 @@ def test_dead_parent_fallback():
 def test_list_support():
     """Test using list of strings for name and signal_type in observe/unobserve."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         attr1 = Observable()
         attr2 = Observable()
         attr3 = Observable()
@@ -575,7 +575,7 @@ def test_emit():
 def test_ObservableList_negative_index_normalization():
     """Test that __setitem__ with negative index emits normalized positive index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
@@ -693,7 +693,7 @@ def test_ObservableList_negative_index_normalization():
 def test_ObservableList_slice_setitem():
     """Test that __setitem__ with a slice emits a REPLACED signal with normalized index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
@@ -776,7 +776,7 @@ def test_ObservableList_slice_setitem():
 def test_ObservableList_slice_delitem():
     """Test that __delitem__ with a slice emits a REMOVED signal with normalized index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
