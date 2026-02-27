@@ -1250,3 +1250,50 @@ def test_network_missing_layout_node():
         SpaceException, match="is missing from the provided layout dictionary"
     ):
         Network(g, layout=partial_layout, random=rng)
+def test_neighborhood_fast_path_radius_one_explicit():
+    """Ensure radius=1 via get_neighborhood uses fast path correctly."""
+    grid = OrthogonalVonNeumannGrid(
+        (5, 5), torus=False, capacity=None, random=random.Random(42)
+    )
+
+    cell = grid._cells[(2, 2)]
+
+    # Explicit radius=1 call (forces fast-path branch)
+    result = cell.get_neighborhood(radius=1)
+
+    # Should match property-based neighborhood
+    assert set(result) == set(cell.neighborhood)
+
+
+def test_neighborhood_include_center_fast_path():
+    """Ensure include_center=True is handled correctly in fast path."""
+    grid = OrthogonalVonNeumannGrid(
+        (5, 5), torus=False, capacity=None, random=random.Random(42)
+    )
+
+    cell = grid._cells[(2, 2)]
+
+    result = cell.get_neighborhood(radius=1, include_center=True)
+
+    assert cell in result
+    assert len(result) == len(cell.neighborhood) + 1
+
+
+def test_cell_collection_mapping_getitem_branch():
+    """Ensure mapping-based CellCollection supports __getitem__."""
+    rng = random.Random(42)
+    cell = Cell((0,), random=rng)
+
+    collection = CellCollection({cell: cell.agents}, random=rng)
+
+    assert collection[cell] == cell.agents
+
+
+def test_cell_collection_iterable_getitem_error_branch():
+    """Ensure iterable-based CellCollection raises TypeError on mapping access."""
+    rng = random.Random(42)
+    cell = Cell((0,), random=rng)
+
+    collection = CellCollection([cell], random=rng)
+
+    assert collection[cell] == cell.agents
