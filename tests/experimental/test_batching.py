@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 from mesa.experimental.mesa_signals import (
-    HasObservables,
+    HasEmitters,
     ListSignals,
     Observable,
     ObservableList,
@@ -15,7 +15,7 @@ from mesa.experimental.mesa_signals import (
 from mesa.experimental.mesa_signals.signals_util import Message
 
 
-class MyObj(HasObservables):  # noqa: D101
+class MyObj(HasEmitters):  # noqa: D101
     value = Observable()
 
     def __init__(self, val=0):  # noqa: D107
@@ -23,7 +23,7 @@ class MyObj(HasObservables):  # noqa: D101
         self.value = val
 
 
-class MultiObj(HasObservables):  # noqa: D101
+class MultiObj(HasEmitters):  # noqa: D101
     x = Observable()
     y = Observable()
 
@@ -33,7 +33,7 @@ class MultiObj(HasObservables):  # noqa: D101
         self.y = y
 
 
-class ListObj(HasObservables):  # noqa: D101
+class ListObj(HasEmitters):  # noqa: D101
     items = ObservableList()
 
     def __init__(self):  # noqa: D107
@@ -41,7 +41,7 @@ class ListObj(HasObservables):  # noqa: D101
         self.items = []
 
 
-class ComputedObj(HasObservables):  # noqa: D101
+class ComputedObj(HasEmitters):  # noqa: D101
     base = Observable()
 
     def __init__(self, val=0):  # noqa: D107
@@ -274,7 +274,7 @@ def test_aggregate_register_custom():
     class CustomSignals(SignalType):
         TICK = "tick"
 
-    class CustomObj(HasObservables):
+    class CustomObj(HasEmitters):
         def __init__(self):
             super().__init__()
             self.observables["counter"] = frozenset([CustomSignals.TICK])
@@ -498,7 +498,7 @@ def test_aggregate_custom_uses_value():
     class AccumSignals(SignalType):
         ADDED = "added"
 
-    class AccumObj(HasObservables):
+    class AccumObj(HasEmitters):
         def __init__(self):
             super().__init__()
             self._total = 0

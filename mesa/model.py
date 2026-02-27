@@ -15,7 +15,7 @@ import numpy as np
 
 from mesa.experimental.data_collection.dataset import DataRegistry
 from mesa.experimental.mesa_signals import (
-    HasObservables,
+    HasEmitters,
     ModelSignals,
     Observable,
     emit,
@@ -45,7 +45,7 @@ _mesa_logger = create_module_logger()
 
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required
-class Model[A: Agent, S: Scenario](HasObservables):
+class Model[A: Agent, S: Scenario](HasEmitters):
     """Base class for models in the Mesa ABM library.
 
     This class serves as a foundational structure for creating agent-based models.
