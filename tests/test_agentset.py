@@ -628,6 +628,133 @@ def test_agentset_shuffle():
     assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
 
 
+"""Tests for AgentSet.first, .last, .any, and .count methods.
+
+Append to test_agentset.py.
+"""
+
+
+def test_agentset_first():
+    """Test AgentSet.first."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # No filter — returns first agent
+    assert agentset.first() is agents[0]
+
+    # With filter
+    assert agentset.first(lambda a: a.unique_id == 5).unique_id == 5
+
+    # No match — default returns None with warning
+    with pytest.warns(UserWarning, match="No matching agent found"):
+        result = agentset.first(lambda a: a.unique_id > 100)
+    assert result is None
+
+    # No match — error mode raises ValueError
+    with pytest.raises(ValueError, match="No matching agent found"):
+        agentset.first(lambda a: a.unique_id > 100, no_match="error")
+
+    # Empty agentset
+    empty = AgentSet([], random=model.random)
+    with pytest.warns(UserWarning):
+        assert empty.first() is None
+    with pytest.raises(ValueError):
+        empty.first(no_match="error")
+
+
+def test_agentset_last():
+    """Test AgentSet.last."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # No filter — returns last agent
+    assert agentset.last() is agents[-1]
+
+    # With filter — returns last matching
+    assert agentset.last(lambda a: a.unique_id <= 3).unique_id == 3
+
+    # No match — default returns None with warning
+    with pytest.warns(UserWarning, match="No matching agent found"):
+        result = agentset.last(lambda a: a.unique_id > 100)
+    assert result is None
+
+    # No match — error mode raises ValueError
+    with pytest.raises(ValueError, match="No matching agent found"):
+        agentset.last(lambda a: a.unique_id > 100, no_match="error")
+
+    # Empty agentset
+    empty = AgentSet([], random=model.random)
+    with pytest.warns(UserWarning):
+        assert empty.last() is None
+    with pytest.raises(ValueError):
+        empty.last(no_match="error")
+
+
+def test_agentset_any():
+    """Test AgentSet.any."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # No filter — True if non-empty
+    assert agentset.any() is True
+
+    # Empty agentset
+    empty = AgentSet([], random=model.random)
+    assert empty.any() is False
+
+    # With filter — match exists
+    assert agentset.any(lambda a: a.unique_id == 1) is True
+
+    # With filter — no match
+    assert agentset.any(lambda a: a.unique_id > 100) is False
+
+
+def test_agentset_count():
+    """Test AgentSet.count."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # No filter — equivalent to len()
+    assert agentset.count() == 10
+
+    # With filter
+    assert agentset.count(lambda a: a.unique_id <= 5) == 5
+
+    # No matches
+    assert agentset.count(lambda a: a.unique_id > 100) == 0
+
+    # Empty agentset
+    empty = AgentSet([], random=model.random)
+    assert empty.count() == 0
+
+
+def test_hardkeyagentset_first_last_any_count():
+    """Test first, last, any, count on _HardKeyAgentSet."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    # first
+    assert hard_set.first() is agents[0]
+    assert hard_set.first(lambda a: a.unique_id == 5).unique_id == 5
+
+    # last
+    assert hard_set.last() is agents[-1]
+    assert hard_set.last(lambda a: a.unique_id <= 3).unique_id == 3
+
+    # any
+    assert hard_set.any() is True
+    assert hard_set.any(lambda a: a.unique_id > 100) is False
+
+    # count
+    assert hard_set.count() == 10
+    assert hard_set.count(lambda a: a.unique_id <= 5) == 5
+
+
 def test_agentset_groupby():
     """Test AgentSet.groupby."""
 

@@ -225,6 +225,112 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         """
         return list(self._agents.keys())
 
+    def first(
+        self,
+        filter_func: Callable[[A], bool] | None = None,
+        *,
+        no_match: Literal["none", "error"] = "none",
+    ) -> A | None:
+        """Return the first agent matching the filter.
+
+        Args:
+            filter_func: Optional filter function. If None, returns the first agent.
+            no_match: Behavior when no agent matches.
+                - "none" (default): return None and emit a warning.
+                - "error": raise a ValueError.
+
+        Returns:
+            The first matching agent, or None if no match and no_match="none".
+
+        Raises:
+            ValueError: If no agent matches and no_match="error".
+        """
+        for agent in self:
+            if filter_func is None or filter_func(agent):
+                return agent
+
+        if no_match == "error":
+            raise ValueError("No matching agent found in AgentSet.")
+
+        warnings.warn(
+            "No matching agent found in AgentSet, returning None.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return None
+
+    def last(
+        self,
+        filter_func: Callable[[A], bool] | None = None,
+        *,
+        no_match: Literal["none", "error"] = "none",
+    ) -> A | None:
+        """Return the last agent matching the filter.
+
+        Args:
+            filter_func: Optional filter function. If None, returns the last agent.
+            no_match: Behavior when no agent matches.
+                - "none" (default): return None and emit a warning.
+                - "error": raise a ValueError.
+
+        Returns:
+            The last matching agent, or None if no match and no_match="none".
+
+        Raises:
+            ValueError: If no agent matches and no_match="error".
+        """
+        result = None
+        for agent in self:
+            if filter_func is None or filter_func(agent):
+                result = agent
+
+        if result is None:
+            if no_match == "error":
+                raise ValueError("No matching agent found in AgentSet.")
+
+            warnings.warn(
+                "No matching agent found in AgentSet, returning None.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        return result
+
+    def any(
+        self,
+        filter_func: Callable[[A], bool] | None = None,
+    ) -> bool:
+        """Check if any agent matches the filter.
+
+        This short-circuits on the first match.
+
+        Args:
+            filter_func: Optional filter function. If None, returns True
+                if the AgentSet is non-empty.
+
+        Returns:
+            True if at least one agent matches, False otherwise.
+        """
+        if filter_func is None:
+            return len(self) > 0
+
+        return any(filter_func(agent) for agent in self)
+
+    def count(self, filter_func: Callable[[A], bool] | None = None) -> int:
+        """Count agents matching the filter.
+
+        Args:
+            filter_func: Optional filter function. If None, returns the
+                total number of agents (equivalent to len()).
+
+        Returns:
+            The number of matching agents.
+        """
+        if filter_func is None:
+            return len(self)
+
+        return sum(1 for agent in self if filter_func(agent))
+
     @abstractmethod
     def add(self, agent: A):
         """Add an agent to the AbstractAgentSet.
