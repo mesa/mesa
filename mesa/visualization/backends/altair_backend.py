@@ -68,6 +68,7 @@ class AltairBackend(AbstractRenderer):
             "stroke": [],  # Stroke color
             "strokeWidth": [],
             "filled": [],
+            "tooltip": [],
         }
 
         # Import here to avoid circular import issues
@@ -149,6 +150,8 @@ class AltairBackend(AbstractRenderer):
             arguments["color"].append(
                 aps.color if aps.color is not None else style_fields.get("color")
             )
+
+            arguments["tooltip"].append(aps.tooltip)
 
             # Map marker to Altair shape if defined, else use raw marker
             raw_marker = (
@@ -263,6 +266,23 @@ class AltairBackend(AbstractRenderer):
         # Tooltip list for interactivity
         # FIXME: Add more fields to tooltip (preferably from agent_portrayal)
         tooltip_list = ["x", "y"]
+
+        # Check if any agents have tooltips
+        if any(t is not None for t in arguments["tooltip"]):
+            # Get first valid tooltip to see what keys it has
+            first_valid_tooltip = next(
+                (t for t in arguments["tooltip"] if t is not None), None
+            )
+            if first_valid_tooltip is not None:
+                # Add tooltip keys to list
+                tooltip_list.extend(first_valid_tooltip.keys())
+                
+                # Add tooltip data to DataFrame
+                for i, tooltip in enumerate(arguments["tooltip"]):
+                    if tooltip:
+                        for key, value in tooltip.items():
+                            # Add to dataframe row
+                            df.loc[i, key] = value
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")

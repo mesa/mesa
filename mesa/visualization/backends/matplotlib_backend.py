@@ -144,6 +144,12 @@ class MatplotlibBackend(AbstractRenderer):
                 # Set defaults if not provided
                 if aps.x is None and aps.y is None:
                     aps.x, aps.y = self._get_agent_pos(agent, space)
+                if aps.tooltip is not None:
+                    raise ValueError(
+                        "The 'tooltip' attribute in AgentPortrayalStyle is "
+                        "only supported by the Altair backend. "
+                        "Please use the Altair backend if you need tooltips."
+                    )
 
             # Collect agent data
             arguments["loc"].append((aps.x, aps.y))
