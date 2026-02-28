@@ -407,17 +407,17 @@ class EventList:
         """Pop the first element from the event list."""
         while self._events:
             event = heappop(self._events)
-            
+
             if not event.CANCELED:
                 return event
-            
+
         raise IndexError("Event list is empty")
 
     def _compact(self) -> None:
         """Remove canceled events from the heap when they dominate."""
         self._events = [e for e in self._events if not e.CANCELED]
         heapify(self._events)
-        
+
     def compact(self) -> None:
         """Remove all canceled events from the heap and rebuild it."""
         self._events = [e for e in self._events if not e.CANCELED]

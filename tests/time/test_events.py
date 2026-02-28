@@ -310,7 +310,7 @@ def test_eventlist():
     event.cancel()
     with pytest.raises(Exception):
         event_list.pop_event()
-        
+
     # explicit compact removes canceled events from internal heap
     event_list = EventList()
     some_test_function = MagicMock()
@@ -333,7 +333,7 @@ def test_eventlist():
         remaining.append(event_list.pop_event().time)
 
     assert remaining == [6, 7, 8, 9]
-    
+
     # clear
     event_list.clear()
     assert len(event_list) == 0
