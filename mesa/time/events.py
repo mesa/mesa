@@ -368,7 +368,6 @@ class EventList:
         """Initialize an event list."""
         self._events: list[Event] = []
         heapify(self._events)
-        self._canceled_count: int = 0
 
     def add_event(self, event: Event):
         """Add the event to the event list.
@@ -405,17 +404,17 @@ class EventList:
         return nsmallest(n, valid_events)
 
     def pop_event(self) -> Event:
-        """Pop the first element from the event list."""
+        """Pop the first non-canceled event from the event list."""
+        skipped = 0
+
         while self._events:
             event = heappop(self._events)
 
             if event.CANCELED:
-                # Track actual canceled density in heap
-                self._canceled_count += 1
+                skipped += 1
                 continue
 
-            # Adaptive compaction check
-            if self._canceled_count > len(self._events) // 2:
+            if skipped > len(self._events) // 2:
                 self._compact()
 
             return event
@@ -426,7 +425,6 @@ class EventList:
         """Remove canceled events from the heap when they dominate."""
         self._events = [e for e in self._events if not e.CANCELED]
         heapify(self._events)
-        self._canceled_count = 0
 
     def is_empty(self) -> bool:
         """Return whether the event list is empty."""
@@ -468,4 +466,3 @@ class EventList:
     def clear(self):
         """Clear the event list."""
         self._events.clear()
-        self._canceled_count = 0
