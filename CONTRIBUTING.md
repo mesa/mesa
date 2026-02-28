@@ -180,7 +180,7 @@ Across Mesa, prefer clear and predictable exception behavior:
 - For standard validation and input errors, prefer the most appropriate Python built-in exception.
 - Use Mesa-specific exceptions when they add meaningful domain context or hide internal implementation details from callers.
 - Follow the existing Mesa exception hierarchy: use the most specific `MesaException` subclass that fits the failure before introducing a new one.
-- Allways check with the maintainers as part of a PR or issue when you think you need a new exception.
+- Always check with the maintainers as part of a PR or issue when you think you need a new exception.
 - When wrapping internal exceptions, use `raise ... from ...` to preserve the original cause.
 - Write exception messages that are actionable — users should immediately understand what went wrong and how to fix it.
 
