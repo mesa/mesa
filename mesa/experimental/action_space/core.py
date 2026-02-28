@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class Action:
-    """An intended action the agent wants to perfrom with typed parameters.
+    """An intended action the agent wants to perform with typed parameters.
 
     Attributes:
         action_type: Name of the action (e.g., "move", "speak").
