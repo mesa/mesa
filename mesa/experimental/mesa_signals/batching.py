@@ -5,7 +5,7 @@ This module provides context managers for controlling signal dispatch:
 - batch(): Buffers signals and dispatches aggregated results on exit
 - suppress(): Silently drops all signals during the context
 
-Both batch() and suppress() are used as context managers within HasObservables. They only
+Both batch() and suppress() are used as context managers within HasEmitters. They only
 batch or suppress signals emitted by the instance within which they are invoked.
 
 It also provides a functools.singledispatch aggregation system for different signal types, making
@@ -38,7 +38,7 @@ from .signal_types import ListSignals, ObservableSignals
 from .signals_util import Message, SignalType
 
 if TYPE_CHECKING:
-    from .core import HasObservables
+    from .core import HasEmitters
 
 __all__ = ["aggregate"]
 
@@ -143,7 +143,7 @@ def _aggregate_list(
 
 
 class _BatchContext:
-    """Context manager that batches signals for a HasObservables instance.
+    """Context manager that batches signals for a HasEmitters instance.
 
     Signals emitted during the batch are buffered. On exit, they are
     aggregated per observable name and dispatched as consolidated signals.
@@ -154,7 +154,7 @@ class _BatchContext:
 
     __slots__ = ["_captured_values", "_previous", "buffer", "instance"]
 
-    def __init__(self, instance: HasObservables):
+    def __init__(self, instance: HasEmitters):
         self.instance = instance
         self._previous: _BatchContext | None = None
         self.buffer: dict[
@@ -250,7 +250,7 @@ class _BatchContext:
 
 
 class _SuppressContext:
-    """Context manager that suppresses all signals for a HasObservables instance.
+    """Context manager that suppresses all signals for a HasEmitters instance.
 
     No signals are emitted, buffered, or dispatched during suppress.
 
@@ -259,7 +259,7 @@ class _SuppressContext:
 
     __slots__ = ["_previous", "instance"]
 
-    def __init__(self, instance: HasObservables):
+    def __init__(self, instance: HasEmitters):
         self.instance = instance
         self._previous: bool = False
 

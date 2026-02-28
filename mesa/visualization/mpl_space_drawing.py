@@ -61,9 +61,7 @@ def collect_agent_data(
 
     def get_agent_pos(agent, space):
         """Helper function to get the agent position depending on the grid type."""
-        if isinstance(space, Network):
-            agent_x, agent_y = agent.cell.coordinate, 0
-        elif isinstance(space, DiscreteSpace):
+        if isinstance(space, DiscreteSpace):
             agent_x, agent_y = agent.cell.position
         else:
             agent_x, agent_y = agent.position
@@ -542,8 +540,6 @@ def draw_network(
     agent_portrayal: Callable,
     ax: Axes | None = None,
     draw_grid: bool = True,
-    layout_alg=nx.spring_layout,
-    layout_kwargs=None,
     **kwargs,
 ):
     """Visualize a network space.
@@ -553,8 +549,6 @@ def draw_network(
         agent_portrayal: a callable that is called with the agent and returns a AgentPortrayalStyle
         ax: a Matplotlib Axes instance. If none is provided a new figure and ax will be created using plt.subplots
         draw_grid: whether to draw the grid
-        layout_alg: a networkx layout algorithm or other callable with the same behavior
-        layout_kwargs: a dictionary of keyword arguments for the layout algorithm
         kwargs: additional keyword arguments passed to ax.scatter
 
     Returns:
@@ -566,13 +560,15 @@ def draw_network(
     """
     if ax is None:
         _, ax = plt.subplots()
-    if layout_kwargs is None:
-        layout_kwargs = {"seed": 0}
 
-    # gather locations for nodes in network
-    graph = space.G
-    pos = layout_alg(graph, **layout_kwargs)
-    x, y = list(zip(*pos.values()))
+    # Fetch positions natively from the Model Cells
+    pos = {}
+    for node_id, cell in space._cells.items():
+        pos_val = getattr(cell, "position", getattr(cell, "_position", None))
+        if pos_val is not None:
+            pos[node_id] = pos_val
+
+    x, y = list(zip(*pos.values())) if pos else ([0], [0])
     xmin, xmax = min(x), max(x)
     ymin, ymax = min(y), max(y)
 
@@ -585,32 +581,27 @@ def draw_network(
     s_default = (180 / max(width, height)) ** 2
     arguments = collect_agent_data(space, agent_portrayal, default_size=s_default)
 
-    # this assumes that nodes are identified by an integer
-    # which is true for default nx graphs but might user changeable
-    pos = np.asarray(list(pos.values()))
-    loc = arguments["loc"]
-
-    # For network only one of x and y contains the correct coordinates
-    x = loc[:, 0]
-    if x is None:
-        x = loc[:, 1]
-
-    arguments["loc"] = pos[x]
+    arguments["loc"] = arguments["loc"].astype(float)
 
     # further styling
     ax.set_axis_off()
     ax.set_xlim(xmin=xmin - x_padding, xmax=xmax + x_padding)
     ax.set_ylim(ymin=ymin - y_padding, ymax=ymax + y_padding)
 
+    if draw_grid:
+        # Draw the underlying grid (edges and empty nodes) FIRST so agents sit on top
+        nodes = nx.draw_networkx_nodes(
+            space.G, pos, ax=ax, alpha=0.5, node_size=10, node_color="gray"
+        )
+        edges = nx.draw_networkx_edges(space.G, pos, ax=ax, alpha=0.5, style="--")
+
+        if nodes:
+            nodes.set_zorder(0)
+        if edges:
+            edges.set_zorder(0)
+
     # plot the agents
     _scatter(ax, arguments, **kwargs)
-
-    if draw_grid:
-        # fixme we need to draw the empty nodes as well
-        edge_collection = nx.draw_networkx_edges(
-            graph, pos, ax=ax, alpha=0.5, style="--"
-        )
-        edge_collection.set_zorder(0)
 
     return ax
 
