@@ -1,4 +1,4 @@
-"""Base class for building cell-based spatial environments.
+"""Abstract Base class for building cell-based spatial environments.
 
 DiscreteSpace provides the core functionality needed by all cell-based spaces:
 - Cell creation and tracking
@@ -16,6 +16,7 @@ inherit from this class.
 from __future__ import annotations
 
 import warnings
+from abc import ABC, abstractmethod
 from functools import cached_property
 from random import Random
 from typing import TypeVar
@@ -30,7 +31,7 @@ from mesa.exceptions import CellMissingException
 T = TypeVar("T", bound=Cell)
 
 
-class DiscreteSpace[T: Cell]:
+class DiscreteSpace[T: Cell](ABC):
     """Base class for all discrete spaces.
 
     Attributes:
@@ -85,15 +86,12 @@ class DiscreteSpace[T: Cell]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.all_cells.agents, random=self.random)
 
-    def _connect_cells(self): ...
-    def _connect_single_cell(self, cell: T): ...
+    @abstractmethod
+    def _connect_cells(self) -> None: ...
 
+    @abstractmethod
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell at or nearest to the given position."""
-        raise NotImplementedError(
-            f"{type(self).__name__} does not implement find_nearest_cell(). "
-            "This space may be purely topological."
-        )
 
     def add_cell(self, cell: T):
         """Add a cell to the space.
