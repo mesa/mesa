@@ -164,18 +164,6 @@ If you're changing previous Mesa features, please make sure of the following:
 
 Across Mesa, prefer clear and predictable exception behavior:
 
-- Avoid raising generic `Exception`; prefer either a specific built-in exception or a Mesa-specific exception.
-- Prefer the most appropriate built-in exception for standard validation and input errors.
-- Use Mesa-specific exceptions when they add clear domain context or hide internal implementation details from users.
-- Use the existing Mesa exception hierarchy consistently: prefer the most specific existing `MesaException` subclass that matches the failure mode before introducing any new custom exception.
-- When wrapping internal exceptions, prefer `raise ... from ...` to preserve the original cause.
-- Keep exception messages actionable so users can quickly understand what went wrong and how to fix it.
-
-When changing exception behavior, update or add tests so they assert the expected exception type and message where relevant.
-### Exception handling guidance
-
-Across Mesa, prefer clear and predictable exception behavior:
-
 - Avoid raising generic `Exception`; use a specific built-in or Mesa-specific exception instead.
 - For standard validation and input errors, prefer the most appropriate Python built-in exception.
 - Use Mesa-specific exceptions when they add meaningful domain context or hide internal implementation details from callers.
