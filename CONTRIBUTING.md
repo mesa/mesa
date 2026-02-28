@@ -172,7 +172,19 @@ Across Mesa, prefer clear and predictable exception behavior:
 - Keep exception messages actionable so users can quickly understand what went wrong and how to fix it.
 
 When changing exception behavior, update or add tests so they assert the expected exception type and message where relevant.
+### Exception handling guidance
 
+Across Mesa, prefer clear and predictable exception behavior:
+
+- Avoid raising generic `Exception`; use a specific built-in or Mesa-specific exception instead.
+- For standard validation and input errors, prefer the most appropriate Python built-in exception.
+- Use Mesa-specific exceptions when they add meaningful domain context or hide internal implementation details from callers.
+- Follow the existing Mesa exception hierarchy: use the most specific `MesaException` subclass that fits the failure before introducing a new one.
+- Allways check with the maintainers as part of a PR or issue when you think you need a new exception.
+- When wrapping internal exceptions, use `raise ... from ...` to preserve the original cause.
+- Write exception messages that are actionable — users should immediately understand what went wrong and how to fix it.
+
+When changing exception behavior, update or add tests to assert the expected exception type and message.
 To ensure that your submission will not break the build, you will need to install Ruff and pytest.
 
 ```bash
