@@ -271,25 +271,24 @@ class AltairBackend(AbstractRenderer):
         all_tooltips_key = set()
         column_data = {}
 
-        for tooltip in arguments['tooltip']:
+        for tooltip in arguments["tooltip"]:
             if tooltip:
                 all_tooltips_key.update(tooltip.keys())
 
         if all_tooltips_key:
             # pre-build columns
             column_data = {
-                key : [None] * len(arguments['tooltip'])
-                for key in all_tooltips_key
+                key: [None] * len(arguments["tooltip"]) for key in all_tooltips_key
             }
-        
-        for i, tooltip in enumerate(arguments['tooltip']):
+
+        for i, tooltip in enumerate(arguments["tooltip"]):
             if tooltip:
                 for key, value in tooltip.items():
                     column_data[key][i] = value
-        
+
         for key, values in column_data.items():
             df[key] = values
-        
+
         tooltip_list.extend(all_tooltips_key)
 
         # Handle custom colormapping
