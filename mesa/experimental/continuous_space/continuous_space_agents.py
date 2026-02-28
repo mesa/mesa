@@ -49,9 +49,9 @@ class ContinuousSpaceAgent(Agent):
         return self.position
 
     @pos.setter
-    def pos(self, value):
+    def pos(self, value: np.ndarray):
         # just here for compatibility solara_viz.
-        pass
+        self.position = value
 
     def __init__(self, space: ContinuousSpace, model):
         """Initialize a continuous space agent.

@@ -106,11 +106,25 @@ def test_continuous_agent():
     agent.position = [1.1, 1.1]
     assert np.allclose(agent.position, [0.1, 0.1])
 
+    agent = ContinuousSpaceAgent(space, model)
+    agent.pos = [1.1, 1.1]
+    assert np.allclose(agent.position, [0.1, 0.1])
+    assert np.allclose(agent.pos, [0.1, 0.1])
+
     dimensions = np.asarray([[0, 1], [0, 1]])
     space = ContinuousSpace(dimensions, torus=False, random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+    agent.pos = [0.2, 0.3]
+    assert np.allclose(agent.position, [0.2, 0.3])
+    assert np.allclose(agent.pos, [0.2, 0.3])
+
     agent = ContinuousSpaceAgent(space, model)
     with pytest.raises(ValueError):
         agent.position = [1.1, 1.1]
+    agent = ContinuousSpaceAgent(space, model)
+    with pytest.raises(ValueError):
+        agent.pos = [1.1, 1.1]
 
 
 def test_continous_space_calculate_distances():
