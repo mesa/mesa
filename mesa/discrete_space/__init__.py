@@ -8,7 +8,6 @@ Key components:
 - Cells: Active positions that can have properties and contain agents
 - CellAgents: Agents that understand how to interact with cells
 - Spaces: Different cell organization patterns (grids, networks, etc.)
-- PropertyLayers: Efficient property storage and manipulation
 
 This is particularly useful for models where the environment plays an active role,
 like resource growth, pollution diffusion, or infrastructure networks. The cell
@@ -30,7 +29,6 @@ from mesa.discrete_space.grid import (
     OrthogonalVonNeumannGrid,
 )
 from mesa.discrete_space.network import Network
-from mesa.discrete_space.property_layer import PropertyLayer
 from mesa.discrete_space.voronoi import VoronoiGrid
 
 __all__ = [
@@ -45,6 +43,5 @@ __all__ = [
     "Network",
     "OrthogonalMooreGrid",
     "OrthogonalVonNeumannGrid",
-    "PropertyLayer",
     "VoronoiGrid",
 ]
