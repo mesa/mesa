@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from functools import cache
 from random import Random
-from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -28,9 +27,12 @@ from mesa.exceptions import (
     ConnectionMissingException,
 )
 
+<<<<<<< HEAD
 if TYPE_CHECKING:
     pass
 
+=======
+>>>>>>> 611a0651 (removed TYPE_CHECKING)
 Coordinate = tuple[int, ...]
 
 
