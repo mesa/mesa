@@ -26,13 +26,6 @@ from mesa.exceptions import (
     CellFullException,
     ConnectionMissingException,
 )
-
-<<<<<<< HEAD
-if TYPE_CHECKING:
-    pass
-
-=======
->>>>>>> 611a0651 (removed TYPE_CHECKING)
 Coordinate = tuple[int, ...]
 
 
