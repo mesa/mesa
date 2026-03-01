@@ -288,8 +288,8 @@ class AltairBackend(AbstractRenderer):
 
         for key, values in column_data.items():
             df[key] = values
-
-        tooltip_list.extend(all_tooltips_key)
+        
+        tooltip_list.extend(sorted(all_tooltips_key))
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")
