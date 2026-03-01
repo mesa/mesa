@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable
 from functools import cached_property
 from random import Random
 from typing import TYPE_CHECKING, TypeVar
@@ -49,23 +49,20 @@ class CellCollection[T: Cell]:
 
     def __init__(
         self,
-        cells: Mapping[T, list[CellAgent]] | Iterable[T],
+        cells: Iterable[T],
         random: Random | None = None,
     ) -> None:
         """Initialize a CellCollection.
 
         Args:
-            cells: cells to add to the collection
-            random: a seeded random number generator.
+            cells: An iterable of Cell objects that form this collection.
+            random: A seeded random number generator. If None, a new
+                Random instance is created and a UserWarning is issued.
         """
-        if isinstance(cells, dict):
-            self._cells = cells
-        else:
-            self._cells = {cell: cell._agents for cell in cells}
+        self._cells: tuple[T, ...] = tuple(cells)
 
-        # Get capacity from first cell if collection is not empty
         self._capacity: int | None = (
-            next(iter(self._cells.keys())).capacity if self._cells else None
+            self._cells[0].capacity if self._cells else None
         )
 
         if random is None:
@@ -75,13 +72,16 @@ class CellCollection[T: Cell]:
                 stacklevel=2,
             )
             random = Random()
+
         self.random = random
 
     def __iter__(self):  # noqa
         return iter(self._cells)
 
     def __getitem__(self, key: T) -> Iterable[CellAgent]:  # noqa
-        return self._cells[key]
+        if key not in self._cells:
+            raise KeyError(f"Cell {key} not in collection")
+        return key._agents
 
     # @cached_property
     def __len__(self) -> int:  # noqa
@@ -92,15 +92,15 @@ class CellCollection[T: Cell]:
 
     @cached_property
     def cells(self) -> list[T]:  # noqa
-        return list(self._cells.keys())
+        return list(self._cells)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa
-        return itertools.chain.from_iterable(self._cells.values())
+        return itertools.chain.from_iterable(cell._agents for cell in self._cells)
 
     def select_random_cell(self) -> T:
         """Select a random cell."""
-        return self.random.choice(self.cells)
+        return self._cells[self.random.randrange(len(self._cells))]
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
         """Select a random agent from the collection.

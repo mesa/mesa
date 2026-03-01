@@ -1279,21 +1279,23 @@ def test_neighborhood_include_center_fast_path():
     assert len(result) == len(cell.neighborhood) + 1
 
 
-def test_cell_collection_mapping_getitem_branch():
-    """Ensure mapping-based CellCollection supports __getitem__."""
-    rng = random.Random(42)
-    cell = Cell((0,), random=rng)
-
-    collection = CellCollection({cell: cell.agents}, random=rng)
-
-    assert collection[cell] == cell.agents
-
-
-def test_cell_collection_iterable_getitem_error_branch():
-    """Ensure iterable-based CellCollection raises TypeError on mapping access."""
+def test_cell_collection_getitem_valid():
+    """__getitem__ returns agents for valid cell."""
     rng = random.Random(42)
     cell = Cell((0,), random=rng)
 
     collection = CellCollection([cell], random=rng)
 
-    assert collection[cell] == cell.agents
+    assert collection[cell] == cell._agents
+
+
+def test_cell_collection_getitem_invalid():
+    """__getitem__ raises KeyError for cell not in collection."""
+    rng = random.Random(42)
+    cell1 = Cell((0,), random=rng)
+    cell2 = Cell((1,), random=rng)
+
+    collection = CellCollection([cell1], random=rng)
+
+    with pytest.raises(KeyError):
+        _ = collection[cell2]
