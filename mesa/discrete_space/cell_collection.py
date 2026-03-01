@@ -61,9 +61,7 @@ class CellCollection[T: Cell]:
         """
         self._cells: tuple[T, ...] = tuple(cells)
 
-        self._capacity: int | None = (
-            self._cells[0].capacity if self._cells else None
-        )
+        self._capacity: int | None = self._cells[0].capacity if self._cells else None
 
         if random is None:
             warnings.warn(

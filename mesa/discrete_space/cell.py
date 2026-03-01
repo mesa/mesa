@@ -29,7 +29,7 @@ from mesa.exceptions import (
 )
 
 if TYPE_CHECKING:
-    from mesa.agent import Agent
+    pass
 
 Coordinate = tuple[int, ...]
 
@@ -262,7 +262,7 @@ class Cell:
                         result.append(neighbor)
             current_layer = next_layer
             if not current_layer:
-                break 
+                break
 
         # Handle center inclusion
         if include_center:
