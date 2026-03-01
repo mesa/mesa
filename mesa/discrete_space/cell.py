@@ -14,7 +14,6 @@ environmental conditions.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
@@ -216,7 +215,7 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection(
+        return CellCollection[Cell](
             self._neighborhood(radius=radius, include_center=include_center),
             random=self.random,
         )
@@ -225,7 +224,7 @@ class Cell:
     @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
-    ) -> Mapping[Cell, list[Agent]] | tuple[Cell, ...]:
+    ) -> dict[Cell, list[Agent]]:
         """Return cells within given radius using iterative BFS.
 
         Note: This implementation uses iterative breadth-first search instead
@@ -236,12 +235,12 @@ class Cell:
 
         # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:
-            neighbors = tuple(self.connections.values())
-
+            neighborhood = {
+                neighbor: neighbor._agents for neighbor in self.connections.values()
+            }
             if include_center:
-                return (*neighbors, self)
-
-            return neighbors
+                neighborhood[self] = self._agents
+            return neighborhood
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
         visited: set[Cell] = {self}
