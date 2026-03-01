@@ -71,12 +71,10 @@ class DataRecorder(BaseDataRecorder):
         storage = self.storage[dataset_name]
         config = self.configs[dataset_name]
 
-        # Track old data if we're about to evict
         old_data = None
         if config.window_size and len(storage.blocks) >= config.window_size:
             _old_time, old_data = storage.blocks[0]
 
-        # Store new data
         added_bytes = 0
 
         match data:
@@ -110,14 +108,13 @@ class DataRecorder(BaseDataRecorder):
                         storage.metadata["columns"] = list(data[0].keys())
 
             case dict():
-                row = {**data, "time": time}
-                storage.blocks.append(row)
+                storage.blocks.append((time, data))
                 storage.total_rows += 1
                 added_bytes = 100
 
                 if "type" not in storage.metadata:
                     storage.metadata["type"] = "modeldataset"
-                    storage.metadata["columns"] = [*list(data.keys()), "time"]
+                    storage.metadata["columns"] = list(data.keys())
 
             case _:
                 storage.blocks.append((time, data))
@@ -127,7 +124,7 @@ class DataRecorder(BaseDataRecorder):
                 if "type" not in storage.metadata:
                     storage.metadata["type"] = "custom"
 
-        # Update bookkeeping for evicted data
+        """Update bookkeeping for evicted data"""
         if old_data is not None:
             match old_data:
                 case np.ndarray():
@@ -168,12 +165,26 @@ class DataRecorder(BaseDataRecorder):
 
         storage = self.storage[name]
 
+<<<<<<< HEAD
         data_type = storage.metadata.get("type", "unknown")
 
         if not storage.blocks and data_type == "unknown":
             return pd.DataFrame(columns=["time"])
 
         # Dispatch to appropriate converter
+=======
+        if not storage.blocks:
+            """ Empty DataFrame with correct columns"""
+            columns = storage.metadata.get("columns", [])
+
+            if "time" not in columns:
+                columns = [*columns, "time"]
+
+            return pd.DataFrame(columns=columns)
+
+        data_type = storage.metadata.get("type", "unknown")
+
+>>>>>>> 09852339 (Fix ModelDataSet sliding window eviction crash by unifying block storage format)
         match data_type:
             case "numpyagentdataset":
                 return self._convert_numpyAgentDataSet(storage)
@@ -182,7 +193,7 @@ class DataRecorder(BaseDataRecorder):
             case "modeldataset":
                 return self._convert_modelDataSet(storage)
             case _:
-                # Fallback
+                """Fallback"""
                 warnings.warn(
                     f"Unknown data type '{data_type}' for '{name}'",
                     RuntimeWarning,
@@ -224,9 +235,10 @@ class DataRecorder(BaseDataRecorder):
     def _convert_modelDataSet(self, storage: DatasetStorage) -> pd.DataFrame:
         """Convert model dict blocks to DataFrame."""
         if not storage.blocks:
-            return pd.DataFrame(columns=storage.metadata.get("columns", []))
+            return pd.DataFrame(columns=[*storage.metadata.get("columns", []), "time"])
 
-        return pd.DataFrame(storage.blocks)
+        rows = [{**data, "time": time} for time, data in storage.blocks]
+        return pd.DataFrame(rows)
 
     def estimate_memory_usage(self) -> float:
         """Estimate current memory usage in MB."""

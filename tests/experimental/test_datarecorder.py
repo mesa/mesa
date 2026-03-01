@@ -271,10 +271,9 @@ def test_data_recorder_window_eviction_numpy():
     recorder = DataRecorder(model, config={"numpy_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
-    model.step()  # 1
-    model.step()  # 2
-    model.step()  # 3 - should evict first
+    model.step()
+    model.step()
+    model.step()
 
     storage = recorder.storage["numpy_data"]
     assert len(storage.blocks) == 2
@@ -286,28 +285,42 @@ def test_data_recorder_window_eviction_list():
     recorder = DataRecorder(model, config={"agent_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
-    model.step()  # 1
-    model.step()  # 2
-    model.step()  # 3 - should evict first
+    model.step()
+    model.step()
+    model.step()
 
     storage = recorder.storage["agent_data"]
     assert len(storage.blocks) == 2
 
 
-def test_data_recorder_window_eviction_dict():
-    """Test window eviction bookkeeping for dict data."""
+def test_modeldataset_window_eviction_crash():
+    """Test that window eviction on ModelDataSet does not crash and produces a correct DataFrame."""
     model = MockModel(n=5)
     recorder = DataRecorder(model, config={"model_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
-    model.step()  # 1
-    model.step()  # 2
-    model.step()  # 3 - should evict first
+    model.step()
+    model.step()
+    model.step()
 
     storage = recorder.storage["model_data"]
+
+
     assert len(storage.blocks) == 2
+
+    df = recorder.get_table_dataframe("model_data")
+    assert len(df) == 2
+    assert "model_val" in df.columns
+    assert "time" in df.columns
+
+    first_block = storage.blocks[0]
+    assert isinstance(first_block, tuple)
+    assert len(first_block) == 2
+
+    _time, data = first_block
+    assert isinstance(data, dict)
+    assert "model_val" in data
+
 
 
 def test_data_recorder_window_eviction_custom():
@@ -323,10 +336,9 @@ def test_data_recorder_window_eviction_custom():
     recorder = DataRecorder(model, config={"custom_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
     recorder.collect()
     recorder.collect()
-    recorder.collect()  # Should evict first
+    recorder.collect()
 
     storage = recorder.storage["custom_data"]
     assert len(storage.blocks) == 2
