@@ -26,6 +26,7 @@ from mesa.exceptions import (
     CellFullException,
     ConnectionMissingException,
 )
+
 Coordinate = tuple[int, ...]
 
 
