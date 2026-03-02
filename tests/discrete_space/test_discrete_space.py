@@ -25,6 +25,7 @@ from mesa.discrete_space import (
 from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
+    CellMissingException,
     ConnectionMissingException,
     SpaceException,
 )
@@ -554,6 +555,50 @@ def test_empties_space():
     model = Model()
     for i in range(8):
         grid._cells[i].add_agent(CellAgent(model))
+
+
+def test_cell_missing_exception():
+    """Test that CellMissingException is raised when accessing non-existent cells."""
+    grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(100, 100\) does not exist"
+    ):
+        _ = grid[(100, 100)]
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(5, 15\) does not exist"
+    ):
+        _ = grid[(5, 15)]
+
+    with pytest.raises(
+        CellMissingException, match=r"Cell at coordinate \(-1, 0\) does not exist"
+    ):
+        _ = grid[(-1, 0)]
+
+
+def test_grid_validate_parameters():
+    """Test that OrthogonalMooreGrid raises standard exceptions for invalid parameters."""
+    with pytest.raises(
+        ValueError, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid((0,), torus=False, random=random.Random(42))
+
+    with pytest.raises(
+        ValueError, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid((-1, 5), torus=False, random=random.Random(42))
+
+    with pytest.raises(
+        ValueError, match="Dimensions must be a list of positive integers"
+    ):
+        OrthogonalMooreGrid(("a", 5), torus=False, random=random.Random(42))
+
+    with pytest.raises(TypeError, match="Torus must be a boolean"):
+        OrthogonalMooreGrid((5, 5), torus="true", random=random.Random(42))
+
+    with pytest.raises(TypeError, match="Capacity must be a number or None"):
+        OrthogonalMooreGrid((5, 5), capacity="invalid", random=random.Random(42))
 
 
 def test_agents_property():
