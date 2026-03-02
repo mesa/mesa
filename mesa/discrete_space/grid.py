@@ -236,7 +236,7 @@ class Grid(DiscreteSpace[T]):
             Cell: The cell containing the position
 
         Raises:
-            KeyError: If position is outside grid bounds and not a torus
+            ValueError: If position is outside grid bounds and not a torus
         """
         # Floor to get cell coordinate
         coord = tuple(np.floor(position).astype(int))
@@ -274,9 +274,9 @@ class Grid(DiscreteSpace[T]):
         if not all(isinstance(dim, int) and dim > 0 for dim in self.dimensions):
             raise ValueError("Dimensions must be a list of positive integers.")
         if not isinstance(self.torus, bool):
-            raise ValueError("Torus must be a boolean.")
+            raise TypeError("Torus must be a boolean.")
         if self.capacity is not None and not isinstance(self.capacity, float | int):
-            raise ValueError("Capacity must be a number or None.")
+            raise TypeError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
