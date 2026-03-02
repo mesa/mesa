@@ -88,10 +88,10 @@ class FixedCell(HasCell):
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
-    if self._mesa_cell is not None:
-        raise ValueError("Cannot move agent in FixedCell")
-    cell.add_agent(self)
-    self._mesa_cell = cell
+        if self._mesa_cell is not None:
+            raise ValueError("Cannot move agent in FixedCell")
+        cell.add_agent(self)
+        self._mesa_cell = cell
 
 
 class CellAgent(Agent, HasCell, BasicMovement):
