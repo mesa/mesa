@@ -124,7 +124,7 @@ class DataRecorder(BaseDataRecorder):
                 if "type" not in storage.metadata:
                     storage.metadata["type"] = "custom"
 
-        #Update bookkeeping for evicted data
+        # Update bookkeeping for evicted data
         if old_data is not None:
             match old_data:
                 case np.ndarray():
@@ -179,7 +179,7 @@ class DataRecorder(BaseDataRecorder):
             case "modeldataset":
                 return self._convert_modelDataSet(storage)
             case _:
-                #Fallback
+                # Fallback
                 warnings.warn(
                     f"Unknown data type '{data_type}' for '{name}'",
                     RuntimeWarning,
