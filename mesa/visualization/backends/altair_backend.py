@@ -263,8 +263,7 @@ class AltairBackend(AbstractRenderer):
         ylabel = kwargs.pop("ylabel", "")
 
         # Tooltip list for interactivity
-        # FIXME: Add more fields to tooltip (preferably from agent_portrayal)
-        tooltip_list = ["x", "y"]
+        tooltip_list = []
 
         # Find ALL unique keys
         all_tooltips_key = set()
