@@ -168,12 +168,10 @@ class DataRecorder(BaseDataRecorder):
 
         storage = self.storage[name]
 
-        if not storage.blocks:
-            # Empty DataFrame with correct columns
-            columns = storage.metadata.get("columns", [])
-            return pd.DataFrame(columns=columns)
-
         data_type = storage.metadata.get("type", "unknown")
+
+        if not storage.blocks and data_type == "unknown":
+            return pd.DataFrame(columns=["time"])
 
         # Dispatch to appropriate converter
         match data_type:

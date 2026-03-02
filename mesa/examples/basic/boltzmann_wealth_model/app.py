@@ -17,7 +17,8 @@ log_to_stderr(INFO)
 
 def agent_portrayal(agent):
     return AgentPortrayalStyle(
-        color=agent.wealth
+        color=agent.wealth,
+        tooltip={"Agent ID": agent.unique_id, "Wealth": agent.wealth},
     )  # we are using a colormap to translate wealth to color
 
 
