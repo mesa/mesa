@@ -58,7 +58,7 @@ class Network(DiscreteSpace[Cell]):
         elif isinstance(layout, Mapping):
             node_positions = layout
         else:
-            raise ValueError(
+            raise TypeError(
                 "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 

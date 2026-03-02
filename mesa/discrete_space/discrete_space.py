@@ -1,9 +1,9 @@
-"""Base class for building cell-based spatial environments.
+"""Abstract Base class for building cell-based spatial environments.
 
 DiscreteSpace provides the core functionality needed by all cell-based spaces:
 - Cell creation and tracking
 - Agent-cell relationship management
-- Property layer support
+- Property Layer support
 - Random selection capabilities
 - Capacity management
 
@@ -16,6 +16,7 @@ inherit from this class.
 from __future__ import annotations
 
 import warnings
+from abc import ABC, abstractmethod
 from functools import cached_property
 from random import Random
 from typing import TypeVar
@@ -30,7 +31,7 @@ from mesa.exceptions import CellMissingException
 T = TypeVar("T", bound=Cell)
 
 
-class DiscreteSpace[T: Cell]:
+class DiscreteSpace[T: Cell](ABC):
     """Base class for all discrete spaces.
 
     Attributes:
@@ -39,7 +40,7 @@ class DiscreteSpace[T: Cell]:
         random (Random): The random number generator
         cell_klass (Type) : the type of cell class
         empties (CellCollection) : collection of all cells that are empty
-        property_layers (dict[str, PropertyLayer]): the property layers of the discrete space
+        property_layers (dict[str, np.ndarray]): property_layer of the discrete space
 
     Notes:
         A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly
@@ -85,15 +86,12 @@ class DiscreteSpace[T: Cell]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.all_cells.agents, random=self.random)
 
-    def _connect_cells(self): ...
-    def _connect_single_cell(self, cell: T): ...
+    @abstractmethod
+    def _connect_cells(self) -> None: ...
 
+    @abstractmethod
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell at or nearest to the given position."""
-        raise NotImplementedError(
-            f"{type(self).__name__} does not implement find_nearest_cell(). "
-            "This space may be purely topological."
-        )
 
     def add_cell(self, cell: T):
         """Add a cell to the space.
@@ -173,7 +171,10 @@ class DiscreteSpace[T: Cell]:
         return iter(self._cells.values())
 
     def __getitem__(self, key: tuple[int, ...]) -> T:  # noqa: D105
-        return self._cells[key]
+        try:
+            return self._cells[key]
+        except KeyError as e:
+            raise CellMissingException(key) from e
 
     @property
     def empties(self) -> CellCollection[T]:
