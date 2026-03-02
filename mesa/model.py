@@ -26,12 +26,6 @@ if TYPE_CHECKING:
 
 from mesa.agent import Agent
 from mesa.agentset import _HardKeyAgentSet
-from mesa.exceptions import (
-    CallbackValueError,
-    InvalidScheduleException,
-    PastEventException,
-    RNGMismatchException,
-)
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 from mesa.time import (
@@ -143,7 +137,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # and if so, whether rng is the same or not
         if scenario is not None:
             if rng is not None and (scenario.rng != rng):
-                raise RNGMismatchException("rng and scenario.rng must be the same")
+                raise ValueError("rng and scenario.rng must be the same")
             else:
                 rng = scenario.rng
 
@@ -400,17 +394,16 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             The scheduled Event (can be used to cancel)
 
         Raises:
-            InvalidScheduleException: If both or neither of at/after are specified
-            PastEventException: If the scheduled time is in the past.
-            InvalidCallbackException: If the function is not alive at Event creation.
+            ValueError: If both or neither of at/after are specified
+            ValueError: If both or neither of at/after are specified, or if the scheduled time is in the past.
         """
         if (at is None) == (after is None):
-            raise InvalidScheduleException("Specify exactly one of 'at' or 'after'")
+            raise ValueError("Specify exactly one of 'at' or 'after'")
 
         time = at if at is not None else self.time + after
         # Enforce monotonic time progression
         if time < self.time:
-            raise PastEventException(
+            raise ValueError(
                 f"Cannot schedule event in the past. "
                 f"Scheduled time is {time}, but current time is {self.time}"
             )
@@ -419,7 +412,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         function = None
         function = callback_ref()
         if function is None:
-            raise CallbackValueError("function must be alive at Event creation.")
+            raise ValueError("function must be alive at Event creation.")
 
         event = Event(time, function, priority=priority)
         self._event_list.add_event(event)
@@ -442,10 +435,10 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             The EventGenerator (can be used to stop)
 
         Raises:
-            PastEventException: If the schedule start time is in the past.
+            ValueError: If the schedule start time is in the past.
         """
         if schedule.start is not None and schedule.start < self.time:
-            raise PastEventException(
+            raise ValueError(
                 f"Cannot start recurring schedule in the past. "
                 f"Start time is {schedule.start}, current time is {self.time}"
             )

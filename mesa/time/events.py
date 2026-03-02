@@ -30,13 +30,6 @@ from types import MethodType
 from typing import TYPE_CHECKING, Any
 from weakref import WeakMethod, ref
 
-from mesa.exceptions import (
-    CallbackTypeError,
-    CallbackValueError,
-    EmptyEventListException,
-    InvalidScheduleException,
-)
-
 if TYPE_CHECKING:
     from mesa import Model
 
@@ -44,10 +37,10 @@ if TYPE_CHECKING:
 def _create_callable_reference(function: Callable):
     """Validate and create a weak-reference wrapper for an event callback."""
     if not callable(function):
-        raise CallbackTypeError("function must be a callable")
+        raise TypeError("function must be a callable")
 
     if isinstance(function, types.FunctionType) and function.__name__ == "<lambda>":
-        raise CallbackValueError("function must be alive at Event creation.")
+        raise ValueError("function must be alive at Event creation.")
 
     if isinstance(function, MethodType):
         function_ref = WeakMethod(function)
@@ -55,7 +48,7 @@ def _create_callable_reference(function: Callable):
         try:
             function_ref = ref(function)
         except TypeError as exc:
-            raise CallbackTypeError("function must be weak referenceable") from exc
+            raise TypeError("function must be weak referenceable") from exc
 
     return function_ref
 
@@ -188,17 +181,15 @@ class Schedule:
     def __post_init__(self):
         """Validate schedule parameters."""
         if not callable(self.interval) and self.interval <= 0:
-            raise InvalidScheduleException(
-                f"Schedule interval must be > 0, got {self.interval}"
-            )
+            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
 
         if self.count is not None and self.count <= 0:
-            raise InvalidScheduleException(
+            raise ValueError(
                 f"Schedule count must be > 0 if provided, got {self.count}"
             )
 
         if self.start is not None and self.end is not None and self.start > self.end:
-            raise InvalidScheduleException(
+            raise ValueError(
                 f"Schedule start ({self.start}) cannot be after end ({self.end})"
             )
 
@@ -263,7 +254,7 @@ class EventGenerator:
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
             if interval < 0:
-                raise InvalidScheduleException(f"Interval must be > 0, got {interval}")
+                raise ValueError(f"Interval must be > 0, got {interval}")
             return interval
         return self.schedule.interval
 
@@ -397,7 +388,7 @@ class EventList:
             list[Event]
 
         Raises:
-            EmptyEventListException: If the eventlist is empty
+            IndexError: If the eventlist is empty
 
         Notes:
             this method can return a list shorted then n if the number of non-canceled events on the event list
@@ -406,7 +397,7 @@ class EventList:
         """
         # look n events ahead
         if self.is_empty():
-            raise EmptyEventListException("event list is empty")
+            raise IndexError("event list is empty")
 
         # Filter out canceled events and get n smallest in correct chronological order
         valid_events = [e for e in self._events if not e.CANCELED]
@@ -416,9 +407,19 @@ class EventList:
         """Pop the first element from the event list."""
         while self._events:
             event = heappop(self._events)
+
             if not event.CANCELED:
                 return event
-        raise EmptyEventListException("Event list is empty")
+
+        raise IndexError("Event list is empty")
+
+    def compact(self) -> None:
+        """Remove all canceled events from the heap and rebuild it.
+
+        If there are many canceled events, compaction can speed up performance substantially.
+        """
+        self._events = [e for e in self._events if not e.CANCELED]
+        heapify(self._events)
 
     def is_empty(self) -> bool:
         """Return whether the event list is empty."""
@@ -450,11 +451,12 @@ class EventList:
             event (Event): The event to be removed
 
         """
-        # we cannot simply remove items from _eventlist because this breaks
-        # heap structure invariant. So, we use a form of lazy deletion.
-        # SimEvents have a CANCELED flag that we set to True, while popping and peek_ahead
-        # silently ignore canceled events
-        event.cancel()
+        # We use lazy deletion: mark the event as canceled without
+        # removing it from the heap to preserve heap invariants.
+        # Canceled events are skipped during pop and may trigger
+        # adaptive compaction if they dominate the heap.
+        if not event.CANCELED:
+            event.cancel()
 
     def clear(self):
         """Clear the event list."""

@@ -17,8 +17,6 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-from mesa.exceptions import InvalidOptionException
-
 if TYPE_CHECKING:
     from mesa.agent import Agent
 
@@ -51,7 +49,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
     @abstractmethod
     def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
-        """Update the AbstractAgentSet a with new set of agents."""
+        """Update the AbstractAgentSet A with new set of agents."""
         ...
 
     def select(
@@ -87,7 +85,11 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if at_most <= 1.0 and isinstance(at_most, float):
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
 
-        def agent_generator(filter_func, agent_type, at_most):
+        def agent_generator(
+            filter_func: Callable[[A], bool] | None,
+            agent_type: type[A] | None,
+            at_most: int,
+        ) -> Iterator[A]:
             count = 0
             for agent in self:
                 if count >= at_most:
@@ -169,7 +171,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Raises:
             AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
-            InvalidOptionException: If an unknown 'handle_missing' option is provided.
+            ValueError: If an unknown 'handle_missing' option is provided.
         """
         is_single_attr = isinstance(attr_names, str)
 
@@ -194,7 +196,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                 ]
 
         else:
-            raise InvalidOptionException(
+            raise ValueError(
                 f"Unknown handle_missing option: {handle_missing}, "
                 "should be one of 'error' or 'default'"
             )
