@@ -115,18 +115,6 @@ class EmptyEventListException(TimeException, IndexError):  # noqa: N818
     """Raised when attempting to access an event from an empty event list."""
 
 
-class AgentException(MesaException):
-    """Base exception for errors related to agents."""
-
-
-class AgentNotRegisteredException(AgentException, LookupError):  # noqa: N818
-    """Raised when an operation targets an unregistered agent."""
-
-
-class DuplicateAgentIDException(AgentException, KeyError):  # noqa: N818
-    """Raised when attempting to register an already-used agent id."""
-
-
 class AgentSetException(MesaException):
     """Base exception for errors in agent set operations."""
 
