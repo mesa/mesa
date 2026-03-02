@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> For enhancements and new features, include the issue/discussion where a maintainer approved this work before opening a PR. Unapproved feature/enhancement PRs may be closed.
+
+### Pre-PR Checklist
+- [ ] I linked an issue/discussion where a maintainer approved this enhancement/feature for implementation.
+
+### Approval Link
+<!-- Link to the issue/discussion comment where a maintainer confirmed this is ready for a PR. -->
+
 ### Summary
 <!-- Provide a concise summary of the feature and its purpose. -->
 

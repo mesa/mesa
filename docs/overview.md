@@ -82,12 +82,12 @@ Mesa implements discrete spaces through the `mesa.discrete_space` module, using 
    ```
 
 #### Property Layers
-Discrete spaces support PropertyLayers - efficient numpy-based arrays for storing cell-level properties:
+Discrete spaces support PropertyLayers - efficient numpy-based arrays for storing cell-level property_layers:
 
 ```python
 # Create and use a property layer
 grid.create_property_layer("elevation", default_value=10)
-high_ground = grid.elevation.select_cells(lambda x: x > 50)
+high_ground = grid.property_layers["elevation"] > 50
 ```
 
 #### Continuous Space
@@ -319,7 +319,7 @@ Collecting Data <tutorials/5_collecting_data>
 Basic Visualization <tutorials/6_visualization_basic>
 Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
 Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
-Property Layer Visualization <tutorials/9_visualization_propertylayer_visualization>
+Property Layer Visualization <tutorials/9_visualization_property_layer_visualization>
 Custom Visualization Components <tutorials/10_visualization_custom>
 Best Practices <best-practices>
 
