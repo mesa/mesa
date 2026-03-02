@@ -244,6 +244,7 @@ def test_altair_backend_draw_agents():
         "color": np.array(["red", "blue"]),
         "filled": np.array([True, True]),
         "stroke": np.array(["black", "black"]),
+        "tooltip": np.array([None, None]),
     }
     ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
     assert ab.draw_agents(arguments) is not None
