@@ -98,7 +98,7 @@ class CellCollection[T: Cell]:
 
     def select_random_cell(self) -> T:
         """Select a random cell."""
-        return self._cells[self.random.randrange(len(self._cells))]
+        return self.random.choice(self.cells)
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
         """Select a random agent from the collection.
