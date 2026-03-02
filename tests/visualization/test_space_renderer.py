@@ -1,7 +1,6 @@
 """Test cases for the SpaceRenderer class in Mesa."""
 
 import random
-import re
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -12,7 +11,6 @@ from mesa.discrete_space import (
     HexGrid,
     Network,
     OrthogonalMooreGrid,
-    PropertyLayer,
     VoronoiGrid,
 )
 from mesa.visualization.backends import altair_backend, matplotlib_backend
@@ -32,9 +30,7 @@ class CustomModel(mesa.Model):
         self.grid = mesa.discrete_space.OrthogonalMooreGrid(
             [2, 2], random=random.Random(42)
         )
-        self.layer = PropertyLayer("test", [2, 2], default_value=0, dtype=int)
-
-        self.grid.add_property_layer(self.layer)
+        self.grid.create_property_layer("test", default_value=0, dtype=int)
 
 
 def test_backend_selection():
@@ -105,15 +101,15 @@ def test_render_calls():
 
     sr.draw_structure = MagicMock()
     sr.draw_agents = MagicMock()
-    sr.draw_propertylayer = MagicMock()
+    sr.draw_property_layer = MagicMock()
 
-    sr.setup_agents(agent_portrayal=lambda _: {}).setup_propertylayer(
-        propertylayer_portrayal=lambda _: PropertyLayerStyle(color="red")
+    sr.setup_agents(agent_portrayal=lambda _: {}).setup_property_layer(
+        property_layer_portrayal=lambda _: PropertyLayerStyle(color="red")
     ).render()
 
     sr.draw_structure.assert_called_once()
     sr.draw_agents.assert_called_once()
-    sr.draw_propertylayer.assert_called_once()
+    sr.draw_property_layer.assert_called_once()
 
 
 def test_no_property_layers():
@@ -123,14 +119,15 @@ def test_no_property_layers():
 
     # Simulate missing property layer in the grid
     with (
-        patch.object(model.grid, "_mesa_property_layers", new={}),
+        patch.object(model.grid, "property_layers", new={}),
         pytest.raises(
-            Exception, match=re.escape("No property layers were found on the space.")
+            Exception,
+            match="No property layer",  # More flexible pattern
         ),
     ):
-        sr.setup_propertylayer(
+        sr.setup_property_layer(
             lambda _: PropertyLayerStyle(color="red")
-        ).draw_propertylayer()
+        ).draw_property_layer()
 
 
 def test_post_process():
@@ -170,19 +167,19 @@ def test_post_process():
 
 
 def test_property_layer_style_instance():
-    """Test that draw_propertylayer accepts a PropertyLayerStyle instance."""
+    """Test that draw_property_layer accepts a PropertyLayerStyle instance."""
     model = CustomModel()
     sr = SpaceRenderer(model)
     sr.backend_renderer = MagicMock()
 
     style = PropertyLayerStyle(color="blue")
-    sr.setup_propertylayer(style).draw_propertylayer()
+    sr.setup_property_layer(style).draw_property_layer()
 
-    # Verify that the backend renderer's draw_propertylayer was called
-    sr.backend_renderer.draw_propertylayer.assert_called_once()
+    # Verify that the backend renderer's draw_property_layer was called
+    sr.backend_renderer.draw_property_layer.assert_called_once()
 
     # Verify that the portrayal passed to the backend is a callable that returns the style
-    call_args = sr.backend_renderer.draw_propertylayer.call_args
+    call_args = sr.backend_renderer.draw_property_layer.call_args
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style

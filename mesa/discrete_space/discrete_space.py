@@ -3,7 +3,7 @@
 DiscreteSpace provides the core functionality needed by all cell-based spaces:
 - Cell creation and tracking
 - Agent-cell relationship management
-- Property layer support
+- Property Layer support
 - Random selection capabilities
 - Capacity management
 
@@ -40,7 +40,7 @@ class DiscreteSpace[T: Cell](ABC):
         random (Random): The random number generator
         cell_klass (Type) : the type of cell class
         empties (CellCollection) : collection of all cells that are empty
-        property_layers (dict[str, PropertyLayer]): the property layers of the discrete space
+        property_layers (dict[str, np.ndarray]): property_layer of the discrete space
 
     Notes:
         A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly

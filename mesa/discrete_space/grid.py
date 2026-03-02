@@ -16,7 +16,7 @@ from __future__ import annotations
 import copyreg
 import math
 from collections.abc import Sequence
-from itertools import product
+from itertools import chain, product
 from random import Random
 from typing import Any, TypeVar
 
@@ -24,10 +24,6 @@ import numpy as np
 from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
-from mesa.discrete_space.property_layer import (
-    HasPropertyLayers,
-    create_property_accessors,
-)
 
 T = TypeVar("T", bound=Cell)
 
@@ -45,7 +41,7 @@ def unpickle_gridcell(parent, fields):
     cell_klass = type(
         "GridCell",
         (parent,),
-        {"_mesa_properties": set(), "__slots__": ()},
+        {"property_layers": set(), "__slots__": ()},
     )
     instance = cell_klass(
         (0, 0)
@@ -59,7 +55,7 @@ def unpickle_gridcell(parent, fields):
     return instance
 
 
-class Grid(DiscreteSpace[T], HasPropertyLayers):
+class Grid(DiscreteSpace[T]):
     """Base class for all grid classes.
 
     Attributes:
@@ -70,7 +66,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         _try_random (bool): whether to get empty cell be repeatedly trying random cell
 
     Notes:
-        width and height are accessible via properties, higher dimensions can be retrieved via dimensions
+        width and height are accessible via property_layers, higher dimensions can be retrieved via dimensions
 
     """
 
@@ -110,8 +106,9 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"_mesa_properties": set(), "__slots__": ()},
+            {"property_layers": set(), "__slots__": ()},
         )
+        self.property_layers: dict[str, np.ndarray] = {}
 
         # we register the pickle_gridcell helper function
         copyreg.pickle(self.cell_klass, pickle_gridcell)
@@ -125,6 +122,109 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def create_property_layer(
+        self,
+        name: str,
+        default_value=0.0,
+        dtype=float,
+        read_only: bool = False,
+    ) -> np.ndarray:
+        """Create a property layer array and attach it to cells.
+
+        Warning:
+        Do not reassign `grid.name` directly — this will detach it from
+        `property_layers` and break cell-level access. Use in-place operations.
+
+            grid.sugar[:] = 0    # correct
+            grid.sugar = array   # wrong — breaks cell access
+        """
+        array = np.full(self.dimensions, default_value, dtype=dtype)
+        self._attach_property_layer(name, array, read_only=read_only)
+        return array
+
+    def add_property_layer(
+        self, name: str, array: np.ndarray, read_only: bool = False
+    ) -> None:
+        """Attach an existing array as a property layer.  Shape must match `self.dimensions`.
+
+        Warning:
+        Do not reassign `grid.name` directly — this will detach it from
+        `property_layers` and break cell-level access. Use in-place operations.
+
+            grid.sugar[:] = 0    # correct
+            grid.sugar = array   # wrong — breaks cell access
+        """
+        if tuple(array.shape) != tuple(self.dimensions):
+            raise ValueError(
+                f"Array shape {array.shape} does not match grid dimensions {self.dimensions}."
+            )
+        self._attach_property_layer(name, array, read_only=read_only)
+
+    def remove_property_layer(self, name: str) -> None:
+        """Remove a property_layer.
+
+        Args:
+            name: property_layer name.
+        """
+        if name not in self.property_layers:
+            raise KeyError(f"No property_layer named '{name}'.")
+        del self.property_layers[name]
+        delattr(self.cell_klass, name)
+        self.cell_klass.property_layers.discard(name)
+
+    def _attach_property_layer(
+        self, name: str, array: np.ndarray, read_only: bool = False
+    ) -> None:
+        if name in type(self).__dict__ or any(
+            name in c.__dict__ for c in type(self).__mro__
+        ):
+            raise ValueError(
+                f"property_layer '{name}' conflicts with an existing Grid attribute."
+            )
+
+        if name in self.property_layers:
+            raise ValueError(f"property_layer '{name}' already exists.")
+
+        slots = set(
+            chain.from_iterable(
+                getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
+            )
+        )
+        if name in slots:
+            raise ValueError(
+                f"property_layer name '{name}' clashes with existing slot '{name}'."
+            )
+        self.property_layers[name] = array
+        setattr(self, name, array)
+
+        def getter(self_cell):
+            return array[self_cell.coordinate]
+
+        def setter(self_cell, value):
+            array[self_cell.coordinate] = value
+
+        accessor = (
+            property(getter, doc=f"property_layer '{name}'")
+            if read_only
+            else property(getter, setter, doc=f"property_layer '{name}'")
+        )
+        setattr(self.cell_klass, name, accessor)
+        self.cell_klass.property_layers.add(name)
+
+    def get_neighborhood_mask(
+        self, coordinate, include_center: bool = True, radius: int = 1
+    ) -> np.ndarray:
+        """Return a boolean mask shaped like ``self.dimensions`` for a neighborhood."""
+        cell = self._cells[coordinate]
+        neighborhood = cell.get_neighborhood(
+            include_center=include_center, radius=radius
+        )
+        mask = np.zeros(self.dimensions, dtype=bool)
+        coords = np.array([c.coordinate for c in neighborhood])
+        if coords.size:
+            mask[tuple(coords[:, i] for i in range(coords.shape[1]))] = True
+        return mask
 
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell containing the given position.
@@ -198,7 +298,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.empty.data)
+        empty_coords = np.argwhere(self.property_layers["empty"])
         random_coord = self.random.choice(empty_coords)
         return self._cells[tuple(random_coord)]
 
@@ -224,21 +324,24 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 cell.connect(self._cells[ni, nj], (di, dj))
 
     def __getstate__(self) -> dict[str, Any]:
-        """Custom __getstate__ for handling dynamic GridCell class and PropertyDescriptors."""
+        """Custom __getstate__ for handling dynamic GridCell class and property_layer accessors."""
         state = super().__getstate__()
         state = {k: v for k, v in state.items() if k != "cell_klass"}
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
+        """Restore state and re-attach property_layer accessors to the cell class."""
         super().__setstate__(state)
-
-        for layer in self._mesa_property_layers.values():
+        for name, array in self.property_layers.items():
             setattr(
                 self.cell_klass,
-                layer.name,
-                create_property_accessors(
-                    layer.data, docstring=f"accessor for {layer.name}"
+                name,
+                property(
+                    lambda self_cell, a=array: a[self_cell.coordinate],
+                    lambda self_cell, v, a=array: a.__setitem__(
+                        self_cell.coordinate, v
+                    ),
+                    doc=f"property_layer '{name}'",
                 ),
             )
 
