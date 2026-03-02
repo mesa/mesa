@@ -24,7 +24,7 @@ def make_space_matplotlib(*args, **kwargs):  # noqa: D103
 
 def make_mpl_space_component(
     agent_portrayal: Callable | None = None,
-    propertylayer_portrayal: dict | None = None,
+    property_layer_portrayal: dict | None = None,
     post_process: Callable | None = None,
     **space_drawing_kwargs,
 ) -> SpaceMatplotlib:
@@ -32,7 +32,7 @@ def make_mpl_space_component(
 
     Args:
         agent_portrayal: Function to portray agents.
-        propertylayer_portrayal: Dictionary of PropertyLayer portrayal specifications
+        property_layer_portrayal: Dictionary of property_layer portrayal specifications
         post_process : a callable that will be called with the Axes instance. Allows for fine tuning plots (e.g., control ticks)
         space_drawing_kwargs : additional keyword arguments to be passed on to the underlying space drawer function. See
                                the functions for drawing the various spaces for further details.
@@ -52,7 +52,7 @@ def make_mpl_space_component(
         return SpaceMatplotlib(
             model,
             agent_portrayal,
-            propertylayer_portrayal,
+            property_layer_portrayal,
             post_process=post_process,
             **space_drawing_kwargs,
         )
@@ -64,7 +64,7 @@ def make_mpl_space_component(
 def SpaceMatplotlib(
     model,
     agent_portrayal,
-    propertylayer_portrayal,
+    property_layer_portrayal,
     dependencies: list[any] | None = None,
     post_process: Callable | None = None,
     **space_drawing_kwargs,
@@ -82,7 +82,7 @@ def SpaceMatplotlib(
     draw_space(
         space,
         agent_portrayal,
-        propertylayer_portrayal=propertylayer_portrayal,
+        property_layer_portrayal=property_layer_portrayal,
         ax=ax,
         **space_drawing_kwargs,
     )
