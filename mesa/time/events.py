@@ -400,10 +400,7 @@ class EventList:
             raise IndexError("event list is empty")
 
         # Filter out canceled events and get n smallest in correct chronological order
-        return nsmallest(
-            n,
-            (e for e in self._events if not e.CANCELED)
-        )
+        return nsmallest(n, (e for e in self._events if not e.CANCELED))
 
     def pop_event(self) -> Event:
         """Pop the first element from the event list."""
