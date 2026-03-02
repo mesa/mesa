@@ -14,8 +14,8 @@ def agent_portrayal(agent):
     )
 
 
-def propertylayer_portrayal(layer):
-    if layer.name == "sugar":
+def property_layer_portrayal(layer):
+    if layer == "sugar":
         return PropertyLayerStyle(
             color="blue", alpha=0.8, colorbar=True, vmin=0, vmax=10
         )
@@ -60,11 +60,11 @@ model = SugarscapeG1mt()
 renderer = (
     SpaceRenderer(model, backend="altair")
     .setup_agents(agent_portrayal)
-    .setup_propertylayer(propertylayer_portrayal)
+    .setup_property_layer(property_layer_portrayal)
 )
 # Specifically, avoid drawing the grid to hide the grid lines.
 renderer.draw_agents()
-renderer.draw_propertylayer()
+renderer.draw_property_layer()
 
 renderer.post_process = post_process
 

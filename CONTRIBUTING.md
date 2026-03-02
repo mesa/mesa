@@ -20,7 +20,8 @@ discuss via [Matrix] OR via [an issue].
 
 **To submit a contribution**
 
-- Create a ticket for the item that you are working on.
+- For enhancements or new features, open an [issue](https://github.com/mesa/mesa/issues) or [discussion](https://github.com/mesa/mesa/discussions) first and wait for maintainer approval before opening a PR.
+- For clear bug fixes, a direct PR is generally acceptable (opening an issue first is still encouraged for larger or unclear bugs).
 - Fork the Mesa repository.
 - [Clone your repository] from Github to your machine.
 - Create a new branch in your fork: `git checkout -b BRANCH_NAME`
@@ -49,7 +50,7 @@ First step is to install some proper tools, if you haven't already.
 - Dive into Git and GitHub. Watch some videos, this takes some time to click. [GitHub Desktop](https://desktop.github.com/) is great.
 - [`https://github.dev/mesa/mesa`](https://github.dev/mesa/mesa) is great for small changes (to docs).
 
-Learn the tools, talk to us about what you want to change, and open a small PR. Or update an [example model](https://github.com/mesa/mesa-examples) (check open [issues](https://github.com/mesa/mesa-examples/issues))!
+Learn the tools, talk to us about what you want to change, and open a small PR once direction is clear. For enhancements/new features, get maintainer approval in an issue/discussion first. Or update an [example model](https://github.com/mesa/mesa-examples) (check open [issues](https://github.com/mesa/mesa-examples/issues))!
 
 ### I'm a developer (but not a modeller)
 Awesome! You have the basics of open-source software development (if not check above), but not much modelling experience.
@@ -61,13 +62,13 @@ First step is to start thinking like a modeller. To understand the fine details 
   - This MOOC on practical ABM modelling: [Agent-Based Models with Python: An Introduction to Mesa](https://www.complexityexplorer.org/courses/172-agent-based-models-with-python-an-introduction-to-mesa)
 - Go though multiple of our [examples](https://github.com/mesa/mesa-examples). Play with them, modify things and get a feel for Mesa and ABMs.
   - Check our open [issues](https://github.com/mesa/mesa-examples/issues) for the examples.
-  - If you see anything you want to improve, feel free to open a (small) PR!
+  - If you see anything you want to improve, feel free to open a (small) PR for bug fixes/docs. For enhancements/new features, discuss first and wait for maintainer approval.
 - If you have a feel for Mesa, check our [discussions](https://github.com/mesa/mesa/discussions) and [issues](https://github.com/mesa/mesa/issues).
   - Also go through our [release notes](https://github.com/mesa/mesa/releases) to see what we recently have been working on, and see some examples of successful PRs.
 - Once you found or thought of a nice idea, comment on the issue/discussion (or open a new one) and get to work!
 
 ### I'm both
-That's great! You can just start working on things, reach out to us. Skim to the list above if you feel you're missing anything. Start small but don't be afraid to dream big!
+That's great! You can start with bug fixes, docs, or tests right away. For enhancements/new features, align in an issue/discussion and wait for maintainer approval before opening a PR. Reach out to us anytime, start small but don't be afraid to dream big!
 
 ### I'm neither
 Start with creating your own models, for fun. Once you have some experience, move to the topics above.
@@ -76,8 +77,9 @@ Start with creating your own models, for fun. Once you have some experience, mov
 Mesa is a library that aims to provide elegant, scalable, flexible, and powerful building blocks to a wide audience of agent-based modellers. When contributing, it helps to understand our development philosophy and process.
 
 ### When to open what
-- **Small enhancements or bug fixes**: Opening an issue or directly a PR is often great.
-- **Larger features or uncertain scope**: Open a [Discussion](https://github.com/mesa/mesa/discussions) first. This helps align on the problem and approach before investing significant effort.
+- **Bug fixes**: For clear, scoped bugs, opening a PR directly is usually fine. For larger or uncertain bug fixes, open an issue or discussion first.
+- **Enhancements and new features**: Open an issue or discussion first, agree on direction with maintainers, and wait for explicit approval before opening a PR.
+- **No prior approval for feature/enhancement work**: PRs may be closed until there is maintainer alignment and approval to proceed.
 - **When in doubt**: Start with a Discussion. It's always easier to move from discussion to implementation than to rework a large PR.
 
 ### Our development process
@@ -105,7 +107,7 @@ The goal is to wrap our heads around the conceptual approach before diving into 
 Sometimes the answer is that we just need better documentation. Python itself is a powerful tool and there are many existing libraries in the ecosystem to leverage.
 
 #### Stage 3: Implementation
-With alignment on both problem and design, implementation can proceed:
+With alignment on both problem and design, implementation can proceed. For enhancements or new features, this stage starts only after maintainers confirm they are open to a PR:
 
 - Write the code following Mesa's standards
 - Include/update tests and and check test coverage
@@ -160,6 +162,19 @@ If you're changing previous Mesa features, please make sure of the following:
 - Additional features or rewrites of current features are accompanied by tests.
 - New features are demonstrated in a model, so folks can understand more easily.
 
+### Exception handling guidance
+
+Across Mesa, prefer clear and predictable exception behavior:
+
+- Avoid raising generic `Exception`; use a specific built-in or Mesa-specific exception instead.
+- For standard validation and input errors, prefer the most appropriate Python built-in exception.
+- Use Mesa-specific exceptions when they add meaningful domain context or hide internal implementation details from callers.
+- Follow the existing Mesa exception hierarchy: use the most specific `MesaException` subclass that fits the failure before introducing a new one.
+- Always check with the maintainers as part of a PR or issue when you think you need a new exception.
+- When wrapping internal exceptions, use `raise ... from ...` to preserve the original cause.
+- Write exception messages that are actionable — users should immediately understand what went wrong and how to fix it.
+
+When changing exception behavior, update or add tests to assert the expected exception type and message.
 To ensure that your submission will not break the build, you will need to install Ruff and pytest.
 
 ```bash

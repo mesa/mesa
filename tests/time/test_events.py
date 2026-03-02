@@ -310,7 +310,29 @@ def test_eventlist():
     event.cancel()
     with pytest.raises(Exception):
         event_list.pop_event()
-    assert len(event_list) == 0
+
+    # explicit compact removes canceled events from internal heap
+    event_list = EventList()
+    some_test_function = MagicMock()
+
+    events = []
+    for i in range(10):
+        e = Event(i, some_test_function, priority=Priority.DEFAULT)
+        events.append(e)
+        event_list.add_event(e)
+
+    for e in events[:6]:
+        e.cancel()
+
+    assert len(event_list._events) == 10
+    event_list.compact()
+    assert len(event_list._events) == 4
+
+    remaining = []
+    while not event_list.is_empty():
+        remaining.append(event_list.pop_event().time)
+
+    assert remaining == [6, 7, 8, 9]
 
     # clear
     event_list.clear()
