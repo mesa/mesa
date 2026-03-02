@@ -56,7 +56,7 @@ viz = [
   "matplotlib",
   "solara",
   "altair",
-  "starlette<0.45.0",
+  "starlette<1.0",
 ]
 # Dev and CI stuff
 dev = [
