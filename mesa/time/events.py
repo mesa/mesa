@@ -415,8 +415,9 @@ class EventList:
 
     def compact(self) -> None:
         """Remove all canceled events from the heap and rebuild it.
-        
-        If there are many canceled events, compaction can speed up performance substantially. """
+
+        If there are many canceled events, compaction can speed up performance substantially.
+        """
         self._events = [e for e in self._events if not e.CANCELED]
         heapify(self._events)
 
