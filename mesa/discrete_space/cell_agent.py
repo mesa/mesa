@@ -88,17 +88,10 @@ class FixedCell(HasCell):
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
-        if self._mesa_cell is not None and cell is not self._mesa_cell:
-            raise ValueError(
-                "Cannot move a FixedAgent to a different cell. "
-                "Use agent.remove() first if you need to free the agent."
-            )
-        # No-op: already in this cell
-        if cell is self._mesa_cell:
-            return
-        # Attempt add FIRST — if it raises, _mesa_cell is never touched
-        cell.add_agent(self)
-        self._mesa_cell = cell   # only reached if add_agent succeeded
+    if self._mesa_cell is not None:
+        raise ValueError("Cannot move agent in FixedCell")
+    cell.add_agent(self)
+    self._mesa_cell = cell
 
 
 class CellAgent(Agent, HasCell, BasicMovement):
