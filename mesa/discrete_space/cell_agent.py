@@ -75,19 +75,30 @@ class BasicMovement:
 
 
 class FixedCell(HasCell):
-    """Mixin for agents that are fixed to a cell."""
+    """Mixin for agents that are fixed to a cell.
+
+    Once assigned to a cell, the agent cannot be moved to a different cell.
+    The assignment is atomic: if cell.add_agent() raises (e.g. capacity
+    reached), the agent's _mesa_cell reference is left unchanged.
+    """
 
     @property
-    def cell(self) -> Cell | None:  # noqa: D102
+    def cell(self) -> Cell | None:
         return self._mesa_cell
 
     @cell.setter
-    def cell(self, cell: Cell) -> None:
-        if self.cell is not None:
-            raise ValueError("Cannot move agent in FixedCell")
-        self._mesa_cell = cell
-
+    def cell(self, cell: Cell | None) -> None:
+        if self._mesa_cell is not None and cell is not self._mesa_cell:
+            raise ValueError(
+                "Cannot move a FixedAgent to a different cell. "
+                "Use agent.remove() first if you need to free the agent."
+            )
+        # No-op: already in this cell
+        if cell is self._mesa_cell:
+            return
+        # Attempt add FIRST — if it raises, _mesa_cell is never touched
         cell.add_agent(self)
+        self._mesa_cell = cell   # only reached if add_agent succeeded
 
 
 class CellAgent(Agent, HasCell, BasicMovement):
