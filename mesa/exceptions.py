@@ -77,3 +77,71 @@ class DimensionException(MesaException, ValueError):  # noqa: N818
             message: The error message describing the dimension mismatch.
         """
         super().__init__(message)
+
+
+class ModelException(MesaException):
+    """Base exception for errors in the model module."""
+
+
+class RNGMismatchException(ModelException, ValueError):  # noqa: N818
+    """Raised when model and scenario random number generators do not match."""
+
+
+class TimeException(MesaException):
+    """Base exception for errors in the time and scheduling modules."""
+
+
+class PastEventException(TimeException, ValueError):  # noqa: N818
+    """Raised when attempting to schedule an event in the past."""
+
+
+class InvalidCallbackException(TimeException):
+    """Base exception for invalid event callbacks."""
+
+
+class CallbackTypeError(InvalidCallbackException, TypeError):
+    """Raised when an event callback has an invalid type."""
+
+
+class CallbackValueError(InvalidCallbackException, ValueError):
+    """Raised when an event callback has an invalid value."""
+
+
+class InvalidScheduleException(TimeException, ValueError):  # noqa: N818
+    """Raised when schedule parameters are invalid."""
+
+
+class EmptyEventListException(TimeException, IndexError):  # noqa: N818
+    """Raised when attempting to access an event from an empty event list."""
+
+
+class AgentException(MesaException):
+    """Base exception for errors related to agents."""
+
+
+class AgentNotRegisteredException(AgentException, LookupError):  # noqa: N818
+    """Raised when an operation targets an unregistered agent."""
+
+
+class DuplicateAgentIDException(AgentException, KeyError):  # noqa: N818
+    """Raised when attempting to register an already-used agent id."""
+
+
+class AgentSetException(MesaException):
+    """Base exception for errors in agent set operations."""
+
+
+class InvalidOptionException(AgentSetException, ValueError):  # noqa: N818
+    """Raised when an unsupported option is passed to an agent set method."""
+
+
+class VisualizationException(MesaException):
+    """Base exception for visualization errors."""
+
+
+class UnsupportedBackendException(VisualizationException, ValueError):  # noqa: N818
+    """Raised when an unsupported visualization backend is requested."""
+
+
+class UnsupportedSpaceException(VisualizationException, ValueError):  # noqa: N818
+    """Raised when an unsupported space type is passed to visualization code."""
