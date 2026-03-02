@@ -414,7 +414,9 @@ class EventList:
         raise IndexError("Event list is empty")
 
     def compact(self) -> None:
-        """Remove all canceled events from the heap and rebuild it."""
+        """Remove all canceled events from the heap and rebuild it.
+        
+        If there are many canceled events, compaction can speed up performance substantially. """
         self._events = [e for e in self._events if not e.CANCELED]
         heapify(self._events)
 
