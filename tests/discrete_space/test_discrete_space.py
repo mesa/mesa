@@ -1250,6 +1250,8 @@ def test_network_missing_layout_node():
         SpaceException, match="is missing from the provided layout dictionary"
     ):
         Network(g, layout=partial_layout, random=rng)
+
+
 def test_neighborhood_fast_path_radius_one_explicit():
     """Ensure radius=1 via get_neighborhood uses fast path correctly."""
     grid = OrthogonalVonNeumannGrid(
