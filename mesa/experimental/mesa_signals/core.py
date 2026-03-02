@@ -387,7 +387,7 @@ class HasEmitters:
         )
 
     @classmethod
-    def _clear_all_subscriptions_from_dict(cls, subs_dict: dict, name: ObservableName):
+    def _clear_all_subscriptions(cls, subs_dict: dict, name: ObservableName):
         """Shared logic to clear all subscriptions for an observable."""
         if name is ALL:
             subs_dict.clear()
@@ -410,7 +410,7 @@ class HasEmitters:
             name: name of the Observable to unsubscribe for all signal types
 
         """
-        self._clear_all_subscriptions_from_dict(self.subscribers, name)
+        self._clear_all_subscriptions(self.subscribers, name)
 
     @classmethod
     def clear_all_class_subscriptions(cls, name: ObservableName):
@@ -421,7 +421,7 @@ class HasEmitters:
         Args:
             name: name of the Observable to unsubscribe for all signal types
         """
-        cls._clear_all_subscriptions_from_dict(cls._class_subscribers, name)
+        cls._clear_all_subscriptions(cls._class_subscribers, name)
 
     def notify(
         self,
