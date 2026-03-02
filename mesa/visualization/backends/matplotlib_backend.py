@@ -150,7 +150,7 @@ class MatplotlibBackend(AbstractRenderer):
                         "only supported by the Altair backend. "
                         "Tooltips will be ignored when using the Matplotlib backend.",
                         UserWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
 
             # Collect agent data
