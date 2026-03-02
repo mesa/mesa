@@ -28,8 +28,7 @@ from enum import IntEnum
 from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
 from typing import TYPE_CHECKING, Any
-from weakref import WeakMethod, ref
-from weakref import ReferenceType
+from weakref import ReferenceType, WeakMethod, ref
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -96,7 +95,7 @@ class Event:
     def __init__(
         self,
         time: int | float,
-        function: Callable[...,Any],
+        function: Callable[..., Any],
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
@@ -145,7 +144,7 @@ class Event:
             return self.priority < other.priority
         return self.unique_id < other.unique_id
 
-    def __getstate__(self) -> dict[str, Any] :
+    def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
         state = self.__dict__.copy()
         # Convert weak reference back to strong reference for pickling
@@ -220,7 +219,7 @@ class EventGenerator:
     def __init__(
         self,
         model: Model,
-        function: Callable[...,Any],
+        function: Callable[..., Any],
         schedule: Schedule,
         priority: Priority = Priority.DEFAULT,
     ) -> None:
