@@ -167,6 +167,70 @@ def test_dataset_config_strict_alignment_backfill_multiple():
     assert config._next_collection == pytest.approx(15.0)
 
 
+def test_strict_alignment_recorder_aligned_timestamps():
+    """Integration: strict_alignment records at aligned boundaries, not event times."""
+    model = MockModel(n=2)
+    recorder = DataRecorder(
+        model,
+        {"model_data": DatasetConfig(interval=5.0, start_time=0.0, strict_alignment=True)},
+    )
+    recorder.clear()
+
+    # Simulate a time jump: model steps from 0 to t=7.3
+    # Should record at t=0 and t=5 (both aligned boundaries <= 7.3)
+    model.time = 7.3
+
+    df = recorder.get_table_dataframe("model_data")
+    recorded_times = sorted(df["time"].tolist())
+    assert 0.0 in recorded_times
+    assert 5.0 in recorded_times
+    # Should NOT record at t=7.3
+    assert 7.3 not in recorded_times
+
+
+def test_strict_alignment_recorder_backfills_missed_boundaries():
+    """Integration: strict_alignment backfills all missed boundaries with same snapshot."""
+    model = MockModel(n=2)
+    recorder = DataRecorder(
+        model,
+        {"model_data": DatasetConfig(interval=5.0, start_time=0.0, strict_alignment=True)},
+    )
+    recorder.clear()
+
+    # Large jump: 0 → 12.0 should produce records at t=0, t=5, t=10
+    model.time = 12.0
+
+    df = recorder.get_table_dataframe("model_data")
+    recorded_times = sorted(df["time"].tolist())
+    assert 0.0 in recorded_times
+    assert 5.0 in recorded_times
+    assert 10.0 in recorded_times
+    assert len(recorded_times) == 3
+
+
+def test_strict_alignment_recorder_respects_end_time():
+    """Integration: strict_alignment does not record past end_time."""
+    model = MockModel(n=2)
+    recorder = DataRecorder(
+        model,
+        {
+            "model_data": DatasetConfig(
+                interval=5.0, start_time=0.0, end_time=8.0, strict_alignment=True
+            )
+        },
+    )
+    recorder.clear()
+
+    # Jump to t=12 — boundaries 0, 5 are within end_time=8; 10 is not
+    model.time = 12.0
+
+    df = recorder.get_table_dataframe("model_data")
+    recorded_times = sorted(df["time"].tolist())
+    assert 0.0 in recorded_times
+    assert 5.0 in recorded_times
+    assert 10.0 not in recorded_times
+
+
 def test_base_recorder_no_registry():
     """Test that BaseDataRecorder raises error without DataRegistry."""
     model = Model()

@@ -192,20 +192,24 @@ class BaseDataRecorder(ABC):
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
-        current_time = signal.additional_kwargs.get("old")
+        old_time = signal.additional_kwargs.get("old")
+        new_time = signal.additional_kwargs.get("new")
 
         for name, config in self.configs.items():
-            if not config.enabled or current_time < config._next_collection:
+            if not config.enabled:
                 continue
 
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
 
             if config.strict_alignment:
-                # Backfill all missed aligned boundaries using the same snapshot.
-                # Between two consecutive events, state does not change, so
-                # recording the same snapshot at each missed boundary is correct.
-                while config._next_collection <= current_time:
+                # Use new_time as ceiling: when an event fires at new_time,
+                # all aligned boundaries from _next_collection up to new_time
+                # are backfilled (state is constant between consecutive events).
+                if new_time < config._next_collection:
+                    continue
+
+                while config._next_collection <= new_time:
                     if config.end_time is None or config._next_collection <= config.end_time:
                         self._store_dataset_snapshot(
                             name, config._next_collection, data_snapshot
@@ -216,9 +220,11 @@ class BaseDataRecorder(ABC):
                 if config.end_time is not None and config._next_collection > config.end_time:
                     config.enabled = False
             else:
-                self._store_dataset_snapshot(name, current_time, data_snapshot)
-                # Update next collection time (may auto-disable)
-                config.update_next_collection(current_time)
+                # Reactive mode: collect at old_time (last stable state before step)
+                if old_time < config._next_collection:
+                    continue
+                self._store_dataset_snapshot(name, old_time, data_snapshot)
+                config.update_next_collection(old_time)
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
