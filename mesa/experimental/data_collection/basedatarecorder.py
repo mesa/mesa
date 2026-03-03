@@ -22,7 +22,6 @@ Key Design Principles:
 from __future__ import annotations
 
 import copy
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -210,14 +209,20 @@ class BaseDataRecorder(ABC):
                     continue
 
                 while config._next_collection <= new_time:
-                    if config.end_time is None or config._next_collection <= config.end_time:
+                    if (
+                        config.end_time is None
+                        or config._next_collection <= config.end_time
+                    ):
                         self._store_dataset_snapshot(
                             name, config._next_collection, data_snapshot
                         )
                     config._next_collection += config.interval
 
                 # Auto-disable if next boundary exceeds end_time
-                if config.end_time is not None and config._next_collection > config.end_time:
+                if (
+                    config.end_time is not None
+                    and config._next_collection > config.end_time
+                ):
                     config.enabled = False
             else:
                 # Reactive mode: collect at old_time (last stable state before step)

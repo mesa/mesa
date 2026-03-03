@@ -172,7 +172,11 @@ def test_strict_alignment_recorder_aligned_timestamps():
     model = MockModel(n=2)
     recorder = DataRecorder(
         model,
-        {"model_data": DatasetConfig(interval=5.0, start_time=0.0, strict_alignment=True)},
+        {
+            "model_data": DatasetConfig(
+                interval=5.0, start_time=0.0, strict_alignment=True
+            )
+        },
     )
     recorder.clear()
 
@@ -193,7 +197,11 @@ def test_strict_alignment_recorder_backfills_missed_boundaries():
     model = MockModel(n=2)
     recorder = DataRecorder(
         model,
-        {"model_data": DatasetConfig(interval=5.0, start_time=0.0, strict_alignment=True)},
+        {
+            "model_data": DatasetConfig(
+                interval=5.0, start_time=0.0, strict_alignment=True
+            )
+        },
     )
     recorder.clear()
 
