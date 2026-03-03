@@ -307,7 +307,21 @@ def test_data_recorder_window_eviction_dict():
     model.step()  # 3 - should evict first
 
     storage = recorder.storage["model_data"]
+
     assert len(storage.blocks) == 2
+
+    df = recorder.get_table_dataframe("model_data")
+    assert len(df) == 2
+    assert "model_val" in df.columns
+    assert "time" in df.columns
+
+    first_block = storage.blocks[0]
+    assert isinstance(first_block, tuple)
+    assert len(first_block) == 2
+
+    _time, data = first_block
+    assert isinstance(data, dict)
+    assert "model_val" in data
 
 
 def test_data_recorder_window_eviction_custom():
