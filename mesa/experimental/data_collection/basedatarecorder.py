@@ -22,6 +22,7 @@ Key Design Principles:
 from __future__ import annotations
 
 import copy
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -114,8 +115,6 @@ class DatasetConfig:
         Args:
             current_time: The current simulation time
         """
-        import math
-
         if self.strict_alignment:
             if current_time < self.start_time:
                 self._next_collection = self.start_time
