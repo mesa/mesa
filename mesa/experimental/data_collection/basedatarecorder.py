@@ -110,17 +110,18 @@ class DatasetConfig:
         return not current_time < self._next_collection
 
     def update_next_collection(self, current_time: float) -> None:
-        """Update the next collection time.
+        """Update the next collection time (reactive mode).
+
+        In strict_alignment mode, boundary advancement is handled directly
+        in the recorder's _on_time_change via backfilling.
 
         Args:
             current_time: The current simulation time
         """
         if self.strict_alignment:
-            if current_time < self.start_time:
-                self._next_collection = self.start_time
-            else:
-                k = math.floor((current_time - self.start_time) / self.interval)
-                self._next_collection = self.start_time + (k + 1) * self.interval
+            # Advance past all boundaries covered by current_time
+            while self._next_collection <= current_time:
+                self._next_collection += self.interval
         else:
             self._next_collection = current_time + self.interval
 
@@ -200,10 +201,24 @@ class BaseDataRecorder(ABC):
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
 
-            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            if config.strict_alignment:
+                # Backfill all missed aligned boundaries using the same snapshot.
+                # Between two consecutive events, state does not change, so
+                # recording the same snapshot at each missed boundary is correct.
+                while config._next_collection <= current_time:
+                    if config.end_time is None or config._next_collection <= config.end_time:
+                        self._store_dataset_snapshot(
+                            name, config._next_collection, data_snapshot
+                        )
+                    config._next_collection += config.interval
 
-            # Update next collection time (may auto-disable)
-            config.update_next_collection(current_time)
+                # Auto-disable if next boundary exceeds end_time
+                if config.end_time is not None and config._next_collection > config.end_time:
+                    config.enabled = False
+            else:
+                self._store_dataset_snapshot(name, current_time, data_snapshot)
+                # Update next collection time (may auto-disable)
+                config.update_next_collection(current_time)
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:

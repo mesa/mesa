@@ -123,38 +123,48 @@ def test_dataset_config_update_next_collection_auto_disable():
 
 
 def test_dataset_config_strict_alignment_drift():
-    """Test strict alignment avoids drift when time jumps."""
+    """Test strict alignment boundary advances past all covered intervals."""
     config = DatasetConfig(interval=1.0, start_time=1.0, strict_alignment=True)
-    # Update at 1.7 (after start, before next expected 2.0)
+    # _next_collection starts at 1.0; call update at 1.7 → advances past 1.0 only
     config.update_next_collection(1.7)
     assert config._next_collection == 2.0
 
-    # Update at 2.6
+    # Call at 2.6 → advances past 2.0 only
     config.update_next_collection(2.6)
     assert config._next_collection == 3.0
 
 
 def test_dataset_config_strict_alignment_exact_boundaries():
-    """Test strict alignment exact boundary behavior."""
+    """Test strict alignment when update_next_collection is called exactly on a boundary."""
     config = DatasetConfig(interval=1.0, start_time=1.0, strict_alignment=True)
-    # Update at exactly 2.0
+    # _next_collection=1.0; update at exactly 2.0 → advances past 1.0 and 2.0 → 3.0
     config.update_next_collection(2.0)
     assert config._next_collection == 3.0
 
 
 def test_dataset_config_strict_alignment_before_start():
-    """Test strict alignment before start_time returns start_time."""
+    """Test strict alignment: updating before start_time does not advance boundary."""
     config = DatasetConfig(interval=1.0, start_time=5.0, strict_alignment=True)
+    # _next_collection == 5.0; current_time=2.0 < 5.0 → loop doesn't execute
     config.update_next_collection(2.0)
     assert config._next_collection == 5.0
 
 
 def test_dataset_config_strict_alignment_float():
-    """Test strict alignment handles float precision."""
+    """Test strict alignment handles float precision across multiple intervals."""
     config = DatasetConfig(interval=0.1, start_time=0.0, strict_alignment=True)
+    # _next_collection=0.0; update at 0.15
+    # loop: 0.0 <= 0.15 → advance to 0.1; 0.1 <= 0.15 → advance to 0.2; 0.2 > 0.15 → stop
     config.update_next_collection(0.15)
-    # expected: 0.0 + (floor(1.5) + 1) * 0.1 = 0.2
     assert config._next_collection == pytest.approx(0.2)
+
+
+def test_dataset_config_strict_alignment_backfill_multiple():
+    """Test strict alignment advances through multiple missed boundaries at once."""
+    config = DatasetConfig(interval=5.0, start_time=0.0, strict_alignment=True)
+    # _next_collection=0.0; jump to 10.5 → advances past 0.0, 5.0, 10.0 → 15.0
+    config.update_next_collection(10.5)
+    assert config._next_collection == pytest.approx(15.0)
 
 
 def test_base_recorder_no_registry():
