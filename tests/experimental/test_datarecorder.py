@@ -1035,3 +1035,19 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+def test_run_ended():
+    """Test that the RUN_ENDED signal forces a final snapshot even if the end time doesn't align with the collection interval."""
+    model = MockModel()
+
+    recorder = DataRecorder(model, config={"model_data": DatasetConfig(interval=2)})
+
+    model.run_for(3.0)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+
+    assert 3.0 in times
+    assert df.loc[df["time"] == 3.0, "model_val"].iloc[0] == 0
+    assert len(df) == 3
