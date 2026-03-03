@@ -122,6 +122,41 @@ def test_dataset_config_update_next_collection_auto_disable():
     assert not config.enabled  # Should auto-disable
 
 
+def test_dataset_config_strict_alignment_drift():
+    """Test strict alignment avoids drift when time jumps."""
+    config = DatasetConfig(interval=1.0, start_time=1.0, strict_alignment=True)
+    # Update at 1.7 (after start, before next expected 2.0)
+    config.update_next_collection(1.7)
+    assert config._next_collection == 2.0
+
+    # Update at 2.6
+    config.update_next_collection(2.6)
+    assert config._next_collection == 3.0
+
+
+def test_dataset_config_strict_alignment_exact_boundaries():
+    """Test strict alignment exact boundary behavior."""
+    config = DatasetConfig(interval=1.0, start_time=1.0, strict_alignment=True)
+    # Update at exactly 2.0
+    config.update_next_collection(2.0)
+    assert config._next_collection == 3.0
+
+
+def test_dataset_config_strict_alignment_before_start():
+    """Test strict alignment before start_time returns start_time."""
+    config = DatasetConfig(interval=1.0, start_time=5.0, strict_alignment=True)
+    config.update_next_collection(2.0)
+    assert config._next_collection == 5.0
+
+
+def test_dataset_config_strict_alignment_float():
+    """Test strict alignment handles float precision."""
+    config = DatasetConfig(interval=0.1, start_time=0.0, strict_alignment=True)
+    config.update_next_collection(0.15)
+    # expected: 0.0 + (floor(1.5) + 1) * 0.1 = 0.2
+    assert config._next_collection == pytest.approx(0.2)
+
+
 def test_base_recorder_no_registry():
     """Test that BaseDataRecorder raises error without DataRegistry."""
     model = Model()

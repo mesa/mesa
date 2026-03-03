@@ -66,6 +66,7 @@ class DatasetConfig:
     start_time: int | float = 0
     end_time: int | float | None = None
     window_size: int | None = None
+    strict_alignment: bool = False
     enabled: bool = True
     _next_collection: int | float = 0
 
@@ -113,7 +114,16 @@ class DatasetConfig:
         Args:
             current_time: The current simulation time
         """
-        self._next_collection = current_time + self.interval
+        import math
+
+        if self.strict_alignment:
+            if current_time < self.start_time:
+                self._next_collection = self.start_time
+            else:
+                k = math.floor((current_time - self.start_time) / self.interval)
+                self._next_collection = self.start_time + (k + 1) * self.interval
+        else:
+            self._next_collection = current_time + self.interval
 
         # Auto-disable if we've passed end_time
         if self.end_time is not None and self._next_collection > self.end_time:
