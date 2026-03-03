@@ -61,7 +61,7 @@ class BoltzmannWealth(Model):
         )
         (
             self.data_registry.track_model(self, "model_data", "gini").record(
-                self.recorder, configuration=DatasetConfig(start_time=0, interval=1)
+                self.recorder, configuration=DatasetConfig(start_time=4, interval=2)
             )
         )
 
@@ -95,31 +95,5 @@ class BoltzmannWealth(Model):
         x = sorted(agent_wealths)
         n = self.num_agents
         # Calculate using the standard formula for Gini coefficient
-        if sum(x) == 0:
-            return 0
         b = sum(xi * (n - i) for i, xi in enumerate(x)) / (n * sum(x))
         return 1 + (1 / n) - 2 * b
-
-
-if __name__ == "__main__":
-    model = BoltzmannWealth()
-
-    model.run_for(5)
-    df1 = model.recorder.get_table_dataframe("model_data")
-    print(f"Current Dataframe:\n{df1.to_string()}")
-    print(
-        f"\nCurrent Gini at time 5.0: {df1.loc[df1['time'] == 5.0, 'gini'].values[0]:.6f}\n"
-    )
-
-    def trade():
-        for agent in model.agents:
-            agent.wealth += 10
-
-    model.schedule_event(trade, at=5.0)
-    model.run_until(10)
-
-    df2 = model.recorder.get_table_dataframe("model_data")
-    print(f"\nFinal Dataframe:\n {df2.to_string()}")
-    print(
-        f"\nUpdated Gini at time 5.0 after second run: {df2.loc[df2['time'] == 5.0, 'gini'].values[0]:.6f}\n"
-    )
