@@ -179,7 +179,6 @@ def test_base_recorder_manual_collect():
 
     # Manually trigger collection
     recorder.collect()
-    recorder.finalise()
 
     # Should have collected data
     assert len(recorder.storage["model_data"].blocks) > 0
