@@ -1051,11 +1051,24 @@ def test_recorder_start_time_behavior():
     assert 2.0 in times
 
 
-def test_run_ended():
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+def test_run_ended(tmp_path, recorder_class):
     """Test that the RUN_ENDED signal forces a final snapshot even if the end time doesn't align with the collection interval."""
     model = MockModel()
 
-    recorder = DataRecorder(model, config={"model_data": DatasetConfig(interval=2)})
+    # Setup kwargs based on recorder type (file paths vs memory)
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    elif recorder_class == SQLDataRecorder:
+        kwargs["db_path"] = ":memory:"
+
+    recorder = recorder_class(
+        model, config={"model_data": DatasetConfig(interval=2)}, **kwargs
+    )
 
     model.run_for(3.0)
 
@@ -1065,3 +1078,12 @@ def test_run_ended():
     assert 3.0 in times
     assert df.loc[df["time"] == 3.0, "model_val"].iloc[0] == 0
     assert len(df) == 3
+
+    model.run_for(1.0)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+
+    assert 4.0 in times
+    assert df.loc[df["time"] == 4.0, "model_val"].iloc[0] == 0
+    assert len(df) == 4

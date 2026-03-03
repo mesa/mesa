@@ -425,8 +425,17 @@ class ParquetDataRecorder(BaseDataRecorder):
 
         # handle overwrite
         if is_overwrite:
+            removed_from_buffer = False
             while buffer and buffer[-1]["time"] == time:
                 buffer.pop()
+                removed_from_buffer = True
+
+            # If the buffer was empty (flushed), we must remove it from the physical file
+            filepath = self.output_dir / f"{dataset_name}.parquet"
+            if not removed_from_buffer and filepath.exists():
+                df = pd.read_parquet(filepath)
+                df = df[df["time"] != time]  # Drop the overwritten rows
+                df.to_parquet(filepath, index=False, compression="snappy")
 
         match data:
             case np.ndarray() if data.size > 0:
