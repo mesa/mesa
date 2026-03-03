@@ -229,6 +229,24 @@ def test_find_combinations_allows_zero_value(setup_agents):
     assert combinations[0][1] == 0.0
 
 
+def test_find_combinations_inclusive_tuple_size_bounds(setup_agents):
+    """Test that tuple size bounds are inclusive and support equal bounds."""
+    model, agents = setup_agents
+
+    def evaluation_func(agent_group):
+        return len(agent_group)
+
+    combinations = find_combinations(
+        model,
+        agents,
+        size=(2, 2),
+        evaluation_func=evaluation_func,
+    )
+
+    assert len(combinations) == 6
+    assert all(value == 2 for _, value in combinations)
+
+
 def test_meta_agent_len(setup_agents):
     """Test the __len__ method of MetaAgent.
 

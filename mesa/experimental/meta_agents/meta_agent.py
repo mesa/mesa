@@ -94,10 +94,15 @@ def find_combinations(
     """
     combinations = []
     # Allow one size or range of sizes to be passed
-    size_range = (size, size + 1) if isinstance(size, int) else size
+    if isinstance(size, int):
+        size_range = range(size, size + 1)
+    else:
+        min_size, max_size = size
+        size_range = range(min_size, max_size + 1)
 
     for candidate_group in itertools.chain.from_iterable(
-        itertools.combinations(group, size) for size in range(*size_range)
+        itertools.combinations(group, combination_size)
+        for combination_size in size_range
     ):
         evaluation_result = evaluate_combination(
             candidate_group, model, evaluation_func
