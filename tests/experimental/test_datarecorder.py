@@ -1087,3 +1087,12 @@ def test_run_ended(tmp_path, recorder_class):
     assert 4.0 in times
     assert df.loc[df["time"] == 4.0, "model_val"].iloc[0] == 0
     assert len(df) == 4
+
+    # Check for disabled dataset
+    model = MockModel()
+    recorder = DataRecorder(
+        model, config={"model_data": DatasetConfig(interval=2, enabled=False)}
+    )
+    model.run_for(3.0)
+    df = recorder.get_table_dataframe("model_data")
+    assert df.empty
