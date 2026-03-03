@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 def _create_callable_reference(
-    function: Callable[..., Any],
+    function: Callable[..., None],
 ) -> ReferenceType[Any] | WeakMethod:
     """Validate and create a weak-reference wrapper for an event callback."""
     if not callable(function):
@@ -95,7 +95,7 @@ class Event:
     def __init__(
         self,
         time: int | float,
-        function: Callable[..., Any],
+        function: Callable[..., None],
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
@@ -219,7 +219,7 @@ class EventGenerator:
     def __init__(
         self,
         model: Model,
-        function: Callable[..., Any],
+        function: Callable[..., None],
         schedule: Schedule,
         priority: Priority = Priority.DEFAULT,
     ) -> None:
