@@ -2,7 +2,6 @@
 import warnings
 from collections.abc import Callable
 from dataclasses import fields
-from typing import Any
 
 import altair as alt
 import numpy as np
@@ -68,6 +67,7 @@ class AltairBackend(AbstractRenderer):
             "stroke": [],  # Stroke color
             "strokeWidth": [],
             "filled": [],
+            "tooltip": [],
         }
 
         # Import here to avoid circular import issues
@@ -149,6 +149,8 @@ class AltairBackend(AbstractRenderer):
             arguments["color"].append(
                 aps.color if aps.color is not None else style_fields.get("color")
             )
+
+            arguments["tooltip"].append(aps.tooltip)
 
             # Map marker to Altair shape if defined, else use raw marker
             raw_marker = (
@@ -261,8 +263,31 @@ class AltairBackend(AbstractRenderer):
         ylabel = kwargs.pop("ylabel", "")
 
         # Tooltip list for interactivity
-        # FIXME: Add more fields to tooltip (preferably from agent_portrayal)
-        tooltip_list = ["x", "y"]
+        tooltip_list = []
+
+        # Find ALL unique keys
+        all_tooltips_key = set()
+        column_data = {}
+
+        for tooltip in arguments["tooltip"]:
+            if tooltip:
+                all_tooltips_key.update(tooltip.keys())
+
+        if all_tooltips_key:
+            # pre-build columns
+            column_data = {
+                key: [None] * len(arguments["tooltip"]) for key in all_tooltips_key
+            }
+
+        for i, tooltip in enumerate(arguments["tooltip"]):
+            if tooltip:
+                for key, value in tooltip.items():
+                    column_data[key][i] = value
+
+        for key, values in column_data.items():
+            df[key] = values
+
+        tooltip_list.extend(sorted(all_tooltips_key))
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")
@@ -330,11 +355,11 @@ class AltairBackend(AbstractRenderer):
 
         return chart
 
-    def draw_propertylayer(
+    def draw_property_layer(
         self,
         space,
-        property_layers: dict[str, Any],
-        propertylayer_portrayal: Callable,
+        property_layers: dict[str, np.ndarray],
+        property_layer_portrayal: Callable,
         chart_width: int = 450,
         chart_height: int = 350,
     ):
@@ -342,8 +367,8 @@ class AltairBackend(AbstractRenderer):
 
         Args:
             space: The Mesa space object containing the property layers.
-            property_layers: A dictionary of property layers to draw.
-            propertylayer_portrayal: A function that returns PropertyLayerStyle
+            property_layers: A dictionary mapping property_layer names to numpy arrays.
+            property_layer_portrayal: A function that returns PropertyLayerStyle
                 that contains the visualization parameters.
             chart_width: The width of the chart.
             chart_height: The height of the chart.
@@ -353,22 +378,21 @@ class AltairBackend(AbstractRenderer):
         """
         main_charts = []
 
-        for layer_name in property_layers:
+        for layer_name, layer in property_layers.items():
             if layer_name == "empty":
                 continue
 
-            layer = property_layers.get(layer_name)
-            portrayal = propertylayer_portrayal(layer)
+            portrayal = property_layer_portrayal(layer_name)
 
             if portrayal is None:
                 continue
 
-            data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+            data = layer.astype(float) if layer.dtype == bool else layer
 
             # Check dimensions
             if (space.width, space.height) != data.shape:
                 warnings.warn(
-                    f"Layer {layer_name} dimensions ({data.shape}) "
+                    f"Property Layer {layer_name} dimensions ({data.shape}) "
                     f"don't match space dimensions ({space.width}, {space.height})",
                     UserWarning,
                     stacklevel=2,
@@ -409,7 +433,7 @@ class AltairBackend(AbstractRenderer):
 
             else:
                 raise ValueError(
-                    f"PropertyLayer {layer_name} portrayal must include 'color' or 'colormap'."
+                    f"Property Layer {layer_name} portrayal must include 'color' or 'colormap'."
                 )
 
             current_chart = (

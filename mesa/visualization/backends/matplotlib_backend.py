@@ -144,6 +144,14 @@ class MatplotlibBackend(AbstractRenderer):
                 # Set defaults if not provided
                 if aps.x is None and aps.y is None:
                     aps.x, aps.y = self._get_agent_pos(agent, space)
+                if aps.tooltip is not None:
+                    warnings.warn(
+                        "The 'tooltip' attribute in AgentPortrayalStyle is "
+                        "only supported by the Altair backend. "
+                        "Tooltips will be ignored when using the Matplotlib backend.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
             # Collect agent data
             arguments["loc"].append((aps.x, aps.y))
@@ -312,29 +320,28 @@ class MatplotlibBackend(AbstractRenderer):
 
         return self.ax
 
-    def draw_propertylayer(self, space, property_layers, propertylayer_portrayal):
+    def draw_property_layer(self, space, property_layers, property_layer_portrayal):
         """Draw property layers using matplotlib backend.
 
         Args:
             space: The Mesa space object.
             property_layers (dict): Dictionary of property layers to visualize.
-            propertylayer_portrayal (Callable): Function that returns PropertyLayerStyle.
+            property_layer_portrayal (Callable): Function that returns PropertyLayerStyle.
 
         Returns:
             tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
         """
         # Draw each layer
-        for layer_name in property_layers:
+        for layer_name, layer in property_layers.items():
             if layer_name == "empty":
                 continue
 
-            layer = property_layers.get(layer_name)
-            portrayal = propertylayer_portrayal(layer)
+            portrayal = property_layer_portrayal(layer_name)
 
             if portrayal is None:
                 continue
 
-            data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+            data = layer.astype(float) if layer.dtype == bool else layer
 
             # Check dimensions
             if (space.width, space.height) != data.shape:
@@ -367,7 +374,7 @@ class MatplotlibBackend(AbstractRenderer):
                     cmap = plt.get_cmap(cmap)
             else:
                 raise ValueError(
-                    f"PropertyLayer {layer_name} must include 'color' or 'colormap'"
+                    f"Property Layer {layer_name} must include 'color' or 'colormap'"
                 )
 
             # Draw based on space type
@@ -405,7 +412,7 @@ class MatplotlibBackend(AbstractRenderer):
                 self.ax.add_collection(collection)
             else:
                 raise NotImplementedError(
-                    f"PropertyLayer visualization not implemented for {type(space)}"
+                    f"Property Layer visualization not implemented for {type(space)}"
                 )
 
             # Add colorbar if requested

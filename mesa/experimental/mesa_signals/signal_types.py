@@ -13,8 +13,8 @@ class ObservableSignals(SignalType):
         CHANGED: Emitted when an observable's value changes.
 
     Examples:
-        >>> from mesa.experimental.mesa_signals import Observable, HasObservables, SignalType
-        >>> class MyModel(HasObservables):
+        >>> from mesa.experimental.mesa_signals import Observable, HasEmitters, SignalType
+        >>> class MyModel(HasEmitters):
         ...     value = Observable()
         ...     def __init__(self):
         ...         super().__init__()
@@ -52,8 +52,8 @@ class ListSignals(SignalType):
         REPLACED: Emitted when an item is replaced/modified in the list.
 
     Examples:
-        >>> from mesa.experimental.mesa_signals import ObservableList, HasObservables, ListSignals
-        >>> class MyModel(HasObservables):
+        >>> from mesa.experimental.mesa_signals import ObservableList, HasEmitters, ListSignals
+        >>> class MyModel(HasEmitters):
         ...     items = ObservableList()
         ...     def __init__(self):
         ...         super().__init__()
