@@ -584,6 +584,29 @@ class TestEventGenerator:
 
         model.run_for(1.5)
         assert order == ["H", "L"]
+        
+    def test_introspection_properties(self, setup):
+        """Test next_time and is_scheduled properties."""
+        model, fn = setup
+
+        gen = EventGenerator(model, fn, Schedule(interval=2.0))
+
+        # Before start
+        assert not gen.is_active
+        assert not gen.is_scheduled
+        assert gen.next_time is None
+
+        # After start
+        gen.start()
+        assert gen.is_active
+        assert gen.is_scheduled
+        assert gen.next_time == model.time + 2.0
+
+        # After stop
+        gen.stop()
+        assert not gen.is_active
+        assert not gen.is_scheduled
+        assert gen.next_time is None
 
 
 class TestEventGeneratorMemoryLeak(unittest.TestCase):
