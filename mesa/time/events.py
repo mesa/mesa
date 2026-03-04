@@ -28,13 +28,15 @@ from enum import IntEnum
 from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
 from typing import TYPE_CHECKING, Any
-from weakref import WeakMethod, ref
+from weakref import ReferenceType, WeakMethod, ref
 
 if TYPE_CHECKING:
     from mesa import Model
 
 
-def _create_callable_reference(function: Callable):
+def _create_callable_reference(
+    function: Callable[..., None],
+) -> ReferenceType[Any] | WeakMethod:
     """Validate and create a weak-reference wrapper for an event callback."""
     if not callable(function):
         raise TypeError("function must be a callable")
@@ -72,8 +74,8 @@ class Event:
         fn (Callable): The function to execute for this event
         priority (Priority): The priority of the event
         unique_id (int) the unique identifier of the event
-        function_args (list[Any]): Argument for the function
-        function_kwargs (Dict[str, Any]): Keyword arguments for the function
+        function_args list[Any]: Argument for the function
+        function_kwargs dict[str, Any]: Keyword arguments for the function
 
 
     Notes:
@@ -93,7 +95,7 @@ class Event:
     def __init__(
         self,
         time: int | float,
-        function: Callable,
+        function: Callable[..., None],
         priority: Priority = Priority.DEFAULT,
         function_args: list[Any] | None = None,
         function_kwargs: dict[str, Any] | None = None,
@@ -120,7 +122,7 @@ class Event:
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
 
-    def execute(self):
+    def execute(self) -> None:
         """Execute this event."""
         if not self._canceled:
             fn = self.fn()
@@ -134,7 +136,7 @@ class Event:
         self.function_args = []
         self.function_kwargs = {}
 
-    def __lt__(self, other):
+    def __lt__(self, other: Event) -> bool:
         """Define a total ordering for events to be used by the heapq."""
         if self.time != other.time:
             return self.time < other.time
@@ -142,7 +144,7 @@ class Event:
             return self.priority < other.priority
         return self.unique_id < other.unique_id
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
         state = self.__dict__.copy()
         # Convert weak reference back to strong reference for pickling
@@ -151,7 +153,7 @@ class Event:
         state["fn"] = None  # Don't pickle the weak reference
         return state
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state after unpickling."""
         fn = state.pop("_fn_strong")
         self.__dict__.update(state)
@@ -217,7 +219,7 @@ class EventGenerator:
     def __init__(
         self,
         model: Model,
-        function: Callable,
+        function: Callable[..., None],
         schedule: Schedule,
         priority: Priority = Priority.DEFAULT,
     ) -> None:
@@ -248,6 +250,13 @@ class EventGenerator:
     def execution_count(self) -> int:
         """Return the number of times this generator has executed."""
         return self._execution_count
+
+    @property
+    def next_scheduled_time(self) -> float | None:
+        """Return the time of the next scheduled execution, or None if not scheduled."""
+        if self._current_event is None:
+            return None
+        return self._current_event.time
 
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
@@ -320,7 +329,7 @@ class EventGenerator:
         self._schedule_next(start_time)
         return self
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the event generator immediately."""
         self._active = False
         if self._current_event is not None:
@@ -328,7 +337,7 @@ class EventGenerator:
             self._current_event = None
         self.model._event_generators.discard(self)
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
         state = self.__dict__.copy()
         fn = self.function() if self.function is not None else None
@@ -336,7 +345,7 @@ class EventGenerator:
         state["function"] = None
         return state
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state after unpickling."""
         # Keep strong reference alive during entire method
         fn = state.pop("_fn_strong")
@@ -457,6 +466,6 @@ class EventList:
         if not event.CANCELED:
             event.cancel()
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the event list."""
         self._events.clear()
