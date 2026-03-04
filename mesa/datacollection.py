@@ -407,7 +407,7 @@ class DataCollector:
                             if False, throw an error if any columns are missing
         """
         if table_name not in self.tables:
-            raise Exception("Table does not exist.")
+            raise ValueError(f"Table '{table_name}' does not exist.")
 
         for column in self.tables[table_name]:
             if column in row:
@@ -415,7 +415,9 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise Exception("Could not insert row with missing column")
+                raise ValueError(
+                    f"Could not insert row with missing column '{column}'"
+                )
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
@@ -423,11 +425,14 @@ class DataCollector:
         The DataFrame has one column for each model variable, and the index is
         (implicitly) the model tick.
         """
-        # Check if self.model_reporters dictionary is empty, if so raise warning
+        # Check if self.model_reporters dictionary is empty, if so warn
         if not self.model_reporters:
-            raise UserWarning(
-                "No model reporters have been defined in the DataCollector, returning empty DataFrame."
+            warnings.warn(
+                "No model reporters have been defined in the DataCollector, returning empty DataFrame.",
+                UserWarning,
+                stacklevel=2,
             )
+            return pd.DataFrame()
 
         return pd.DataFrame(self.model_vars)
 
@@ -437,11 +442,14 @@ class DataCollector:
         The DataFrame has one column for each variable, with two additional
         columns for tick and agent_id.
         """
-        # Check if self.agent_reporters dictionary is empty, if so raise warning
+        # Check if self.agent_reporters dictionary is empty, if so warn
         if not self.agent_reporters:
-            raise UserWarning(
-                "No agent reporters have been defined in the DataCollector, returning empty DataFrame."
+            warnings.warn(
+                "No agent reporters have been defined in the DataCollector, returning empty DataFrame.",
+                UserWarning,
+                stacklevel=2,
             )
+            return pd.DataFrame()
 
         all_records = itertools.chain.from_iterable(self._agent_records.values())
         rep_names = list(self.agent_reporters)
@@ -492,5 +500,5 @@ class DataCollector:
             table_name: The name of the table to convert.
         """
         if table_name not in self.tables:
-            raise Exception("No such table.")
+            raise ValueError(f"Table '{table_name}' does not exist.")
         return pd.DataFrame(self.tables[table_name])
