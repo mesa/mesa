@@ -8,7 +8,9 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
+from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
@@ -305,6 +307,42 @@ def test_backend_get_agent_pos():
 
     x, y = mb._get_agent_pos(AgentWithCell(), None)
     assert (x, y) == (3, 4)
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_backend_collect_agent_data_projects_3d_continuous_positions(backend_cls):
+    """Test collect_agent_data projects nD continuous positions onto viz_dims."""
+    backend = backend_cls(space_drawer=MagicMock())
+    model = Model(rng=42)
+    space = ContinuousSpace(
+        dimensions=np.array([[0, 1], [0, 1], [0, 1]]),
+        torus=False,
+        random=model.random,
+    )
+
+    agent_1 = ContinuousSpaceAgent(space, model)
+    agent_1.position = [0.1, 0.2, 0.3]
+    agent_2 = ContinuousSpaceAgent(space, model)
+    agent_2.position = [0.4, 0.5, 0.6]
+
+    def agent_portrayal(agent):
+        return AgentPortrayalStyle(
+            x=None,
+            y=None,
+            size=5,
+            color="red",
+            marker="o",
+            zorder=1,
+            alpha=1.0,
+            edgecolors="black",
+            linewidths=1,
+        )
+
+    data = backend.collect_agent_data(space, agent_portrayal)
+
+    assert data["loc"].shape == (2, 2)
+    np.testing.assert_allclose(data["loc"][:, 0], [0.1, 0.4])
+    np.testing.assert_allclose(data["loc"][:, 1], [0.2, 0.5])
 
 
 def test_backends_handle_errors():

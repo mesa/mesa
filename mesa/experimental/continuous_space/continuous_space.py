@@ -51,6 +51,7 @@ class ContinuousSpace:
         torus: bool = False,
         random: Random | None = None,
         n_agents: int = 100,
+        viz_dims: tuple[int, int] = (0, 1),
     ) -> None:
         """Create a new continuous space.
 
@@ -59,6 +60,7 @@ class ContinuousSpace:
             torus: boolean for whether the space wraps around or not
             random: a seeded stdlib random.Random instance
             n_agents: the expected number of agents in the space
+            viz_dims: the dimensions projected to x/y for visualization backends
 
         Internally, a numpy array is used to store the positions of all agents. This is resized if needed,
         but you can control the initial size explicitly by passing n_agents.
@@ -76,6 +78,23 @@ class ContinuousSpace:
 
         self.dimensions: np.array = np.asanyarray(dimensions)
         self.ndims: int = self.dimensions.shape[0]
+
+        if self.ndims < 2:
+            raise ValueError(
+                "ContinuousSpace visualization requires at least 2 dimensions"
+            )
+
+        if len(viz_dims) != 2:
+            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+        if viz_dims[0] == viz_dims[1]:
+            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+        if any(dim < 0 or dim >= self.ndims for dim in viz_dims):
+            raise ValueError(
+                f"viz_dims must be within [0, {self.ndims - 1}] for this space"
+            )
+
+        self.viz_dims: tuple[int, int] = viz_dims
+
         self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
         self.center: np.array = np.sum(self.dimensions, axis=1) / 2
 
