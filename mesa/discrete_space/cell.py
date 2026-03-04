@@ -147,11 +147,11 @@ class Cell:
 
         """
         n = len(self._agents)
-        self.empty = False
 
         if self.capacity is not None and n >= self.capacity:
             raise CellFullException(self.coordinate)
 
+        self.empty = False
         self._agents.append(agent)
 
     def remove_agent(self, agent: CellAgent) -> None:
