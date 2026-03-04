@@ -251,6 +251,13 @@ class EventGenerator:
         """Return the number of times this generator has executed."""
         return self._execution_count
 
+    @property
+    def next_scheduled_time(self) -> float | None:
+        """Return the time of the next scheduled execution, or None if not scheduled."""
+        if self._current_event is None:
+            return None
+        return self._current_event.time
+
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
         if callable(self.schedule.interval):
