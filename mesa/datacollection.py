@@ -415,9 +415,7 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise ValueError(
-                    f"Could not insert row with missing column '{column}'"
-                )
+                raise ValueError(f"Could not insert row with missing column '{column}'")
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
