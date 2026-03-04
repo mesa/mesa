@@ -248,7 +248,7 @@ class EventGenerator:
     def execution_count(self) -> int:
         """Return the number of times this generator has executed."""
         return self._execution_count
-    
+
     @property
     def next_scheduled_time(self) -> float | None:
         """Return the time of the next scheduled execution, or None if not scheduled."""

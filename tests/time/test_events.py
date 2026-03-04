@@ -584,7 +584,7 @@ class TestEventGenerator:
 
         model.run_for(1.5)
         assert order == ["H", "L"]
-        
+
     def test_introspection_properties(self, setup):
         """Test next_scheduled_time property."""
         model, fn = setup
