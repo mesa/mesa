@@ -93,7 +93,7 @@ def test_network_lookups():
     G.add_node(0)
     G.add_node(1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         _ = Network(G, layout=[], random=random.Random(42))
 
     layout_dict = {0: (0, 0), 1: (10, 0)}

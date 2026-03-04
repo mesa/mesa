@@ -179,7 +179,6 @@ def test_base_recorder_manual_collect():
 
     # Manually trigger collection
     recorder.collect()
-    recorder.finalise()
 
     # Should have collected data
     assert len(recorder.storage["model_data"].blocks) > 0
@@ -307,7 +306,21 @@ def test_data_recorder_window_eviction_dict():
     model.step()  # 3 - should evict first
 
     storage = recorder.storage["model_data"]
+
     assert len(storage.blocks) == 2
+
+    df = recorder.get_table_dataframe("model_data")
+    assert len(df) == 2
+    assert "model_val" in df.columns
+    assert "time" in df.columns
+
+    first_block = storage.blocks[0]
+    assert isinstance(first_block, tuple)
+    assert len(first_block) == 2
+
+    _time, data = first_block
+    assert isinstance(data, dict)
+    assert "model_val" in data
 
 
 def test_data_recorder_window_eviction_custom():
@@ -1036,3 +1049,50 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+def test_run_ended(tmp_path, recorder_class):
+    """Test that the RUN_ENDED signal forces a final snapshot even if the end time doesn't align with the collection interval."""
+    model = MockModel()
+
+    # Setup kwargs based on recorder type (file paths vs memory)
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    elif recorder_class == SQLDataRecorder:
+        kwargs["db_path"] = ":memory:"
+
+    recorder = recorder_class(
+        model, config={"model_data": DatasetConfig(interval=2)}, **kwargs
+    )
+
+    model.run_for(3.0)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+
+    assert 3.0 in times
+    assert df.loc[df["time"] == 3.0, "model_val"].iloc[0] == 0
+    assert len(df) == 3
+
+    model.run_for(1.0)
+
+    df = recorder.get_table_dataframe("model_data")
+    times = df["time"].tolist()
+
+    assert 4.0 in times
+    assert df.loc[df["time"] == 4.0, "model_val"].iloc[0] == 0
+    assert len(df) == 4
+
+    # Check for disabled dataset
+    model = MockModel()
+    recorder = DataRecorder(
+        model, config={"model_data": DatasetConfig(interval=2, enabled=False)}
+    )
+    model.run_for(3.0)
+    df = recorder.get_table_dataframe("model_data")
+    assert df.empty
