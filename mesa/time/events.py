@@ -338,7 +338,7 @@ class EventGenerator:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
-        
+
     def pause(self) -> None:
         """Pause the event generator temporarily.
 
@@ -353,7 +353,7 @@ class EventGenerator:
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
-            
+
     def resume(self) -> None:
         """Resume a paused event generator."""
         if not self._active or not self._paused:

@@ -604,7 +604,7 @@ class TestEventGenerator:
         gen.stop()
         assert not gen.is_active
         assert gen.next_scheduled_time is None
-        
+
     def test_pause_resume_full_stress(self, setup):
         """Full stress test for pause/resume lifecycle."""
         model, fn = setup
@@ -636,7 +636,6 @@ class TestEventGenerator:
         model.run_for(2.0)
         assert fn.call_count == 4
 
-
     def test_pause_idempotent(self, setup):
         """Calling pause multiple times should be safe."""
         model, fn = setup
@@ -651,7 +650,6 @@ class TestEventGenerator:
         model.run_for(5.0)
         assert fn.call_count == 0
 
-
     def test_resume_idempotent(self, setup):
         """Calling resume while running should do nothing."""
         model, fn = setup
@@ -664,7 +662,6 @@ class TestEventGenerator:
 
         model.run_for(1.0)
         assert fn.call_count == 1
-
 
     def test_pause_during_execution(self, setup):
         """Pause called inside callback should prevent future scheduling."""
@@ -685,7 +682,6 @@ class TestEventGenerator:
         # only first execution should happen
         assert call_count["n"] == 1
 
-
     def test_stop_while_paused(self, setup):
         """Stopping while paused should fully deactivate generator."""
         model, fn = setup
@@ -700,7 +696,6 @@ class TestEventGenerator:
         assert fn.call_count == 0
         assert not gen.is_active
 
-
     def test_resume_after_stop(self, setup):
         """Resume should do nothing after stop."""
         model, fn = setup
@@ -713,7 +708,6 @@ class TestEventGenerator:
 
         model.run_for(5.0)
         assert fn.call_count == 0
-
 
     def test_next_scheduled_time_updates(self, setup):
         """next_scheduled_time should reflect pause/resume state."""
