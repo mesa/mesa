@@ -106,9 +106,7 @@ class Cell:
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
         self._get_neighborhood_cache: dict[tuple[int, bool], CellCollection[Cell]] = {}
-        self._neighborhood_cache: dict[
-            tuple[int, bool], dict[Cell, list[Agent]]
-        ] = {}
+        self._neighborhood_cache: dict[tuple[int, bool], dict[Cell, list[Agent]]] = {}
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
