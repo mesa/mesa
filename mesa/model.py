@@ -118,7 +118,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.time: float = 0.0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
         self.rng = None
         self._rng = None
