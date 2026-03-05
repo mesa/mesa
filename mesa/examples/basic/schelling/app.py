@@ -2,7 +2,7 @@ import os
 
 import solara
 
-from mesa.examples.basic.schelling.model import Schelling
+from mesa.examples.basic.schelling.model import Schelling, SchellingScenario
 from mesa.visualization import (
     Slider,
     SolaraViz,
@@ -72,7 +72,7 @@ model_params = {
 }
 
 # Note: Models with images as markers are very performance intensive.
-model1 = Schelling()
+model1 = Schelling(scenario=SchellingScenario())
 renderer = SpaceRenderer(model1, backend="matplotlib").setup_agents(agent_portrayal)
 # Here we use renderer.render() to render the agents and grid in one go.
 # This function always renders the grid and then renders the agents or

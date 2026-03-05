@@ -28,25 +28,19 @@ from PIL import Image
 
 import mesa
 from mesa.discrete_space import (
+    DiscreteSpace,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
+from mesa.experimental.continuous_space import ContinuousSpace
 
 CORRECTION_FACTOR_MARKER_ZOOM = 0.6
 DEFAULT_MARKER_SIZE = 50
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 def collect_agent_data(
@@ -67,21 +61,10 @@ def collect_agent_data(
 
     def get_agent_pos(agent, space):
         """Helper function to get the agent position depending on the grid type."""
-        if isinstance(space, NetworkGrid):
-            agent_x, agent_y = agent.pos, agent.pos
-        elif isinstance(space, Network):
-            agent_x, agent_y = agent.cell.coordinate, agent.cell.coordinate
-        elif isinstance(space, VoronoiGrid):
-            agent_x, agent_y = (
-                agent.pos if agent.pos is not None else agent.cell.position
-            )
+        if isinstance(space, DiscreteSpace):
+            agent_x, agent_y = agent.cell.position
         else:
-            agent_x = (
-                agent.pos[0] if agent.pos is not None else agent.cell.coordinate[0]
-            )
-            agent_y = (
-                agent.pos[1] if agent.pos is not None else agent.cell.coordinate[1]
-            )
+            agent_x, agent_y = agent.position
         return agent_x, agent_y
 
     arguments = {
@@ -194,7 +177,7 @@ def collect_agent_data(
 def draw_space(
     space,
     agent_portrayal: Callable,
-    propertylayer_portrayal: Callable | None = None,
+    property_layer_portrayal: Callable | None = None,
     ax: Axes | None = None,
     **space_drawing_kwargs,
 ):
@@ -203,7 +186,7 @@ def draw_space(
     Args:
         space: the space of the mesa model
         agent_portrayal: A callable that returns a AgnetPortrayalStyle specifying how to show the agent
-        propertylayer_portrayal: A callable that returns a PropertyLayerStyle specifying how to show the property layer
+        property_layer_portrayal: A callable that returns a PropertyLayerStyle specifying how to show the property layer
         ax: the axes upon which to draw the plot
         space_drawing_kwargs: any additional keyword arguments to be passed on to the underlying function for drawing the space.
 
@@ -220,29 +203,21 @@ def draw_space(
     # https://stackoverflow.com/questions/67524641/convert-multiple-isinstance-checks-to-structural-pattern-matching
     match space:
         # order matters here given the class structure of old-style grid spaces
-        case HexSingleGrid() | HexMultiGrid() | mesa.discrete_space.HexGrid():
+        case mesa.discrete_space.HexGrid():
             draw_hex_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case (
-            mesa.space.SingleGrid()
-            | OrthogonalMooreGrid()
-            | OrthogonalVonNeumannGrid()
-            | mesa.space.MultiGrid()
-        ):
+        case OrthogonalMooreGrid() | OrthogonalVonNeumannGrid():
             draw_orthogonal_grid(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case mesa.space.NetworkGrid() | mesa.discrete_space.Network():
+        case mesa.discrete_space.Network():
             draw_network(space, agent_portrayal, ax=ax, **space_drawing_kwargs)
-        case (
-            mesa.space.ContinuousSpace()
-            | mesa.experimental.continuous_space.ContinuousSpace()
-        ):
+        case ContinuousSpace():
             draw_continuous_space(space, agent_portrayal, ax=ax)
         case VoronoiGrid():
             draw_voronoi_grid(space, agent_portrayal, ax=ax)
         case _:
             raise ValueError(f"Unknown space type: {type(space)}")
 
-    if propertylayer_portrayal:
-        draw_property_layers(space, propertylayer_portrayal, ax=ax)
+    if property_layer_portrayal:
+        draw_property_layers(space, property_layer_portrayal, ax=ax)
 
     return ax
 
@@ -282,13 +257,13 @@ def _get_hexmesh(
 
 
 def draw_property_layers(
-    space, propertylayer_portrayal: dict[str, dict[str, Any]] | Callable, ax: Axes
+    space, property_layer_portrayal: dict[str, dict[str, Any]] | Callable, ax: Axes
 ):
-    """Draw PropertyLayers on the given axes.
+    """Draw Property Layers on the given axes.
 
     Args:
-        space (mesa.space._Grid): The space containing the PropertyLayers.
-        propertylayer_portrayal (Callable): A function that accepts a property layer object
+        space: The space having the property_layer.
+        property_layer_portrayal (Callable): A function that accepts a property layer object
             and returns either a `PropertyLayerStyle` object defining its visualization,
             or `None` to skip drawing this particular layer.
         ax (matplotlib.axes.Axes): The axes to draw on.
@@ -297,18 +272,18 @@ def draw_property_layers(
     # Importing here to avoid circular import issues
     from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
 
-    def _propertylayer_portryal_dict_to_callable(
-        propertylayer_portrayal: dict[str, dict[str, Any]],
+    def _property_layer_portryal_dict_to_callable(
+        property_layer_portrayal: dict[str, dict[str, Any]],
     ):
-        """Helper function to convert a propertylayer_portrayal dict to a callable that return a PropertyLayerStyle."""
+        """Helper function to convert a property_layer_portrayal dict to a callable that return a PropertyLayerStyle."""
 
         def style_callable(layer_object: Any):
-            layer_name = layer_object.name
-            params = propertylayer_portrayal.get(layer_name)
+            layer_name = layer_object
+            params = property_layer_portrayal.get(layer_name)
 
             warnings.warn(
                 (
-                    "The propertylayer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
+                    "The property_layer_portrayal dict is deprecated and will be removed in Mesa 4.0. "
                     "Please use a callable that returns a PropertyLayerStyle instance instead. "
                     "For more information, refer to the migration guide: "
                     "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
@@ -333,20 +308,15 @@ def draw_property_layers(
 
         return style_callable
 
-    try:
-        # old style spaces
-        property_layers = space.properties
-    except AttributeError:
-        # new style spaces
-        property_layers = space._mesa_property_layers
+    property_layers = space.property_layers
 
     callable_portrayal: Callable[[Any], PropertyLayerStyle | None]
-    if isinstance(propertylayer_portrayal, dict):
-        callable_portrayal = _propertylayer_portryal_dict_to_callable(
-            propertylayer_portrayal
+    if isinstance(property_layer_portrayal, dict):
+        callable_portrayal = _property_layer_portryal_dict_to_callable(
+            property_layer_portrayal
         )
     else:
-        callable_portrayal = propertylayer_portrayal
+        callable_portrayal = property_layer_portrayal
 
     for layer_name in property_layers:
         if layer_name == "empty":
@@ -354,13 +324,13 @@ def draw_property_layers(
             continue
 
         layer = property_layers.get(layer_name, None)
-        portrayal = callable_portrayal(layer)
+        portrayal = callable_portrayal(layer_name)
 
         if portrayal is None:
             # Not visualizing layers that do not have a defined visual encoding.
             continue
 
-        data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+        data = layer.astype(float) if layer.dtype == bool else layer
 
         if (space.width, space.height) != data.shape:
             warnings.warn(
@@ -388,7 +358,7 @@ def draw_property_layers(
                 cmap = plt.get_cmap(cmap)
         else:
             raise ValueError(
-                f"PropertyLayer {layer_name} portrayal must include 'color' or 'colormap'."
+                f"Property {layer_name} portrayal must include 'color' or 'colormap'."
             )
 
         if isinstance(space, OrthogonalGrid):
@@ -425,7 +395,7 @@ def draw_property_layers(
             ax.add_collection(collection)
         else:
             raise NotImplementedError(
-                f"PropertyLayer visualization not implemented for {type(space)}."
+                f"Property visualization not implemented for {type(space)}."
             )
         if portrayal.colorbar:
             norm = Normalize(vmin=vmin, vmax=vmax)
@@ -565,8 +535,6 @@ def draw_network(
     agent_portrayal: Callable,
     ax: Axes | None = None,
     draw_grid: bool = True,
-    layout_alg=nx.spring_layout,
-    layout_kwargs=None,
     **kwargs,
 ):
     """Visualize a network space.
@@ -576,8 +544,6 @@ def draw_network(
         agent_portrayal: a callable that is called with the agent and returns a AgentPortrayalStyle
         ax: a Matplotlib Axes instance. If none is provided a new figure and ax will be created using plt.subplots
         draw_grid: whether to draw the grid
-        layout_alg: a networkx layout algorithm or other callable with the same behavior
-        layout_kwargs: a dictionary of keyword arguments for the layout algorithm
         kwargs: additional keyword arguments passed to ax.scatter
 
     Returns:
@@ -589,13 +555,15 @@ def draw_network(
     """
     if ax is None:
         _, ax = plt.subplots()
-    if layout_kwargs is None:
-        layout_kwargs = {"seed": 0}
 
-    # gather locations for nodes in network
-    graph = space.G
-    pos = layout_alg(graph, **layout_kwargs)
-    x, y = list(zip(*pos.values()))
+    # Fetch positions natively from the Model Cells
+    pos = {}
+    for node_id, cell in space._cells.items():
+        pos_val = getattr(cell, "position", getattr(cell, "_position", None))
+        if pos_val is not None:
+            pos[node_id] = pos_val
+
+    x, y = list(zip(*pos.values())) if pos else ([0], [0])
     xmin, xmax = min(x), max(x)
     ymin, ymax = min(y), max(y)
 
@@ -608,32 +576,27 @@ def draw_network(
     s_default = (180 / max(width, height)) ** 2
     arguments = collect_agent_data(space, agent_portrayal, default_size=s_default)
 
-    # this assumes that nodes are identified by an integer
-    # which is true for default nx graphs but might user changeable
-    pos = np.asarray(list(pos.values()))
-    loc = arguments["loc"]
-
-    # For network only one of x and y contains the correct coordinates
-    x = loc[:, 0]
-    if x is None:
-        x = loc[:, 1]
-
-    arguments["loc"] = pos[x]
+    arguments["loc"] = arguments["loc"].astype(float)
 
     # further styling
     ax.set_axis_off()
     ax.set_xlim(xmin=xmin - x_padding, xmax=xmax + x_padding)
     ax.set_ylim(ymin=ymin - y_padding, ymax=ymax + y_padding)
 
+    if draw_grid:
+        # Draw the underlying grid (edges and empty nodes) FIRST so agents sit on top
+        nodes = nx.draw_networkx_nodes(
+            space.G, pos, ax=ax, alpha=0.5, node_size=10, node_color="gray"
+        )
+        edges = nx.draw_networkx_edges(space.G, pos, ax=ax, alpha=0.5, style="--")
+
+        if nodes:
+            nodes.set_zorder(0)
+        if edges:
+            edges.set_zorder(0)
+
     # plot the agents
     _scatter(ax, arguments, **kwargs)
-
-    if draw_grid:
-        # fixme we need to draw the empty nodes as well
-        edge_collection = nx.draw_networkx_edges(
-            graph, pos, ax=ax, alpha=0.5, style="--"
-        )
-        edge_collection.set_zorder(0)
 
     return ax
 

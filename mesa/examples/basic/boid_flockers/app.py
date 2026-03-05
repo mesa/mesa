@@ -1,6 +1,6 @@
 from matplotlib.markers import MarkerStyle
 
-from mesa.examples.basic.boid_flockers.model import BoidFlockers
+from mesa.examples.basic.boid_flockers.model import BoidFlockers, BoidsScenario
 from mesa.visualization import Slider, SolaraViz, SpaceRenderer
 from mesa.visualization.components import AgentPortrayalStyle
 
@@ -67,7 +67,7 @@ model_params = {
     ),
 }
 
-model = BoidFlockers()
+model = BoidFlockers(scenario=BoidsScenario())
 
 # Quickest way to visualize grid along with agents or property layers.
 renderer = (

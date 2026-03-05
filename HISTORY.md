@@ -3,11 +3,9 @@
 ---
 title: Release History
 ---
-# 3.5.0 beta 0 (2026-02-11)
+# 3.5.0 (2026-02-15)
 ## Highlights
-Mesa 3.5.0 will be a major feature release that introduces a public event scheduling API, stabilizes the event system, and lays the groundwork for Mesa 4.0 by deprecating several legacy patterns.
-
-Because of the size of this release, we're now first releasing beta release `v3.5.0b0`. Feedback and bug reports are welcome and appreciated!
+Mesa 3.5.0 is a major feature release that introduces a public event scheduling API, stabilizes the event system, and lays the groundwork for Mesa 4.0 by deprecating several legacy patterns.
 
 ### Public event scheduling and time advancement
 The headline feature of 3.5.0 is a new public API for event scheduling and time advancement directly on `Model` (#3266). Instead of interacting with experimental `Simulator` classes, users can now schedule events and advance time with simple, expressive methods:
@@ -28,8 +26,10 @@ model.schedule_recurring(func, Schedule(interval=10, start=0))
 
 For traditional ABMs, `model.run_for(1)` is functionally equivalent to `model.step()`, but this generalizes naturally to event-driven and hybrid models. The mental model shifts from "execute step N" to "advance time, and whatever is scheduled will run."
 
+Our new [Agent activation](https://mesa.readthedocs.io/latest/tutorials/2_agent_activation.html) and [event scheduling](https://mesa.readthedocs.io/latest/tutorials/3_event_scheduling.html) tutorials cover this extensively (#3280).
+
 ### Stabilized event scheduling system
-The event scheduling system (EventList, Event, EventGenerator, Schedule, Priority) has been moved from `mesa.experimental.devs` to the new stable `mesa.time` module (#3276), making event-based simulation a first-class feature of Mesa. The new `Schedule` dataclass provides a clean way to define recurring timing patterns with interval, start, end, and count parameters (#3250).
+The event scheduling system (EventList, Event, EventGenerator, Schedule, Priority) has been moved from `mesa.experimental.devs` to the new stable `mesa.time` module (#3276), making event-based simulation a first-class feature of Mesa. The new `Schedule` dataclass provides a clean way to define recurring timing patterns with interval, start, end, and count parameters (#3250). See our [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#event-scheduling-and-time-advancement).
 
 ### Deprecations toward Mesa 4.0
 This release deprecates several legacy patterns to prepare for Mesa 4.0:
@@ -41,7 +41,7 @@ This release deprecates several legacy patterns to prepare for Mesa 4.0:
 See our [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#mesa-3-5-0) for more detail.
 
 ### Internal architecture improvements
-Under the hood, `Model` now uses an `EventGenerator` internally for step scheduling (#3260), unifying the step mechanism with the broader event system. A new `_HardKeyAgentSet` (#3219, #3224) replaces `WeakKeyDictionary`-based storage for model-managed agent collections, eliminating weak reference overhead while preventing memory leaks through automatic downgrading when creating views. An `AbstractAgentSet` base class (#3210) formalizes the AgentSet interface.
+Under the hood, `Model` now uses an `EventGenerator` internally for step scheduling (#3260), unifying the step mechanism with the broader event system. A new `_HardKeyAgentSet` (#3219, #3224) replaces `WeakKeyDictionary`-based storage for model-managed agent collections, eliminating weak reference overhead while preventing memory leaks through automatic downgrading when creating views. An `AbstractAgentSet` base class (#3210) formalizes the AgentSet interface. Discrete spaces now distinguish between logical cell indices and physical spatial positions (#3268), laying the foundation for stacked spaces by adding a `Cell.position` property.
 
 ### New agent creation from DataFrames
 Agents can now be created directly from a pandas DataFrame (#3199), mapping columns to constructor arguments:
@@ -51,7 +51,37 @@ agents = MyAgent.from_dataframe(model, df)
 ```
 
 ### Experimental features
-Several experimental features see significant progress: explicit `Scenario` support for computational experiments (#3103, #3168), a data registry for structured data collection (#3156), reactive model support (#3212), and improved meta-agent support with overlapping memberships (#3172).
+Several experimental features see significant progress in this release.
+
+#### Scenarios
+Explicit `Scenario` support (#3103, #3168) provides a structured way to define and manage computational experiments separately from model logic. Scenarios encapsulate parameter sets and can be used with SolaraViz (#3178), which automatically routes slider parameters to the correct Scenario or Model and reconstructs scenarios on reset.
+
+```python
+class MyScenario(Scenario):
+    density: float = 0.7
+
+class MyModel(Model):
+    def __init__(self, width=40, scenario=None):
+        super().__init__(scenario=scenario)
+
+# 'density' is auto-detected as a Scenario parameter
+page = SolaraViz(MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)})
+```
+
+#### Reactive model and data collection
+The Model class is now reactive (#3212): `model.time` is observable, and signals are emitted when agents are registered or deregistered, enabling event-driven architectures. Building on this, a new `DataRecorder` (#3145, #3295) provides a decoupled, event-driven data collection system that separates what to collect (`DataRegistry`) from when and how to store it, with memory, SQLite, Parquet, and JSON backends.
+
+```python
+self.recorder = DataRecorder(self)
+self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(self.recorder)
+self.data_registry.track_model(self, "model_data", "gini").record(
+    self.recorder, configuration=DatasetConfig(start_time=4, interval=2)
+)
+```
+
+Other experimental progress includes improved meta-agent support with overlapping memberships (#3172).
+
+Note that experimental features are in active development and can have (breaking) changes in every release.
 
 ## What's Changed
 ### ⏳ Deprecations
@@ -74,6 +104,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Introduce `_HardKeyAgentSet` in agents.py by @codebreaker32 in #3219
 * Refactor step scheduling to use `EventGenerator` internally by @EwoutH in #3260
 * fix: handle deprecated space_kwargs gracefully in SpaceRenderer by @DipayanDasgupta in #3269
+* Distinguish Logical Index from Physical Position by @codebreaker32 in #3268
 ### 🧪 Experimental features
 * Add explicit support for Scenarios by @quaquel in #3103
 * feat: Add SignalType enum for type-safe signal definitions. by @codebyNJ in #3056
@@ -87,6 +118,12 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * fix: update meta_agents extract_class to use to_list() by @Jayantparashar10 in #3241
 * Making Model reactive by @quaquel in #3212
 * Add data registry by @quaquel in #3156
+* Add `DataRecorder` for reactive Data Storage and `DatasetConfig` for Configuration by @codebreaker32 in #3145
+* Support Scenarios in SolaraViz visualization by @falloficarus22 in #3178
+* Add `DataSet.record()` by @quaquel in #3295
+* Resolve `DataRecorder` off-by-one timestamp error by @codebreaker32 in #3299
+* Adding batch and suppress to mesa_signals by @quaquel in #3261
+* Only emit signal of new value of observable is different from old value by @quaquel in #3312
 ### 🐛 Bugs fixed
 * Fix batch_run Data Collection to Ensure Accuracy and Capture All Steps by @codebreaker32 in #3109
 * Fix network visualization bug: Replace array indexing with dictionary lookup by @codebyNJ in #3045
@@ -103,6 +140,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Fix Solara Altair dependency updates by @falloficarus22 in #3244
 ### 🔍 Examples updated
 * Update wolf-sheep example to use new event scheduling API by @EwoutH in #3278
+* Update Epstein Civil Violence model to use the new experimental `Scenario` class by @EwoutH in #3167
 ### 📜 Documentation improvements
 * Add deprecation of passing portrayal arguments to draw() methods to migration guide by @EwoutH in #3202
 * docs: clarify SolaraViz keyword-only model arguments by @Arjun-Sasi in #3044
@@ -112,6 +150,8 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Fix docstring in `mesa_signals/core.py` by @codebreaker32 in #3255
 * cleanup by @quaquel in #3258
 * Migrate tutorials and examples to model.run_for() by @falloficarus22 in #3270
+* Add agent activation, event scheduling and time progression tutorials by @EwoutH in #3280
+* Update overview.md for Mesa 3.5 by @EwoutH in #3310
 ### 🔧 Maintenance
 * Fix pickling for scheduled events by serializing weak-referenced callbacks safely by @EwoutH in #3205
 * Unify event list between Model and Simulator by @EwoutH in #3204
@@ -119,6 +159,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * Update `model.py` to replace `AgentSet` with `_HardKeyAgentSet` by @codebreaker32 in #3224
 * Use type(model.value).__init__ in ModelCreator param check by @falloficarus22 in #3264
 * Stabilize event scheduling system from experimental to mesa.time by @EwoutH in #3276
+* Prevent infinite loop from non-positive Schedule intervals by @souro26 in #3289
 
 ## New Contributors
 * @champ-byte made their first contribution in #3098
@@ -127,7 +168,7 @@ Several experimental features see significant progress: explicit `Scenario` supp
 * @Jayantparashar10 made their first contribution in #3241
 * @ApurvaPatil2401 made their first contribution in #3249
 
-**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.1...v3.5.0b0
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.4.2...v3.5.0
 
 # 3.4.2 (2026-01-23)
 ## Highlights
