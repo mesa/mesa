@@ -1,7 +1,7 @@
 name: Performance benchmarks
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, ready_for_review, labeled]
     branches:
       - main
@@ -9,17 +9,17 @@ on:
       - '**.py'
       - '.github/workflows/benchmarks.yml'
 
-permissions:
-  issues: write
-  pull-requests: write
-
 jobs:
   run-benchmarks:
+    permissions:
+      contents: read
     if: >
       github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'trigger-benchmarks') ||
       github.event.action == 'opened' ||
       github.event.action == 'ready_for_review'
     runs-on: ubuntu-latest
+    outputs:
+      output: ${{steps.compare_timings.outputs.timing_comparison}}
     steps:
       # Python and dependency setup
       - name: Set up Python
@@ -51,7 +51,7 @@ jobs:
           path: benchmarks/timings_1.pickle
       - name: Checkout PR branch
         uses: actions/checkout@v6
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -72,9 +72,19 @@ jobs:
       # Run compare script and create comment
       - name: Run compare timings and encode output
         working-directory: benchmarks
+        id: compare_timings
         run: |
           TIMING_COMPARISON=$(python compare_timings.py | base64 -w 0)  # Base64 encode the output
-          echo "TIMING_COMPARISON=$TIMING_COMPARISON" >> $GITHUB_ENV
+          echo "timing_comparison=$TIMING_COMPARISON" >> $GITHUB_OUTPUT
+  comment_pr:
+    permissions:
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    needs: run-benchmarks
+    env:
+      TIMING_COMPARISON: ${{needs.run-benchmarks.outputs.output}}
+    steps:
       - name: Comment PR
         uses: actions/github-script@v8
         with:
