@@ -375,7 +375,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     ### Event scheduling and time progression methods ###
     def schedule_event(
         self,
-        function: Callable,
+        function: Callable[..., None],
         *,
         at: float | None = None,
         after: float | None = None,
@@ -419,7 +419,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
     def schedule_recurring(
         self,
-        function: Callable,
+        function: Callable[..., None],
         schedule: Schedule,
         priority: Priority = Priority.DEFAULT,
     ) -> EventGenerator:
