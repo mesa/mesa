@@ -49,7 +49,7 @@ class BoidsScenario(Scenario):
 class BoidFlockers(Model):
     """Flocker model class. Handles agent creation, placement and scheduling."""
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: BoidsScenario | None = None):
         """Create a new Boids Flocking model.
 
         Args:
