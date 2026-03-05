@@ -177,7 +177,8 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         if handle_missing == "error":
             if is_single_attr:
-                return [getattr(agent, attr_names) for agent in self._agents]
+                getter = operator.attrgetter(attr_names)
+                return [getter(agent) for agent in self._agents]
             else:
                 return [
                     [getattr(agent, attr) for attr in attr_names]
@@ -299,8 +300,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             for agent in self:
                 groups[by(agent)].append(agent)
         else:
+            getter = operator.attrgetter(by)
             for agent in self:
-                groups[getattr(agent, by)].append(agent)
+                groups[getter(agent)].append(agent)
 
         if result_type == "agentset":
             return GroupBy(

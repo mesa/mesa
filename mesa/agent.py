@@ -106,11 +106,8 @@ class Agent[M: Model]:
             AgentSet containing the agents created.
 
         """
-        agents = []
-
         if not args and not kwargs:
-            for _ in range(n):
-                agents.append(cls(model))
+            agents = [cls(model) for _ in range(n)]
             return AgentSet(agents, random=model.random)
 
         # Prepare positional argument iterators
@@ -137,11 +134,12 @@ class Agent[M: Model]:
 
         # We rely on range(n) to drive the loop length
         if kwargs:
-            for _, p_args, k_vals in zip(range(n), pos_iter, kw_iter):
-                agents.append(cls(model, *p_args, **dict(zip(kw_keys, k_vals))))
+            agents = [
+                cls(model, *p_args, **dict(zip(kw_keys, k_vals)))
+                for _, p_args, k_vals in zip(range(n), pos_iter, kw_iter)
+            ]
         else:
-            for _, p_args in zip(range(n), pos_iter):
-                agents.append(cls(model, *p_args))
+            agents = [cls(model, *p_args) for _, p_args in zip(range(n), pos_iter)]
 
         return AgentSet(agents, random=model.random)
 
