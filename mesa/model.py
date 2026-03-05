@@ -446,6 +446,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         generator.start()
         return generator
 
+    @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_for(self, duration: float | int) -> None:
         """Run the model for the specified duration.
 
@@ -454,6 +455,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         self._advance_time(self.time + duration)
 
+    @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_until(self, end_time: float | int) -> None:
         """Run the model until the specified time.
 

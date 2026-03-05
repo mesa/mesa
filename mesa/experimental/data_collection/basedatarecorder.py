@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.mesa_signals import ObservableSignals
+from mesa.experimental.mesa_signals import ModelSignals, ObservableSignals
 
 if TYPE_CHECKING:
     from mesa import Model
@@ -68,6 +68,7 @@ class DatasetConfig:
     window_size: int | None = None
     enabled: bool = True
     _next_collection: int | float = 0
+    _last_collection: int | float = -1
 
     def __post_init__(self):
         """Validate configuration."""
@@ -177,24 +178,51 @@ class BaseDataRecorder(ABC):
 
     def _subscribe_to_model(self) -> None:
         """Subscribe to model.time for automatic collection."""
-        # Subscribe to time units observable
+        # Subscribe to observables
         self.model.observe("time", ObservableSignals.CHANGED, self._on_time_change)
+        self.model.observe("model", ModelSignals.RUN_ENDED, self._on_run_ended)
 
     def _on_time_change(self, signal) -> None:
         """Handle time change signal."""
         current_time = signal.additional_kwargs.get("old")
 
         for name, config in self.configs.items():
-            if not config.enabled or current_time < config._next_collection:
+            is_overwrite = current_time == config._last_collection
+
+            if (
+                not config.enabled
+                or current_time < config._last_collection
+                or (current_time < config._next_collection and not is_overwrite)
+            ):
                 continue
 
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
 
-            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            self._store_dataset_snapshot(
+                name, current_time, data_snapshot, is_overwrite
+            )
+
+            config._last_collection = current_time
 
             # Update next collection time (may auto-disable)
-            config.update_next_collection(current_time)
+            if current_time >= config._next_collection:
+                config.update_next_collection(current_time)
+
+    def _on_run_ended(self, signal) -> None:
+        """Capture the final state when the run finishes."""
+        current_time = self.model.time
+
+        for name, config in self.configs.items():
+            if not config.enabled or current_time < config._last_collection:
+                continue
+
+            is_overwrite = current_time == config._last_collection
+
+            dataset = self.registry.datasets[name]
+            self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)
+
+            config._last_collection = current_time
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -223,23 +251,6 @@ class BaseDataRecorder(ABC):
             self._store_dataset_snapshot(name, current_time, data_snapshot)
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
-
-    def finalise(self) -> None:
-        """Capture final snapshot at the end of a simulation run.
-
-        This method should be called when the simulation ends to ensure the final
-        state is recorded. It collects data for all
-        enabled datasets at the current model time.
-
-        Notes:
-            - Respects enabled/disabled status of datasets
-            - Does not update collection schedules
-            - Safe to call multiple times (subsequent calls just re-capture current state)
-            - Does not check if we're at a scheduled collection time
-        """
-        # FIXME: We might want to add explicit RUN_ENDED signal handling in the future,
-        # but for now we can just call this method manually at the end of the run.
-        self.collect()
 
     @abstractmethod
     def clear(self, dataset_name: str | None = None) -> None:
