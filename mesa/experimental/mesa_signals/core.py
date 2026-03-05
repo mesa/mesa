@@ -334,9 +334,11 @@ class HasEmitters:
         target_signals = cls._process_signal_type(signal_type)
 
         for name in names:
-            signal_types = target_signals or cls.observables[name]
+            current_signals = (
+                target_signals if target_signals is not None else cls.observables[name]
+            )
 
-            for st in signal_types:
+            for st in current_signals:
                 key = (name, st)
                 if key in subs_dict:
                     remaining = []
@@ -542,7 +544,7 @@ class HasEmitters:
         """Convert signal_type to an iterable of signal types."""
         if signal_type is ALL:
             return None  # None is used to indicate all signal types
-        elif isinstance(signal_type, str):
+        if isinstance(signal_type, (str, SignalType)):
             return [signal_type]
         else:
             return signal_type
@@ -586,17 +588,16 @@ class HasEmitters:
                     f"you are trying to subscribe to {name}, but this Observable is not known"
                 )
 
-            signal_types = target_signals or cls.observables[name]
+            current_signals = (
+                target_signals if target_signals is not None else cls.observables[name]
+            )
 
-            for st in signal_types:
+            for st in current_signals:
                 if st not in cls.observables[name]:
-                    raise ValueError(
-                        f"you are trying to subscribe to a signal of {st} "
-                        f"on Observable {name}, which does not emit this signal_type"
-                    )
+                    raise ValueError(f"Signal {st} not supported by {name}")
 
             ref = create_weakref(handler)
-            for st in signal_types:
+            for st in current_signals:
                 subs_dict[(name, st)].append(ref)
 
 
