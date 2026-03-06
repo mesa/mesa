@@ -93,7 +93,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self,
         *args: Any,
         rng: RNGLike | SeedLike | None = None,
-        scenario: S | None = None,
+        scenario: S | type[S] | None = None,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -133,20 +133,18 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # Strong references to active EventGenerators (prevent GC)
         self._event_generators: set[EventGenerator] = set()
 
-        # check if `scenario` is provided
-        # and if so, whether rng is the same or not
-        if scenario is not None:
-            if rng is not None and (scenario.rng != rng):
+        # Handle scenario if it is a class, instance, or None
+        if isinstance(scenario, type) and issubclass(scenario, Scenario):
+            scenario = scenario(rng=rng)
+        elif scenario is None:
+            scenario = Scenario(rng=rng)  # type: ignore[assignment]
+        else:
+            # It's an instance, check if rng matches
+            if rng is not None and scenario.rng != rng:
                 raise ValueError("rng and scenario.rng must be the same")
-            else:
-                rng = scenario.rng
+            rng = scenario.rng
 
         self.reset_rng(rng)
-
-        # now that we have figured out the seed value for rng
-        # we can set create a scenario with this if needed
-        if scenario is None:
-            scenario = Scenario(rng=rng)  # type: ignore[assignment]
         self.scenario = scenario
 
         # Store user's step method and create the default step schedule.

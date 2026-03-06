@@ -152,3 +152,21 @@ def test_scenario_fresh_instance_per_model():
     scenario2.counter = 5
     assert scenario2.counter == 5
     assert scenario1.counter == 0
+
+
+def test_model_scenario_initialization():
+    """Test that Model accepts Scenario as None, an instance, or a class."""
+    m_default = Model()
+    assert isinstance(m_default.scenario, Scenario)
+
+    s_instance = Scenario(rng=42)
+    m_instance = Model(scenario=s_instance)
+    assert m_instance.scenario is s_instance
+    assert m_instance._rng == np.random.default_rng(42).bit_generator.state
+
+    class CustomScenario(Scenario):
+        pass
+
+    m_class = Model(scenario=CustomScenario, rng=42)
+    assert isinstance(m_class.scenario, CustomScenario)
+    assert m_class._rng == np.random.default_rng(42).bit_generator.state
