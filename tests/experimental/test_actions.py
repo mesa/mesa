@@ -353,8 +353,8 @@ class TestRescheduleRemainder:
         assert agent.current_action is forage  # resuming
         model.run_for(5)  # finish remaining 50%
 
-        assert results[0] == pytest.approx(0.5)   # partial at interruption
-        assert results[1] == pytest.approx(1.0)   # full completion
+        assert results[0] == pytest.approx(0.5)  # partial at interruption
+        assert results[1] == pytest.approx(1.0)  # full completion
         assert not agent.is_busy
 
     def test_remainder_placed_before_pre_existing_queue_entries(self):
@@ -468,11 +468,16 @@ class TestActionQueue:
         def track(name):
             def cb(agent, c):
                 order.append(name)
+
             return cb
 
         agent.start_action(Action("first", duration=1.0, on_effect=track("first")))
-        agent.action_queue.append(Action("second", duration=1.0, on_effect=track("second")))
-        agent.action_queue.append(Action("third", duration=1.0, on_effect=track("third")))
+        agent.action_queue.append(
+            Action("second", duration=1.0, on_effect=track("second"))
+        )
+        agent.action_queue.append(
+            Action("third", duration=1.0, on_effect=track("third"))
+        )
 
         model.run_for(3)
         assert order == ["first", "second", "third"]
@@ -594,8 +599,8 @@ class TestRequestAction:
         agent.start_action(current)
         agent.request_action(low)  # enqueued (lower priority)
 
-        model.run_for(3)   # current completes, low auto-starts
+        model.run_for(3)  # current completes, low auto-starts
         assert agent.current_action is low
-        model.run_for(2)   # low completes
+        model.run_for(2)  # low completes
         assert results == [1.0, 1.0]
         assert not agent.is_busy

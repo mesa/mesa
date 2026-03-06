@@ -74,16 +74,10 @@ class ForagerModel(Model):
                     if a.is_busy and a.current_action.name == "forage"
                 ),
                 "fleeing_agents": lambda m: sum(
-                    1
-                    for a in m.agents
-                    if a.is_busy and a.current_action.name == "flee"
+                    1 for a in m.agents if a.is_busy and a.current_action.name == "flee"
                 ),
-                "idle_agents": lambda m: sum(
-                    1 for a in m.agents if not a.is_busy
-                ),
-                "total_threats": lambda m: sum(
-                    a.threats_faced for a in m.agents
-                ),
+                "idle_agents": lambda m: sum(1 for a in m.agents if not a.is_busy),
+                "total_threats": lambda m: sum(a.threats_faced for a in m.agents),
             },
             agent_reporters={
                 "food_collected": "food_collected",

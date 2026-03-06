@@ -166,7 +166,9 @@ class ActionAgent(Agent):
             if not self.current_action.interruptible:
                 return
 
-            interrupted = self.current_action  # capture before _interrupt_current clears it
+            interrupted = (
+                self.current_action
+            )  # capture before _interrupt_current clears it
             self._interrupt_current()
 
             if interrupted.reschedule_on_interrupt == "remainder":
