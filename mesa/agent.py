@@ -77,6 +77,10 @@ class Agent[M: Model]:
             it from a space, consider extending this method in your own agent class.
 
         """
+        if self.current_action is not None:
+            self.current_action._cancel_event()  # Silent cleanup, no callback
+            self.current_action = None
+
         with contextlib.suppress(KeyError):
             self.model.deregister_agent(self)
 
@@ -204,8 +208,8 @@ class Agent[M: Model]:
     def start_action(self, action: Action) -> Action:
         """Start performing an action.
 
-        The action must be in PENDING state and the agent must not be
-        currently performing another action.
+        The action must be in PENDING or INTERRUPTED state and the agent
+        must not be currently performing another action.
 
         Args:
             action: The Action to perform. Must have been created with
@@ -218,8 +222,6 @@ class Agent[M: Model]:
             ValueError: If the agent is already performing an action,
                 or if the action doesn't belong to this agent.
         """
-        from mesa.experimental.actions import ActionState  # noqa: PLC0415
-
         if self.current_action is not None:
             raise ValueError(
                 f"Agent {self.unique_id} is already performing an action "
@@ -236,11 +238,8 @@ class Agent[M: Model]:
         self.current_action = action
         action.start()
 
-        # If the action was instantaneous (duration=0), it already completed
-        # in start(), so clear it.
-        if action.state is not ActionState.ACTIVE:
-            self.current_action = None
-
+        # If the action completed instantly (duration=0), start() already
+        # called _do_complete which cleared current_action via the Action.
         return action
 
     def interrupt_for(self, new_action: Action) -> bool:
@@ -257,11 +256,9 @@ class Agent[M: Model]:
             or the current one was successfully interrupted). False if the
             current action is non-interruptible.
         """
-        if self.current_action is not None:
-            success = self.current_action.interrupt()
-            if not success:
-                return False
-            self.current_action = None
+        if self.current_action is not None and not self.current_action.interrupt():
+            return False
+            # interrupt() already cleared current_action
 
         self.start_action(new_action)
         return True
@@ -279,7 +276,7 @@ class Agent[M: Model]:
             return False
 
         self.current_action.cancel()
-        self.current_action = None
+        # cancel() already cleared current_action
         return True
 
     @property

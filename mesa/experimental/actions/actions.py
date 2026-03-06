@@ -2,7 +2,7 @@
 
 An Action represents something an agent does over time. It integrates with
 Mesa's event scheduling system for precise timing and supports interruption
-with progress tracking.
+with progress tracking and optional resumption.
 
 Actions are subclassable: override on_start(), on_complete(), and
 on_interrupt() to define behavior. For simple cases, pass callables directly.
@@ -133,6 +133,10 @@ class Action:
 
         Override for setup logic (e.g., logging, animation triggers,
         resource reservation).
+
+        Notes:
+            Also called on resume after interruption. Check self.progress
+            to distinguish: progress > 0 means this is a resumption.
         """
         if self._on_start_fn is not None:
             self._on_start_fn()
@@ -155,6 +159,11 @@ class Action:
 
         Args:
             progress: Fraction of duration completed (elapsed / duration).
+
+        Notes:
+            After interruption, the action can be resumed with
+            agent.start_action(action) if the action is in INTERRUPTED
+            state. It will continue from where it left off.
         """
         if self._on_interrupt_fn is not None:
             self._on_interrupt_fn(progress)
@@ -162,56 +171,64 @@ class Action:
     # --- Execution (called by Agent, not typically by users) ---
 
     def start(self) -> Action:
-        """Start executing this action.
+        """Start executing this action (or resume from interruption).
 
-        Resolves callable duration/priority, schedules the completion
-        event, and calls on_start().
+        On first start (PENDING): resolves callable duration/priority,
+        starts from progress=0. On resume (INTERRUPTED): continues from
+        existing progress with remaining duration.
 
         Returns:
             Self, for chaining.
 
         Raises:
-            ValueError: If the action is not in PENDING state.
+            ValueError: If the action is not in PENDING or INTERRUPTED state.
         """
-        if self.state is not ActionState.PENDING:
+        resuming = self.state is ActionState.INTERRUPTED
+
+        if self.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
             raise ValueError(
                 f"Cannot start action in {self.state.name} state. "
-                f"Only PENDING actions can be started."
+                f"Only PENDING or INTERRUPTED actions can be started."
             )
 
-        # Resolve callables
-        self.duration = (
-            self._duration_spec(self.agent)
-            if callable(self._duration_spec)
-            else self._duration_spec
-        )
-        self.priority = (
-            self._priority_spec(self.agent)
-            if callable(self._priority_spec)
-            else self._priority_spec
-        )
+        # Resolve callables on first start only
+        if not resuming:
+            self.duration = (
+                self._duration_spec(self.agent)
+                if callable(self._duration_spec)
+                else self._duration_spec
+            )
+            self.priority = (
+                self._priority_spec(self.agent)
+                if callable(self._priority_spec)
+                else self._priority_spec
+            )
 
-        if self.duration < 0:
-            raise ValueError(f"Action duration must be >= 0, got {self.duration}")
+            if self.duration < 0:
+                raise ValueError(f"Action duration must be >= 0, got {self.duration}")
 
         self._start_time = self.model.time
         self.state = ActionState.ACTIVE
         self.on_start()
 
-        # Instantaneous actions complete immediately
-        if self.duration == 0:
+        # Calculate remaining time
+        remaining = self.duration * (1.0 - self.progress)
+
+        # Instantaneous actions (or fully completed) complete immediately
+        if remaining <= 0:
             self._do_complete()
             return self
 
-        # Schedule completion event
-        self._event = self.model.schedule_event(self._do_complete, after=self.duration)
+        # Schedule completion event for remaining duration
+        self._event = self.model.schedule_event(self._do_complete, after=remaining)
         return self
 
     def interrupt(self) -> bool:
         """Interrupt this action.
 
         Updates progress, fires on_interrupt with the time fraction,
-        and cancels the scheduled completion event.
+        and cancels the scheduled completion event. The action moves
+        to INTERRUPTED state and can be resumed later with start().
 
         Returns:
             True if the action was interrupted, False if it could not
@@ -227,14 +244,19 @@ class Action:
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
+
+        if self.agent.current_action is self:
+            self.agent.current_action = None
+
         self.on_interrupt(self.progress)
         return True
 
     def cancel(self) -> bool:
         """Cancel this action, ignoring the interruptible flag.
 
-        Like interrupt(), but always succeeds for active actions.
-        Useful for cleanup (e.g., agent removal).
+        Like interrupt(), but always succeeds for active actions and
+        moves to INTERRUPTED state. The action can still be resumed
+        if desired.
 
         Returns:
             True if the action was cancelled, False if not active.
@@ -246,6 +268,10 @@ class Action:
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
+
+        if self.agent.current_action is self:
+            self.agent.current_action = None
+
         self.on_interrupt(self.progress)
         return True
 
@@ -253,27 +279,31 @@ class Action:
 
     @property
     def remaining_time(self) -> float:
-        """Time remaining until completion. Negative if already done."""
-        if self.state is ActionState.ACTIVE and self._start_time >= 0:
-            elapsed = self.model.time - self._start_time
-            return self.duration - elapsed
-        return 0.0
+        """Time remaining until completion.
+
+        Works for both active and interrupted actions (for interrupted,
+        returns the time that *would* remain if resumed).
+        """
+        return self.duration * (1.0 - self.progress)
 
     @property
     def elapsed_time(self) -> float:
-        """Time elapsed since the action started."""
-        if self._start_time >= 0:
-            return self.model.time - self._start_time
-        return 0.0
+        """Total time spent on this action so far (across all attempts)."""
+        return self.duration * self.progress
+
+    @property
+    def is_resumable(self) -> bool:
+        """Whether this action can be resumed (interrupted, not completed)."""
+        return self.state is ActionState.INTERRUPTED and self.progress < 1.0
 
     # --- Internal ---
 
     def _update_progress(self) -> None:
-        """Update progress based on elapsed time."""
+        """Update progress based on elapsed time since last start."""
         if self.duration > 0 and self._start_time >= 0:
-            self.progress = min(
-                1.0, (self.model.time - self._start_time) / self.duration
-            )
+            elapsed_this_attempt = self.model.time - self._start_time
+            additional_progress = elapsed_this_attempt / self.duration
+            self.progress = min(1.0, self.progress + additional_progress)
         else:
             self.progress = 1.0
 
@@ -291,6 +321,11 @@ class Action:
         self.progress = 1.0
         self._event = None
         self.state = ActionState.COMPLETED
+
+        # Clear agent's reference so it's no longer busy
+        if self.agent.current_action is self:
+            self.agent.current_action = None
+
         self.on_complete()
 
     def __repr__(self) -> str:
