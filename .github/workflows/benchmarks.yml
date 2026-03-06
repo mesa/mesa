@@ -2,13 +2,13 @@ name: Performance benchmarks
 
 on:
   workflow_dispatch:
-  pull_request:
-    types: [opened, ready_for_review, labeled]
-    branches:
-      - main
-    paths:
-      - '**.py'
-      - '.github/workflows/benchmarks.yml'
+#  pull_request:
+#    types: [opened, ready_for_review, labeled]
+#    branches:
+#      - main
+#    paths:
+#      - '**.py'
+#      - '.github/workflows/benchmarks.yml'
 
 jobs:
   run-benchmarks:
