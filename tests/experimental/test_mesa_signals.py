@@ -844,3 +844,76 @@ def test_all_sentinel():
 
     a = pickle.loads(pickle.dumps(sentinel))  # noqa: S301
     assert a is ALL
+
+
+def test_class_level_subscribe():
+    """Test that subscriptions can be made at the class level and inherited by instances."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        old_val = msg.additional_kwargs.get("old")
+        new_val = msg.additional_kwargs.get("new")
+        handler_calls.append((old_val, new_val))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+
+    agent1 = DummyAgent()
+    agent2 = DummyAgent()
+
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+    assert handler_calls[0] == (None, "active")
+
+    agent2.state = "inactive"
+    assert len(handler_calls) == 2
+    assert handler_calls[1] == (None, "inactive")
+
+    agent1.state = "done"
+    assert len(handler_calls) == 3
+    assert handler_calls[2] == ("active", "done")
+
+
+def test_unobserve_class():
+    """Test that class-level subscriptions can be unobserved."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        handler_calls.append(msg.additional_kwargs.get("new"))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1 = DummyAgent()
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+
+    DummyAgent.unobserve_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1.state = "inactive"
+    assert len(handler_calls) == 1
+
+
+def test_clear_all_class_subscriptions():
+    """Test that all class-level subscriptions can be cleared."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        handler_calls.append(msg.additional_kwargs.get("new"))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1 = DummyAgent()
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+
+    DummyAgent.clear_all_class_subscriptions("state")
+    agent1.state = "inactive"
+    assert len(handler_calls) == 1

@@ -9,8 +9,7 @@ import pandas as pd
 import solara
 from matplotlib.colors import to_rgb
 
-import mesa
-from mesa.discrete_space import DiscreteSpace, Grid, PropertyLayer
+from mesa.discrete_space import DiscreteSpace, Grid
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.utils import update_counter
 
@@ -26,7 +25,7 @@ def make_space_altair(*args, **kwargs):  # noqa: D103
 
 def make_altair_space(
     agent_portrayal,
-    propertylayer_portrayal=None,
+    property_layer_portrayal=None,
     post_process=None,
     **space_drawing_kwargs,
 ):
@@ -34,7 +33,7 @@ def make_altair_space(
 
     Args:
         agent_portrayal: Function to portray agents.
-        propertylayer_portrayal: Dictionary of PropertyLayer portrayal specifications
+        property_layer_portrayal: Dictionary of property_layer portrayal specifications
         post_process :A user specified callable that will be called with the Chart instance from Altair. Allows for fine tuning plots (e.g., control ticks)
         space_drawing_kwargs : not yet implemented
 
@@ -54,7 +53,7 @@ def make_altair_space(
         return SpaceAltair(
             model,
             agent_portrayal,
-            propertylayer_portrayal=propertylayer_portrayal,
+            property_layer_portrayal=property_layer_portrayal,
             post_process=post_process,
         )
 
@@ -65,7 +64,7 @@ def make_altair_space(
 def SpaceAltair(
     model,
     agent_portrayal,
-    propertylayer_portrayal=None,
+    property_layer_portrayal=None,
     dependencies: list[any] | None = None,
     post_process=None,
 ):
@@ -80,7 +79,7 @@ def SpaceAltair(
         # Sometimes the space is defined as model.space instead of model.grid
         space = model.space
 
-    chart = _draw_grid(space, agent_portrayal, propertylayer_portrayal)
+    chart = _draw_grid(space, agent_portrayal, property_layer_portrayal)
     # Apply post-processing if provided
     if post_process is not None:
         chart = post_process(chart)
@@ -146,7 +145,7 @@ def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
     return all_agent_data
 
 
-def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
+def _draw_grid(space, agent_portrayal, property_layer_portrayal):
     match space:
         case Grid():
             all_agent_data = _get_agent_data_new_discrete_space(space, agent_portrayal)
@@ -201,12 +200,12 @@ def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
         length = min(space.width, space.height)
         agent_chart = agent_chart.mark_point(size=30000 / length**2, filled=True)
 
-    if propertylayer_portrayal is not None:
+    if property_layer_portrayal is not None:
         chart_width = agent_chart.properties().width
         chart_height = agent_chart.properties().height
         base_chart, cbar_chart = chart_property_layers(
             space=space,
-            propertylayer_portrayal=propertylayer_portrayal,
+            property_layer_portrayal=property_layer_portrayal,
             chart_width=chart_width,
             chart_height=chart_height,
         )
@@ -219,34 +218,26 @@ def _draw_grid(space, agent_portrayal, propertylayer_portrayal):
     return base_chart
 
 
-def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_height):
+def chart_property_layers(space, property_layer_portrayal, chart_width, chart_height):
     """Creates Property Layers in the Altair Components.
 
     Args:
         space: the ContinuousSpace instance
-        propertylayer_portrayal: Dictionary of PropertyLayer portrayal specifications
-        chart_width: width of the agent chart to maintain consistency with the property charts
-        chart_height: height of the agent chart to maintain consistency with the property charts
+        property_layer_portrayal: Dictionary of property_layer portrayal specifications
+        chart_width: width of the agent chart to maintain consistency with the property_layer charts
+        chart_height: height of the agent chart to maintain consistency with the property_layer charts
     Returns:
         Altair Chart
     """
-    try:
-        # old style spaces
-        property_layers = space.properties
-    except AttributeError:
-        # new style spaces
-        property_layers = space._mesa_property_layers
+    property_layers = space.property_layers
     base = None
     bar_chart = None
-    for layer_name, portrayal in propertylayer_portrayal.items():
+    for layer_name, portrayal in property_layer_portrayal.items():
         layer = property_layers.get(layer_name, None)
-        if not isinstance(
-            layer,
-            PropertyLayer | mesa.discrete_space.property_layer.PropertyLayer,
-        ):
+        if layer is None:
             continue
 
-        data = layer.data.astype(float) if layer.data.dtype == bool else layer.data
+        data = layer.astype(float) if layer.dtype == bool else layer
 
         if (space.width, space.height) != data.shape:
             warnings.warn(
@@ -436,7 +427,7 @@ def chart_property_layers(space, propertylayer_portrayal, chart_width, chart_hei
 
         else:
             raise ValueError(
-                f"PropertyLayer {layer_name} portrayal must include 'color' or 'colormap'."
+                f"Property Layer {layer_name} portrayal must include 'color' or 'colormap'."
             )
     return base, bar_chart
 
