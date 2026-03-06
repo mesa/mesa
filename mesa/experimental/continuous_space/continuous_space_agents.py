@@ -8,7 +8,8 @@ from typing import Protocol
 import numpy as np
 
 from mesa.agent import Agent
-from mesa.experimental.continuous_space import ContinuousSpace
+from mesa.experimental.continuous_space.continuous_space import ContinuousSpace
+from mesa.experimental.continuous_space.movement import BasicContinuousMovement
 
 
 class HasPositionProtocol(Protocol):
@@ -99,3 +100,7 @@ class ContinuousSpaceAgent(Agent):
         logical = np.asarray([agent is not self for agent in agents])
         agents = list(compress(agents, logical))
         return agents, dists[logical]
+
+
+class MovingContinuousSpaceAgent(BasicContinuousMovement, ContinuousSpaceAgent):
+    """Continuous space agent with opt-in movement convenience methods."""
