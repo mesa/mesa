@@ -2,6 +2,14 @@
 This namespace contains experimental features. These are under development, and their API is not necessarily stable.
 
 
+## Actions
+
+```{eval-rst}
+.. automodule:: experimental.actions.actions
+   :members:
+```
+
+
 ## Devs
 
 ```{eval-rst}
