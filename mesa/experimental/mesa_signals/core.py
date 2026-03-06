@@ -21,7 +21,7 @@ import functools
 import weakref
 from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator, Iterable
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from mesa.experimental.mesa_signals.signals_util import (
     ALL,
@@ -271,10 +271,15 @@ class HasEmitters:
     ]  # (observable_name, signal_type) -> list of weakref subscribers
     observables: dict[str, type[SignalType] | frozenset[SignalType]]
 
+    _class_subscribers: ClassVar[dict[tuple[str, SignalType], list[weakref.ref]]] = (
+        defaultdict(list)
+    )
+
     def __init_subclass__(cls, **kwargs):
         """Initialize a HasEmitters subclass."""
         super().__init_subclass__(**kwargs)
         cls.observables = dict(descriptor_generator(cls))
+        cls._class_subscribers = defaultdict(list)
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize a HasEmitters."""
@@ -286,9 +291,15 @@ class HasEmitters:
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
         key = (name, signal_type)
-        if key not in self.subscribers:
-            return False
-        return len(self.subscribers[key]) > 0
+
+        has_instance_subscribers = (
+            key in self.subscribers and len(self.subscribers[key]) > 0
+        )
+        has_class_subscribers = (
+            key in self._class_subscribers and len(self._class_subscribers[key]) > 0
+        )
+
+        return has_instance_subscribers or has_class_subscribers
 
     def observe(
         self,
@@ -308,27 +319,38 @@ class HasEmitters:
             does not emit the given signal_type
 
         """
-        names = self._process_name(observable_name)
-        target_signals = self._process_signal_type(signal_type)
+        self._register_observer(self.subscribers, observable_name, signal_type, handler)
+
+    @classmethod
+    def _unregister_observer(
+        cls,
+        subs_dict: dict,
+        observable_name: ObservableName,
+        signal_type: SignalSpec,
+        handler: Callable,
+    ):
+        """Shared logic to validate and unregister an observer from a dictionary."""
+        names = cls._process_name(observable_name)
+        target_signals = cls._process_signal_type(signal_type)
 
         for name in names:
-            if name not in self.observables:
-                raise ValueError(
-                    f"you are trying to subscribe to {name}, but this Observable is not known"
-                )
+            current_signals = (
+                target_signals if target_signals is not None else cls.observables[name]
+            )
 
-            signal_types = target_signals or self.observables[name]
+            for st in current_signals:
+                key = (name, st)
+                if key in subs_dict:
+                    remaining = []
+                    for ref in subs_dict[key]:
+                        if subscriber := ref():  # noqa: SIM102
+                            if subscriber != handler:
+                                remaining.append(ref)
 
-            for st in signal_types:
-                if st not in self.observables[name]:
-                    raise ValueError(
-                        f"you are trying to subscribe to a signal of {st} "
-                        f"on Observable {name}, which does not emit this signal_type"
-                    )
-
-            ref = create_weakref(handler)
-            for st in signal_types:
-                self.subscribers[(name, st)].append(ref)
+                    if remaining:
+                        subs_dict[key] = remaining
+                    else:
+                        del subs_dict[key]
 
     def unobserve(
         self,
@@ -344,30 +366,45 @@ class HasEmitters:
             handler: the handler that is unsubscribing
 
         """
-        names = self._process_name(observable_name)
-        target_signals = self._process_signal_type(signal_type)
+        self._unregister_observer(
+            self.subscribers, observable_name, signal_type, handler
+        )
 
-        for name in names:
-            # we need to do this here because signal types might
-            # differ for name so for each name we need to check
-            signal_types = target_signals or self.observables[name]
+    @classmethod
+    def unobserve_class(
+        cls,
+        observable_name: ObservableName,
+        signal_type: SignalSpec,
+        handler: Callable,
+    ):
+        """Unsubscribe at the class level to the Observable <name> for signal_type.
 
-            for st in signal_types:
-                key = (name, st)
-                if key in self.subscribers:
-                    remaining = []
-                    for ref in self.subscribers[key]:
-                        if subscriber := ref():  # noqa: SIM102
-                            if subscriber != handler:
-                                remaining.append(ref)
+        Args:
+            observable_name: name of the Observable to unsubscribe from
+            signal_type: the type of signal on the Observable to unsubscribe to
+            handler: the handler that is unsubscribing
+        """
+        cls._unregister_observer(
+            cls._class_subscribers, observable_name, signal_type, handler
+        )
 
-                    if remaining:
-                        self.subscribers[key] = remaining
-                    else:
-                        del self.subscribers[key]
+    @classmethod
+    def _clear_all_subscriptions(cls, subs_dict: dict, name: ObservableName):
+        """Shared logic to clear all subscriptions for an observable."""
+        if name is ALL:
+            subs_dict.clear()
+        elif isinstance(name, str):
+            keys_to_remove = [k for k in subs_dict if k[0] == name]
+            for k in keys_to_remove:
+                del subs_dict[k]
+        else:
+            for n in name:
+                keys_to_remove = [k for k in subs_dict if k[0] == n]
+                for k in keys_to_remove:
+                    del subs_dict[k]
 
     def clear_all_subscriptions(self, name: ObservableName):
-        """Clears all subscriptions for the observable <name>.
+        """Clears all instance-level subscriptions for the observable <name>.
 
         if name is ALL, all subscriptions are removed
 
@@ -375,18 +412,18 @@ class HasEmitters:
             name: name of the Observable to unsubscribe for all signal types
 
         """
-        if name is ALL:
-            self.subscribers.clear()
-        elif isinstance(name, str):
-            keys_to_remove = [k for k in self.subscribers if k[0] == name]
-            for k in keys_to_remove:
-                del self.subscribers[k]
-        else:
-            for n in name:
-                keys_to_remove = [k for k in self.subscribers if k[0] == n]
-                for k in keys_to_remove:
-                    del self.subscribers[k]
-                # ignore when unsubscribing to Observables that have no subscription
+        self._clear_all_subscriptions(self.subscribers, name)
+
+    @classmethod
+    def clear_all_class_subscriptions(cls, name: ObservableName):
+        """Clears all class-level subscriptions for the observable <name>.
+
+        if name is ALL, all subscriptions are removed
+
+        Args:
+            name: name of the Observable to unsubscribe for all signal types
+        """
+        cls._clear_all_subscriptions(cls._class_subscribers, name)
 
     def notify(
         self,
@@ -417,9 +454,7 @@ class HasEmitters:
 
         # because we are using a list of subscribers
         # we should update this list to subscribers that are still alive
-        key = (observable, signal_type)
-
-        if key not in self.subscribers:
+        if not self._has_subscribers(observable, signal_type):
             return
 
         signal = Message(
@@ -447,18 +482,21 @@ class HasEmitters:
         signal_type = signal.signal_type
         key = (observable, signal_type)
 
-        observers = self.subscribers[key]
-        active_observers = []
-        for observer in observers:
-            if active_observer := observer():
-                active_observer(signal)
-                active_observers.append(observer)
-            # use iteration to also remove inactive observers
+        for subs_dict in (self.subscribers, self._class_subscribers):
+            observers = subs_dict.get(key, [])
+            if not observers:
+                continue
 
-        if active_observers:
-            self.subscribers[key] = active_observers
-        else:
-            del self.subscribers[key]
+            active_observers = []
+            for observer in observers:
+                if active_observer := observer():
+                    active_observer(signal)
+                    active_observers.append(observer)
+
+            if active_observers:
+                subs_dict[key] = active_observers
+            else:
+                del subs_dict[key]
 
     def batch(self):
         """Return a context manager that batches signals.
@@ -489,25 +527,78 @@ class HasEmitters:
 
         return _SuppressContext(self)
 
-    def _process_name(self, name: ObservableName) -> Iterable[str]:
+    @classmethod
+    def _process_name(cls, name: ObservableName) -> Iterable[str]:
         """Convert name to an iterable of observable names."""
         if name is ALL:
-            return self.observables.keys()
+            return cls.observables.keys()
         elif isinstance(name, str):
             return [name]
         else:
             return name
 
+    @classmethod
     def _process_signal_type(
-        self, signal_type: SignalSpec
+        cls, signal_type: SignalSpec
     ) -> Iterable[SignalType] | None:
         """Convert signal_type to an iterable of signal types."""
         if signal_type is ALL:
             return None  # None is used to indicate all signal types
-        elif isinstance(signal_type, str):
+        if isinstance(signal_type, (str, SignalType)):
             return [signal_type]
         else:
             return signal_type
+
+    @classmethod
+    def observe_class(
+        cls,
+        observable_name: ObservableName,
+        signal_type: SignalSpec,
+        handler: Callable,
+    ):
+        """Subscribe at the class level to the Observable <name> for signal_type.
+
+        All instances of this class will trigger the handler when they emit this signal.
+        Handlers are stored as weak references to prevent memory leaks during experiments.
+
+        Args:
+            observable_name: name of the Observable to subscribe to
+            signal_type: the type of signal on the Observable to subscribe to
+            handler: the handler to call
+        """
+        cls._register_observer(
+            cls._class_subscribers, observable_name, signal_type, handler
+        )
+
+    @classmethod
+    def _register_observer(
+        cls,
+        subs_dict: dict,
+        observable_name: ObservableName,
+        signal_type: SignalSpec,
+        handler: Callable,
+    ):
+        """Shared logic to validate and register an observer to a dictionary."""
+        names = cls._process_name(observable_name)
+        target_signals = cls._process_signal_type(signal_type)
+
+        for name in names:
+            if name not in cls.observables:
+                raise ValueError(
+                    f"you are trying to subscribe to {name}, but this Observable is not known"
+                )
+
+            current_signals = (
+                target_signals if target_signals is not None else cls.observables[name]
+            )
+
+            for st in current_signals:
+                if st not in cls.observables[name]:
+                    raise ValueError(f"Signal {st} not supported by {name}")
+
+            ref = create_weakref(handler)
+            for st in current_signals:
+                subs_dict[(name, st)].append(ref)
 
 
 def descriptor_generator(
