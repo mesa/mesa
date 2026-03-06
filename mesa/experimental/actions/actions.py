@@ -23,7 +23,7 @@ Example::
     sheep.start_action(Forage(sheep))
 
     # Inline approach (simple actions)
-    action = Action(agent, duration=2.0, on_complete=lambda: agent.energy += 10)
+    action = Action(agent, duration=2.0, on_complete=lambda: agent.do_thing())
     agent.start_action(action)
 """
 
@@ -60,13 +60,15 @@ class Action:
     Attributes:
         agent: The agent performing this action.
         model: The model (shortcut for agent.model).
+        name: Human-readable identifier. Defaults to the class name.
         duration: Time to complete. May be a callable(agent) -> float
             for state-dependent duration, resolved at start time.
         priority: Importance level. Higher = more important. May be a
             callable(agent) -> float, resolved at start time.
         interruptible: Whether higher-priority actions can preempt this.
         state: Current lifecycle state (PENDING, ACTIVE, COMPLETED, INTERRUPTED).
-        progress: Time fraction completed, 0.0 to 1.0.
+        progress: Time fraction completed, 0.0 to 1.0. Computed live
+            while the action is active.
 
     Notes:
         Actions hold a reference to their agent, mirroring how agents
@@ -84,6 +86,7 @@ class Action:
         on_start: Callable[[], None] | None = None,
         on_complete: Callable[[], None] | None = None,
         on_interrupt: Callable[[float], None] | None = None,
+        on_resume: Callable[[], None] | None = None,
     ) -> None:
         """Initialize an Action.
 
@@ -96,16 +99,20 @@ class Action:
                 a float or a callable that receives the agent and returns
                 a float. Resolved when start() is called.
             interruptible: If False, interrupt() will fail and return False.
-            on_start: Optional callback, called when the action starts.
+            on_start: Optional callback, called on first start.
                 Ignored if the subclass overrides on_start().
             on_complete: Optional callback, called when the action finishes.
                 Ignored if the subclass overrides on_complete().
             on_interrupt: Optional callback(progress), called when interrupted.
                 Ignored if the subclass overrides on_interrupt().
+            on_resume: Optional callback, called when resuming after
+                interruption. Ignored if the subclass overrides on_resume().
+                Defaults to calling on_start if not provided.
         """
         self.agent = agent
         self.model = agent.model
         self.interruptible = interruptible
+        self._name: str | None = None
 
         # Store raw values (may be callables, resolved at start)
         self._duration_spec = duration
@@ -119,27 +126,88 @@ class Action:
         self._on_start_fn = on_start
         self._on_complete_fn = on_complete
         self._on_interrupt_fn = on_interrupt
+        self._on_resume_fn = on_resume
 
         # Lifecycle state
         self.state: ActionState = ActionState.PENDING
-        self.progress: float = 0.0
+        self._progress: float = 0.0
         self._start_time: float = -1.0
         self._event: Event | None = None
+
+    # --- Properties ---
+
+    @property
+    def name(self) -> str:
+        """Human-readable name. Returns the class name by default.
+
+        Can be set per-instance (``action.name = "dig"``) or
+        overridden in subclasses.
+        """
+        return self._name if self._name is not None else self.__class__.__name__
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @property
+    def progress(self) -> float:
+        """Time fraction completed, 0.0 to 1.0.
+
+        Computed live while the action is active. For interrupted or
+        completed actions, returns the final progress value.
+        """
+        if (
+            self.state is ActionState.ACTIVE
+            and self.duration > 0
+            and self._start_time >= 0
+        ):
+            elapsed_this_attempt = self.model.time - self._start_time
+            return min(1.0, self._progress + elapsed_this_attempt / self.duration)
+        return self._progress
+
+    @property
+    def remaining_time(self) -> float:
+        """Time remaining until completion.
+
+        Computed live while active. For interrupted actions, returns
+        the time that would remain if resumed.
+        """
+        return self.duration * (1.0 - self.progress)
+
+    @property
+    def elapsed_time(self) -> float:
+        """Total time spent on this action so far (across all attempts)."""
+        return self.duration * self.progress
+
+    @property
+    def is_resumable(self) -> bool:
+        """Whether this action can be resumed (interrupted, not completed)."""
+        return self.state is ActionState.INTERRUPTED and self._progress < 1.0
 
     # --- Lifecycle methods (override in subclasses) ---
 
     def on_start(self) -> None:
-        """Called when the action starts executing.
+        """Called when the action starts executing for the first time.
 
         Override for setup logic (e.g., logging, animation triggers,
-        resource reservation).
-
-        Notes:
-            Also called on resume after interruption. Check self.progress
-            to distinguish: progress > 0 means this is a resumption.
+        resource reservation). Not called on resume — see on_resume().
         """
         if self._on_start_fn is not None:
             self._on_start_fn()
+
+    def on_resume(self) -> None:
+        """Called when the action resumes after interruption.
+
+        Override to handle resumption differently from first start
+        (e.g., logging "resumed" instead of "started", skipping
+        setup that shouldn't happen twice).
+
+        Default implementation calls on_start().
+        """
+        if self._on_resume_fn is not None:
+            self._on_resume_fn()
+        else:
+            self.on_start()
 
     def on_complete(self) -> None:
         """Called when the action finishes normally.
@@ -161,9 +229,10 @@ class Action:
             progress: Fraction of duration completed (elapsed / duration).
 
         Notes:
-            After interruption, the action can be resumed with
-            agent.start_action(action) if the action is in INTERRUPTED
-            state. It will continue from where it left off.
+            Also called by cancel(). If you need to distinguish
+            interruption from cancellation, check self.interruptible:
+            a non-interruptible action that receives on_interrupt was
+            necessarily cancelled, not interrupted.
         """
         if self._on_interrupt_fn is not None:
             self._on_interrupt_fn(progress)
@@ -209,10 +278,14 @@ class Action:
 
         self._start_time = self.model.time
         self.state = ActionState.ACTIVE
-        self.on_start()
+
+        if resuming:
+            self.on_resume()
+        else:
+            self.on_start()
 
         # Calculate remaining time
-        remaining = self.duration * (1.0 - self.progress)
+        remaining = self.duration * (1.0 - self._progress)
 
         # Instantaneous actions (or fully completed) complete immediately
         if remaining <= 0:
@@ -240,7 +313,7 @@ class Action:
         if not self.interruptible:
             return False
 
-        self._update_progress()
+        self._freeze_progress()
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
@@ -248,7 +321,7 @@ class Action:
         if self.agent.current_action is self:
             self.agent.current_action = None
 
-        self.on_interrupt(self.progress)
+        self.on_interrupt(self._progress)
         return True
 
     def cancel(self) -> bool:
@@ -264,7 +337,7 @@ class Action:
         if self.state is not ActionState.ACTIVE:
             return False
 
-        self._update_progress()
+        self._freeze_progress()
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
@@ -272,40 +345,20 @@ class Action:
         if self.agent.current_action is self:
             self.agent.current_action = None
 
-        self.on_interrupt(self.progress)
+        self.on_interrupt(self._progress)
         return True
-
-    # --- Queries ---
-
-    @property
-    def remaining_time(self) -> float:
-        """Time remaining until completion.
-
-        Works for both active and interrupted actions (for interrupted,
-        returns the time that *would* remain if resumed).
-        """
-        return self.duration * (1.0 - self.progress)
-
-    @property
-    def elapsed_time(self) -> float:
-        """Total time spent on this action so far (across all attempts)."""
-        return self.duration * self.progress
-
-    @property
-    def is_resumable(self) -> bool:
-        """Whether this action can be resumed (interrupted, not completed)."""
-        return self.state is ActionState.INTERRUPTED and self.progress < 1.0
 
     # --- Internal ---
 
-    def _update_progress(self) -> None:
-        """Update progress based on elapsed time since last start."""
+    def _freeze_progress(self) -> None:
+        """Snapshot live progress into _progress for storage."""
         if self.duration > 0 and self._start_time >= 0:
             elapsed_this_attempt = self.model.time - self._start_time
-            additional_progress = elapsed_this_attempt / self.duration
-            self.progress = min(1.0, self.progress + additional_progress)
+            self._progress = min(
+                1.0, self._progress + elapsed_this_attempt / self.duration
+            )
         else:
-            self.progress = 1.0
+            self._progress = 1.0
 
     def _cancel_event(self) -> None:
         """Cancel the scheduled completion event if it exists."""
@@ -318,7 +371,7 @@ class Action:
         if self.state is not ActionState.ACTIVE:
             return
 
-        self.progress = 1.0
+        self._progress = 1.0
         self._event = None
         self.state = ActionState.COMPLETED
 
@@ -331,7 +384,7 @@ class Action:
     def __repr__(self) -> str:
         """Return string representation."""
         return (
-            f"Action(state={self.state.name}, "
+            f"{self.name}(state={self.state.name}, "
             f"progress={self.progress:.0%}, "
             f"duration={self.duration})"
         )
