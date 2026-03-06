@@ -73,27 +73,14 @@ jobs:
       - name: Run compare timings and encode output
         working-directory: benchmarks
         id: compare_timings
+        env:
+          PR_NUMBER: ${{ github.event.number }}
         run: |
           TIMING_COMPARISON=$(python compare_timings.py | base64 -w 0)  # Base64 encode the output
-          echo "timing_comparison=$TIMING_COMPARISON" >> $GITHUB_OUTPUT
-  comment_pr:
-    permissions:
-      pull-requests: write
-      issues: write
-    runs-on: ubuntu-latest
-    needs: run-benchmarks
-    env:
-      TIMING_COMPARISON: ${{needs.run-benchmarks.outputs.output}}
-    steps:
-      - name: Comment PR
-        uses: actions/github-script@v8
+          mkdir -p ./benchmarks
+          echo $TIMING_COMPARISON >> ./benchmarks/timing
+          echo $PR_NUMBER > ./benchmarks/pr_number
+      - uses: actions/upload-artifact@v4
         with:
-          script: |
-            const output = Buffer.from(process.env.TIMING_COMPARISON, 'base64').toString('utf-8');
-            const issue_number = context.issue.number;
-            github.rest.issues.createComment({
-              issue_number: issue_number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Performance benchmarks:\n\n' + output
-            });
+          name: benchmarks
+          path: benchmarks/
