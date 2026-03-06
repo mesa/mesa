@@ -72,10 +72,26 @@ class Agent[M: Model]:
     def remove(self) -> None:
         """Remove and delete the agent from the model.
 
-        Notes:
-            If you need to do additional cleanup when removing an agent by for example removing
-            it from a space, consider extending this method in your own agent class.
+        If the agent is currently performing an action, the action's
+        scheduled completion event is cancelled silently. The action's
+        on_interrupt() callback is NOT fired, because the agent is being
+        destroyed — not making a behavioral decision. The action moves
+        to no defined end state; it is simply abandoned.
 
+        If your action holds external resources (e.g., a Resource slot,
+        a reservation, a lock), override Agent.remove() and call
+        self.cancel_action() before super().remove() to ensure
+        on_interrupt() fires and cleanup logic runs:
+
+            def remove(self):
+                self.cancel_action()  # Fires on_interrupt for cleanup
+                super().remove()
+
+        Notes:
+            This is a deliberate design choice. The default silent
+            cleanup is safe and avoids callbacks touching agent state
+            during teardown. Models that need cleanup should opt in
+            explicitly.
         """
         if self.current_action is not None:
             self.current_action._cancel_event()  # Silent cleanup, no callback
