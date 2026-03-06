@@ -42,3 +42,27 @@ This is Epstein & Axtell's Sugarscape model with Traders, a detailed description
 
 ### [Wolf-Sheep Predation Model](examples/advanced/wolf_sheep)
 Implementation of an ecological model of predation and reproduction, based on the NetLogo [Wolf Sheep Predation](http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation) model.
+
+### How to Run the Examples
+
+1. Clone the Mesa repository:
+
+    git clone https://github.com/mesa/mesa.git
+
+2. Move into the repository:
+
+    cd mesa
+
+3. Install Mesa and recommended dependencies:
+
+    pip install -U mesa
+    pip install "mesa[rec]"
+    pip install solara
+
+4. Navigate to any example folder. For example:
+
+    cd mesa/examples/basic/boid_flockers
+
+5. Run the example:
+
+    solara run app.py

@@ -8,11 +8,18 @@ This model tests Mesa's continuous space feature, and uses numpy arrays to repre
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+1. Go to the example directory:
 
-```
-    $ solara run app.py
-```
+cd mesa/examples/basic/boid_flockers
+
+2. Install Mesa and dependencies:
+
+pip install mesa[rec]
+
+3. Run the model:
+
+solara run app.py
+
 
 
 ## Files
