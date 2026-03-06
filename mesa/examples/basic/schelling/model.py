@@ -29,7 +29,7 @@ class SchellingScenario(Scenario):
 class Schelling(Model):
     """Model class for the Schelling segregation model."""
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: SchellingScenario | None = None):
         """Create a new Schelling model.
 
         Args:
