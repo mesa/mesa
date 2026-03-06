@@ -323,6 +323,68 @@ class TestPauseResume:
 # --- Error handling ---
 
 
+class TestActionClearsAgentReference:
+    """Verify the Action itself clears agent.current_action."""
+
+    def test_complete_clears_current_action(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=3.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+
+        assert agent.current_action is None
+
+    def test_interrupt_clears_current_action(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(2)
+        action.interrupt()
+
+        assert agent.current_action is None
+
+    def test_cancel_clears_current_action(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0, interruptible=False)
+
+        agent.start_action(action)
+        model.run_for(2)
+        action.cancel()
+
+        assert agent.current_action is None
+
+    def test_interrupt_pending_returns_false(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=5.0)
+
+        assert action.interrupt() is False
+
+    def test_interrupt_completed_returns_false(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=0)
+
+        agent.start_action(action)  # completes instantly
+        assert action.interrupt() is False
+
+    def test_interrupt_already_interrupted_returns_false(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+        action.interrupt()
+
+        assert action.interrupt() is False
+
+    def test_cancel_non_active_returns_false(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=5.0)
+
+        assert action.cancel() is False  # PENDING
+
+
 class TestErrorHandling:
     def test_start_while_busy_raises(self):
         _model, agent = make_model_and_agent()
@@ -524,6 +586,76 @@ class TestQueryProperties:
 
         # Total elapsed: 3 + 2 = 5
         assert action.elapsed_time == pytest.approx(5.0)
+
+
+class TestResumeDetection:
+    """Verify on_start can distinguish first start from resume."""
+
+    def test_on_start_can_detect_resume(self):
+        model, agent = make_model_and_agent()
+        start_types = []
+
+        class DetectResumeAction(Action):
+            def on_start(self):
+                start_types.append("resume" if self.progress > 0 else "first")
+
+            def on_interrupt(self, progress):
+                pass
+
+        action = DetectResumeAction(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+        agent.cancel_action()
+
+        agent.start_action(action)
+        model.run_for(7)
+
+        assert start_types == ["first", "resume"]
+
+
+class TestEdgeCases:
+    def test_double_completion_ignored(self):
+        """Calling _do_complete twice doesn't fire on_complete twice."""
+        model, agent = make_model_and_agent()
+        complete_count = []
+
+        action = Action(
+            agent,
+            duration=3.0,
+            on_complete=lambda: complete_count.append(1),
+        )
+
+        agent.start_action(action)
+        model.run_for(3)
+
+        # Manually try to complete again
+        action._do_complete()
+
+        assert len(complete_count) == 1
+
+    def test_remaining_time_before_start(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+
+        # Before start, duration hasn't been resolved yet
+        assert action.remaining_time == 0.0
+
+    def test_elapsed_time_before_start(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+
+        assert action.elapsed_time == 0.0
+
+    def test_repr(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=5.0)
+
+        assert "PENDING" in repr(action)
+        assert "0%" in repr(action)
+
+        agent.start_action(action)
+        assert "ACTIVE" in repr(action)
 
 
 # --- Integration: realistic scenarios ---
