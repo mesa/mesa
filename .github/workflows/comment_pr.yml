@@ -5,8 +5,6 @@ on:
     workflows: [Performance benchmarks]
     types: 
       - completed
-    branches:
-      - main
 
 jobs:
   comment_pr:
@@ -16,33 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Download artifact'
-        uses: actions/github-script@v8
+        uses: actions/download-artifact@v5
         with:
-          script: |
-            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               run_id: context.payload.workflow_run.id,
-            });
-            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "pr_number" || artifact.name == "timing"
-            });
-            for (let i = 0; i < 2; i++) {
-              let download = await github.rest.actions.downloadArtifact({
-                 owner: context.repo.owner,
-                 repo: context.repo.repo,
-                 artifact_id: matchArtifact[i].id,
-                 archive_format: 'zip',
-              });
-              const fs = require('fs');
-              const path = require('path');
-              const temp = '${{ runner.temp }}/artifacts';
-              if (!fs.existsSync(temp)){
-                fs.mkdirSync(temp);
-              }
-              fs.writeFileSync(path.join(temp, matchArtifact[i].name + '.zip'), Buffer.from(download.data));
-          }
-
+          path: ${{ runner.temp }}/artifacts
       - name: 'Unzip artifact'
         run: |
           unzip "${{ runner.temp }}/artifacts/pr_number.zip" -d "${{ runner.temp }}/artifacts"
