@@ -1,6 +1,8 @@
+name: Publish performance benchmarks
+
 on:
   workflow_run:
-    workflows: [Performance benchmarks]
+    workflows: 'Performance benchmarks'
     types: 
       - completed
 
@@ -9,26 +11,27 @@ jobs:
     permissions:
       pull-requests: write
       issues: write
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - name: 'Download artifact'
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
-          path: ${{ runner.temp }}/artifacts
-      - name: 'Unzip artifact'
-        run: |
-          unzip "${{ runner.temp }}/artifacts/pr_number.zip" -d "${{ runner.temp }}/artifacts"
-          unzip "${{ runner.temp }}/artifacts/timing.zip" -d "${{ runner.temp }}/artifacts"
+          name: benchmarks
+          path: ${{ runner.temp }}/artifacts/benchmarks
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Comment PR
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const temp = '${{ runner.temp }}/artifacts';
-            const output = fs.readFileSync(path.join(temp, 'timing'), 'utf8');
-            output = Buffer.from(output, 'base64').toString('utf8');
-            const issue_number = Number(fs.readFileSync(path.join(temp, 'pr_number'));
+            const temp = '${{ runner.temp }}/artifacts/benchmarks';
+            const output_encoded = fs.readFileSync(path.join(temp, 'timing'), 'utf8');
+            const output = Buffer.from(output_encoded, 'base64').toString('utf8');
+            const issue_number = Number(fs.readFileSync(path.join(temp, 'pr_number')));
             github.rest.issues.createComment({
               issue_number: issue_number,
               owner: context.repo.owner,
