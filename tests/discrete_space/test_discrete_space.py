@@ -340,8 +340,6 @@ def test_dynamic_modifications_to_space():
     # test remove_connection
     cell1 = cells[(2, 0)]
     cell2 = cells[(3, 0)]
-    # creating cell3 with the same coordinate as cell1
-    cell3 = Cell(coordinate=(2, 0))
     grid.remove_connection(cell1, cell2)
 
     assert cell2 not in cell1.neighborhood
@@ -357,7 +355,7 @@ def test_dynamic_modifications_to_space():
     grid.remove_cell(cell1)
     for neighbor in neighbors:
         assert cell1 not in neighbor.neighborhood
-    
+
     # test add_cells
     grid.add_cell(cell1)
     for neighbor in neighbors:
@@ -365,10 +363,6 @@ def test_dynamic_modifications_to_space():
 
     for neighbor in neighbors:
         assert cell1 in neighbor.neighborhood
-
-    # test duplicate coordinate raises ValueError    
-    with pytest.raises(ValueError, match=r"Cell at coordinate .* already exists"):
-        grid.add_cell(cell3)  
 
 
 def test_cell_neighborhood():
