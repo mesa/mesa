@@ -387,7 +387,11 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
             self.random = random
         else:
             # all agents in an AgentSet should share the same model, just take it from first
-            self.random = self._agents.keys().__next__().model.random
+            # Re-check length to avoid StopIteration if agents were garbage collected
+            if len(self._agents) > 0:
+                self.random = next(iter(self._agents)).model.random
+            else:
+                self.random = Random()
 
     def __len__(self) -> int:
         """Return the number of agents in the AgentSet."""
