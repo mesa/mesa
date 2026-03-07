@@ -479,7 +479,6 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         if isinstance(method, str):
             for agentref in self._agents.keyrefs():
                 if (agent := agentref()) is not None:
-
                     # Skip agents that are components of a MetaAgent
                     if getattr(agent, "is_component", False):
                         continue
@@ -488,7 +487,6 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         else:
             for agentref in self._agents.keyrefs():
                 if (agent := agentref()) is not None:
-
                     # Skip agents that are components of a MetaAgent
                     if getattr(agent, "is_component", False):
                         continue
