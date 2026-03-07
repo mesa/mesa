@@ -357,7 +357,7 @@ def test_dynamic_modifications_to_space():
     grid.remove_cell(cell1)
     for neighbor in neighbors:
         assert cell1 not in neighbor.neighborhood
-    
+
     # test add_cells
     grid.add_cell(cell1)
     for neighbor in neighbors:

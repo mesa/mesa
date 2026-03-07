@@ -116,7 +116,7 @@ class DiscreteSpace[T: Cell](ABC):
                 f"Cell at coordinate {cell.coordinate} already exists. "
                 f"Remove the existing cell first or use a different coordinate."
             )
-        
+
         self._cells[cell.coordinate] = cell
 
     def remove_cell(self, cell: T):
