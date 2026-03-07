@@ -342,7 +342,6 @@ def test_dynamic_modifications_to_space():
     cell2 = cells[(3, 0)]
     # creating cell3 with the same coordinate as cell1
     cell3 = Cell(coordinate=(2, 0))
-    print(cell1 is cell3)  # Add this line temporarily
     grid.remove_connection(cell1, cell2)
 
     assert cell2 not in cell1.neighborhood
