@@ -336,3 +336,52 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     # This should not cause a TypeError from unpacking
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
+
+
+def test_is_component_flag_set_on_init(setup_agents):
+    """Test that is_component is set to True when an agent is added to MetaAgent on init."""
+    model, agents = setup_agents
+    agent1 = agents[0]
+
+    # Initially not set (or could be False if previously used, but here fresh agents)
+    assert not hasattr(agent1, "is_component")
+
+    MetaAgent(model, {agent1})
+
+    assert agent1.is_component is True
+
+
+def test_is_component_flag_set_on_add(setup_agents):
+    """Test that is_component is set to True when an agent is added via add_constituting_agents."""
+    model, agents = setup_agents
+    agent1 = agents[1]
+    meta = MetaAgent(model, set())
+
+    assert not hasattr(agent1, "is_component")
+
+    meta.add_constituting_agents({agent1})
+
+    assert agent1.is_component is True
+
+
+def test_is_component_flag_unset_on_remove(setup_agents):
+    """Test that is_component is set to False when an agent is removed from all meta agents."""
+    model, agents = setup_agents
+    agent1 = agents[2]
+    meta1 = MetaAgent(model, {agent1})
+
+    assert agent1.is_component is True
+
+    meta1.remove_constituting_agents({agent1})
+
+    assert agent1.is_component is False
+
+
+def test_create_meta_agent_sets_is_component(setup_agents):
+    """Test that create_meta_agent also sets the is_component flag."""
+    model, agents = setup_agents
+    agent1 = agents[0]
+
+    create_meta_agent(model, "GroupA", [agent1], Agent)
+
+    assert agent1.is_component is True
