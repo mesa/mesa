@@ -87,3 +87,23 @@ def test_create_meta_agent_independent_groups_with_overlap():
 
     assert len(agent2.meta_agents) == 1
     assert any(ma.__class__.__name__ == "GroupB" for ma in agent2.meta_agents)
+
+
+def test_is_component_flag_remains_true_if_in_another_group_overlap():
+    """Test that is_component remains True if an agent is still in another meta agent."""
+    model = Model()
+    agent1 = Agent(model)
+    meta1 = MetaAgent(model, {agent1})
+    meta2 = MetaAgent(model, {agent1})
+
+    assert agent1.is_component is True
+
+    meta1.remove_constituting_agents({agent1})
+
+    # Still in meta2, so should remain True
+    assert agent1.is_component is True
+
+    meta2.remove_constituting_agents({agent1})
+
+    # Now removed from all, should be False
+    assert agent1.is_component is False
