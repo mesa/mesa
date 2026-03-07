@@ -89,6 +89,12 @@ class FixedCell(HasCell):
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
+        if cell is None:
+            if self._mesa_cell is not None:
+                self._mesa_cell.remove_agent(self)
+                self._mesa_cell = None
+            return
+
         if self._mesa_cell is not None:
             raise ValueError("Cannot move agent in FixedCell")
         cell.add_agent(self)
@@ -114,9 +120,7 @@ class FixedAgent(Agent, FixedCell):
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
-
-        self.cell.remove_agent(self)
-        self._mesa_cell = None
+        self.cell = None
 
 
 class Grid2DMovingAgent(CellAgent):
