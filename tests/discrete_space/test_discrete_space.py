@@ -365,6 +365,7 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
 
+
 def test_cell_neighborhood():
     """Test neighborhood method of cell in different GridSpaces."""
     # orthogonal grid
@@ -506,9 +507,7 @@ def test_networkgrid():
     grid.remove_connection(cell, grid._cells[0])
     assert cell not in grid._cells[0].neighborhood
     assert grid._cells[0] not in cell.neighborhood
-    
-    grid.remove_cell(grid._cells[10])
-
+   
     cell = Cell(10, random=random.Random(42))  # n = 10, so 10 + 1
     grid.add_cell(cell)
     grid.add_connection(cell, grid._cells[0])
