@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    from mesa.experimental.action_space import ActionSpace
     from mesa.model import Model
 
 from mesa.agentset import AgentSet
@@ -35,6 +36,7 @@ class Agent[M: Model]:
 
     """
 
+    action_space: ActionSpace | None = None
     _datasets: ClassVar = set()
 
     def __init_subclass__(cls, **kwargs):
@@ -66,6 +68,25 @@ class Agent[M: Model]:
 
         for dataset in self._datasets:
             self.model.data_registry[dataset].add_agent(self)
+
+    def validate_action(self, action):
+        """Validate an action against this agent's ActionSpace.
+
+        If no ActionSpace is set, returns the action unchanged.
+
+        Args:
+            action: The Action to validate.
+
+        Returns:
+           Tuple of (validated_action, ActionReport).
+        """
+        if self.action_space is None:
+            from mesa.experimental.action_space import ActionReport  # noqa: PLC0415
+
+            return action, ActionReport(
+                original=action, result=action, was_modified=False
+            )
+        return self.action_space.validate(action, self)
 
     def remove(self) -> None:
         """Remove and delete the agent from the model.
