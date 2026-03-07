@@ -1,8 +1,9 @@
 """Tests for ContinuousSpace viz_dims validation."""
 
+from random import Random
+
 import numpy as np
 import pytest
-from random import Random
 
 from mesa.experimental.continuous_space import ContinuousSpace
 
@@ -18,14 +19,18 @@ def test_continuous_space_requires_at_least_2_dimensions():
 def test_viz_dims_must_be_length_2(viz_dims):
     """viz_dims must contain exactly 2 indices."""
     dims = np.array([[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]])
-    with pytest.raises(ValueError, match="viz_dims must contain exactly two distinct dimensions"):
+    with pytest.raises(
+        ValueError, match="viz_dims must contain exactly two distinct dimensions"
+    ):
         ContinuousSpace(dims, viz_dims=viz_dims, random=Random(1))
 
 
 def test_viz_dims_must_be_distinct():
     """viz_dims must not repeat the same index (e.g., (0, 0))."""
     dims = np.array([[0.0, 1.0], [0.0, 1.0]])
-    with pytest.raises(ValueError, match="viz_dims must contain exactly two distinct dimensions"):
+    with pytest.raises(
+        ValueError, match="viz_dims must contain exactly two distinct dimensions"
+    ):
         ContinuousSpace(dims, viz_dims=(0, 0), random=Random(1))
 
 
