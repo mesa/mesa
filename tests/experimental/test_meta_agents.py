@@ -325,6 +325,39 @@ def test_meta_agent_step(setup_agents):
     # Add additional assertions if step behavior is defined in the future
 
 
+def test_explicit_meta_attributes_take_precedence_over_inferred(setup_agents):
+    """Test explicitly provided meta_attributes are not overwritten by inferred ones."""
+    model, agents = setup_agents
+    agents[0].custom_attribute = "agent_value"
+
+    meta_agent = create_meta_agent(
+        model,
+        "AttributePriorityMetaAgent",
+        [agents[0]],
+        Agent,
+        meta_attributes={"custom_attribute": "explicit_value"},
+        assume_constituting_agent_attributes=True,
+    )
+
+    assert meta_agent.custom_attribute == "explicit_value"
+
+
+def test_explicit_meta_methods_take_precedence_over_inferred(setup_agents):
+    """Test explicitly provided meta_methods are not overwritten by inferred ones."""
+    model, agents = setup_agents
+
+    meta_agent = create_meta_agent(
+        model,
+        "MethodPriorityMetaAgent",
+        [agents[0]],
+        Agent,
+        meta_methods={"custom_method": lambda self: "explicit_value"},
+        assume_constituting_agent_methods=True,
+    )
+
+    assert meta_agent.custom_method() == "explicit_value"
+
+
 def test_find_combinations_without_evaluation_func(setup_agents):
     """Test find_combinations when evaluation_func is None.
 

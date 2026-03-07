@@ -173,7 +173,7 @@ def create_meta_agent(
     def add_methods(
         meta_agent_instance: Any,
         agents: Iterable[Any],
-        meta_methods: dict[str, Callable],
+        meta_methods: dict[str, Callable] | None,
     ) -> None:
         """Add methods to the meta-agent instance.
 
@@ -182,26 +182,29 @@ def create_meta_agent(
         agents (Iterable[Any]): The agents to derive methods from.
         meta_methods (Dict[str, Callable]): methods to be added to the meta-agent.
         """
+        resolved_meta_methods = dict(meta_methods or {})
         if assume_constituting_agent_methods:
-            agent_classes = {type(agent) for agent in agents}
-            if meta_methods is None:
-                # Initialize meta_methods if not provided
-                meta_methods = {}
-            for agent_class in agent_classes:
+            seen_classes = set()
+            for agent in agents:
+                agent_class = type(agent)
+                if agent_class in seen_classes:
+                    continue
+                seen_classes.add(agent_class)
                 for name in agent_class.__dict__:
                     if callable(getattr(agent_class, name)) and not name.startswith(
                         "__"
                     ):
                         original_method = getattr(agent_class, name)
-                        meta_methods[name] = original_method
+                        resolved_meta_methods.setdefault(name, original_method)
 
-        if meta_methods is not None:
-            for name, meth in meta_methods.items():
-                bound_method = MethodType(meth, meta_agent_instance)
-                setattr(meta_agent_instance, name, bound_method)
+        for name, meth in resolved_meta_methods.items():
+            bound_method = MethodType(meth, meta_agent_instance)
+            setattr(meta_agent_instance, name, bound_method)
 
     def add_attributes(
-        meta_agent_instance: Any, agents: Iterable[Any], meta_attributes: dict[str, Any]
+        meta_agent_instance: Any,
+        agents: Iterable[Any],
+        meta_attributes: dict[str, Any] | None,
     ) -> None:
         """Add attributes to the meta-agent instance.
 
@@ -211,6 +214,7 @@ def create_meta_agent(
         meta_attributes (Dict[str, Any]): Attributes to be added to the
         meta-agent.
         """
+        resolved_meta_attributes = dict(meta_attributes or {})
         # Prevent collision of attributes with meta-agent instantiation
         mesa_primitives = [
             "unique_id",
@@ -222,9 +226,6 @@ def create_meta_agent(
         ]
 
         if assume_constituting_agent_attributes:
-            if meta_attributes is None:
-                # Initialize meta_attributes if not provided
-                meta_attributes = {}
             for agent in agents:
                 for name, value in agent.__dict__.items():
                     if (
@@ -232,11 +233,10 @@ def create_meta_agent(
                         and name not in mesa_primitives
                         and not name.startswith("_")
                     ):
-                        meta_attributes[name] = value
+                        resolved_meta_attributes.setdefault(name, value)
 
-        if meta_attributes is not None:
-            for key, value in meta_attributes.items():
-                setattr(meta_agent_instance, key, value)
+        for key, value in resolved_meta_attributes.items():
+            setattr(meta_agent_instance, key, value)
 
     # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
     # This preserves the "singleton/unique group per class" behavior while allowing overlap between different classes
