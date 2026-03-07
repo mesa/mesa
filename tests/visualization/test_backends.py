@@ -17,6 +17,7 @@ from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyl
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
 def test_backend_get_agent_pos_raises_when_position_too_short(backend_cls):
+    """Backends should reject agent positions with fewer than 2 coordinates."""
     backend = backend_cls(space_drawer=MagicMock())
 
     class DummySpace:
