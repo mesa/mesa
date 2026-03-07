@@ -14,7 +14,6 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
@@ -49,6 +48,8 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_get_neighborhood_cache",
+        "_neighborhood_cache",
         "_position",  # physical position
         "capacity",
         "connections",
@@ -104,6 +105,8 @@ class Cell:
         self._agents: list[
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        self._get_neighborhood_cache: dict[tuple[int, bool], CellCollection[Cell]] = {}
+        self._neighborhood_cache: dict[tuple[int, bool], dict[Cell, list[Agent]]] = {}
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
@@ -197,8 +200,6 @@ class Cell:
         """
         return self.get_neighborhood()
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -215,13 +216,17 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection[Cell](
+        cache_key = (radius, include_center)
+        if cache_key in self._get_neighborhood_cache:
+            return self._get_neighborhood_cache[cache_key]
+
+        neighborhood = CellCollection[Cell](
             self._neighborhood(radius=radius, include_center=include_center),
             random=self.random,
         )
+        self._get_neighborhood_cache[cache_key] = neighborhood
+        return neighborhood
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -230,6 +235,10 @@ class Cell:
         Note: This implementation uses iterative breadth-first search instead
         of recursion to avoid RecursionError on large radius values.
         """
+        cache_key = (radius, include_center)
+        if cache_key in self._neighborhood_cache:
+            return self._neighborhood_cache[cache_key]
+
         if radius < 1:
             raise ValueError("radius must be larger than one")
 
@@ -240,6 +249,7 @@ class Cell:
             }
             if include_center:
                 neighborhood[self] = self._agents
+            self._neighborhood_cache[cache_key] = neighborhood
             return neighborhood
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
@@ -272,6 +282,7 @@ class Cell:
         else:
             neighborhood.pop(self, None)
 
+        self._neighborhood_cache[cache_key] = neighborhood
         return neighborhood
 
     def __getstate__(self):
@@ -290,5 +301,5 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()
+        self._get_neighborhood_cache.clear()
+        self._neighborhood_cache.clear()

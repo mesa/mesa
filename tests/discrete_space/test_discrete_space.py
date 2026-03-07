@@ -365,6 +365,31 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
 
+def test_neighborhood_cache_invalidation_is_local():
+    """Test that connection updates clear only local cell neighborhood caches."""
+    grid = OrthogonalVonNeumannGrid((10,), torus=False, random=random.Random(42))
+    cells = [grid[(i,)] for i in range(10)]
+
+    # Warm per-cell neighborhood caches.
+    for cell in cells:
+        cell.get_neighborhood(radius=2)
+
+    assert cells[0]._get_neighborhood_cache
+    assert cells[9]._get_neighborhood_cache
+    assert cells[5]._get_neighborhood_cache
+    assert cells[6]._get_neighborhood_cache
+
+    grid.remove_connection(cells[5], cells[6])
+
+    # Unrelated cells should retain their caches.
+    assert cells[0]._get_neighborhood_cache
+    assert cells[9]._get_neighborhood_cache
+
+    # Directly affected cells should have cache cleared.
+    assert not cells[5]._get_neighborhood_cache
+    assert not cells[6]._get_neighborhood_cache
+
+
 def test_cell_neighborhood():
     """Test neighborhood method of cell in different GridSpaces."""
     # orthogonal grid
