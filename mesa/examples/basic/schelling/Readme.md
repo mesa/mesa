@@ -8,11 +8,20 @@ By default, the number of similar neighbors the agents need to be happy is set t
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+To run the model interactively:
 
+1. Install Mesa in editable mode from the repository root:
+
+pip install -e .
+
+2. Navigate to the example directory:
+
+cd mesa/examples/basic/schelling
+
+3. Start the interactive visualization:
 ```
     $ solara run app.py
-```
+``
 
 ## Files
 

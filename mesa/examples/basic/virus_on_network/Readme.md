@@ -16,11 +16,22 @@ JavaScript library used in this example to render the network: [d3.js](https://d
 
 ## Installation
 
-To install the dependencies use pip and the requirements.txt in this directory. e.g.
+## How to Run
 
+To run the model interactively:
+
+1. Install Mesa in editable mode from the repository root:
+
+pip install -e .
+
+2. Navigate to the example directory:
+
+cd mesa/examples/basic/schelling
+
+3. Start the interactive visualization:
 ```
-    $ pip install -r requirements.txt
-```
+    $ solara run app.py
+``
 
 ## How to Run
 

@@ -8,11 +8,20 @@ As the model runs, the distribution of wealth among agents goes from being perfe
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+To run the model interactively:
 
+1. Install Mesa in editable mode from the repository root:
+
+pip install -e .
+
+2. Navigate to the example directory:
+
+cd mesa/examples/basic/schelling
+
+3. Start the interactive visualization:
 ```
     $ solara run app.py
-```
+``
 ## Files
 
 * ``model.py``: Final version of the model.
