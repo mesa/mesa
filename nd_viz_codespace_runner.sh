@@ -5,9 +5,18 @@ set -euo pipefail
 # ND/3D ContinuousSpace + Matplotlib experiments (Codespaces)
 # ============================================================
 #
-# Fixes prior patching issues (including accidental \"viz_dims\" insertion),
-# patches Matplotlib drawing to respect ContinuousSpace.viz_dims, adds focused
-# regression tests, and generates a Matplotlib PDF/PNG report.
+# This script is intended to be run from the ROOT of your Mesa fork.
+# It will:
+#   1) create/activate .venv and install Mesa with extras needed for visualization
+#      (IMPORTANT: mesa.visualization imports solara; you need the [viz] extra)
+#   2) patch mesa/visualization/mpl_space_drawing.py so Matplotlib respects
+#      ContinuousSpace.viz_dims for ND continuous spaces
+#   3) write a Matplotlib report generator example module
+#   4) write focused pytest regression tests and run them
+#   5) generate a PDF + PNG report you can attach in a PR
+#
+# Run:
+#   bash nd_viz_codespace_runner_fixed3.sh --out nd_viz_out
 
 OUT_DIR="nd_viz_out"
 STEPS="150"
@@ -21,7 +30,7 @@ SKIP_TESTS="0"
 
 usage() {
   cat <<USAGE
-Usage: bash nd_viz_codespace_runner_fixed2.sh [options]
+Usage: bash nd_viz_codespace_runner_fixed3.sh [options]
 
 Options:
   --out DIR         Output directory for report artifacts (default: ${OUT_DIR})
@@ -35,7 +44,7 @@ Options:
   --skip-tests      Do not run pytest
 
 Examples:
-  bash nd_viz_codespace_runner_fixed2.sh --out nd_viz_out
+  bash nd_viz_codespace_runner_fixed3.sh --out nd_viz_out
 USAGE
 }
 
@@ -67,7 +76,7 @@ fi
 
 export MPLBACKEND=Agg
 
-echo "== ND/Viz runner (fixed2) =="
+echo "== ND/Viz runner (fixed3) =="
 echo "  OUT_DIR=${OUT_DIR}"
 echo "  STEPS=${STEPS}"
 echo "  N_AGENTS=${N_AGENTS}"
@@ -85,9 +94,20 @@ if [[ "${SKIP_INSTALL}" == "0" ]]; then
   source .venv/bin/activate
 
   python -m pip install -U pip
-  python -m pip install -e .
-  # Mesa imports networkx at import time (discrete_space.network), so include it. 
-  python -m pip install -U matplotlib scipy pytest networkx
+
+  # Install your fork editable, WITH the extras needed for:
+  #  - networkx (mesa[network])
+  #  - matplotlib + solara + altair + starlette<1.0 (mesa[viz])
+  #
+  # This prevents import errors like:
+  #   ModuleNotFoundError: No module named 'networkx'
+  #   ModuleNotFoundError: No module named 'solara'
+  #
+  python -m pip install -e ".[network,viz]"
+
+  # We still install pytest explicitly, since it's part of Mesa's [dev] extra, not base.
+  python -m pip install -U pytest
+
   echo
 else
   echo "== Skipping install (assumes env already has deps) =="
@@ -95,7 +115,7 @@ else
 fi
 
 if [[ "${SKIP_PATCH}" == "0" ]]; then
-  echo "== Patching Matplotlib ContinuousSpace drawing to respect viz_dims (robust, no bad escapes) =="
+  echo "== Patching Matplotlib ContinuousSpace drawing to respect viz_dims (robust) =="
   python - <<'PY'
 from __future__ import annotations
 
@@ -113,7 +133,6 @@ orig = txt
 
 # Repair any previous accidental insertion of \"viz_dims\" (invalid Python).
 txt = txt.replace('\\"viz_dims\\"', '"viz_dims"')
-
 changed = (txt != orig)
 if changed:
     print("  ✓ Repaired prior bad escapes: \\\"viz_dims\\\" -> \"viz_dims\"")
@@ -121,13 +140,6 @@ if changed:
 # ------------------------------------------------------------
 # Patch A: collect_agent_data() -> continuous case uses viz_dims
 # ------------------------------------------------------------
-# Replace:
-#   agent_x, agent_y = agent.position
-# with:
-#   pos = agent.position
-#   if len(pos) < 2: raise
-#   i,j = getattr(space, "viz_dims", (0,1))
-#   agent_x, agent_y = pos[i], pos[j]
 pattern_unpack = r"^(\s*)agent_x,\s*agent_y\s*=\s*agent\.position\s*$"
 m = re.search(pattern_unpack, txt, flags=re.M)
 if m:
@@ -146,15 +158,8 @@ else:
     print("  - collect_agent_data(): already patched (no direct unpack found)")
 
 # ------------------------------------------------------------
-# Patch B1: draw_continuous_space() uses x_min/x_max from dimensions[0/1]
+# Patch B1: draw_continuous_space() bounds (dimensions[0/1] variant)
 # ------------------------------------------------------------
-# Replace:
-#   x_min, x_max = space.dimensions[0]
-#   y_min, y_max = space.dimensions[1]
-# with:
-#   i, j = getattr(space, "viz_dims", (0, 1))
-#   x_min, x_max = space.dimensions[i]
-#   y_min, y_max = space.dimensions[j]
 pat_xy = re.compile(
     r"(?m)^(?P<indent>\s*)x_min,\s*x_max\s*=\s*space\.dimensions\[0\]\s*$\n"
     r"(?P=indent)y_min,\s*y_max\s*=\s*space\.dimensions\[1\]\s*$"
@@ -174,15 +179,8 @@ else:
     print("  - draw_continuous_space(): dimensions[0/1] bounds variant not found or already patched")
 
 # ------------------------------------------------------------
-# Patch B2: draw_continuous_space() uses space.x_min/x_max/y_min/y_max
+# Patch B2: draw_continuous_space() bounds (space.x_min/x_max variant)
 # ------------------------------------------------------------
-# Replace:
-#   width = space.x_max - space.x_min
-#   height = space.y_max - space.y_min
-#   ax.set_xlim(space.x_min - x_padding, space.x_max + x_padding)
-#   ax.set_ylim(space.y_min - y_padding, space.y_max + y_padding)
-#
-# with projected bounds based on space.dimensions[i/j].
 pat_width = re.compile(r"(?m)^(?P<indent>\s*)width\s*=\s*space\.x_max\s*-\s*space\.x_min\s*$")
 m3 = pat_width.search(txt)
 if m3:
@@ -197,36 +195,24 @@ if m3:
     changed = True
     print("  ✓ Patched draw_continuous_space(): width uses viz_dims-projected bounds")
 
-    # height line
-    txt2, n = re.subn(
+    txt, _ = re.subn(
         r"(?m)^(\s*)height\s*=\s*space\.y_max\s*-\s*space\.y_min\s*$",
         r"\1height = y_max - y_min",
         txt,
         count=1,
     )
-    if n:
-        txt = txt2
-
-    # set_xlim
-    txt2, n = re.subn(
+    txt, _ = re.subn(
         r"(?m)^(\s*)ax\.set_xlim\(\s*space\.x_min\s*-\s*x_padding\s*,\s*space\.x_max\s*\+\s*x_padding\s*\)\s*$",
         r"\1ax.set_xlim(x_min - x_padding, x_max + x_padding)",
         txt,
         count=1,
     )
-    if n:
-        txt = txt2
-
-    # set_ylim
-    txt2, n = re.subn(
+    txt, _ = re.subn(
         r"(?m)^(\s*)ax\.set_ylim\(\s*space\.y_min\s*-\s*y_padding\s*,\s*space\.y_max\s*\+\s*y_padding\s*\)\s*$",
         r"\1ax.set_ylim(y_min - y_padding, y_max + y_padding)",
         txt,
         count=1,
     )
-    if n:
-        txt = txt2
-
 else:
     print("  - draw_continuous_space(): space.x_min/x_max bounds variant not found (ok)")
 
@@ -319,9 +305,9 @@ class LayeredAirspaceModel(Model):
     """
     3D toy model: two altitude layers (z≈0.25 and z≈0.75), agents wander in XY.
 
-    This is great for demonstrating viz_dims:
-      - In XY projection, agents from different layers overlap and can look "too close"
-      - In XZ/YZ, the layering becomes obvious
+    Demonstrates why ND->2D projection is useful:
+      - In XY projection, different layers overlap and can look "too close"
+      - In XZ/YZ, the separation becomes obvious
     """
     def __init__(
         self,
@@ -398,34 +384,26 @@ def fig_projections(model: LayeredAirspaceModel) -> plt.Figure:
     space.viz_dims = (0, 1)
     draw_continuous_space(space, _portray_layered, ax=ax1)
     ax1.set_title("XY (viz_dims=(0,1))")
-    ax1.set_xlabel("x")
-    ax1.set_ylabel("y")
-    ax1.set_aspect("equal", "box")
+    ax1.set_xlabel("x"); ax1.set_ylabel("y"); ax1.set_aspect("equal", "box")
 
     ax2 = fig.add_subplot(2, 2, 2)
     space.viz_dims = (0, 2)
     draw_continuous_space(space, _portray_layered, ax=ax2)
     ax2.set_title("XZ (viz_dims=(0,2))")
-    ax2.set_xlabel("x")
-    ax2.set_ylabel("z")
-    ax2.set_aspect("equal", "box")
+    ax2.set_xlabel("x"); ax2.set_ylabel("z"); ax2.set_aspect("equal", "box")
 
     ax3 = fig.add_subplot(2, 2, 3)
     space.viz_dims = (1, 2)
     draw_continuous_space(space, _portray_layered, ax=ax3)
     ax3.set_title("YZ (viz_dims=(1,2))")
-    ax3.set_xlabel("y")
-    ax3.set_ylabel("z")
-    ax3.set_aspect("equal", "box")
+    ax3.set_xlabel("y"); ax3.set_ylabel("z"); ax3.set_aspect("equal", "box")
 
     ax4 = fig.add_subplot(2, 2, 4, projection="3d")
     pos = np.array(space.agent_positions, copy=False)
     layers = np.array([getattr(a, "layer_id", 0) for a in space.active_agents], dtype=int)
     ax4.scatter(pos[:, 0], pos[:, 1], pos[:, 2], c=layers, s=8, alpha=0.85)
     ax4.set_title("3D scatter (true geometry)")
-    ax4.set_xlabel("x")
-    ax4.set_ylabel("y")
-    ax4.set_zlabel("z")
+    ax4.set_xlabel("x"); ax4.set_ylabel("y"); ax4.set_zlabel("z")
 
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     return fig
@@ -439,8 +417,7 @@ def fig_near_misses(model: LayeredAirspaceModel) -> plt.Figure:
     ax.plot(t, model.near_xz, label="XZ (2D projection)")
     ax.plot(t, model.near_yz, label="YZ (2D projection)")
     ax.plot(t, model.near_xyz, label="XYZ (true 3D)")
-    ax.set_xlabel("step")
-    ax.set_ylabel("# pairs with distance < r")
+    ax.set_xlabel("step"); ax.set_ylabel("# pairs with distance < r")
     ax.legend(loc="best")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
@@ -491,8 +468,7 @@ def fig_msd(seed: int) -> plt.Figure:
     ax.plot(t, th2, label="MSD (2D theory)")
     ax.plot(t, msd3, label="MSD (3D sim)")
     ax.plot(t, th3, label="MSD (3D theory)")
-    ax.set_xlabel("step")
-    ax.set_ylabel("MSD")
+    ax.set_xlabel("step"); ax.set_ylabel("MSD")
     ax.legend(loc="best")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
