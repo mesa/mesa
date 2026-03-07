@@ -107,6 +107,13 @@ class DiscreteSpace[T: Cell](ABC):
 
         """
         self.__dict__.pop("all_cells", None)
+
+        if cell.coordinate in self._cells:
+            raise ValueError(
+                f"Cell at coordinate {cell.coordinate} already exists. "
+                f"Remove the existing cell first or use a different coordinate."
+            )
+        
         self._cells[cell.coordinate] = cell
 
     def remove_cell(self, cell: T):
