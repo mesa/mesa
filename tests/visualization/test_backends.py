@@ -14,11 +14,6 @@ from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceA
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
-import pytest
-from unittest.mock import MagicMock
-
-from mesa.visualization.backends import AltairBackend, MatplotlibBackend
-
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
 def test_backend_get_agent_pos_raises_when_position_too_short(backend_cls):
@@ -32,6 +27,7 @@ def test_backend_get_agent_pos_raises_when_position_too_short(backend_cls):
 
     with pytest.raises(ValueError, match="at least 2 dimensions"):
         backend._get_agent_pos(DummyAgent(), DummySpace())
+
 
 def test_matplotlib_initialize_canvas():
     """Test that MatplotlibBackend initializes canvas with ax and fig."""
