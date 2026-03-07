@@ -367,7 +367,7 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
     # test duplicate coordinate raises ValueError    
-    with pytest.raises(ValueError, match="Cell at coordinate .* already exists"):
+    with pytest.raises(ValueError, match=r"Cell at coordinate .* already exists"):
         grid.add_cell(cell3)  
 
 
