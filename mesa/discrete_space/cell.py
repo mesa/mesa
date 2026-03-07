@@ -109,6 +109,7 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self.empty = True
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -146,13 +147,12 @@ class Cell:
             agent (CellAgent): agent to add to this Cell
 
         """
-        n = len(self._agents)
-        self.empty = False
-
-        if self.capacity is not None and n >= self.capacity:
+        if self.capacity is not None and len(self._agents) >= self.capacity:
             raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
+        if self.empty:
+            self.empty = False
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -166,12 +166,12 @@ class Cell:
         except ValueError as e:
             raise AgentMissingException(agent, self.coordinate) from e
 
-        self.empty = self.is_empty
+        self.empty = not bool(self._agents)
 
     @property
     def is_empty(self) -> bool:
         """Returns a bool of the contents of a cell."""
-        return len(self._agents) == 0
+        return self.empty
 
     @property
     def is_full(self) -> bool:
