@@ -106,11 +106,11 @@ class DiscreteSpace[T: Cell](ABC):
             correctly if you are adding or removing cells and connections at runtime.
         raises:
            It raises valueerror if the cell.coordinates is already
-           present in the self.cells 
+           present in the self.cells
         """
         self.__dict__.pop("all_cells", None)
-        
-        # Raise the value error 
+
+        # Raise the value error
         if cell.coordinate in self._cells:
             raise ValueError(
                 f"Cell at coordinate {cell.coordinate} already exists. "
