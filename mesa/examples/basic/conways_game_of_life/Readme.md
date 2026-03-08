@@ -9,11 +9,19 @@ The "game" is a zero-player game, meaning that its evolution is determined by it
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+1. Install Mesa and recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+2. Run the example:
+
+solara run app.py
+
+3. Open your browser and go to:
+
+http://localhost:8765
+
+
 
 ## Files
 
