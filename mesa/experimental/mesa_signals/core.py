@@ -172,8 +172,6 @@ class ComputedState:
             current_value: the current value of the Observable
 
         """
-        parent.observe(name, ALL, self._set_dirty)
-
         try:
             self.parents[parent][name] = current_value
         except KeyError:
