@@ -885,7 +885,6 @@ def test_hardkeyagentset_add_remove():
 
 def test_agentset_skip_component_agent():
     """Ensure the Agents markes as components are skipped in Agentset.do()."""
-
     model = Model()
 
     class ComponentTestAgent(Agent):
@@ -896,20 +895,15 @@ def test_agentset_skip_component_agent():
         def step(self):
             self.called = True
 
-   
     a1 = ComponentTestAgent(model)
     a2 = ComponentTestAgent(model)
 
-    
     a2.is_component = True
 
-    agentset = AgentSet([a1,a2])
+    agentset = AgentSet([a1, a2])
 
-   
     agentset.do("step")
 
-   
     assert a1.called is True
 
-    
     assert a2.called is False
