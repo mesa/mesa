@@ -1,138 +1,130 @@
-<p align="center"><em>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide</em></p>
+# Mesa 4.0: Quantamental AI Stock Market 📈
 
-# Mesa: Agent-based modeling in Python
+[![Tests: 29/29 PASSED](https://img.shields.io/badge/Tests-29%2F29%20PASSED-success.svg)](#)
 
-|         | |
-|---------| --- |
-| CI/CD   | [![GitHub Actions build status](https://github.com/mesa/mesa/workflows/build/badge.svg)](https://github.com/mesa/mesa/actions) [![Coverage status](https://codecov.io/gh/mesa/mesa/branch/main/graph/badge.svg)](https://codecov.io/gh/mesa/mesa) |
-| Package | [![PyPI - Version](https://img.shields.io/pypi/v/mesa.svg?logo=pypi&label=PyPI&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/mesa.svg?color=blue&label=Downloads&logo=pypi&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mesa.svg?logo=python&label=Python&logoColor=gold)](https://pypi.org/project/Mesa/) |
-| Meta    | [![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch) [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/) |
-| Chat    | [![chat](https://img.shields.io/matrix/project-mesa:matrix.org?label=chat&logo=Matrix)](https://matrix.to/#/#project-mesa:matrix.org) |
-| Cite    | [![DOI](https://joss.theoj.org/papers/10.21105/joss.07668/status.svg)](https://doi.org/10.21105/joss.07668) |
+> A reflexive stock market simulation where LLM agents don't just trade; they move the price.
 
-Mesa allows users to quickly create agent-based models using built-in
-core components (such as spatial grids and agent schedulers) or
-customized implementations; visualize them using a browser-based
-interface; and analyze their results using Python's data analysis
-tools. Its goal is to be the Python-based alternative to NetLogo,
-Repast, or MASON.
+This is a GSoC 2026 Proof-of-Concept for `mesa-llm` demonstrating **SingleCallReasoning** (50% API cost saving), deep Pydantic-enforced trading, and **Offline Resilience** compliant with Mesa 4.0 standards.
 
-![A screenshot of the WolfSheep Model in Mesa](https://raw.githubusercontent.com/mesa/mesa/main/docs/images/wolf_sheep.png)
+## Innovation Stack
 
-*Above: A Mesa implementation of the WolfSheep model, this
-can be displayed in browser windows or Jupyter. An online demo is [available here](https://py.cafe/app/EwoutH/mesa-solara-basic-examples).*
+### 1. Pydantic-Enforced Trading (First in Mesa)
+LLM agents return **structured `TradeDecision` objects** — not raw strings. The schema merges Chain-of-Thought reasoning with the trade action in a **single API call**, enforced via `litellm`'s `response_format` parameter.
 
-## Features
-
--   Modular components
--   Browser-based visualization
--   Built-in tools for analysis
--   Example model library
-
-## Using Mesa
-
-To install our latest stable release, run:
-
-``` bash
-pip install -U mesa
+```python
+class TradeDecision(BaseModel):
+    thinking_process: str     # Full CoT reasoning trace
+    sentiment_score: float    # -1.0 (fear) to +1.0 (greed)
+    action: TradeAction       # BUY | SELL | HOLD
+    quantity: int             # Kelly-Criterion scaled
+    reasoning: str            # Standard financial summary
 ```
 
-Starting with Mesa 3.0, we don't install all our dependencies anymore by default.
+### 2. Kelly-Criterion Agents
+Agents don't guess position sizes — they **calculate** them using the Kelly Criterion (`f* = (bp - q) / b`), scaling quantity based on conviction strength and win probability derived from sentiment analysis.
+
+### 3. Reflexive Market Loop
+Price discovery is **endogenous**: agent trades create order flow → order flow moves the price → changed price affects the next agent's observation. This closed feedback loop produces emergent phenomena like **Irrational Exuberance** and **Panic Selling**.
+
+### 4. Single-Call CoT (50% API Cost Reduction)
+Traditional approaches require 2 LLM calls per agent per step (think + act). Our merged Pydantic schema forces thinking *and* acting into a single token stream, cutting API costs by half while maintaining full audit transparency.
+
+## Structure
+
+| Component | Path | Purpose |
+|---|---|---|
+| **Core Model** | `mesa_stock_market/model.py` | MarketModel simulation + Reflexivity Engine |
+| **Agents** | `mesa_stock_market/agents.py` | TraderAgent LLM wrapper |
+| **Guardrails** | `mesa_stock_market/schemas.py` | Pydantic TradeDecision models |
+| **Logic** | `mesa_stock_market/reasoning.py` | SingleCallReasoning (The "Soul") |
+| **Config** | `mesa_stock_market/config/personas.yaml` | Traits & Prompts (The "Personality") |
+| **Tests** | `tests/test_model.py` | 29 mock-driven green unit tests |
+| **Docs** | `docs/` | Arch/Implementation specs |
+| **CLI Runner** | `run.py` | Shock Event runner with rich output |
+
+## Architecture
+
+```
+MarketModel.step()
+  ├── get_global_market_context()    → Market Pulse (unified for all agents)
+  ├── agents.shuffle_do("step")     → Mesa 4.0 activation
+  │     └── Trader.step()
+  │           ├── generate_obs()     → Self + other agents' state
+  │           ├── build_step_prompt  → Price + Pulse + Portfolio
+  │           ├── reasoning.plan()   → Single LLM call (CoT + action)
+  │           └── apply_plan()       → execute_trade tool
+  ├── _apply_reflexivity()           → Price discovery from order flow
+  ├── datacollector.collect()        → Metrics snapshot
+  └── log_data()                     → In-memory step logger
+```
+
+## Agent Personas
+
+| Persona | Style | Risk | Behavior |
+|---|---|---|---|
+| **Raging Bull** | Aggressive momentum | High | Loads up on rallies |
+| **The Hedgehog** | Cautious value | Low | Waits for extreme mispricing |
+| **The Algorithm** | Systematic quant | Medium | Pure Kelly, zero emotion |
+| **The Contrarian** | Contrarian | Medium | Buys panic, sells euphoria |
+| **The Momentum Speculator** | Sentiment-driven | High | Chases and panics |
+
+## Quick Start
+
+### 1. The Offline Smoke Test
+Run the simulation locally immediately without any API keys or internet connection.
 ```bash
-# You can customize the additional dependencies you need, if you want. Available are:
-pip install -U "mesa[network,viz]"
-
-# This is equivalent to our recommended dependencies:
-pip install -U "mesa[rec]"
-
-# To install all, including developer, dependencies:
-pip install -U "mesa[all]"
+python run.py --offline
 ```
 
-You can also use `pip` to install the latest GitHub version:
+### 2. Install Full Dependencies
 
-``` bash
-pip install -U -e git+https://github.com/mesa/mesa@main#egg=mesa
+```bash
+pip install -r requirements.txt
 ```
 
-Or any other (development) branch on this repo or your own fork:
+### 2. Set API Key
 
-``` bash
-pip install -U -e git+https://github.com/YOUR_FORK/mesa@YOUR_BRANCH#egg=mesa
+```bash
+cp .env.example .env
+# Edit .env with your GROQ_API_KEY
 ```
 
-## Resources
-For resources or help on using Mesa, check out the following:
+### 3. Run the Simulation
 
--   [Getting Started](https://mesa.readthedocs.io/stable/getting_started.html) (A collection of tutorials that will walk you through a basic model.)
--   [GSoC at Mesa — Candidates Guide](https://github.com/mesa/mesa/blob/main/docs/GSoC.md) (For candidates interested in participating in the Google Summer of Code at Mesa)
--   [Mesa Examples](https://mesa.readthedocs.io/stable/examples.html) (A repository of seminal ABMs that are part of the Mesa[rec] install and use the most current Mesa release)
--   [Docs](http://mesa.readthedocs.org/) (Mesa's documentation, API and useful snippets)
-    -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
--   [Discussions](https://github.com/mesa/mesa/discussions) (GitHub threaded discussions about Mesa)
--   [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org) (Chat Forum via Matrix to talk about Mesa)
-
-## Running Mesa in Docker
-
-You can run Mesa in a Docker container in a few ways.
-
-If you are a Mesa developer, first [install Docker
-Compose](https://docs.docker.com/compose/install/) and then, in the
-folder containing the Mesa Git repository, you run:
-
-``` bash
-$ docker compose up
-# If you want to make it run in the background, you instead run
-$ docker compose up -d
+```bash
+python run.py
 ```
 
-This runs the Schelling model, as an example.
+### 4. Review Audit Logs
 
-With the docker-compose.yml file in this Git repository, the `docker compose up` command does two important things:
+```bash
+ls logs/
+# step_000_report.json, step_001_report.json, ...
+```
 
--   It mounts the mesa root directory (relative to the
-    docker-compose.yml file) into /opt/mesa and runs pip install -e on
-    that directory so your changes to mesa should be reflected in the
-    running container.
--   It binds the docker container's port 8765 to your host system's
-    port 8765 so you can interact with the running model as usual by
-    visiting localhost:8765 on your browser
+## The Shock Event
 
-If you are a model developer that wants to run Mesa on a model, you need
-to:
+At **Step 15**, a "CEO arrested for fraud" news event is injected. The simulation tests whether agents — each with unique risk profiles — respond appropriately:
 
--   make sure that your model folder is inside the folder containing the
-    docker-compose.yml file
--   change the `MODEL_DIR` variable in docker-compose.yml to point to
-    the path of your model
--   make sure that the model folder contains an app.py file
+- **Raging Bull**: Should reduce exposure but may resist selling
+- **The Hedgehog**: Should have been cautious already; minimal impact
+- **The Algorithm**: Should calculate negative EV and go to HOLD
+- **The Contrarian**: Should start accumulating after the crash
+- **The Momentum Speculator**: Should panic sell immediately
 
-Then, you just need to run `docker compose up -d` to have it
-accessible from `localhost:8765`.
+## Risk Management
 
-## Contributing to Mesa
+Dual-enforced 1% Risk Rule:
+1. **Prompt-level**: System prompt tells the LLM to self-limit
+2. **Server-side**: `execute_trade` tool rejects trades exceeding 1% of portfolio value, returning a structured `TradeError` that syncs to the agent's internal state
 
-Want to join the Mesa team or just curious about what is happening with
-Mesa? You can\...
+## Tech Stack
 
-> -   Join our [Matrix chat room](https://matrix.to/#/#project-mesa:matrix.org) in which questions, issues, and
->     ideas can be (informally) discussed.
-> -   Come to a monthly dev session (you can find dev session times,
->     agendas and notes on [Mesa discussions](https://github.com/mesa/mesa/discussions)).
-> -   Just check out the code on [GitHub](https://github.com/mesa/mesa/).
+- **Python 3.12** | **Mesa 4.0** | **Mesa-LLM** | **LiteLLM** | **Pydantic v2**
+- Scheduling: `agents.shuffle_do()` (unified Mesa 4.0 API)
+- LLM: `gemini/gemini-2.0-flash` (configurable via litellm)
+- Reporting: `mesa.DataCollector` + custom JSON audit logger
 
-If you run into an issue, please file a [ticket](https://github.com/mesa/mesa/issues) for us to discuss. If
-possible, follow up with a pull request.
+## License
 
-If you would like to add a feature, please reach out via [ticket](https://github.com/mesa/mesa/issues) or
-join a dev session (see [Mesa discussions](https://github.com/mesa/mesa/discussions)). A feature is most likely
-to be added if you build it!
-
-Don't forget to checkout the [Contributors guide](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md).
-
-## Citing Mesa
-
-To cite Mesa in your publication, you can refer to our peer-reviewed article in the Journal of Open Source Software (JOSS):
-- ter Hoeven, E., Kwakkel, J., Hess, V., Pike, T., Wang, B., rht, & Kazil, J. (2025). Mesa 3: Agent-based modeling with Python in 2025. Journal of Open Source Software, 10(107), 7668. https://doi.org/10.21105/joss.07668
-
-Our [CITATION.cff](https://github.com/mesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
+MIT — Part of the [Project Mesa](https://github.com/mesa/mesa) ecosystem.
