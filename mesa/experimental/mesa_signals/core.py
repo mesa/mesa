@@ -179,13 +179,6 @@ class ComputedState:
         except KeyError:
             self.parents[parent] = {name: current_value}
 
-    def _remove_parents(self):
-        """Remove all parent Observables."""
-        # we can unsubscribe from everything on each parent
-        for parent in self.parents:
-            parent.unobserve(ALL, ALL, self._set_dirty)
-        self.parents.clear()
-
 
 class ComputedProperty(property):
     """A custom property class to identify computed properties."""
@@ -197,7 +190,7 @@ def computed_property(func: Callable) -> property:
     """Decorator to create a computed property.
 
     Acts like @property, but automatically tracks dependencies (Observables)
-    accessed during the function execution.
+    accessed during the function execution and updates them using diffing engine
     """
     key = f"_computed_{func.__name__}"
 
@@ -231,17 +224,36 @@ def computed_property(func: Callable) -> property:
                         break
 
             if changed:
-                state._remove_parents()
-
                 old = CURRENT_COMPUTED
                 CURRENT_COMPUTED = state
+
+                old_parents = state.parents
+                state.parents = weakref.WeakKeyDictionary()
 
                 try:
                     state.value = func(self)
                 except Exception as e:
+                    # Rollback on failure to prevent corrupted graphs
+                    state.parents = old_parents
                     raise e
                 finally:
                     CURRENT_COMPUTED = old
+
+                # Diffing Engine
+                old_deps = {
+                    (p, attr) for p, attrs in old_parents.items() for attr in attrs
+                }
+                new_deps = {
+                    (p, attr) for p, attrs in state.parents.items() for attr in attrs
+                }
+
+                # Unsubscribe from removed dependencies
+                for p, attr in old_deps - new_deps:
+                    p.unobserve(attr, ALL, state._set_dirty)
+
+                # Subscribe to newly discovered dependencies
+                for p, attr in new_deps - old_deps:
+                    p.observe(attr, ALL, state._set_dirty)
 
             state.is_dirty = False
 
