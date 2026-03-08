@@ -906,23 +906,20 @@ def test_agentset_skip_component_agent():
 
     assert a1.called is True
 
-
     assert a2.called is False
 
-    
     assert a2.called is False
 
 
 def test_agentset_do_callable_skips_component():
     """Ensure callable methods also skip component agents."""
-
     model = Model()
 
     class TestAgent(Agent):
         def __init__(self, model):
             super().__init__(model)
             self.called = False
-    
+
     def mark_called(agent):
         agent.called = True
 
@@ -931,10 +928,9 @@ def test_agentset_do_callable_skips_component():
 
     a2.is_component = True
 
-    agentset = AgentSet([a1,a2])
+    agentset = AgentSet([a1, a2])
 
     agentset.do(mark_called)
 
     assert a1.called is True
     assert a2.called is False
-
