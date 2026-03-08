@@ -313,6 +313,8 @@ class MetaAgent(Agent):
             agent.meta_agents.add(self)
             # Maintain backward compatibility for code expecting agent.meta_agent
             agent.meta_agent = self
+            # New flag
+            agent.is_component = True
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -389,6 +391,8 @@ class MetaAgent(Agent):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
             agent.meta_agent = self
+            # Flag
+            agent.is_component = True
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
@@ -407,6 +411,8 @@ class MetaAgent(Agent):
                     )[0]
                 else:
                     agent.meta_agent = None
+        # Flag = false
+        agent.is_component = False
 
     def step(self):
         """Perform the agent's step.
