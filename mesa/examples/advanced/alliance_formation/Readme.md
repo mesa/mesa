@@ -49,9 +49,7 @@ cd mesa/examples/advanced/alliance_formation
 
 2. Install dependencies
 
-pip install -U mesa
 pip install "mesa[rec]"
-pip install solara
 
 3. Run the app
 

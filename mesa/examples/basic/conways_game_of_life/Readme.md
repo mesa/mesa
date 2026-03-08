@@ -9,11 +9,28 @@ The "game" is a zero-player game, meaning that its evolution is determined by it
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+First, clone the Mesa repository:
+git clone https://github.com/projectmesa/mesa.git
 
-```
-    $ solara run app.py
-```
+
+Navigate to the example directory:
+cd mesa/mesa/examples/basic/conways_game_of_life
+
+
+Install the required dependencies:
+pip install -r requirements.txt
+
+
+Run the interactive visualization using Solara:
+solara run app.py
+
+
+Optional: To run the Streamlit version instead, install Streamlit and run:
+
+pip install streamlit
+streamlit run st_app.py
+
+
 
 ## Files
 
