@@ -82,6 +82,8 @@ class FixedCell(HasCell):
     reached), the agent's _mesa_cell reference is left unchanged.
     """
 
+    _fixed_cell_placed: bool = False
+
     @property
     def cell(self) -> Cell | None:
         """The cell the agent is fixed to."""
@@ -95,10 +97,11 @@ class FixedCell(HasCell):
                 self._mesa_cell = None
             return
 
-        if self._mesa_cell is not None:
+        if self._fixed_cell_placed:
             raise ValueError("Cannot move agent in FixedCell")
         cell.add_agent(self)
         self._mesa_cell = cell
+        self._fixed_cell_placed = True
 
 
 class CellAgent(Agent, HasCell, BasicMovement):
