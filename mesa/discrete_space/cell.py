@@ -101,13 +101,13 @@ class Cell:
         self.coordinate = coordinate  # Logical index
         self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
-        self._agents: list[
-            CellAgent
-        ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        self._agents: list[CellAgent] = (
+            []
+        )  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
         self.capacity: int | None = capacity
-        self.properties: dict[
-            Coordinate, object
-        ] = {}  # fixme still used by voronoi mesh
+        self.properties: dict[Coordinate, object] = (
+            {}
+        )  # fixme still used by voronoi mesh
         self.random = random
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:

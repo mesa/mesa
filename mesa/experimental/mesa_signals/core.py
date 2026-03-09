@@ -649,6 +649,7 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
             def wrapper(self, *args, **kwargs):
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return method(self, *args, **kwargs)
+
         else:
 
             @functools.wraps(method)

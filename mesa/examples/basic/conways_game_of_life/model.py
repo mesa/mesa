@@ -20,9 +20,11 @@ class ConwaysGameOfLife(Model):
             Cell(
                 self,
                 cell,
-                init_state=Cell.ALIVE
-                if self.random.random() < initial_fraction_alive
-                else Cell.DEAD,
+                init_state=(
+                    Cell.ALIVE
+                    if self.random.random() < initial_fraction_alive
+                    else Cell.DEAD
+                ),
             )
 
         self.running = True
