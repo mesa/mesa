@@ -70,7 +70,7 @@ class BaseObservable:
         if CURRENT_COMPUTED is not None:
             # there is a computed dependent on this Observable, so let's add
             # this Observable as a parent
-            CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
+            CURRENT_COMPUTED._record_access(instance, self.public_name, value)
 
             # fixme, this can be done more cleanly
             #  problem here is that we cannot use self (i.e., the observable), we need to add the instance as well
@@ -163,8 +163,10 @@ class ComputedState:
             self.is_dirty = True
             self.owner.notify(self.name, ObservableSignals.CHANGED, old=self.value)
 
-    def _add_parent(self, parent: HasEmitters, name: str, current_value: Any) -> None:
-        """Add a parent Observable.
+    def _record_access(
+        self, parent: HasEmitters, name: str, current_value: Any
+    ) -> None:
+        """Records access to a parent Observable.
 
         Args:
             parent: the HasEmitters instance to which the Observable belongs
@@ -256,7 +258,7 @@ def computed_property(func: Callable) -> property:
             state.is_dirty = False
 
         if CURRENT_COMPUTED is not None:
-            CURRENT_COMPUTED._add_parent(self, func.__name__, state.value)
+            CURRENT_COMPUTED._record_access(self, func.__name__, state.value)
 
         return state.value
 
