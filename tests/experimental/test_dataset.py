@@ -620,6 +620,7 @@ def test_observable_dataset_multiple_fields():
     assert data[0]["wealth"] == 20
     assert data[0]["energy"] == 50
 
+
 def test_observable_dataset_close_idempotent():
     """Closing the dataset twice should not raise errors."""
 
@@ -636,8 +637,9 @@ def test_observable_dataset_close_idempotent():
     dataset = ObservableAgentDataSet("obs", agents, fields="wealth")
 
     dataset.close()
-    dataset.close() 
-    
+    dataset.close()
+
+
 def test_observable_dataset_ignores_unknown_agent_signal():
     """Signals from agents not tracked by the dataset should be ignored."""
 
