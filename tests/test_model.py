@@ -61,10 +61,19 @@ def test_running():
 def test_rng(rng=23):
     """Test initialization of model with specific seed."""
     model = Model(rng=rng)
-    assert model.scenario.initial_rng_state == np.random.default_rng(rng).bit_generator.state
+    assert (
+        model.scenario.initial_rng_state
+        == np.random.default_rng(rng).bit_generator.state
+    )
     model2 = Model(rng=rng + 1)
-    assert model2.scenario.initial_rng_state == np.random.default_rng(rng + 1).bit_generator.state
-    assert model.scenario.initial_rng_state == np.random.default_rng(rng).bit_generator.state
+    assert (
+        model2.scenario.initial_rng_state
+        == np.random.default_rng(rng + 1).bit_generator.state
+    )
+    assert (
+        model.scenario.initial_rng_state
+        == np.random.default_rng(rng).bit_generator.state
+    )
 
     assert Model(rng=42).random.random() == Model(rng=42).random.random()
     assert np.all(

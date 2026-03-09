@@ -156,13 +156,17 @@ def test_scenario_spawn_replications():
         assert r.replication_id == i
         assert r.scenario_id == 3
         assert r.density == 0.8
-        assert r.initial_rng_state != base.initial_rng_state  # derived seed, not the same
+        assert (
+            r.initial_rng_state != base.initial_rng_state
+        )  # derived seed, not the same
 
     # Seeds are deterministic: same base produces same replicas
     base2 = MyScenario(rng=42, scenario_id=3)
     replicas2 = base2.spawn_replications(5)
     for r1, r2 in zip(replicas, replicas2):
-        assert r1.initial_rng_state == r2.initial_rng_state, "generators are not the same"
+        assert r1.initial_rng_state == r2.initial_rng_state, (
+            "generators are not the same"
+        )
 
     # Replicas are also frozen
     with pytest.raises(TypeError):
@@ -174,4 +178,6 @@ def test_scenario_spawn_replications():
     replicas_ss1 = base_1.spawn_replications(3)
     replicas_ss2 = base_2.spawn_replications(3)
     for r1, r2 in zip(replicas_ss1, replicas_ss2):
-        assert r1.initial_rng_state == r2.initial_rng_state, "generators are not the same"
+        assert r1.initial_rng_state == r2.initial_rng_state, (
+            "generators are not the same"
+        )

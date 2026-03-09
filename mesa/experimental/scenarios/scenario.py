@@ -8,7 +8,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
 
@@ -44,7 +43,14 @@ class Scenario:
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
     _scenario_defaults: ClassVar[dict[str, Any]] = {}
-    __slots__ = ("__dict__", "_frozen", "scenario_id", "replication_id", "rng", "initial_rng_state")
+    __slots__ = (
+        "__dict__",
+        "_frozen",
+        "initial_rng_state",
+        "replication_id",
+        "rng",
+        "scenario_id",
+    )
 
     @classmethod
     def __init_subclass__(cls):
@@ -85,7 +91,9 @@ class Scenario:
             **kwargs: All other scenario parameters (override class-level defaults).
         """
         self._frozen = False
-        self.scenario_id = next(self._ids[type(self)]) if scenario_id is None else scenario_id
+        self.scenario_id = (
+            next(self._ids[type(self)]) if scenario_id is None else scenario_id
+        )
         self.replication_id = replication_id
         self.rng = np.random.default_rng(rng)
         self.initial_rng_state = self.rng.bit_generator.state
@@ -106,14 +114,17 @@ class Scenario:
     def __delattr__(self, name: str) -> None:
         """Prevent deletion of attributes after initialisation."""
         if getattr(self, "_frozen", False):
-            raise TypeError(
-                f"Scenario is frozen; cannot delete '{name}'."
-            )
+            raise TypeError(f"Scenario is frozen; cannot delete '{name}'.")
         super().__delattr__(name)
 
     def __getstate__(self):
         """Return state for pickling."""
-        return (self.__dict__.copy(), self.scenario_id, self.replication_id, self.initial_rng_state)
+        return (
+            self.__dict__.copy(),
+            self.scenario_id,
+            self.replication_id,
+            self.initial_rng_state,
+        )
 
     def __setstate__(self, state):
         """Restore state when unpickling."""
@@ -147,8 +158,12 @@ class Scenario:
 
     def to_dict(self) -> dict[str, Any]:
         """Return dict representation of the scenario."""
-        return {**self.__dict__, "scenario_id":self.scenario_id,
-                "replication_id":self.replication_id, "initial_rng_state":self.initial_rng_state}
+        return {
+            **self.__dict__,
+            "scenario_id": self.scenario_id,
+            "replication_id": self.replication_id,
+            "initial_rng_state": self.initial_rng_state,
+        }
 
     def spawn_replications(self, n: int) -> list["Scenario"]:
         """Spawn n replications of this scenario with deterministically derived seeds.
@@ -166,7 +181,12 @@ class Scenario:
         entropy = inner.tolist() if hasattr(inner, "tolist") else inner
         child_seeds = np.random.SeedSequence(entropy).spawn(n)
         return [
-            self.__class__(rng=child_seeds[i], scenario_id=self.scenario_id, replication_id=i, **self.__dict__)
+            self.__class__(
+                rng=child_seeds[i],
+                scenario_id=self.scenario_id,
+                replication_id=i,
+                **self.__dict__,
+            )
             for i in range(n)
         ]
 
