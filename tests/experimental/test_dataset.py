@@ -579,3 +579,62 @@ def test_observable_dataset_close():
 
     with pytest.raises(RuntimeError):
         _ = dataset.data
+        
+def test_observable_dataset_requires_has_emitters():
+    """Observable dataset should require agents inheriting HasEmitters."""
+
+    class SimpleAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+    agents = [SimpleAgent(model)]
+
+    with pytest.raises(TypeError):
+        ObservableAgentDataSet("obs", agents, fields="wealth")
+        
+def test_observable_dataset_close():
+    """Observable dataset should close and invalidate access."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+    agents = [ObservableTestAgent(model, wealth=5)]
+
+    dataset = ObservableAgentDataSet("obs", agents, fields="wealth")
+
+    dataset.close()
+
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
+        
+def test_observable_dataset_multiple_fields():
+    """Observable dataset should update multiple observable fields."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+        energy = Observable()
+
+        def __init__(self, model, wealth=1, energy=2):
+            super().__init__(model)
+            self.wealth = wealth
+            self.energy = energy
+
+    model = Model()
+    agents = [ObservableTestAgent(model, wealth=5, energy=10)]
+
+    dataset = ObservableAgentDataSet("obs", agents, fields=["wealth", "energy"])
+
+    agents[0].wealth = 20
+    agents[0].energy = 50
+
+    data = dataset.data
+
+    assert data[0]["wealth"] == 20
+    assert data[0]["energy"] == 50
