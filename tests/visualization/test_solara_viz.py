@@ -389,3 +389,24 @@ def test_parameter_splitting_logic():
     assert kwargs["scenario"].scenario_param2 == 25
     assert kwargs["model_param1"] == 15
     assert kwargs["model_param2"] == 30
+
+
+def test_raw_solara_component_in_model_params():
+    class MockModel(mesa.Model):
+        def __init__(self, raw_param):
+            super().__init__()
+            self.raw_param = raw_param
+
+    model = MockModel(raw_param=10)
+    model_params = {
+        "raw_param": solara.SliderInt("Raw", 10),
+    }
+
+    with pytest.raises(
+        TypeError,
+        match=re.escape(
+            "model_params contains a raw Solara component for key 'raw_param'. "
+            "Use Mesa's Slider, Checkbox, etc. wrappers from mesa.visualization instead."
+        ),
+    ):
+        solara.render(SolaraViz(model, model_params=model_params), handle_error=False)

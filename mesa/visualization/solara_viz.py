@@ -133,6 +133,13 @@ def SolaraViz(
     if model_params is None:
         model_params = {}
 
+    for key, val in model_params.items():
+        if isinstance(val, reacton.core.ValueElement):
+            raise TypeError(
+                f"model_params contains a raw Solara component for key '{key}'. "
+                "Use Mesa's Slider, Checkbox, etc. wrappers from mesa.visualization instead."
+            )
+
     # Convert model to reactive
     if not isinstance(model, solara.Reactive):
         model = solara.use_reactive(model)  # noqa: RUF100  # noqa: SH102
