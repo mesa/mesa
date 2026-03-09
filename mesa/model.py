@@ -149,9 +149,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self.step = self._wrapped_step
 
         # setup agent registration data structures
-        self._agents_by_type: dict[type[A], _HardKeyAgentSet[A]] = (
-            {}
-        )  # a dict with an agentset for each class of agents
+        self._agents_by_type: dict[
+            type[A], _HardKeyAgentSet[A]
+        ] = {}  # a dict with an agentset for each class of agents
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents

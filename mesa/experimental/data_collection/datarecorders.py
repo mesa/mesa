@@ -581,9 +581,7 @@ class SQLDataRecorder(BaseDataRecorder):
         """Store data snapshot in SQL."""
         # handle overwrite
         if is_overwrite and self.metadata[dataset_name]["table_created"]:
-            self.conn.execute(
-                f'DELETE FROM "{dataset_name}" WHERE time = ?', (time,)
-            )
+            self.conn.execute(f'DELETE FROM "{dataset_name}" WHERE time = ?', (time,))
 
         match data:
             case np.ndarray() if data.size > 0:
@@ -684,9 +682,7 @@ class SQLDataRecorder(BaseDataRecorder):
 
         for name, meta in self.metadata.items():
             if meta["table_created"]:
-                cursor = self.conn.execute(
-                    f'SELECT COUNT(*) FROM "{name}"'
-                )
+                cursor = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"')
                 row_count = cursor.fetchone()[0]
             else:
                 row_count = 0

@@ -157,9 +157,9 @@ class _BatchContext:
     def __init__(self, instance: HasEmitters):
         self.instance = instance
         self._previous: _BatchContext | None = None
-        self.buffer: dict[str, list[Message]] = (
-            {}
-        )  # we cannot use defaultdict here because of snapshot on first entry
+        self.buffer: dict[
+            str, list[Message]
+        ] = {}  # we cannot use defaultdict here because of snapshot on first entry
         self._captured_values: dict[str, Any] = {}
 
     def __enter__(self):
