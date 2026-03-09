@@ -3,7 +3,10 @@ import networkx as nx
 import solara
 from matplotlib.figure import Figure
 
-from mesa.examples.advanced.alliance_formation.model import MultiLevelAllianceModel
+from mesa.examples.advanced.alliance_formation.model import (
+    AllianceScenario,
+    MultiLevelAllianceModel,
+)
 from mesa.visualization import SolaraViz
 from mesa.visualization.utils import update_counter
 
@@ -55,7 +58,7 @@ def plot_network(model):
 
 
 # Create initial model instance
-model = MultiLevelAllianceModel(50)
+model = MultiLevelAllianceModel(scenario=AllianceScenario(n=50, rng=42))
 
 # Create the SolaraViz page. This will automatically create a server and display the
 # visualization elements in a web browser.

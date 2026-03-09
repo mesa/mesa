@@ -2,7 +2,7 @@
 Solara-based visualization for the Spatial Prisoner's Dilemma Model.
 """
 
-from mesa.examples.advanced.pd_grid.model import PdGrid
+from mesa.examples.advanced.pd_grid.model import PdGrid, PrisonersDilemmaScenario
 from mesa.visualization import (
     Slider,
     SolaraViz,
@@ -43,7 +43,7 @@ model_params = {
 plot_component = make_plot_component("Cooperating_Agents", backend="altair", grid=True)
 
 # Initialize model
-initial_model = PdGrid()
+initial_model = PdGrid(scenario=PrisonersDilemmaScenario())
 # Create grid and agent visualization component using Altair
 renderer = (
     SpaceRenderer(initial_model, backend="altair")
