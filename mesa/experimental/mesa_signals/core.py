@@ -20,7 +20,7 @@ from __future__ import annotations
 import functools
 import weakref
 from collections import defaultdict, namedtuple
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, MutableSequence
 from typing import Any, ClassVar, Literal
 
 from mesa.experimental.mesa_signals.signals_util import (
@@ -66,11 +66,15 @@ class BaseObservable:
     def __get__(self, instance: HasEmitters, owner):  # noqa: D105
         value = getattr(instance, self.private_name)
 
-        # fixme this makes signaling list part of computed
         if CURRENT_COMPUTED is not None:
-            # there is a computed dependent on this Observable, so let's add
-            # this Observable as a parent
-            CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
+            if isinstance(value, MutableSequence):
+                # Pass None for mutable sequences to prevent memory leaks and
+                # ensure in-place mutations bypass the `old != new` check.
+                CURRENT_COMPUTED._add_parent(instance, self.public_name, None)
+            else:
+                # there is a computed dependent on this Observable, so let's add
+                # this Observable as a parent
+                CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
 
             # fixme, this can be done more cleanly
             #  problem here is that we cannot use self (i.e., the observable), we need to add the instance as well
