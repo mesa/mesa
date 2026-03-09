@@ -579,7 +579,8 @@ def test_observable_dataset_close():
 
     with pytest.raises(RuntimeError):
         _ = dataset.data
-        
+
+
 def test_observable_dataset_requires_has_emitters():
     """Observable dataset should require agents inheriting HasEmitters."""
 
@@ -593,7 +594,8 @@ def test_observable_dataset_requires_has_emitters():
 
     with pytest.raises(TypeError):
         ObservableAgentDataSet("obs", agents, fields="wealth")
-        
+
+
 def test_observable_dataset_close():
     """Observable dataset should close and invalidate access."""
 
@@ -613,7 +615,8 @@ def test_observable_dataset_close():
 
     with pytest.raises(RuntimeError):
         _ = dataset.data
-        
+
+
 def test_observable_dataset_multiple_fields():
     """Observable dataset should update multiple observable fields."""
 
