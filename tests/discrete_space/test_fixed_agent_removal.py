@@ -1,6 +1,7 @@
 """Tests for FixedAgent removal functionality and property consistency."""
 
 import pytest
+
 from mesa import Model
 from mesa.discrete_space import Cell, FixedAgent
 
