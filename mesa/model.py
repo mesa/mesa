@@ -86,7 +86,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     def scenario(self, scenario: S) -> None:
         """Set scenario instance."""
         self._scenario = scenario
-        scenario.model = self
 
     @method_logger(__name__)
     def __init__(
@@ -118,12 +117,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.time: float = 0.0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
-        self.rng = None
-        self._rng = None
-        self.random = None
-        self._seed = None
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -133,21 +127,14 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # Strong references to active EventGenerators (prevent GC)
         self._event_generators: set[EventGenerator] = set()
 
-        # check if `scenario` is provided
-        # and if so, whether rng is the same or not
-        if scenario is not None:
-            if rng is not None and (scenario.rng != rng):
-                raise ValueError("rng and scenario.rng must be the same")
-            else:
-                rng = scenario.rng
-
-        self.reset_rng(rng)
-
-        # now that we have figured out the seed value for rng
-        # we can set create a scenario with this if needed
+        if scenario is not None and rng is not None:
+            raise ValueError("Pass either rng or scenario, not both.")
         if scenario is None:
             scenario = Scenario(rng=rng)  # type: ignore[assignment]
+
         self.scenario = scenario
+        self.rng: np.random.Generator = scenario.rng
+        self.random = random.Random(scenario._stdlib_seed)
 
         # Store user's step method and create the default step schedule.
         # Uses EventGenerator to schedule _do_step every 1.0 time units.
@@ -324,39 +311,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
     def step(self) -> None:
         """A single step. Fill in here."""
-
-    def reset_rng(self, rng: RNGLike | SeedLike | None = None) -> None:
-        """Reset the model random number generator.
-
-        Args:
-            rng: A new seed for the RNG; if None, reset using the current seed
-        """
-        failed = True
-        if rng is None:
-            # Restore from saved initial state
-            try:
-                bg_class = getattr(np.random, self._rng["bit_generator"])
-            except TypeError:
-                rng = None
-            else:
-                failed = False
-                bg = bg_class()
-                bg.state = self._rng
-                self.rng = np.random.Generator(bg)
-
-        if failed:
-            self.rng: np.random.Generator = np.random.default_rng(rng)
-
-        self._rng = self.rng.bit_generator.state  # this allows for reproducing the rng
-
-        try:
-            self.random = random.Random(rng)
-        except TypeError:
-            seed = int(self.rng.integers(np.iinfo(np.int32).max))
-            self.random = random.Random(seed)
-        else:
-            seed = rng
-        self._seed = seed  # this allows for reproducing stdlib.random
 
     def remove_all_agents(self):
         """Remove all agents from the model.
