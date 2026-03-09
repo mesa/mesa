@@ -6,13 +6,14 @@ import pytest
 from mesa import Agent, Model
 from mesa.experimental.data_collection import (
     AgentDataSet,
+    ObservableAgentDataSet,
     DataRegistry,
     ModelDataSet,
     NumpyAgentDataSet,
     TableDataSet,
 )
 from mesa.experimental.data_collection.dataset import DataSet
-
+from mesa.experimental.mesa_signals.core import Observable, HasEmitters
 
 def test_data_registry():
     """Test DataRegistry."""
@@ -498,3 +499,78 @@ def test_agent_dataset_dirty_flag():
     dataset.close()
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
+
+def test_observable_agent_dataset_updates_on_signal():
+    """Test that ObservableAgentDataSet updates when an observable emits a change signal."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+
+    agents = [ObservableTestAgent(model, wealth=i) for i in range(3)]
+
+    dataset = ObservableAgentDataSet("obs", agents, fields="wealth")
+
+    data = dataset.data
+    assert data[0]["wealth"] == 0
+
+    agents[0].wealth = 10
+
+    data = dataset.data
+    assert data[0]["wealth"] == 10
+    
+def test_observable_dataset_requires_hasemitters():
+    """Test that ObservableAgentDataSet requires agents to inherit from HasEmitters."""
+
+    class PlainAgent(Agent):
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+
+    agents = [PlainAgent(model, wealth=i) for i in range(3)]
+
+    with pytest.raises(TypeError):
+        ObservableAgentDataSet("obs", agents, fields="wealth")
+        
+def test_observable_dataset_requires_observable_field():
+    """Test that ObservableAgentDataSet requires fields to be Observable."""
+
+    class BadObservableAgent(Agent, HasEmitters):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1  # not Observable
+
+    model = Model()
+
+    agents = [BadObservableAgent(model) for _ in range(3)]
+
+    with pytest.raises(ValueError):
+        ObservableAgentDataSet("obs", agents, fields="wealth")
+        
+def test_observable_dataset_close():
+    """Test that accessing data after closing the dataset raises RuntimeError."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+
+    agents = [ObservableTestAgent(model, wealth=i) for i in range(3)]
+
+    dataset = ObservableAgentDataSet("obs", agents, fields="wealth")
+
+    dataset.close()
+
+    with pytest.raises(RuntimeError):
+        _ = dataset.data

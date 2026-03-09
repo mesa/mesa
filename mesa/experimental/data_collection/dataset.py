@@ -12,12 +12,15 @@ import numpy as np
 from mesa.agent import Agent
 from mesa.agentset import AbstractAgentSet
 from mesa.experimental.data_collection import BaseDataRecorder, DatasetConfig
+from mesa.experimental.mesa_signals.signal_types import ObservableSignals
+from mesa.experimental.mesa_signals.core import HasEmitters
 
 if TYPE_CHECKING:
     from mesa.model import Model
 
 __all__ = [
     "AgentDataSet",
+    "ObservableAgentDataSet",
     "DataRegistry",
     "DataSet",
     "ModelDataSet",
@@ -173,7 +176,88 @@ class AgentDataSet[A: Agent](BaseDataSet):
         super().close()
         self.agents = None
         self._cache = None
+        
+class ObservableAgentDataSet[A: Agent](BaseDataSet):
+    """Reactive dataset for observable agent properties.
 
+    Subscribes to ObservableSignals.CHANGED on specified observables
+    and maintains a live view of the data.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        agents: AbstractAgentSet[A],
+        *,
+        fields: str | list[str] | None = None,
+    ):
+        if fields is None:
+            raise ValueError("please pass one or more fields to collect")
+        elif isinstance(fields, str):
+            fields = [fields]
+
+        super().__init__(name, fields=["unique_id", *fields])
+
+        self.agents = agents
+
+        self._rows_by_agent: dict[A, dict[str, Any]] = {}
+        self._view: list[dict[str, Any]] = []
+
+        # Build initial snapshot
+        for agent in self.agents:
+
+            if not isinstance(agent, HasEmitters):
+                raise TypeError(
+                    "ObservableAgentDataSet requires agents to inherit from HasEmitters"
+                )
+
+            row = dict(zip(self._attributes, self._collector(agent)))
+
+            self._rows_by_agent[agent] = row
+            self._view.append(row)
+
+            # Subscribe to signals
+            for field in fields:
+                if field not in agent.observables:
+                    raise ValueError(
+                        f"{field} is not an Observable on {agent.__class__.__name__}"
+                    )
+                agent.observe(field, ObservableSignals.CHANGED, self._on_change)
+
+    def _on_change(self, signal):
+        """Handle observable change signals."""
+        agent = signal.owner
+        field = signal.name
+        new_value = signal.additional_kwargs.get("new")
+
+        row = self._rows_by_agent.get(agent)
+
+        if row is not None:
+            row[field] = new_value
+
+    @property
+    def data(self) -> list[dict[str, Any]]:
+        """Return the active dataset view."""
+        self._check_closed()
+        return self._view
+
+    def close(self):
+        """Unsubscribe from all observables and close dataset."""
+        if self._closed:
+            return
+
+        fields = self._attributes[1:]  # skip unique_id
+
+        for agent in self.agents:
+            if isinstance(agent, HasEmitters):
+                for field in fields:
+                    agent.unobserve(field, ObservableSignals.CHANGED, self._on_change)
+
+        self._rows_by_agent.clear()
+        self._view.clear()
+
+        super().close()
+        self.agents = None
 
 class ModelDataSet[M: Model](BaseDataSet):
     """Data set for model data.
@@ -556,6 +640,20 @@ class DataRegistry:
             agents,
             fields=fields,
             use_dirty_flag=use_dirty_flag,
+        )
+        
+    def track_agents_observable(
+        self,
+        agents: AbstractAgentSet,
+        name: str,
+        fields: str | list[str] | None = None,
+    ) -> ObservableAgentDataSet:
+        """Track observable fields on agents using reactive dataset."""
+        return self.create_dataset(
+            ObservableAgentDataSet,
+            name,
+            agents,
+            fields=fields,
         )
 
     def track_model(
