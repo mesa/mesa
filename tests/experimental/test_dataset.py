@@ -6,14 +6,15 @@ import pytest
 from mesa import Agent, Model
 from mesa.experimental.data_collection import (
     AgentDataSet,
-    ObservableAgentDataSet,
     DataRegistry,
     ModelDataSet,
     NumpyAgentDataSet,
+    ObservableAgentDataSet,
     TableDataSet,
 )
 from mesa.experimental.data_collection.dataset import DataSet
-from mesa.experimental.mesa_signals.core import Observable, HasEmitters
+from mesa.experimental.mesa_signals.core import HasEmitters, Observable
+
 
 def test_data_registry():
     """Test DataRegistry."""
@@ -500,6 +501,7 @@ def test_agent_dataset_dirty_flag():
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
 
+
 def test_observable_agent_dataset_updates_on_signal():
     """Test that ObservableAgentDataSet updates when an observable emits a change signal."""
 
@@ -523,7 +525,8 @@ def test_observable_agent_dataset_updates_on_signal():
 
     data = dataset.data
     assert data[0]["wealth"] == 10
-    
+
+
 def test_observable_dataset_requires_hasemitters():
     """Test that ObservableAgentDataSet requires agents to inherit from HasEmitters."""
 
@@ -538,7 +541,8 @@ def test_observable_dataset_requires_hasemitters():
 
     with pytest.raises(TypeError):
         ObservableAgentDataSet("obs", agents, fields="wealth")
-        
+
+
 def test_observable_dataset_requires_observable_field():
     """Test that ObservableAgentDataSet requires fields to be Observable."""
 
@@ -553,7 +557,8 @@ def test_observable_dataset_requires_observable_field():
 
     with pytest.raises(ValueError):
         ObservableAgentDataSet("obs", agents, fields="wealth")
-        
+
+
 def test_observable_dataset_close():
     """Test that accessing data after closing the dataset raises RuntimeError."""
 

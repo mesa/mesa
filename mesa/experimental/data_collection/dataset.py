@@ -12,19 +12,19 @@ import numpy as np
 from mesa.agent import Agent
 from mesa.agentset import AbstractAgentSet
 from mesa.experimental.data_collection import BaseDataRecorder, DatasetConfig
-from mesa.experimental.mesa_signals.signal_types import ObservableSignals
 from mesa.experimental.mesa_signals.core import HasEmitters
+from mesa.experimental.mesa_signals.signal_types import ObservableSignals
 
 if TYPE_CHECKING:
     from mesa.model import Model
 
 __all__ = [
     "AgentDataSet",
-    "ObservableAgentDataSet",
     "DataRegistry",
     "DataSet",
     "ModelDataSet",
     "NumpyAgentDataSet",
+    "ObservableAgentDataSet",
     "TableDataSet",
 ]
 
@@ -176,7 +176,8 @@ class AgentDataSet[A: Agent](BaseDataSet):
         super().close()
         self.agents = None
         self._cache = None
-        
+
+
 class ObservableAgentDataSet[A: Agent](BaseDataSet):
     """Reactive dataset for observable agent properties.
 
@@ -205,7 +206,6 @@ class ObservableAgentDataSet[A: Agent](BaseDataSet):
 
         # Build initial snapshot
         for agent in self.agents:
-
             if not isinstance(agent, HasEmitters):
                 raise TypeError(
                     "ObservableAgentDataSet requires agents to inherit from HasEmitters"
@@ -258,6 +258,7 @@ class ObservableAgentDataSet[A: Agent](BaseDataSet):
 
         super().close()
         self.agents = None
+
 
 class ModelDataSet[M: Model](BaseDataSet):
     """Data set for model data.
@@ -641,7 +642,7 @@ class DataRegistry:
             fields=fields,
             use_dirty_flag=use_dirty_flag,
         )
-        
+
     def track_agents_observable(
         self,
         agents: AbstractAgentSet,
