@@ -723,7 +723,6 @@ class TestEventGenerator:
 
         gen.resume()
         assert gen.next_scheduled_time is not None
-        
 
     def test_pause_before_start_is_safe(self, setup):
         """Pausing before start should be a no-op."""
@@ -735,7 +734,7 @@ class TestEventGenerator:
 
         model.run_for(5.0)
         assert fn.call_count == 0
-        
+
     def test_resume_schedules_from_current_time(self, setup):
         """Resume should schedule next execution relative to current time."""
         model, fn = setup
@@ -755,6 +754,7 @@ class TestEventGenerator:
 
         model.run_for(0.1)
         assert fn.call_count == 1
+
 
 class TestEventGeneratorMemoryLeak(unittest.TestCase):
     """Tests EventGenerator error handling, memory behavior, and state restoration."""
