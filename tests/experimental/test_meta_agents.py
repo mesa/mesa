@@ -168,6 +168,35 @@ def test_meta_agent_integration(setup_agents):
     assert meta_agent.custom_method() == "custom_method_value"
 
 
+def test_explicit_meta_attributes_and_methods_take_precedence():
+    """Explicit meta_attributes and meta_methods should override inferred ones."""
+
+    class A(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.custom_attribute = "from_agent"
+
+        def custom_method(self):
+            return "from_agent"
+
+    model = Model()
+    a = A(model)
+
+    meta = create_meta_agent(
+        model,
+        "MetaBug",
+        [a],
+        Agent,
+        meta_attributes={"custom_attribute": "explicit"},
+        meta_methods={"custom_method": lambda self: "explicit"},
+        assume_constituting_agent_attributes=True,
+        assume_constituting_agent_methods=True,
+    )
+
+    assert meta.custom_attribute == "explicit"
+    assert meta.custom_method() == "explicit"
+
+
 def test_evaluate_combination(setup_agents):
     """Test the evaluate_combination function.
 
