@@ -619,3 +619,43 @@ def test_observable_dataset_multiple_fields():
 
     assert data[0]["wealth"] == 20
     assert data[0]["energy"] == 50
+
+def test_observable_dataset_close_idempotent():
+    """Closing the dataset twice should not raise errors."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+    agents = [ObservableTestAgent(model, wealth=1)]
+
+    dataset = ObservableAgentDataSet("obs", agents, fields="wealth")
+
+    dataset.close()
+    dataset.close() 
+    
+def test_observable_dataset_ignores_unknown_agent_signal():
+    """Signals from agents not tracked by the dataset should be ignored."""
+
+    class ObservableTestAgent(Agent, HasEmitters):
+        wealth = Observable()
+
+        def __init__(self, model, wealth=1):
+            super().__init__(model)
+            self.wealth = wealth
+
+    model = Model()
+
+    tracked = ObservableTestAgent(model, wealth=1)
+    other = ObservableTestAgent(model, wealth=2)
+
+    dataset = ObservableAgentDataSet("obs", [tracked], fields="wealth")
+
+    other.wealth = 10  # emit signal from untracked agent
+
+    data = dataset.data
+    assert data[0]["wealth"] == 1
