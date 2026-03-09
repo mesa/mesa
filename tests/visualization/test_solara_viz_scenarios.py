@@ -22,7 +22,7 @@ class MyScenario(Scenario):
 class MyModel(mesa.Model):
     """A mock model for testing."""
 
-    def __init__(self, height=40, width=40, scenario: MyScenario | None = None):
+    def __init__(self, height=40, width=40, scenario: MyScenario = MyScenario):
         """Initialize the mock model."""
         super().__init__(scenario=scenario)
         self.height = height

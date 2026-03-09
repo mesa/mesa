@@ -92,7 +92,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self,
         *args: Any,
         rng: RNGLike | SeedLike | None = None,
-        scenario: S | None = None,
+        scenario: S | type[S] = Scenario,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -102,16 +102,17 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
             args: arguments to pass onto super
-            rng: Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
-                  using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
-                  `numpy.random.default_rng` to instantiate a `Generator`. `rng` is also used to try to seed a
-                  `random.Random` instance, if this fails, a random integer will be generated using the seeded
-                  numpy random number generator with which to seed `random.Random`.
-            scenario: the scenario specifying the computational experiment to run
+            rng: Seed for the random number generator. Accepts any value accepted by
+                numpy.random.default_rng(). Ignored if a Scenario instance is passed;
+                used to instantiate the scenario when a Scenario class is passed.
+            scenario: A Scenario instance or subclass to use for this model. If a class
+                is passed it is instantiated with rng. If an instance is passed, rng
+                must not be set.
             kwargs: keyword arguments to pass onto super
 
         Notes:
-            you have to pass either seed or rng, but not both.
+            Pass either rng or a Scenario instance, not both. Passing rng alongside
+            a Scenario class is valid — rng is forwarded to the class constructor.
 
         """
         super().__init__(*args, **kwargs)
@@ -127,10 +128,10 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # Strong references to active EventGenerators (prevent GC)
         self._event_generators: set[EventGenerator] = set()
 
-        if scenario is not None and rng is not None:
+        if isinstance(scenario, Scenario) and rng is not None:
             raise ValueError("Pass either rng or scenario, not both.")
-        if scenario is None:
-            scenario = Scenario(rng=rng)  # type: ignore[assignment]
+        if not isinstance(scenario, Scenario):
+            scenario = scenario(rng=rng)  # type: ignore[assignment]
 
         self.scenario = scenario
         self.rng: np.random.Generator = scenario.rng
