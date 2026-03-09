@@ -67,12 +67,14 @@ class BaseObservable:
         value = getattr(instance, self.private_name)
 
         if CURRENT_COMPUTED is not None:
-            # Pass None for mutable sequences to prevent memory leaks and
-            # ensure in-place mutations bypass the `old != new` check.
-            value = value if not isinstance(value, MutableSequence) else None
-            # there is a computed dependent on this Observable, so let's add
-            # this Observable as a parent
-            CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
+            if isinstance(value, MutableSequence):
+                # Pass None for mutable sequences to prevent memory leaks and
+                # ensure in-place mutations bypass the `old != new` check.
+                CURRENT_COMPUTED._add_parent(instance, self.public_name, None)
+            else:
+                # there is a computed dependent on this Observable, so let's add
+                # this Observable as a parent
+                CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
 
             # fixme, this can be done more cleanly
             #  problem here is that we cannot use self (i.e., the observable), we need to add the instance as well
