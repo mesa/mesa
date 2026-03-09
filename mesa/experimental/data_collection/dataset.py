@@ -192,6 +192,7 @@ class ObservableAgentDataSet[A: Agent](BaseDataSet):
         *,
         fields: str | list[str] | None = None,
     ):
+        """Initialize an ObservableAgentDataSet."""
         if fields is None:
             raise ValueError("please pass one or more fields to collect")
         elif isinstance(fields, str):
