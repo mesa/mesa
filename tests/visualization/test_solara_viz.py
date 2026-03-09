@@ -392,6 +392,7 @@ def test_parameter_splitting_logic():
 
 
 def test_raw_solara_component_in_model_params():
+    """Test that passing a raw Solara component to model_params raises a TypeError."""
     class MockModel(mesa.Model):
         def __init__(self, raw_param):
             super().__init__()
