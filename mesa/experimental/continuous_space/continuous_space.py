@@ -143,25 +143,26 @@ class ContinuousSpace:
         This method is automatically called by ContinuousSpaceAgent.remove.
 
         """
-        index = self._agent_to_index[agent]
-        self._agent_to_index.pop(agent, None)
-        self._index_to_agent.pop(index, None)
-        del self.active_agents[index]
+        index = self._agent_to_index.pop(agent)
+        last_index = self._n_agents - 1
 
-        # Shift all subsequent agents up by 1
-        for agent in self.active_agents[index::]:
-            old_index = self._agent_to_index[agent]
-            self._agent_to_index[agent] = old_index - 1
-            self._index_to_agent[old_index - 1] = agent
+        # If the removed agent isn't already the last one, swap the last one into its place
+        if index != last_index:
+            last_agent = self.active_agents[last_index]
 
-        # Clean up the stale entry from the last shifted agent
-        if len(self.active_agents) > index:
-            self._index_to_agent.pop(len(self.active_agents), None)
+            # Swap in active_agents list
+            self.active_agents[index] = last_agent
 
-        # we move all data below the removed agent one row up
-        self._agent_positions[index : self._n_agents - 1] = self._agent_positions[
-            index + 1 : self._n_agents
-        ]
+            # Swap in numpy array
+            self._agent_positions[index] = self._agent_positions[last_index]
+
+            # Update dictionary mappings for the swapped agent
+            self._agent_to_index[last_agent] = index
+            self._index_to_agent[index] = last_agent
+
+        # Pop the last elements
+        self.active_agents.pop()
+        self._index_to_agent.pop(last_index, None)
         self._n_agents -= 1
         self.agent_positions = self._agent_positions[0 : self._n_agents]
 
