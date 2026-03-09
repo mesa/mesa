@@ -116,9 +116,31 @@ _is_offline = "--offline" in sys.argv
 # Run setup BEFORE importing model/agent code (which triggers ModuleLLM init)
 _is_offline, _llm_model = setup_environment(is_offline=_is_offline)
 
+# -----------------------------------------------------------------------------
+# MESA 4.0 COMPATIBILITY PATCH FOR MESA-LLM
+# Mesa 4.0 removed `mesa.space`, but `mesa-llm` still tries to import grids.
+# Since we don't use spatial grids in this financial PoC, we mock the module.
+import sys
+import types
+if "mesa.space" not in sys.modules:
+    dummy_space = types.ModuleType("mesa.space")
+    for grid in ["ContinuousSpace", "HexGrid", "MultiGrid", "NetworkGrid", "SingleGrid", "PropertyLayer", "Grid"]:
+        setattr(dummy_space, grid, type(grid, (), {}))
+    sys.modules["mesa.space"] = dummy_space
+# -----------------------------------------------------------------------------
+
 # =============================================================================
 # PHASE 2: IMPORTS (safe now that env vars are loaded and noise is silenced)
 # =============================================================================
+
+import matplotlib
+matplotlib.use("Agg")  # Headless mode for CI/CD compatibility
+import matplotlib.pyplot as plt
+
+try:
+    plt.style.use("seaborn-v0_8-muted")
+except OSError:
+    plt.style.use("ggplot")  # Fallback gracefully
 
 from rich.console import Console
 from rich.live import Live
@@ -424,17 +446,69 @@ def run_simulation(
 
         console.print(f"\n  [dim]Unified audit log:  {audit_path}[/dim]")
 
-        # DataCollector DataFrame summary
+        # DataCollector DataFrame summary & Visual Proof
         try:
             df = model.datacollector.get_model_vars_dataframe()
             if not df.empty:
                 console.print("\n  [bold]DataCollector — Final Model State:[/bold]")
                 console.print(f"  {df.tail(1).to_string()}")
-        except Exception:
-            pass  # DataCollector may be empty on early failure
+                
+                # --- VISUAL PROOF (Matplotlib) ---
+                console.print("\n  [bold yellow]Generating Visual Proof (Charts)...[/bold yellow]")
+                
+                # Plot 1: Price Crash Chart
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(df.index, df["Price"], color="#4C72B0", linewidth=2.5, label="Market Price")
+                
+                # Highlight Step 15 Shock if we reached it
+                if len(df) > 15:
+                    ax.axvline(x=15, color="#C44E52", linestyle="--", linewidth=2, label="Shock Event (Step 15)")
+                    
+                    # Safely get the price at step 15
+                    try:
+                        step_15_price = df["Price"].iloc[15]
+                    except IndexError:
+                        step_15_price = df["Price"].iloc[-1]
+                        
+                    ax.annotate("CEO Arrested", xy=(15, step_15_price), 
+                                xytext=(15.5, df["Price"].max() * 0.95),
+                                arrowprops=dict(facecolor="#C44E52", shrink=0.05, width=2, headwidth=8),
+                                fontsize=11, color="#C44E52", fontweight="bold")
+                
+                ax.set_title("Mesa 4.0 Reflexive Market Price Discovery", fontsize=14, fontweight="bold", pad=15)
+                ax.set_xlabel("Simulation Step", fontsize=12)
+                ax.set_ylabel("Price (₹)", fontsize=12)
+                ax.grid(True, linestyle=":", alpha=0.7)
+                ax.legend(loc="upper left")
+                
+                price_chart_path = log_dir / "price_crash_chart.png"
+                fig.savefig(price_chart_path, dpi=300, bbox_inches="tight")
+                plt.close(fig)
+                
+                # Plot 2: Wealth Inequality (Gini)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(df.index, df["Gini"], color="#DD8452", linewidth=2.5, label="Gini Coefficient")
+                
+                ax.set_title("Wealth Inequality (Gini Coefficient) Over Time", fontsize=14, fontweight="bold", pad=15)
+                ax.set_xlabel("Simulation Step", fontsize=12)
+                ax.set_ylabel("Gini (0 = Equal, 1 = Unequal)", fontsize=12)
+                # Ensure the y-axis scales sensibly 
+                ax.set_ylim(0, max(0.1, df["Gini"].max() * 1.2)) 
+                ax.grid(True, linestyle=":", alpha=0.7)
+                ax.legend(loc="upper left")
+                
+                gini_chart_path = log_dir / "wealth_inequality_gini.png"
+                fig.savefig(gini_chart_path, dpi=300, bbox_inches="tight")
+                plt.close(fig)
+
+                console.print(f"  [dim]Visual Proof saved: {price_chart_path}[/dim]")
+                console.print(f"  [dim]Visual Proof saved: {gini_chart_path}[/dim]")
+
+        except Exception as e:
+            console.print(f"  [dim]Could not generate charts: {e}[/dim]")
 
         console.print(
-            f"  [dim]DataCollector data available via model.datacollector[/dim]"
+            f"  \n  [dim]DataCollector data available via model.datacollector[/dim]"
         )
 
 
