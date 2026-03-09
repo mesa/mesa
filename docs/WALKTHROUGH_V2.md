@@ -37,7 +37,7 @@ python run.py
 
 While designed for high-fidelity agentic reasoning, the system includes a **Quota Sentinel** to handle the Free-Tier API minute-limits gracefully.
 
-If the prompt generation + observation context exceeds the free-tier per-minute ceiling (a common scenario when running 5 agents simultaneously on Gemini Free Tier), the simulation does *not* hang or crash with a python stack trace. 
+If the prompt generation + observation context exceeds the free-tier per-minute ceiling (a common scenario when running 5 agents simultaneously on Gemini Free Tier), the simulation does *not* hang or crash with a python stack trace.
 
 Instead, it triggers a **Stress Test Victory**, which leverages the DataRegistry to flush all currently cached agent observations and price signals to logs/ before a clean shutdown. This provides a clean exit reporting the exact metrics discovered before the wall was hit.
 

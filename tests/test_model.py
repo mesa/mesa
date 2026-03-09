@@ -1,5 +1,4 @@
-"""
-tests/test_model.py — Unit Tests for Mesa 4.0 AI Stock Market PoC.
+"""tests/test_model.py — Unit Tests for Mesa 4.0 AI Stock Market PoC.
 
 Covers three critical areas flagged by the GSoC mentor audit:
 1. Mathematical Integrity: Gini coefficient calculation
@@ -12,12 +11,12 @@ Usage:
     pytest tests/test_model.py -v
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from mesa_stock_market.model import MarketModel, get_gini_coefficient
-from mesa_stock_market.schemas import TradeDecision, TradeAction
+import pytest
 
+from mesa_stock_market.model import MarketModel, get_gini_coefficient
+from mesa_stock_market.schemas import TradeAction, TradeDecision
 
 # =============================================================================
 # FIXTURES
@@ -63,8 +62,7 @@ class TestGiniCoefficient:
         """When all agents have equal wealth, Gini should be 0."""
         mock_model = MagicMock()
         mock_model.agents = [
-            MagicMock(cash=100, shares=10, portfolio_value=100)
-            for _ in range(4)
+            MagicMock(cash=100, shares=10, portfolio_value=100) for _ in range(4)
         ]
         # Add `hasattr` support for the `cash` check
         for a in mock_model.agents:
@@ -191,6 +189,7 @@ class TestMarketPulse:
     def test_shock_event_at_step_15(self):
         """Step 15 should contain the shock event news."""
         from mesa_stock_market.model import NEWS_TIMELINE
+
         shock_news = NEWS_TIMELINE[15]
         assert "BREAKING" in shock_news or "fraud" in shock_news.lower()
         # Verify the news text is a fat tail event

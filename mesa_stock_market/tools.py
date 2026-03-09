@@ -1,5 +1,4 @@
-"""
-tools.py — execute_trade tool with State-Sync Error Protocol.
+"""tools.py — execute_trade tool with State-Sync Error Protocol.
 
 The trade execution tool enforces the 1% Risk Rule server-side and returns
 structured `TradeError` objects on rejection, which get appended to the

@@ -1,5 +1,4 @@
-"""
-schemas.py — Single-Call CoT Pydantic Contract for Trade Decisions.
+"""schemas.py — Single-Call CoT Pydantic Contract for Trade Decisions.
 
 Merges 'thinking' and 'acting' into one schema, passed as `response_format`
 to litellm. The LLM produces its Chain-of-Thought reasoning AND the trade
@@ -128,7 +127,6 @@ class TradeError(BaseModel):
     )
     portfolio_snapshot: dict = Field(
         description=(
-            "Current portfolio state: {cash, shares, total_value, "
-            "current_price}."
+            "Current portfolio state: {cash, shares, total_value, current_price}."
         ),
     )

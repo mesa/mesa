@@ -1,5 +1,4 @@
-"""
-reasoning.py — SingleCallReasoning: Optimized GSoC Implementation.
+"""reasoning.py — SingleCallReasoning: Optimized GSoC Implementation.
 
 This module provides a cost-optimized reasoning strategy for mesa-llm by
 merging Chain-of-Thought (CoT) and tool execution into a single LLM
@@ -93,8 +92,7 @@ Then IMMEDIATELY call the execute_trade tool with action, quantity, and reasonin
             )
         if not hasattr(self.agent, "tool_manager"):
             raise AttributeError(
-                f"Agent {self.agent.unique_id} must have a tool_manager "
-                "for execution."
+                f"Agent {self.agent.unique_id} must have a tool_manager for execution."
             )
 
     def _get_context_strings(self) -> dict[str, str]:
@@ -169,19 +167,21 @@ Then IMMEDIATELY call the execute_trade tool with action, quantity, and reasonin
         #    mixing CoT content with tool calls. The strong system prompt
         #    guarantees the tool will be called.
         self.agent.llm.system_prompt = full_system_prompt
-        
+
         # Add a retry loop specifically for litellm Groq parsing errors.
         # Open source models sometimes malform the XML tool call string,
         # causing litellm to throw a BadRequestError during parsing.
         max_retries = 3
         response = None
         last_err = None
-        
+
         for attempt in range(max_retries):
             try:
                 response = self.agent.llm.generate(
                     prompt=prompt,
-                    tool_schema=self.agent.tool_manager.get_all_tools_schema(selected_tools),
+                    tool_schema=self.agent.tool_manager.get_all_tools_schema(
+                        selected_tools
+                    ),
                     tool_choice="auto",
                 )
                 break  # Success
@@ -190,11 +190,13 @@ Then IMMEDIATELY call the execute_trade tool with action, quantity, and reasonin
                 last_err = e
                 logger.warning(
                     f"Agent {self.agent.unique_id} LLM generation failed "
-                    f"(attempt {attempt+1}/{max_retries}): {e}"
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
                 )
-                
+
         if response is None:
-            logger.error(f"Agent {self.agent.unique_id} failed after {max_retries} attempts.")
+            logger.error(
+                f"Agent {self.agent.unique_id} failed after {max_retries} attempts."
+            )
             raise RuntimeError(f"LLM generation failed after retries: {last_err}")
 
         message = response.choices[0].message
@@ -252,16 +254,18 @@ Then IMMEDIATELY call the execute_trade tool with action, quantity, and reasonin
         )
 
         self.agent.llm.system_prompt = full_system_prompt
-        
+
         max_retries = 3
         response = None
         last_err = None
-        
+
         for attempt in range(max_retries):
             try:
                 response = await self.agent.llm.agenerate(
                     prompt=prompt,
-                    tool_schema=self.agent.tool_manager.get_all_tools_schema(selected_tools),
+                    tool_schema=self.agent.tool_manager.get_all_tools_schema(
+                        selected_tools
+                    ),
                     tool_choice="auto",
                 )
                 break
@@ -269,11 +273,13 @@ Then IMMEDIATELY call the execute_trade tool with action, quantity, and reasonin
                 last_err = e
                 logger.warning(
                     f"Agent {self.agent.unique_id} LLM ageneration failed "
-                    f"(attempt {attempt+1}/{max_retries}): {e}"
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
                 )
-                
+
         if response is None:
-            logger.error(f"Agent {self.agent.unique_id} failed after {max_retries} attempts.")
+            logger.error(
+                f"Agent {self.agent.unique_id} failed after {max_retries} attempts."
+            )
             raise RuntimeError(f"LLM ageneration failed after retries: {last_err}")
 
         message = response.choices[0].message

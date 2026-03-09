@@ -1,5 +1,4 @@
-"""
-trader_agent.py — Trader(LLMAgent) with Modular Persona Loading.
+"""trader_agent.py — Trader(LLMAgent) with Modular Persona Loading.
 
 The Trader agent is the core decision-maker in the simulation. It inherits
 from `mesa_llm.LLMAgent` and uses the Single-Call CoT schema to produce
@@ -25,11 +24,10 @@ import logging
 from pathlib import Path
 
 import yaml
-from mesa.model import Model
 from mesa_llm.llm_agent import LLMAgent
 from mesa_llm.reasoning.reasoning import Reasoning
 
-from mesa_stock_market.schemas import TradeDecision
+from mesa.model import Model
 from mesa_stock_market.tools import market_tool_manager
 
 logger = logging.getLogger(__name__)
@@ -102,12 +100,12 @@ def _build_desk_lead_system_prompt(persona_config: dict) -> str:
     Returns:
         The complete system prompt string.
     """
-    return f"""You are **{persona_config['name']}** — a trader on The Desk.
+    return f"""You are **{persona_config["name"]}** — a trader on The Desk.
 
 ## YOUR IDENTITY
-{persona_config['style']}
-Risk Appetite: {persona_config['risk_appetite'].upper()}.
-Base Conviction: {persona_config['base_conviction']}.
+{persona_config["style"]}
+Risk Appetite: {persona_config["risk_appetite"].upper()}.
+Base Conviction: {persona_config["base_conviction"]}.
 
 ## COMMUNICATION PROTOCOL
 - LANGUAGE: Professional institutional English with precise financial

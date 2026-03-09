@@ -1,5 +1,4 @@
-"""
-model.py — MarketModel with Market Pulse & Reflexivity Price Discovery Engine.
+"""model.py — MarketModel with Market Pulse & Reflexivity Price Discovery Engine.
 
 The MarketModel orchestrates the simulation:
 1. Pre-step: Generates a 'Market Pulse' from the news timeline
@@ -19,10 +18,10 @@ Data Strategy:
 
 import time
 
-from mesa.datacollection import DataCollector
-from mesa.model import Model
 from mesa_llm.reasoning.reasoning import Reasoning
 
+from mesa.datacollection import DataCollector
+from mesa.model import Model
 from mesa_stock_market.agents import TRADER_PERSONAS, Trader
 
 # --- Pre-Scripted News Timeline ---
@@ -94,6 +93,7 @@ NEWS_TIMELINE = {
 
 # --- Gini Coefficient (Model-level reporter function) ---
 
+
 def get_gini_coefficient(model: Model) -> float:
     """Calculate the Gini coefficient for wealth inequality.
 
@@ -109,9 +109,7 @@ def get_gini_coefficient(model: Model) -> float:
     Returns:
         Gini coefficient (0.0 to 1.0).
     """
-    agent_wealths = [
-        a.portfolio_value for a in model.agents if hasattr(a, "cash")
-    ]
+    agent_wealths = [a.portfolio_value for a in model.agents if hasattr(a, "cash")]
     if not agent_wealths or len(agent_wealths) < 2:
         return 0.0
 
@@ -231,12 +229,8 @@ class MarketModel(Model):
                 "Wealth": lambda a: (
                     round(a.portfolio_value, 2) if hasattr(a, "cash") else None
                 ),
-                "Cash": lambda a: (
-                    round(a.cash, 2) if hasattr(a, "cash") else None
-                ),
-                "Shares": lambda a: (
-                    a.shares if hasattr(a, "shares") else None
-                ),
+                "Cash": lambda a: (round(a.cash, 2) if hasattr(a, "cash") else None),
+                "Shares": lambda a: (a.shares if hasattr(a, "shares") else None),
             },
         )
 
@@ -261,8 +255,10 @@ class MarketModel(Model):
             prev = self.price_history[-1]
             price_change = ((self.current_price - prev) / prev) * 100
 
-        trend = "BULLISH" if price_change > 0.5 else (
-            "BEARISH" if price_change < -0.5 else "FLAT"
+        trend = (
+            "BULLISH"
+            if price_change > 0.5
+            else ("BEARISH" if price_change < -0.5 else "FLAT")
         )
 
         self.market_pulse = (
