@@ -67,7 +67,7 @@ class ConnectionMissingException(SpaceException):
         )
 
 
-class TableMissingException(MesaException):
+class TableMissingException(MesaException, ValueException):
     """Raised when attempting to access a table that does not exist in the DataCollector."""
 
     def __init__(self, table_name):
