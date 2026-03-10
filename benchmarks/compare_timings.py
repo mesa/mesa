@@ -20,6 +20,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threshold", type=float, default=3.0, help="Percentage threshold for flagging significant change (default: 3.0)")
     return parser.parse_args()
 
+def load_pickle(filename: str) -> dict:
+    path = f"{filename}.pickle"
+    try:
+        with open(path, "rb") as handle:
+            return pickle.load(handle)  # noqa: S301
+    except FileNotFoundError:
+        print(f"Error: File '{path}' not found.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error loading '{path}': {e}", file=sys.stderr)
+        sys.exit(1)
+
 with open(f"{filename1}.pickle", "rb") as handle:
     timings_1 = pickle.load(handle)  # noqa: S301
 
