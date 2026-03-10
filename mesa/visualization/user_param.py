@@ -56,7 +56,7 @@ class Slider(UserParam):
         # Validate option type to make sure values are supplied properly
         valid = (
             self.value is not None
-            and self.min is not None 
+            and self.min is not None
             and self.max is not None
             and self.min < self.max
             and self.min <= self.value <= self.max
