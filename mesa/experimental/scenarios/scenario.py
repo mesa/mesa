@@ -86,7 +86,7 @@ class Scenario:
                 numpy.random.default_rng(). scenario.rng is always a Generator after
                 initialisation. The initial rng state is stored in scenario.initial_rng_state
                 and used by spawn_replications() to derive child seeds.
-            experiment_id: Index of the design point in the experiment matrix.
+            scenario_id: Index of the design point in the experiment matrix.
             replication_id: Index of the stochastic replication for this design point.
             **kwargs: All other scenario parameters (override class-level defaults).
         """
