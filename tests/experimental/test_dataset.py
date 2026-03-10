@@ -504,7 +504,7 @@ def test_agent_dataset_dirty_flag():
         dataset.set_dirty_flag()
 
 def test_track_agents_with_agent_class():
-    """Ensure DataRegistry.track_agents supports agent classes"""
+    """Ensure DataRegistry.track_agents supports agent classes."""
     class TestAgent(Agent):
         def __init__(self, model):
             super().__init__(model)
@@ -512,8 +512,8 @@ def test_track_agents_with_agent_class():
 
     model = Model()
 
-    # create some agents
-    agents = [TestAgent(model) for _ in range(5)]
+    for _ in range(5):
+        TestAgent(model)
 
     registry = model.data_registry
 

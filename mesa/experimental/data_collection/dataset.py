@@ -514,7 +514,7 @@ class NumpyAgentDataSet[A: Agent]:
 class DataRegistry:
     """A registry for data sets."""
 
-    def __init__(self,model):
+    def __init__(self, model):
         """Initialize the registry."""
         self.model = model
         self.datasets = {}
@@ -550,7 +550,9 @@ class DataRegistry:
         *,
         use_dirty_flag: bool = False,
     ) -> AgentDataSet:
-        """Track the specified fields for the agents. The first argument can be either an AgentSet or an Agent class.
+        """Track the specified fields for the agents. 
+        
+        The first argument can be either an AgentSet or an Agent class.
         If an Agent class is passed, the registry resolves the corresponding agents from the model."""
         if isinstance(agents, type) and issubclass(agents, Agent):
             agents = self.model.agents.select(agent_type = agents)
