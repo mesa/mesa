@@ -830,6 +830,40 @@ def test_ObservableList_slice_delitem():
     )
 
 
+def test_observable_list_mutation():
+    """Test that in-place mutations of ObservableList trigger computed property updates."""
+
+    class ListAgent(Agent, HasEmitters):
+        inventory = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.inventory = [1, 2]
+
+        @computed_property
+        def inventory_size(self):
+            return len(self.inventory)
+
+    model = Model(rng=42)
+    agent = ListAgent(model)
+
+    # Initial access builds the dependency graph and caches the value
+    assert agent.inventory_size == 2
+
+    # In-place mutation
+    # Append
+    agent.inventory.append(3)
+    assert agent.inventory_size == 3
+
+    # Remove
+    agent.inventory.remove(1)
+    assert agent.inventory_size == 2
+
+    state = agent._computed_inventory_size
+    value = state.parents[agent]["inventory"]
+    assert value is None
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415
