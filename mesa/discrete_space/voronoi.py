@@ -198,10 +198,14 @@ class VoronoiGrid(DiscreteSpace):
 
         Args:
             centroids_coordinates: coordinates of centroids to build the tessellation space
-            capacity (int) : capacity of the cells in the discrete space
+            capacity (int) : capacity of the cells in the discrete space. If provided, this
+                value is used directly for all cells and ``capacity_function`` is ignored.
+                If ``None`` (default), each cell's capacity is derived from its polygon area
+                via ``capacity_function``.
             random (Random): random number generator
             cell_klass (type[Cell]): type of cell class
-            capacity_function (Callable): function to compute (int) capacity according to (float) area
+            capacity_function (Callable): function to compute (int) capacity according to
+                (float) area. Only used when ``capacity=None``.
 
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
@@ -286,11 +290,34 @@ class VoronoiGrid(DiscreteSpace):
         y = polygon[:, 1]
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
-    def _build_cell_polygons(self):
+    def _build_cell_polygons(self) -> None:
+        """Compute polygon geometry for each Voronoi cell and conditionally set capacity.
+
+        For each cell, stores the polygon vertices and its computed area as
+        ``cell.properties["polygon"]`` and ``cell.properties["area"]``.
+
+        Capacity assignment rules
+        -------------------------
+        - If the caller passed an explicit ``capacity`` value to ``__init__``,
+          that value is **preserved** on every cell and ``capacity_function`` is
+          **not** invoked.  Previously, this method unconditionally overwrote
+          the user-provided capacity with an area-derived value (bug fix for
+          Issue #3505).
+        - If ``capacity=None`` (the default), each cell's capacity is derived
+          from its polygon area via ``self.capacity_function``.
+        """
         coordinates, regions = self._get_voronoi_regions()
         for region in regions:
             polygon = [coordinates[i] for i in regions[region]]
             self._cells[region].properties["polygon"] = polygon
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
-            self._cells[region].capacity = self.capacity_function(polygon_area)
+
+            # BUG FIX (#3505): Only derive capacity from area when the caller
+            # did NOT supply an explicit capacity.  The original code called
+            # self.capacity_function unconditionally, silently discarding any
+            # user-provided capacity value (e.g. capacity=1).
+            if self.capacity is None:
+                self._cells[region].capacity = self.capacity_function(polygon_area)
+            # else: capacity was already set to the user's value in __init__
+            # via the cell_klass constructor — no action needed here.
