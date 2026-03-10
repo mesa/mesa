@@ -104,6 +104,7 @@ class DiscreteSpace[T: Cell](ABC):
             connections at runtime is possible. However, only the caches of cells directly affected will be cleared. So
             if you rely on getting neighborhoods of cells with a radius higher than 1, these might not be cleared
             correctly if you are adding or removing cells and connections at runtime.
+
         Warning:
             Coordinate Collision: If a cell already exists at the specified
             coordinates (e.g., cell1), it will be overwritten silently by the
