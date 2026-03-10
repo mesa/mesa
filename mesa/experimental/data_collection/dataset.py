@@ -550,12 +550,13 @@ class DataRegistry:
         *,
         use_dirty_flag: bool = False,
     ) -> AgentDataSet:
-        """Track the specified fields for the agents. 
-        
+        """Track the specified fields for the agents.
+
         The first argument can be either an AgentSet or an Agent class.
-        If an Agent class is passed, the registry resolves the corresponding agents from the model."""
+        If an Agent class is passed, the registry resolves the corresponding agents from the model.
+        """
         if isinstance(agents, type) and issubclass(agents, Agent):
-            agents = self.model.agents.select(agent_type = agents)
+            agents = self.model.agents.select(agent_type=agents)
         return self.create_dataset(
             AgentDataSet,
             name,
@@ -625,7 +626,7 @@ if __name__ == "__main__":
 
     model = BoltzmannWealth()
     model.test = 5
-    agent_data = AgentDataSet("wealth", model.agents, fields = "wealth")
+    agent_data = AgentDataSet("wealth", model.agents, fields="wealth")
     # model_data = ModelDataSet("gini", model, "test", gini=model.compute_gini)
     data = []
     for _ in range(5):
