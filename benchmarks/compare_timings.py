@@ -78,8 +78,14 @@ def performance_emoji(lower: float, upper: float, threshold: float = 3.0) ->str:
 
 
 # Iterate over the models and sizes, perform analysis, and populate the DataFrame
+rows=[]
 for model, size in timings_1:
     model_name = model.__name__
+
+    if (model, size) not in timings_2:
+        print(f"Warning: ({model.__name__}, {size}) found in file1 but not in file2 — skipping.", file=sys.stderr)
+        continue
+
 
     # Calculate percentage change and confidence interval for init times
     (
@@ -104,16 +110,14 @@ for model, size in timings_1:
     )
 
     # Append results to DataFrame
-    row = pd.DataFrame(
-        {
-            "Model": [model_name],
-            "Size": [size],
-            "Init time [95% CI]": [init_summary],
-            "Run time [95% CI]": [run_summary],
-        }
-    )
+    rows.append({
+        "Model": model_name,
+        "Size": size,
+        "Init time [95% CI]": init_summary,
+        "Run time [95% CI]": run_summary,
+    })
 
-    results_df = pd.concat([results_df, row], ignore_index=True)
+    results_df = pd.DataFrame(rows, columns=["Model", "Size", "Init time [95% CI]", "Run time [95% CI]"])
 
 # Convert DataFrame to markdown with specified alignments
 markdown_representation = results_df.to_markdown(index=False, tablefmt="github")
