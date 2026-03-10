@@ -12,7 +12,6 @@ import mesa
 from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.experimental.scenarios import Scenario
 import mesa.visualization.solara_viz as solara_viz_module
-from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
