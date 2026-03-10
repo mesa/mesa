@@ -514,7 +514,7 @@ def test_networkgrid():
     assert cell not in grid._cells[0].neighborhood
     assert grid._cells[0] not in cell.neighborhood
 <<<<<<< HEAD
-   
+
 =======
 
     grid.remove_cell(grid._cells[10])
