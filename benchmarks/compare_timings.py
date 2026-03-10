@@ -67,11 +67,11 @@ def bootstrap_percentage_change_confidence_interval(data1, data2, n=1000):
 results_df = pd.DataFrame()
 
 
-def performance_emoji(lower, upper):
+def performance_emoji(lower: float, upper: float, threshold: float = 3.0) ->str:
     """Function to determine the emoji based on change and confidence interval."""
-    if upper < -3:
+    if upper < -threshold:
         return "🟢"  # Emoji for faster performance
-    elif lower > 3:
+    elif lower > threshold:
         return "🔴"  # Emoji for slower performance
     else:
         return "🔵"  # Emoji for insignificant change
