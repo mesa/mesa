@@ -299,6 +299,11 @@ class Grid(DiscreteSpace[T]):
                     return cell
 
         empty_coords = np.argwhere(self.property_layers["empty"])
+        if len(empty_coords) == 0:
+            raise ValueError(
+                "Grid is completely full no empty cells available. "
+                "Cannot select a random empty cell."
+            )
         random_coord = self.random.choice(empty_coords)
         return self._cells[tuple(random_coord)]
 
