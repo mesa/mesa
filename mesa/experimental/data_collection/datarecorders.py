@@ -582,6 +582,7 @@ class SQLDataRecorder(BaseDataRecorder):
         # handle overwrite
         if is_overwrite and self.metadata[dataset_name]["table_created"]:
             self.conn.execute(f'DELETE FROM "{dataset_name}" WHERE time = ?', (time,))  # noqa: S608
+
         match data:
             case np.ndarray() if data.size > 0:
                 self._store_numpy_data(dataset_name, time, data)
