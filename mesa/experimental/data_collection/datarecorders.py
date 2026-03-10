@@ -681,11 +681,7 @@ class SQLDataRecorder(BaseDataRecorder):
 
         for name, meta in self.metadata.items():
             if meta["table_created"]:
-<<<<<<< HEAD
-                cursor = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"')
-=======
                 cursor = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"')  # noqa: S608
->>>>>>> parent of 359fb02b (ruff fixes)
                 row_count = cursor.fetchone()[0]
             else:
                 row_count = 0
