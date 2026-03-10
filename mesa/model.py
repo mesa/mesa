@@ -168,7 +168,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             [], random=self.random
         )  # an agenset with all agents
 
-        self.data_registry = DataRegistry()
+        self.data_registry = DataRegistry(self)
 
     def _wrapped_step(self) -> None:
         """Advance time by one unit, processing any scheduled events."""

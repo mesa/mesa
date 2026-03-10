@@ -212,7 +212,7 @@ def test_base_recorder_get_all_dataframes():
 def test_data_recorder_custom_data_type():
     """Test DataRecorder with custom/unknown data type (fallback case)."""
     model = Model()
-    model.data_registry = DataRegistry()
+    model.data_registry = DataRegistry(model)
 
     # Create a custom dataset that returns an unknown type
     custom_dataset = Mock(spec=DataSet)
@@ -249,7 +249,7 @@ def test_data_recorder_empty_numpy_array():
 def test_data_recorder_empty_list():
     """Test storing empty list (no agents)."""
     model = Model()
-    model.data_registry = DataRegistry()
+    model.data_registry = DataRegistry(model)
     recorder = DataRecorder(model)
     recorder.clear()
 
@@ -326,7 +326,7 @@ def test_data_recorder_window_eviction_dict():
 def test_data_recorder_window_eviction_custom():
     """Test window eviction bookkeeping for custom data type."""
     model = Model()
-    model.data_registry = DataRegistry()
+    model.data_registry = DataRegistry(model)
 
     custom_dataset = Mock()
     custom_dataset.name = "custom_data"
@@ -429,7 +429,7 @@ def test_data_recorder_get_table_dataframe_empty():
 def test_data_recorder_get_table_dataframe_unknown_type_warning():
     """Test that unknown data types trigger warning."""
     model = Model()
-    model.data_registry = DataRegistry()
+    model.data_registry = DataRegistry(model)
 
     custom_dataset = Mock(spec=DataSet)
     custom_dataset.name = "custom_data"
@@ -824,7 +824,7 @@ def test_sql_recorder_store_empty_numpy():
 def test_sql_recorder_store_empty_list():
     """Test SQL recorder with empty list."""
     model = Model()
-    model.data_registry = DataRegistry()
+    model.data_registry = DataRegistry(model)
 
     recorder = SQLDataRecorder(model, db_path=":memory:")
     model.data_registry.track_agents(
