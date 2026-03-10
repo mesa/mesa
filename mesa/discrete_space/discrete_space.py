@@ -104,13 +104,13 @@ class DiscreteSpace[T: Cell](ABC):
             connections at runtime is possible. However, only the caches of cells directly affected will be cleared. So
             if you rely on getting neighborhoods of cells with a radius higher than 1, these might not be cleared
             correctly if you are adding or removing cells and connections at runtime.
-<<<<<<< HEAD
-=======
+        <<<<<<< HEAD
+        =======
         <<<<<<< HEAD
         =======
         <<<<<<< HEAD
         >>>>>>> c6d6b42849b1801d89695dd63199d016d2979239
->>>>>>> 9074c018a985343143d186dcaaf2db15b4827131
+        >>>>>>> 9074c018a985343143d186dcaaf2db15b4827131
         Warning:
             Coordinate Collision: If a cell already exists at the specified
             coordinates (e.g., cell1), it will be overwritten silently by the
@@ -120,8 +120,8 @@ class DiscreteSpace[T: Cell](ABC):
             - All agents contained within the original cell will be permanently lost.
 
             Ensure the target coordinates are vacant before calling this method.
-<<<<<<< HEAD
-=======
+        <<<<<<< HEAD
+        =======
         <<<<<<< HEAD
         =======
         =======
@@ -130,7 +130,7 @@ class DiscreteSpace[T: Cell](ABC):
            present in the self.cells
         >>>>>>> 524f9adae8fe56b6983c01c771240102d4125131
         >>>>>>> c6d6b42849b1801d89695dd63199d016d2979239
->>>>>>> 9074c018a985343143d186dcaaf2db15b4827131
+        >>>>>>> 9074c018a985343143d186dcaaf2db15b4827131
         """
         self.__dict__.pop("all_cells", None)
         self._cells[cell.coordinate] = cell
