@@ -59,11 +59,9 @@ _mesa_logger = create_module_logger()
 def SolaraViz(
     model: Model | solara.Reactive[Model],
     renderer: SpaceRenderer | None = None,
-    components: (
-        list[tuple[reacton.core.Component], int]
-        | list[tuple[Callable[[Model], reacton.core.Component], 0]]
-        | Literal["default"]
-    ) = [],  # noqa: B006
+    components: list[tuple[reacton.core.Component], int]
+    | list[tuple[Callable[[Model], reacton.core.Component], 0]]
+    | Literal["default"] = [],  # noqa: B006
     *,
     play_interval: int = 100,
     render_interval: int = 1,
@@ -349,10 +347,8 @@ def _wrap_component(
 
 @solara.component
 def ComponentsView(
-    components: (
-        list[tuple[reacton.core.Component], int]
-        | list[tuple[Callable[[Model], reacton.core.Component], int]]
-    ),
+    components: list[tuple[reacton.core.Component], int]
+    | list[tuple[Callable[[Model], reacton.core.Component], int]],
     model: Model,
 ):
     """Display a list of components.

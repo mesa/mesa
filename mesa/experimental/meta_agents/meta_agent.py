@@ -72,13 +72,10 @@ def find_combinations(
     group: Iterable,
     size: int | tuple[int, int] = (2, 5),
     evaluation_func: Callable[[tuple[Agent, ...]], float] | None = None,
-    filter_func: (
-        Callable[
-            [list[tuple[tuple[Agent, ...], float]]],
-            list[tuple[tuple[Agent, ...], float]],
-        ]
-        | None
-    ) = None,
+    filter_func: Callable[
+        [list[tuple[tuple[Agent, ...], float]]], list[tuple[tuple[Agent, ...], float]]
+    ]
+    | None = None,
 ) -> list[tuple[tuple[Agent, ...], float]]:
     """Find valuable combinations of agents in this set.
 

@@ -446,11 +446,9 @@ class AltairBackend(AbstractRenderer):
                         "value:Q",
                         scale=color_scale,
                         title=layer_name,
-                        legend=(
-                            alt.Legend(title=layer_name, orient="bottom")
-                            if portrayal.colorbar
-                            else None
-                        ),
+                        legend=alt.Legend(title=layer_name, orient="bottom")
+                        if portrayal.colorbar
+                        else None,
                     ),
                 )
                 .properties(width=chart_width, height=chart_height)
