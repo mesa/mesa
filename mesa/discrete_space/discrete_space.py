@@ -109,9 +109,6 @@ class DiscreteSpace[T: Cell](ABC):
             coordinates (e.g., cell1), it will be overwritten silently by the
             new cell (cell2).
 
-            - The original cell will vanish without any notification or error.
-            - All agents contained within the original cell will be permanently lost.
-
             Ensure the target coordinates are vacant before calling this method.
         """
         self.__dict__.pop("all_cells", None)
