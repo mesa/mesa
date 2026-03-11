@@ -1,4 +1,5 @@
 """Base Scenario class."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -12,8 +13,6 @@ import pandas as pd
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
-
-
 
 
 class Scenario:
@@ -195,9 +194,12 @@ class Scenario:
         ]
 
     @classmethod
-    def from_dataframe(cls,
-        experiments: pd.DataFrame, *, rng: SeedLike | None = None,
-        replications: int | None = None
+    def from_dataframe(
+        cls,
+        experiments: pd.DataFrame,
+        *,
+        rng: SeedLike | None = None,
+        replications: int | None = None,
     ) -> list[Scenario]:
         """Turn a dataframe into a list of scenarios.
 
@@ -225,9 +227,13 @@ class Scenario:
         return scenarios
 
     @classmethod
-    def from_numpy(cls,
-        experiments: np.ndarray, parameter_names: list[str], *, rng: SeedLike|None = None,
-        replications: int | None = None
+    def from_numpy(
+        cls,
+        experiments: np.ndarray,
+        parameter_names: list[str],
+        *,
+        rng: SeedLike | None = None,
+        replications: int | None = None,
     ) -> list[Scenario]:
         """Turn a numpy array into a list of scenarios.
 
@@ -249,5 +255,7 @@ class Scenario:
             )
 
         return cls.from_dataframe(
-            pd.DataFrame(experiments, columns=parameter_names), rng=rng, replications=replications
+            pd.DataFrame(experiments, columns=parameter_names),
+            rng=rng,
+            replications=replications,
         )
