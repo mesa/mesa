@@ -118,7 +118,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.time: float = 0.0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
         self.rng = None
         self._rng = None
@@ -183,7 +182,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if until <= self.time:
             warnings.warn(
-                f"end time {until} is larger than time {self.time}",
+                f"end time {until} is not larger than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -446,6 +445,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         generator.start()
         return generator
 
+    @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_for(self, duration: float | int) -> None:
         """Run the model for the specified duration.
 
@@ -454,6 +454,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         self._advance_time(self.time + duration)
 
+    @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_until(self, end_time: float | int) -> None:
         """Run the model until the specified time.
 
@@ -465,7 +466,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if self.time > end_time:
             warnings.warn(
-                f"end_time {end_time} is larger than time {self.time}",
+                f"end_time {end_time} is not larger than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )

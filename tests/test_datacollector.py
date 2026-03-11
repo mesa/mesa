@@ -1,12 +1,15 @@
 """Test the DataCollector."""
 
 import unittest
+import warnings
 from functools import partial
 
 import pandas as pd
+import pytest
 
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
+from mesa.exceptions import TableMissingException
 
 
 class MockAgent(Agent):
@@ -730,6 +733,58 @@ def test_mutable_data_independence():
     assert df.loc[(1, 1), "Data"] == []
     assert df.loc[(2, 1), "Data"] == [1]
     assert df.loc[(3, 1), "Data"] == [1, 2]
+
+
+def test_get_model_vars_dataframe_no_reporters():
+    """Test that get_model_vars_dataframe warns and returns empty DataFrame when no reporters defined."""
+    dc = DataCollector()
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        df = dc.get_model_vars_dataframe()
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "No model reporters" in str(w[0].message)
+
+    assert df.empty
+
+
+def test_get_agent_vars_dataframe_no_reporters():
+    """Test that get_agent_vars_dataframe warns and returns empty DataFrame when no reporters defined."""
+    dc = DataCollector()
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        df = dc.get_agent_vars_dataframe()
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "No agent reporters" in str(w[0].message)
+
+    assert df.empty
+
+
+def test_add_table_row_nonexistent_table():
+    """Test that add_table_row raises TableMissingException for nonexistent table."""
+    dc = DataCollector()
+
+    with pytest.raises(TableMissingException, match="does not exist"):
+        dc.add_table_row("nonexistent", {"col": "val"})
+
+
+def test_add_table_row_missing_column():
+    """Test that add_table_row raises ValueError for missing column."""
+    dc = DataCollector(tables={"mytable": ["col_a", "col_b"]})
+
+    with pytest.raises(ValueError, match="missing column"):
+        dc.add_table_row("mytable", {"col_a": 1})
+
+
+def test_get_table_dataframe_nonexistent():
+    """Test that get_table_dataframe raises TableMissingException for nonexistent table."""
+    dc = DataCollector()
+
+    with pytest.raises(TableMissingException, match="does not exist"):
+        dc.get_table_dataframe("nonexistent")
 
 
 if __name__ == "__main__":

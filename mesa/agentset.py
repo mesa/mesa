@@ -49,7 +49,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
     @abstractmethod
     def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
-        """Update the AbstractAgentSet a with new set of agents."""
+        """Update the AbstractAgentSet A with new set of agents."""
         ...
 
     def select(
@@ -85,7 +85,11 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if at_most <= 1.0 and isinstance(at_most, float):
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
 
-        def agent_generator(filter_func, agent_type, at_most):
+        def agent_generator(
+            filter_func: Callable[[A], bool] | None,
+            agent_type: type[A] | None,
+            at_most: int,
+        ) -> Iterator[A]:
             count = 0
             for agent in self:
                 if count >= at_most:

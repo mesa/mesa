@@ -22,6 +22,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.exceptions import SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -58,7 +59,7 @@ class Network(DiscreteSpace[Cell]):
         elif isinstance(layout, Mapping):
             node_positions = layout
         else:
-            raise ValueError(
+            raise TypeError(
                 "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 
@@ -67,7 +68,12 @@ class Network(DiscreteSpace[Cell]):
 
         # Create cells and gather KD-Tree data simultaneously
         for node_id in self.G.nodes:
-            pos = np.array(node_positions.get(node_id))
+            try:
+                pos = np.array(node_positions[node_id])
+            except KeyError as e:
+                raise SpaceException(
+                    f"Node ID '{node_id}' is missing from the provided layout dictionary."
+                ) from e
 
             cell = self.cell_klass(
                 coordinate=node_id,
@@ -77,9 +83,8 @@ class Network(DiscreteSpace[Cell]):
             )
             self._cells[node_id] = cell
 
-            if pos is not None:
-                self._kdtree_cells.append(cell)
-                positions_for_tree.append(pos)
+            self._kdtree_cells.append(cell)
+            positions_for_tree.append(pos)
 
         if positions_for_tree:
             self._kdtree = KDTree(np.array(positions_for_tree))
