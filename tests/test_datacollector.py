@@ -521,6 +521,28 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         with self.assertRaises(ValueError):
             dc_function.collect(self.model)
 
+    def test_function_error_missing_params_list(self):
+        """Test error when function list is missing parameter list."""
+        dc_function = DataCollector(
+            model_reporters={"bad_function": [lambda m: len(m.agents)]}
+        )
+        with self.assertRaises(ValueError) as context:
+            dc_function.collect(self.model)
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("Invalid function list format", str(context.exception))
+
+    def test_function_error_invalid_params_type(self):
+        """Test error when function list has non-list/tuple params."""
+        dc_function = DataCollector(
+            model_reporters={"bad_function": [lambda m, x: len(m.agents) + x, 1]}
+        )
+        with self.assertRaises(ValueError) as context:
+            dc_function.collect(self.model)
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("Invalid function list format", str(context.exception))
+
 
 class TestMethodReporterValidation(unittest.TestCase):
     """Tests for method reporter validation fix.
