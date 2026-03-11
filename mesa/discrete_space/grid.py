@@ -278,7 +278,7 @@ class Grid(DiscreteSpace[T]):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise TypeError("Capacity must be a number or None.")
 
-    def select_random_empty_cell(self) -> T:  # noqa: D102
+    def select_random_empty_cell(self) -> T:
         """Return a random empty cell.
 
         Uses an adaptive heuristic: for sparsely occupied grids, random sampling
