@@ -67,6 +67,19 @@ class ConnectionMissingException(SpaceException):
         )
 
 
+class TableMissingException(MesaException, ValueError):  # noqa: N818
+    """Raised when attempting to access a table that does not exist in the DataCollector."""
+
+    def __init__(self, table_name):
+        """Initialize the exception.
+
+        Args:
+            table_name: The name of the missing table.
+        """
+        self.table_name = table_name
+        super().__init__(f"Table '{table_name}' does not exist.")
+
+
 class DimensionException(MesaException, ValueError):  # noqa: N818
     """Raised when spatial dimensions do not match expectations or are invalid."""
 
