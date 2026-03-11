@@ -66,6 +66,12 @@ class TestName:
         action.name = "custom_name"
         assert action.name == "custom_name"
 
+    def test_name_via_init(self):
+        """Name can be passed via __init__."""
+        _model, agent = make_model_and_agent()
+        action = Action(agent, name="my_action")
+        assert action.name == "my_action"
+
 
 # --- Basic lifecycle ---
 
@@ -237,34 +243,49 @@ class TestStartResume:
     def test_default_on_resume_calls_on_start(self):
         """When on_resume is not overridden, it delegates to on_start."""
         model, agent = make_model_and_agent()
-        started = []
 
-        action = Action(
-            agent,
-            duration=10.0,
-            on_start=lambda: started.append("start"),
-        )
+        class StartTracker(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=10.0)
+                self.started = []
+
+            def on_start(self):
+                self.started.append("start")
+
+            def on_interrupt(self, progress):
+                pass
+
+        action = StartTracker(agent)
 
         agent.start_action(action)
-        assert started == ["start"]
+        assert action.started == ["start"]
 
         model.run_for(3)
         agent.cancel_action()
 
         agent.start_action(action)
         # Default on_resume calls on_start
-        assert started == ["start", "start"]
+        assert action.started == ["start", "start"]
 
-    def test_inline_on_resume_overrides_default(self):
+    def test_overridden_on_resume_prevents_on_start(self):
+        """When on_resume is overridden, on_start is not called on resume."""
         model, agent = make_model_and_agent()
-        log = []
 
-        action = Action(
-            agent,
-            duration=10.0,
-            on_start=lambda: log.append("start"),
-            on_resume=lambda: log.append("resume"),
-        )
+        class ResumeTracker(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=10.0)
+                self.log = []
+
+            def on_start(self):
+                self.log.append("start")
+
+            def on_resume(self):
+                self.log.append("resume")
+
+            def on_interrupt(self, progress):
+                pass
+
+        action = ResumeTracker(agent)
 
         agent.start_action(action)
         model.run_for(3)
@@ -272,7 +293,7 @@ class TestStartResume:
 
         agent.start_action(action)
 
-        assert log == ["start", "resume"]
+        assert action.log == ["start", "resume"]
 
     def test_multiple_resume_cycles(self):
         model, agent = make_model_and_agent()
@@ -591,53 +612,59 @@ class TestCallableDurationPriority:
         assert call_count == 1  # Not called again
 
 
-# --- Inline callbacks ---
+# --- Subclass callbacks ---
 
 
-class TestInlineCallbacks:
-    def test_inline_on_complete(self):
+class TestSubclassCallbacks:
+    def test_subclass_on_complete(self):
         model, agent = make_model_and_agent()
         agent.energy = 50
 
-        action = Action(
-            agent,
-            duration=3.0,
-            on_complete=lambda: setattr(agent, "energy", agent.energy + 30),
-        )
+        class GainEnergy(Action):
+            def on_complete(self):
+                self.agent.energy += 30
+
+        action = GainEnergy(agent, duration=3.0)
 
         agent.start_action(action)
         model.run_for(3)
 
         assert agent.energy == 80
 
-    def test_inline_on_interrupt(self):
+    def test_subclass_on_interrupt(self):
         model, agent = make_model_and_agent()
-        received_progress = []
 
-        action = Action(
-            agent,
-            duration=10.0,
-            on_interrupt=lambda p: received_progress.append(p),
-        )
+        class ProgressTracker(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=10.0)
+                self.received_progress = []
+
+            def on_interrupt(self, progress):
+                self.received_progress.append(progress)
+
+        action = ProgressTracker(agent)
 
         agent.start_action(action)
         model.run_for(2)
         agent.cancel_action()
 
-        assert received_progress == [pytest.approx(0.2)]
+        assert action.received_progress == [pytest.approx(0.2)]
 
-    def test_inline_on_start(self):
+    def test_subclass_on_start(self):
         _model, agent = make_model_and_agent()
-        started = []
 
-        action = Action(
-            agent,
-            duration=5.0,
-            on_start=lambda: started.append(True),
-        )
+        class StartTracker(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=5.0)
+                self.started = False
+
+            def on_start(self):
+                self.started = True
+
+        action = StartTracker(agent)
 
         agent.start_action(action)
-        assert started == [True]
+        assert action.started is True
 
 
 # --- Agent removal ---
@@ -676,16 +703,19 @@ class TestResumeDetection:
 
     def test_on_start_can_detect_resume(self):
         model, agent = make_model_and_agent()
-        start_types = []
 
         class DetectResumeAction(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=10.0)
+                self.start_types = []
+
             def on_start(self):
-                start_types.append("resume" if self.progress > 0 else "first")
+                self.start_types.append("resume" if self.progress > 0 else "first")
 
             def on_interrupt(self, progress):
                 pass
 
-        action = DetectResumeAction(agent, duration=10.0)
+        action = DetectResumeAction(agent)
 
         agent.start_action(action)
         model.run_for(3)
@@ -694,20 +724,23 @@ class TestResumeDetection:
         agent.start_action(action)
         model.run_for(7)
 
-        assert start_types == ["first", "resume"]
+        assert action.start_types == ["first", "resume"]
 
 
 class TestEdgeCases:
     def test_double_completion_ignored(self):
         """Calling _do_complete twice doesn't fire on_complete twice."""
         model, agent = make_model_and_agent()
-        complete_count = []
 
-        action = Action(
-            agent,
-            duration=3.0,
-            on_complete=lambda: complete_count.append(1),
-        )
+        class CompletionCounter(Action):
+            def __init__(self, agent):
+                super().__init__(agent, duration=3.0)
+                self.complete_count = 0
+
+            def on_complete(self):
+                self.complete_count += 1
+
+        action = CompletionCounter(agent)
 
         agent.start_action(action)
         model.run_for(3)
@@ -715,7 +748,7 @@ class TestEdgeCases:
         # Manually try to complete again
         action._do_complete()
 
-        assert len(complete_count) == 1
+        assert action.complete_count == 1
 
     def test_remaining_time_before_start(self):
         _model, agent = make_model_and_agent()
@@ -804,12 +837,16 @@ class TestRealisticScenarios:
         agent = Agent(model)
         agent.log = []
 
+        class LogAction(Action):
+            def __init__(self, agent, label):
+                super().__init__(agent, duration=2.0)
+                self.label = label
+
+            def on_complete(self):
+                self.agent.log.append(f"done_{self.label}")
+
         for i in range(3):
-            action = Action(
-                agent,
-                duration=2.0,
-                on_complete=lambda i=i: agent.log.append(f"done_{i}"),
-            )
+            action = LogAction(agent, i)
             agent.start_action(action)
             model.run_for(2)
 
