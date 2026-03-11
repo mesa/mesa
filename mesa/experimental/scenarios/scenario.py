@@ -1,4 +1,5 @@
 """Base Scenario class."""
+from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
@@ -7,9 +8,12 @@ from itertools import count
 from typing import Any, ClassVar
 
 import numpy as np
+import pandas as pd
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
+
+
 
 
 class Scenario:
@@ -165,7 +169,7 @@ class Scenario:
             "initial_rng_state": self.initial_rng_state,
         }
 
-    def spawn_replications(self, n: int) -> list["Scenario"]:
+    def spawn_replications(self, n: int) -> list[Scenario]:
         """Spawn n replications of this scenario with deterministically derived seeds.
 
         Each replication has identical user provided parameters but a unique random number generator and replication_id.
@@ -190,54 +194,60 @@ class Scenario:
             for i in range(n)
         ]
 
+    @classmethod
+    def from_dataframe(cls,
+        experiments: pd.DataFrame, *, rng: SeedLike | None = None,
+        replications: int | None = None
+    ) -> list[Scenario]:
+        """Turn a dataframe into a list of scenarios.
 
-# def scenarios_from_dataframe(
-#     experiments: pd.DataFrame, rng: int | Iterable[SeedLike]
-# ) -> list[Scenario]:
-#     """Turn a dataframe into a list of scenarios.
-#
-#     Args:
-#        experiments: Dataframe containing the parameters for the scenarios.
-#        rng: the number of random seeds to use or a list of seeds.
-#
-#     Returns:
-#        a list of scenario instances
-#
-#     If rng is an integer, numpy will be used to generate that many seed values.
-#
-#     """
-#     if not isinstance(rng, Iterable):
-#         rng = np.random.default_rng(42).integers(0, high=sys.maxsize, size=(rng,))
-#
-#     scenarios = []
-#     for i, entry in enumerate(experiments.to_dict(orient="records")):
-#         for seed in rng:
-#             scenarios.append(Scenario(rng=seed, _experiment_id=i, **entry))
-#
-#     return scenarios
+        Args:
+           experiments: Dataframe containing the parameters for the scenarios.
+           rng: the number of random seeds to use or a list of seeds.
+           replications: the number of replications to create for each scenario
 
+        Returns:
+           a list of scenario instances
 
-# def scenarios_from_numpy(
-#     experiments: np.ndarray, parameter_names: list[str], rng: int | Iterable[SeedLike]
-# ) -> list[Scenario]:
-#     """Turn a numpy array into a list of scenarios.
-#
-#     Args:
-#        experiments: Dataframe containing the parameters for the scenarios.
-#        parameter_names: the names of the parameters
-#        rng: the number of random seeds to use or a list of seeds.
-#
-#     Returns:
-#        a list of scenario instances
-#
-#     If rng is an integer, numpy will be used to generate that many seed values.
-#
-#     """
-#     if len(parameter_names) != experiments.shape[1]:
-#         raise ValueError(
-#             "The number of parameter names does not match the number of columns in the numpy array."
-#         )
-#
-#     return scenarios_from_dataframe(
-#         pd.DataFrame(experiments, columns=parameter_names), rng
-#     )
+        If rng is an integer, numpy will be used to generate that many seed values.
+
+        """
+        scenarios = []
+
+        for i, entry in enumerate(experiments.to_dict(orient="records")):
+            scenario = Scenario(rng=rng, experiment_id=i, **entry)
+            if replications is None:
+                scenarios.append(scenario)
+            else:
+                for replication in scenario.spawn_replications(replications):
+                    scenarios.append(replication)
+
+        return scenarios
+
+    @classmethod
+    def from_numpy(cls,
+        experiments: np.ndarray, parameter_names: list[str], *, rng: SeedLike|None = None,
+        replications: int | None = None
+    ) -> list[Scenario]:
+        """Turn a numpy array into a list of scenarios.
+
+        Args:
+           experiments: Dataframe containing the parameters for the scenarios.
+           parameter_names: the names of the parameters
+           rng: the number of random seeds to use or a list of seeds.
+           replications: the number of replications to create for each scenario
+
+        Returns:
+           a list of scenario instances
+
+        If rng is an integer, numpy will be used to generate that many seed values.
+
+        """
+        if len(parameter_names) != experiments.shape[1]:
+            raise ValueError(
+                "The number of parameter names does not match the number of columns in the numpy array."
+            )
+
+        return cls.from_dataframe(
+            pd.DataFrame(experiments, columns=parameter_names), rng=rng, replications=replications
+        )
