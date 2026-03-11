@@ -56,9 +56,9 @@ class Schelling(Model):
         self.datacollector = DataCollector(
             model_reporters={
                 "happy": "happy",
-                "pct_happy": lambda m: (m.happy / len(m.agents)) * 100
-                if len(m.agents) > 0
-                else 0,
+                "pct_happy": lambda m: (
+                    (m.happy / len(m.agents)) * 100 if len(m.agents) > 0 else 0
+                ),
                 "population": lambda m: len(m.agents),
                 "minority_pct": lambda m: (
                     sum(1 for agent in m.agents if agent.type == 1)
