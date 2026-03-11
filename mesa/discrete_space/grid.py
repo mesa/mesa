@@ -303,7 +303,7 @@ class Grid(DiscreteSpace[T]):
             random_coord = self.random.choice(empty_coords)
         except IndexError as e:
             raise ValueError(
-                "Grid is completely full no empty cells available. "
+                "Grid is completely full. No empty cells available. "
                 "Cannot select a random empty cell."
             ) from e
         return self._cells[tuple(random_coord)]
