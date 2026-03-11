@@ -527,7 +527,7 @@ def test_agentset_shuffle_do():
     # Verify that the order is indeed shuffled
     original_order = list(agentset)
     shuffled_order = []
-    agentset.shuffle_do(lambda agent: shuffled_order.append(agent))
+    agentset.shuffle_do(shuffled_order.append)
     assert original_order != shuffled_order, (
         "The order should be different after shuffle_do"
     )
