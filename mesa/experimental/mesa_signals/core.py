@@ -150,9 +150,32 @@ class Observable(BaseObservable):
 class ComputedState:
     """Internal class to hold the state of a computed property for a specific instance."""
 
-    __slots__ = ["__weakref__", "func", "is_dirty", "name", "owner", "parents", "value"]
+    __slots__ = [
+        "__weakref__",
+        "dependencies",
+        "func",
+        "is_dirty",
+        "name",
+        "owner",
+        "parents",
+        "value",
+    ]
 
-    def __init__(self, owner: HasEmitters, name: str, func: Callable):
+    def __init__(
+        self,
+        owner: HasEmitters,
+        name: str,
+        func: Callable,
+        dependencies: Iterable[tuple[str, str | SignalType]] | None = None,
+    ):
+        """Initialize a ComputedState.
+
+        Args:
+            owner: the HasEmitters instance on which this state is defined
+            name: the name of the computed property
+            func: the computation function
+            dependencies: optional iterable of explicit dependencies to track
+        """
         self.owner = owner
         self.name = name
         self.func = func
@@ -161,6 +184,20 @@ class ComputedState:
         self.parents: weakref.WeakKeyDictionary[HasEmitters, dict[str, Any]] = (
             weakref.WeakKeyDictionary()
         )
+        self.dependencies: list[tuple[str, SignalType]] = []
+
+        if dependencies:
+            for dep_spec in dependencies:
+                if isinstance(dep_spec, tuple) and len(dep_spec) >= 2:
+                    obs_name = dep_spec[0]
+                    signal_types = dep_spec[1:]
+                    for signal_type in signal_types:
+                        owner.observe(obs_name, signal_type, self._set_dirty)
+                        self.dependencies.append((obs_name, signal_type))
+                elif isinstance(dep_spec, tuple) and len(dep_spec) == 1:
+                    obs_name = dep_spec[0]
+                    owner.observe(obs_name, ALL, self._set_dirty)
+                    self.dependencies.append((obs_name, ALL))
 
     def _set_dirty(self, signal):
         if not self.is_dirty:
@@ -197,64 +234,87 @@ class ComputedProperty(property):
     signal_types = ObservableSignals
 
 
-def computed_property(func: Callable) -> property:
+def computed_property(
+    func: Callable | None = None,
+    *,
+    dependencies: Iterable[tuple[str, str | SignalType]] | None = None,
+) -> property:
     """Decorator to create a computed property.
 
     Acts like @property, but automatically tracks dependencies (Observables)
     accessed during the function execution.
+
+    Args:
+        func: The function to be decorated.
+        dependencies: Optional iterable of (observable_name, signal_type) tuples to explicitly track.
     """
-    key = f"_computed_{func.__name__}"
 
-    @functools.wraps(func)
-    def wrapper(self: HasEmitters):
-        global CURRENT_COMPUTED  # noqa: PLW0603
+    def decorator(computation_func):
+        key = f"_computed_{computation_func.__name__}"
 
-        if not hasattr(self, key):
-            state = ComputedState(self, func.__name__, func)
-            setattr(self, key, state)
-        else:
-            state = getattr(self, key)
+        @functools.wraps(computation_func)
+        def wrapper(self: HasEmitters):
+            global CURRENT_COMPUTED  # noqa: PLW0603
 
-        if state.is_dirty:
-            changed = False
-
-            # Check if parents actually changed
-            if not state.parents:
-                changed = True
+            if not hasattr(self, key):
+                state = ComputedState(
+                    self,
+                    computation_func.__name__,
+                    computation_func,
+                    dependencies=dependencies,
+                )
+                setattr(self, key, state)
             else:
-                for parent, observations in state.parents.items():
-                    if parent is None:
-                        changed = True
-                        break
-                    for attr, old_val in observations.items():
-                        current_val = getattr(parent, attr)
-                        if current_val != old_val:
+                state = getattr(self, key)
+
+            if state.is_dirty:
+                changed = False
+
+                # Check if parents actually changed
+                if not state.parents:
+                    changed = True
+                else:
+                    for parent, observations in state.parents.items():
+                        if parent is None:
                             changed = True
                             break
-                    if changed:
-                        break
+                        for attr, old_val in observations.items():
+                            current_val = getattr(parent, attr)
+                            if current_val != old_val:
+                                changed = True
+                                break
+                        if changed:
+                            break
 
-            if changed:
-                state._remove_parents()
+                if changed:
+                    state._remove_parents()
 
-                old = CURRENT_COMPUTED
-                CURRENT_COMPUTED = state
+                    old = CURRENT_COMPUTED
+                    CURRENT_COMPUTED = state
+                    try:
+                        state.value = computation_func(self)
+                    except Exception as e:
+                        raise e
+                    finally:
+                        CURRENT_COMPUTED = old
 
-                try:
-                    state.value = func(self)
-                except Exception as e:
-                    raise e
-                finally:
-                    CURRENT_COMPUTED = old
+                state.is_dirty = False
 
-            state.is_dirty = False
+            if CURRENT_COMPUTED is not None:
+                CURRENT_COMPUTED._add_parent(
+                    self, computation_func.__name__, state.value
+                )
 
-        if CURRENT_COMPUTED is not None:
-            CURRENT_COMPUTED._add_parent(self, func.__name__, state.value)
+            return state.value
 
-        return state.value
+        return ComputedProperty(wrapper)
 
-    return ComputedProperty(wrapper)
+    if func is None:
+        # Called with arguments: @computed_property(dependencies=...)
+        return decorator
+    else:
+        # Called without arguments: @computed_property
+        return decorator(func)
 
 
 class HasEmitters:
