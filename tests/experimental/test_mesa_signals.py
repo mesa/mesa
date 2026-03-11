@@ -7,7 +7,7 @@ import pytest
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import (
     ALL,
-    HasObservables,
+    HasEmitters,
     ListSignals,
     Observable,
     ObservableList,
@@ -22,7 +22,7 @@ from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 def test_observables():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -42,10 +42,10 @@ def test_observables():
     handler.assert_called_once()
 
 
-def test_HasObservables():
+def test_HasEmitters():
     """Test Observable."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
         some_other_attribute = Observable()
 
@@ -171,7 +171,7 @@ def test_HasObservables():
 def test_ObservableList():
     """Test ObservableList."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(
@@ -270,7 +270,7 @@ def test_ObservableList():
 def test_Message():
     """Test Message."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_attribute = Observable()
 
         def __init__(self, model, value):
@@ -301,7 +301,7 @@ def test_Message():
 def test_computed_property():
     """Test @computed_property."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         some_other_attribute = Observable()
 
         def __init__(self, model, value):
@@ -343,7 +343,7 @@ def test_computed_property():
     # Cyclical dependencies
     # Scenario: A computed property tries to modify an observable
     # that it also reads (or that is currently locked).
-    class CyclicalAgent(Agent, HasObservables):
+    class CyclicalAgent(Agent, HasEmitters):
         o1 = Observable()
 
         def __init__(self, model, value):
@@ -372,7 +372,7 @@ def test_computed_dynamic_dependencies():
     it stops listening to that dependency (Zombie Dependencies).
     """
 
-    class DynamicAgent(Agent, HasObservables):
+    class DynamicAgent(Agent, HasEmitters):
         use_a = Observable()
         val_a = Observable()
         val_b = Observable()
@@ -418,7 +418,7 @@ def test_computed_dynamic_dependencies():
 def test_chained_computations():
     """Test that a computed property can depend on another computed property."""
 
-    class ChainedAgent(Agent, HasObservables):
+    class ChainedAgent(Agent, HasEmitters):
         base = Observable()
 
         def __init__(self, model, val):
@@ -453,7 +453,7 @@ def test_chained_computations():
 def test_dead_parent_fallback():
     """Test defensive check for garbage collected parents."""
 
-    class SimpleAgent(Agent, HasObservables):
+    class SimpleAgent(Agent, HasEmitters):
         @computed_property
         def prop(self):
             return 1
@@ -484,7 +484,7 @@ def test_dead_parent_fallback():
 def test_list_support():
     """Test using list of strings for name and signal_type in observe/unobserve."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         attr1 = Observable()
         attr2 = Observable()
         attr3 = Observable()
@@ -572,10 +572,71 @@ def test_emit():
     )
 
 
+def test_computed_property_dependencies():
+    """Test that @computed_property can use dependencies to track @emit."""
+
+    class MockAgent(Agent, HasEmitters):
+        def __init__(self, model):
+            super().__init__(model)
+            self.count = 0
+            self.count_all = 0
+            self.payload = None
+
+        @emit("test", "test_signal")
+        def fire_event(self, payload):
+            self.payload = payload
+
+        @emit("test", "other_signal")
+        def fire_other_event(self, payload):
+            self.payload = payload
+
+        @computed_property(dependencies=[("test", "test_signal")])
+        def reactive_state(self):
+            self.count += 1
+            return f"Processed: {self.payload}"
+
+        @computed_property(dependencies=[("test",)])
+        def reactive_state_all(self):
+            self.count_all += 1
+            return f"Processed ALL: {self.payload}"
+
+    model = Model(rng=42)
+    agent = MockAgent(model)
+
+    # Triggers computation and wires dependencies
+    assert agent.reactive_state == "Processed: None"
+    assert agent.count == 1
+
+    assert agent.reactive_state_all == "Processed ALL: None"
+    assert agent.count_all == 1
+
+    _ = agent.reactive_state
+    assert agent.count == 1
+
+    _ = agent.reactive_state_all
+    assert agent.count_all == 1
+
+    agent.fire_event("Hello")
+
+    # Both properties should catch this and recalculate
+    assert agent.reactive_state == "Processed: Hello"
+    assert agent.count == 2
+
+    assert agent.reactive_state_all == "Processed ALL: Hello"
+    assert agent.count_all == 2
+
+    agent.fire_other_event("World")
+    assert agent.reactive_state == "Processed: Hello"
+    assert agent.count == 2
+
+    assert agent.reactive_state_all == "Processed ALL: World"
+    assert agent.count_all == 3
+
+
 def test_ObservableList_negative_index_normalization():
     """Test that __setitem__ with negative index emits normalized positive index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
@@ -693,7 +754,7 @@ def test_ObservableList_negative_index_normalization():
 def test_ObservableList_slice_setitem():
     """Test that __setitem__ with a slice emits a REPLACED signal with normalized index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
@@ -776,7 +837,7 @@ def test_ObservableList_slice_setitem():
 def test_ObservableList_slice_delitem():
     """Test that __delitem__ with a slice emits a REMOVED signal with normalized index."""
 
-    class MyAgent(Agent, HasObservables):
+    class MyAgent(Agent, HasEmitters):
         my_list = ObservableList()
 
         def __init__(self, model):
@@ -830,6 +891,40 @@ def test_ObservableList_slice_delitem():
     )
 
 
+def test_observable_list_mutation():
+    """Test that in-place mutations of ObservableList trigger computed property updates."""
+
+    class ListAgent(Agent, HasEmitters):
+        inventory = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.inventory = [1, 2]
+
+        @computed_property
+        def inventory_size(self):
+            return len(self.inventory)
+
+    model = Model(rng=42)
+    agent = ListAgent(model)
+
+    # Initial access builds the dependency graph and caches the value
+    assert agent.inventory_size == 2
+
+    # In-place mutation
+    # Append
+    agent.inventory.append(3)
+    assert agent.inventory_size == 3
+
+    # Remove
+    agent.inventory.remove(1)
+    assert agent.inventory_size == 2
+
+    state = agent._computed_inventory_size
+    value = state.parents[agent]["inventory"]
+    assert value is None
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415
@@ -844,3 +939,76 @@ def test_all_sentinel():
 
     a = pickle.loads(pickle.dumps(sentinel))  # noqa: S301
     assert a is ALL
+
+
+def test_class_level_subscribe():
+    """Test that subscriptions can be made at the class level and inherited by instances."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        old_val = msg.additional_kwargs.get("old")
+        new_val = msg.additional_kwargs.get("new")
+        handler_calls.append((old_val, new_val))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+
+    agent1 = DummyAgent()
+    agent2 = DummyAgent()
+
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+    assert handler_calls[0] == (None, "active")
+
+    agent2.state = "inactive"
+    assert len(handler_calls) == 2
+    assert handler_calls[1] == (None, "inactive")
+
+    agent1.state = "done"
+    assert len(handler_calls) == 3
+    assert handler_calls[2] == ("active", "done")
+
+
+def test_unobserve_class():
+    """Test that class-level subscriptions can be unobserved."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        handler_calls.append(msg.additional_kwargs.get("new"))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1 = DummyAgent()
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+
+    DummyAgent.unobserve_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1.state = "inactive"
+    assert len(handler_calls) == 1
+
+
+def test_clear_all_class_subscriptions():
+    """Test that all class-level subscriptions can be cleared."""
+
+    class DummyAgent(HasEmitters):
+        state = Observable()
+
+    handler_calls = []
+
+    def my_handler(msg):
+        handler_calls.append(msg.additional_kwargs.get("new"))
+
+    DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
+    agent1 = DummyAgent()
+    agent1.state = "active"
+    assert len(handler_calls) == 1
+
+    DummyAgent.clear_all_class_subscriptions("state")
+    agent1.state = "inactive"
+    assert len(handler_calls) == 1

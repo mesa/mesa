@@ -1,10 +1,10 @@
 """configurations for benchmarks."""
-
 from mesa.examples import BoidFlockers, BoltzmannWealth, Schelling, WolfSheep
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.examples.basic.schelling.model import SchellingScenario
+
 
 configurations = {
     # BoltzmannWealth Model Configurations
@@ -90,6 +90,38 @@ configurations = {
                 "sheep_reproduce": 0.4,
                 "wolf_reproduce": 0.2,
                 "grass_regrowth_time": 10,
+            },
+        },
+    },
+    SugarscapeG1mt: {
+        "small": {
+            "seeds": 50,
+            "replications": 5,
+            "steps": 50,
+            "parameters": {
+                "initial_population": 100,
+                "enable_trade": False,
+                "vision_min": 1,
+                "vision_max": 2,
+                "endowment_min": 25,
+                "endowment_max": 50,
+                "metabolism_min": 1,
+                "metabolism_max": 5,
+            },
+        },
+        "large": {
+            "seeds": 10,
+            "replications": 3,
+            "steps": 50,
+            "parameters": {
+                "initial_population": 250,
+                "enable_trade": True,
+                "vision_min": 4,
+                "vision_max": 5,
+                "endowment_min": 25,
+                "endowment_max": 50,
+                "metabolism_min": 1,
+                "metabolism_max": 5,
             },
         },
     },

@@ -16,6 +16,7 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.pd_grid.model import PrisonersDilemmaScenario
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
@@ -43,7 +44,7 @@ def run_model_test(
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, propertylayer_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         initial_graph = None
 
@@ -65,7 +66,7 @@ def run_model_test(
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, propertylayer_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         changed_graph = None
 
@@ -311,7 +312,11 @@ def test_epstein_civil_violence_model(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Sugarscape G1mt model behavior and visualization."""
-    model = SugarscapeG1mt(rng=42)
+    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
+        SugarScapeScenario,
+    )
+
+    model = SugarscapeG1mt(SugarScapeScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(marker="o", color="red", size=10)
@@ -331,7 +336,7 @@ def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Pa
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Prisoner's Dilemma model behavior and visualization."""
-    model = PdGrid(rng=42)
+    model = PdGrid(scenario=PrisonersDilemmaScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -349,3 +354,21 @@ def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
         solara_test=solara_test,
         page_session=page_session,
     )
+
+
+# fixme: model has no space, so test code breaks on this
+# @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+# def test_alliance_model(solara_test, page_session: playwright.sync_api.Page):
+#     """Test alliance formation visualization."""
+#     model = MultiLevelAllianceModel(scenario=AllianceScenario(n=50, rng=42))
+#
+#     def agent_portrayal(agent):
+#         return AgentPortrayalStyle()
+#
+#     run_model_test(
+#         model=model,
+#         agent_portrayal=agent_portrayal,
+#         measure_config=None,
+#         solara_test=solara_test,
+#         page_session=page_session,
+#     )

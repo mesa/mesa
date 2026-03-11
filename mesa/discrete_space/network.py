@@ -22,6 +22,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.exceptions import SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -33,7 +34,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        layout: Mapping | Callable | None = nx.spring_layout,
+        layout: Mapping | Callable | None = nx.circular_layout,
     ) -> None:
         """A Networked grid.
 
@@ -44,7 +45,9 @@ class Network(DiscreteSpace[Cell]):
             cell_klass (type[Cell]): The base Cell class to use in the Network
             layout: A dictionary mapping node IDs to physical positions (x, y),
                 or a callable that generates them (e.g. nx.spring_layout).
-                Set to None to force a purely topological network (no physical positions).
+                It defaults to nx.circular_layout
+                This ensures all nodes possess physical (x, y) positions for visualization and
+                spatial queries without introducing performance bottlenecks on large graphs
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
@@ -55,9 +58,9 @@ class Network(DiscreteSpace[Cell]):
             node_positions = layout(self.G)
         elif isinstance(layout, Mapping):
             node_positions = layout
-        elif layout is not None:
-            raise ValueError(
-                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable` or `None`"
+        else:
+            raise TypeError(
+                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 
         self._kdtree_cells = []
@@ -65,21 +68,23 @@ class Network(DiscreteSpace[Cell]):
 
         # Create cells and gather KD-Tree data simultaneously
         for node_id in self.G.nodes:
-            pos = node_positions.get(node_id)
-            if pos is not None:
-                pos = np.array(pos)
+            try:
+                pos = np.array(node_positions[node_id])
+            except KeyError as e:
+                raise SpaceException(
+                    f"Node ID '{node_id}' is missing from the provided layout dictionary."
+                ) from e
 
             cell = self.cell_klass(
                 coordinate=node_id,
                 capacity=capacity,
                 random=self.random,
-                position=pos,  # None for topological networks
+                position=pos,
             )
             self._cells[node_id] = cell
 
-            if pos is not None:
-                self._kdtree_cells.append(cell)
-                positions_for_tree.append(pos)
+            self._kdtree_cells.append(cell)
+            positions_for_tree.append(pos)
 
         if positions_for_tree:
             self._kdtree = KDTree(np.array(positions_for_tree))

@@ -124,7 +124,7 @@ def SolaraViz(
             (
                 components_altair.make_altair_space(
                     agent_portrayal=None,
-                    propertylayer_portrayal=None,
+                    property_layer_portrayal=None,
                     post_process=None,
                 ),
                 0,
@@ -159,7 +159,7 @@ def SolaraViz(
             solara.SliderInt(
                 label="Play Interval (ms)",
                 value=reactive_play_interval,
-                on_value=lambda v: reactive_play_interval.set(v),
+                on_value=reactive_play_interval.set,
                 min=1,
                 max=500,
                 step=10,
@@ -167,7 +167,7 @@ def SolaraViz(
             solara.SliderInt(
                 label="Render Interval (steps)",
                 value=reactive_render_interval,
-                on_value=lambda v: reactive_render_interval.set(v),
+                on_value=reactive_render_interval.set,
                 min=1,
                 max=100,
                 step=2,
@@ -277,8 +277,8 @@ def SpaceRendererComponent(
             renderer.draw_structure()
         if renderer.agent_mesh:
             renderer.draw_agents()
-        if renderer.propertylayer_mesh:
-            renderer.draw_propertylayer()
+        if renderer.property_layer_mesh:
+            renderer.draw_property_layer()
 
         if renderer.post_process and not renderer._post_process_applied:
             renderer.post_process(renderer.canvas)
@@ -294,18 +294,16 @@ def SpaceRendererComponent(
     else:
         structure = renderer.space_mesh if renderer.space_mesh else None
         agents = renderer.agent_mesh if renderer.agent_mesh else None
-        propertylayer = renderer.propertylayer_mesh or None
+        props = renderer.property_layer_mesh or None
 
         if renderer.space_mesh:
             structure = renderer.draw_structure()
         if renderer.agent_mesh:
             agents = renderer.draw_agents()
-        if renderer.propertylayer_mesh:
-            propertylayer = renderer.draw_propertylayer()
+        if renderer.property_layer_mesh:
+            props = renderer.draw_property_layer()
 
-        spatial_charts_list = [
-            chart for chart in [structure, propertylayer, agents] if chart
-        ]
+        spatial_charts_list = [chart for chart in [structure, props, agents] if chart]
 
         final_chart = None
         if spatial_charts_list:
@@ -519,7 +517,7 @@ def ModelController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-    visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
+    visualization_pause_event = solara.use_memo(threading.Event, [])
 
     error_message = solara.use_reactive(None)
 
@@ -652,8 +650,8 @@ def SimulatorController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-    visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
-    pause_step_event = solara.use_memo(lambda: threading.Event(), [])
+    visualization_pause_event = solara.use_memo(threading.Event, [])
+    pause_step_event = solara.use_memo(threading.Event, [])
 
     error_message = solara.use_reactive(None)
 
@@ -1014,12 +1012,12 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
 
     attributes_to_copy = [
         "agent_portrayal",
-        "propertylayer_portrayal",
+        "property_layer_portrayal",
         "space_kwargs",
         "agent_kwargs",
         "space_mesh",
         "agent_mesh",
-        "propertylayer_mesh",
+        "property_layer_mesh",
         "post_process_func",
     ]
 

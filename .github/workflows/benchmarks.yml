@@ -1,7 +1,7 @@
 name: Performance benchmarks
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, ready_for_review, labeled]
     branches:
       - main
@@ -10,8 +10,7 @@ on:
       - '.github/workflows/benchmarks.yml'
 
 permissions:
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   run-benchmarks:
@@ -21,7 +20,6 @@ jobs:
       github.event.action == 'ready_for_review'
     runs-on: ubuntu-latest
     steps:
-      # Python and dependency setup
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -32,7 +30,8 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system numpy pandas tqdm tabulate matplotlib solara networkx scipy
-      # Benchmarks on the mesa main branch
+
+      # Benchmarks on main
       - name: Checkout main branch
         uses: actions/checkout@v6
         with:
@@ -43,15 +42,15 @@ jobs:
       - name: Run benchmarks on main branch
         working-directory: benchmarks
         run: python global_benchmark.py
-      # Upload benchmarks, checkout PR branch, download benchmarks
+
+      # Upload main benchmarks, then checkout PR
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: timings-main
           path: benchmarks/timings_1.pickle
       - name: Checkout PR branch
         uses: actions/checkout@v6
-        if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -61,29 +60,26 @@ jobs:
       - name: Install Mesa of the PR branch
         run: pip install --no-deps .
       - name: Download benchmark results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: timings-main
           path: benchmarks
-      # Run benchmarks on the PR branch
+
+      # Run benchmarks on PR and compare
       - name: Run benchmarks on PR branch
         working-directory: benchmarks
         run: python global_benchmark.py
-      # Run compare script and create comment
-      - name: Run compare timings and encode output
+      - name: Run compare timings
         working-directory: benchmarks
-        run: |
-          TIMING_COMPARISON=$(python compare_timings.py | base64 -w 0)  # Base64 encode the output
-          echo "TIMING_COMPARISON=$TIMING_COMPARISON" >> $GITHUB_ENV
-      - name: Comment PR
-        uses: actions/github-script@v8
+        run: python compare_timings.py > benchmark_output.txt
+
+      # Save PR number and results for the comment workflow
+      - name: Save PR number
+        run: echo "${{ github.event.pull_request.number }}" > benchmarks/pr_number.txt
+      - name: Upload benchmark comparison
+        uses: actions/upload-artifact@v7
         with:
-          script: |
-            const output = Buffer.from(process.env.TIMING_COMPARISON, 'base64').toString('utf-8');
-            const issue_number = context.issue.number;
-            github.rest.issues.createComment({
-              issue_number: issue_number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Performance benchmarks:\n\n' + output
-            });
+          name: benchmark-results
+          path: |
+            benchmarks/benchmark_output.txt
+            benchmarks/pr_number.txt
