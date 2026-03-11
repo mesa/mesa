@@ -280,7 +280,7 @@ class SpaceRenderer:
             The visual representation of the property layers.
 
         Raises:
-            Exception: If no property layers are found on the space.
+            ValueError: If no property layers are found on the space.
         """
         if property_layer_portrayal is not None:
             warnings.warn(
@@ -349,7 +349,7 @@ class SpaceRenderer:
 
         number_of_props = sum([1 for layer in property_layers if layer != "empty"])
         if number_of_props < 1:
-            raise Exception("No property layers were found on the space.")
+            raise ValueError("No property layers were found on the space.")
 
         self.property_layer_mesh = self.backend_renderer.draw_property_layer(
             self.space, property_layers, self.property_layer_portrayal

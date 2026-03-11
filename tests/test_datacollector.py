@@ -213,10 +213,10 @@ class TestDataCollector(unittest.TestCase):
         for _key, data in data_collector.tables["Final_Values"].items():
             assert len(data) == 9
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(TableMissingException):
             data_collector.add_table_row("error_table", {})
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             data_collector.add_table_row("Final_Values", {"final_value": 10})
 
     def test_table_ignore_missing(self):
@@ -244,7 +244,7 @@ class TestDataCollector(unittest.TestCase):
         assert agent_vars.shape == (77, 4)
         assert table_df.shape == (9, 2)
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(TableMissingException):
             table_df = data_collector.get_table_dataframe("not a real table")
 
 
@@ -436,7 +436,7 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         dc_attribute = DataCollector(
             model_reporters={"bad_attribute": "nonexistent_attribute"}
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             dc_attribute.collect(self.model)
 
     def test_agent_missing_attribute_error(self):

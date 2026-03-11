@@ -278,28 +278,49 @@ class Grid(DiscreteSpace[T]):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise TypeError("Capacity must be a number or None.")
 
-    def select_random_empty_cell(self) -> T:  # noqa
-        # Use a heuristic: try random sampling first for performance (O(1))
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
-        # This method is based on Agents.jl's random_empty() implementation. See
-        # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/mesa/mesa/issues/1052 and
-        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
-        # is the break-even comparison with the time taken in the else branching point.
+    def select_random_empty_cell(self) -> T:  # noqa: D102
+        """Return a random empty cell.
+
+        Uses an adaptive heuristic: for sparsely occupied grids, random sampling
+        is used (O(1) per attempt). When the grid is more than 80% full, random
+        sampling becomes very unlikely to hit an empty cell, so the method falls
+        back to building a list of empty cells from the ``empty`` property layer
+        and sampling from that list directly.
+
+        This method is based on Agents.jl's random_empty() implementation. See
+        https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
+        https://github.com/mesa/mesa/issues/1052 and
+        https://github.com/mesa/mesa/pull/1565.
+
+        Returns:
+            T: A randomly selected empty cell.
+
+        Raises:
+            ValueError: If there are no empty cells in the grid.
+        """
         random = self.random
         cells = self._celllist
 
-        if self._try_random:
-            # Limit attempts to avoid infinite loops on full grids
+        # Calculate occupancy to decide which strategy to use.
+        # When >80% full, random sampling is very slow, so use the empty-list approach.
+        empty_layer = self.property_layers["empty"]
+        num_empty = int(np.sum(empty_layer))
+        if num_empty == 0:
+            raise ValueError("No empty cells available in the grid.")
+
+        total_cells = len(cells)
+        occupancy = 1.0 - num_empty / total_cells
+
+        if occupancy < 0.8 and self._try_random:
+            # Sparse grid: random-sampling is efficient (O(1) per attempt).
             for _ in range(50):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.property_layers["empty"])
-        random_coord = self.random.choice(empty_coords)
+        # Dense grid (>80% full) or random sampling failed: build empty list directly.
+        empty_coords = np.argwhere(empty_layer)
+        random_coord = random.choice(empty_coords)
         return self._cells[tuple(random_coord)]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:

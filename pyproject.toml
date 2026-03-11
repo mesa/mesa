@@ -160,7 +160,6 @@ select = [
 extend-ignore = [
   "E501",
   "S101",   # Use of `assert` detected
-  "B017",   # `assertRaises(Exception)` should be considered evil TODO
   "PGH004", # Use specific rule codes when using `noqa` TODO
   "B905",   # `zip()` without an explicit `strict=` parameter
   "N802",   # Function name should be lowercase
