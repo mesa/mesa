@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import contextlib
 import inspect
 import itertools
 import threading
@@ -976,8 +977,6 @@ def UserInputs(user_params, on_change=None):
             )
 
         elif input_type == "InputText":
-            import contextlib
-
             def input_change_handler(value, name=name):
                 converted = value
                 with contextlib.suppress(ValueError, TypeError):
