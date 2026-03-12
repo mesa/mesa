@@ -235,9 +235,7 @@ def computed_property(
     """Decorator to create a computed property.
 
     Acts like @property, but automatically tracks dependencies (Observables)
-    accessed during the function execution and updates them using diffing engine
-    """
-    key = f"_computed_{func.__name__}"
+    accessed during the function execution and updates them using a diffing engine.
 
     Args:
         func: The function to be decorated.
@@ -281,42 +279,48 @@ def computed_property(
                         if changed:
                             break
 
-            if changed:
-                old = CURRENT_COMPUTED
-                CURRENT_COMPUTED = state
+                if changed:
+                    old = CURRENT_COMPUTED
+                    CURRENT_COMPUTED = state
 
-                old_parents = state.parents
-                state.parents = weakref.WeakKeyDictionary()
+                    old_parents = state.parents
+                    state.parents = weakref.WeakKeyDictionary()
 
-                try:
-                    state.value = func(self)
-                except Exception as e:
-                    # Rollback on failure to prevent corrupted graphs
-                    state.parents = old_parents
-                    raise e
-                finally:
-                    CURRENT_COMPUTED = old
+                    try:
+                        state.value = computation_func(self)
+                    except Exception as e:
+                        # Rollback on failure to prevent corrupted graphs
+                        state.parents = old_parents
+                        raise e
+                    finally:
+                        CURRENT_COMPUTED = old
 
-                # Diffing Engine
-                old_deps = {
-                    (p, attr) for p, attrs in old_parents.items() for attr in attrs
-                }
-                new_deps = {
-                    (p, attr) for p, attrs in state.parents.items() for attr in attrs
-                }
+                    # Diffing Engine
+                    old_deps = {
+                        (p, attr) for p, attrs in old_parents.items() for attr in attrs
+                    }
+                    new_deps = {
+                        (p, attr)
+                        for p, attrs in state.parents.items()
+                        for attr in attrs
+                    }
 
-                # Unsubscribe from removed dependencies
-                for p, attr in old_deps - new_deps:
-                    p.unobserve(attr, ALL, state._set_dirty)
+                    # Unsubscribe from removed dependencies
+                    for p, attr in old_deps - new_deps:
+                        p.unobserve(attr, ALL, state._set_dirty)
 
-                # Subscribe to newly discovered dependencies
-                for p, attr in new_deps - old_deps:
-                    p.observe(attr, ALL, state._set_dirty)
+                    # Subscribe to newly discovered dependencies
+                    for p, attr in new_deps - old_deps:
+                        p.observe(attr, ALL, state._set_dirty)
 
-            state.is_dirty = False
+                state.is_dirty = False
 
-        if CURRENT_COMPUTED is not None:
-            CURRENT_COMPUTED._record_access(self, func.__name__, state.value)
+            if CURRENT_COMPUTED is not None:
+                CURRENT_COMPUTED._record_access(
+                    self, computation_func.__name__, state.value
+                )
+
+            return state.value
 
         return ComputedProperty(wrapper)
 
