@@ -88,7 +88,7 @@ def test_orthogonal_grid_neumann():
     grid = OrthogonalVonNeumannGrid(
         (width, height), torus=False, capacity=2, random=random.Random(42)
     )
-    assert grid._cells[(0, 0, 0)].capacity == 2
+    assert grid._cells[(0, 0)].capacity == 2
 
 
 def test_orthogonal_grid_neumann_3d():
