@@ -974,17 +974,18 @@ def UserInputs(user_params, on_change=None):
                 on_value=change_handler,
                 value=options.get("value"),
             )
-        elif input_type == "InputText":
 
+        elif input_type == "InputText":
+            import contextlib
             def input_change_handler(value, name=name):
-                try:
-                    value = int(value)
-                except (ValueError, TypeError):
-                    try:
-                        value = float(value)
-                    except (ValueError, TypeError):
-                        pass
-                on_change(name, value)
+                converted = value
+                with contextlib.suppress(ValueError, TypeError):
+                    converted = int(value)
+                    on_change(name, converted)
+                    return
+                with contextlib.suppress(ValueError, TypeError):
+                    converted = float(value)
+                on_change(name, converted)
 
             solara.InputText(
                 label=label,
