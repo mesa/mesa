@@ -82,6 +82,9 @@ class WolfSheep(Model):
             random=self.random,
         )
 
+        # Create a property layer for grass
+        self.grass_layer = self.grid.create_property_layer('grass', False)
+
         # Set up data collection
         model_reporters = {
             "Wolves": lambda m: len(m.agents_by_type[Wolf]),
@@ -89,7 +92,7 @@ class WolfSheep(Model):
         }
         if self.grass:
             model_reporters["Grass"] = lambda m: len(
-                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
+                m.agents_by_type[GrassPatch].select(lambda a: a.is_fully_grown())
             )
 
         self.datacollector = DataCollector(model_reporters)

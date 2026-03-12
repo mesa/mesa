@@ -61,7 +61,7 @@ class Sheep(Animal):
         grass_patch = next(
             obj for obj in self.cell.agents if isinstance(obj, GrassPatch)
         )
-        if grass_patch.fully_grown:
+        if grass_patch.is_fully_grown():
             self.energy += self.energy_from_food
             grass_patch.get_eaten()
 
@@ -72,15 +72,14 @@ class Sheep(Animal):
 
         for cell in self.cell.neighborhood:
             has_wolf = False
-            has_grass = False
+            x, y = cell.coordinate
+            has_grass = self.model.grid.grass.data[x, y]
 
             for obj in cell.agents:
                 # If there's a wolf, we can early exit
                 if isinstance(obj, Wolf):
                     has_wolf = True
                     break
-                elif isinstance(obj, GrassPatch) and obj.fully_grown:
-                    has_grass = True
 
             # Prefer cells without wolves
             if not has_wolf:
@@ -136,19 +135,27 @@ class GrassPatch(FixedAgent):
             cell: Cell to which this grass patch belongs
         """
         super().__init__(model)
-        self.fully_grown = countdown == 0
         self.grass_regrowth_time = grass_regrowth_time
         self.cell = cell
+        x, y = cell.coordinate
+        self.model.grid.grass.data[x, y] = countdown == 0
 
         # Schedule initial growth if not fully grown
-        if not self.fully_grown:
+        if not self.model.grid.grass[x, y]:
             self.model.schedule_event(self.regrow, after=countdown)
 
     def regrow(self):
         """Regrow the grass."""
-        self.fully_grown = True
+        x, y = self.cell.coordinate
+        self.model.grid.grass.data[x, y] = True
 
     def get_eaten(self):
         """Mark grass as eaten and schedule regrowth."""
-        self.fully_grown = False
+        x, y = self.cell.coordinate
+        self.model.grid.grass.data[x, y] = False
         self.model.schedule_event(self.regrow, after=self.grass_regrowth_time)
+
+    def is_fully_grown(self):
+        """Return whether the grass patch is fully grown."""
+        x, y = self.cell.coordinate
+        return self.model.grid.grass.data[x, y]
