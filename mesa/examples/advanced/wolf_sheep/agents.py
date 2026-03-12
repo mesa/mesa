@@ -1,4 +1,4 @@
-from mesa.discrete_space import CellAgent, FixedAgent, CellCollection
+from mesa.discrete_space import CellAgent, FixedAgent
 
 
 class Animal(CellAgent):
@@ -127,6 +127,7 @@ class Wolf(Animal):
 
         # Mark the cell as occupied by a wolf
         self.model.grid.wolves.data[self.cell.coordinate] = True
+
 
 class GrassPatch(FixedAgent):
     """A patch of grass that grows at a fixed rate and can be eaten by sheep."""

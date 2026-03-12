@@ -85,8 +85,8 @@ class WolfSheep(Model):
         )
 
         # Create a property layer for grass and wolf
-        self.grass_layer = self.grid.create_property_layer('grass', False)
-        self.wolves_layer = self.grid.create_property_layer('wolves', False)
+        self.grass_layer = self.grid.create_property_layer("grass", False)
+        self.wolves_layer = self.grid.create_property_layer("wolves", False)
 
         # Set up data collection
         model_reporters = {
