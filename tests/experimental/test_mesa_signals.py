@@ -572,6 +572,67 @@ def test_emit():
     )
 
 
+def test_computed_property_dependencies():
+    """Test that @computed_property can use dependencies to track @emit."""
+
+    class MockAgent(Agent, HasEmitters):
+        def __init__(self, model):
+            super().__init__(model)
+            self.count = 0
+            self.count_all = 0
+            self.payload = None
+
+        @emit("test", "test_signal")
+        def fire_event(self, payload):
+            self.payload = payload
+
+        @emit("test", "other_signal")
+        def fire_other_event(self, payload):
+            self.payload = payload
+
+        @computed_property(dependencies=[("test", "test_signal")])
+        def reactive_state(self):
+            self.count += 1
+            return f"Processed: {self.payload}"
+
+        @computed_property(dependencies=[("test",)])
+        def reactive_state_all(self):
+            self.count_all += 1
+            return f"Processed ALL: {self.payload}"
+
+    model = Model(rng=42)
+    agent = MockAgent(model)
+
+    # Triggers computation and wires dependencies
+    assert agent.reactive_state == "Processed: None"
+    assert agent.count == 1
+
+    assert agent.reactive_state_all == "Processed ALL: None"
+    assert agent.count_all == 1
+
+    _ = agent.reactive_state
+    assert agent.count == 1
+
+    _ = agent.reactive_state_all
+    assert agent.count_all == 1
+
+    agent.fire_event("Hello")
+
+    # Both properties should catch this and recalculate
+    assert agent.reactive_state == "Processed: Hello"
+    assert agent.count == 2
+
+    assert agent.reactive_state_all == "Processed ALL: Hello"
+    assert agent.count_all == 2
+
+    agent.fire_other_event("World")
+    assert agent.reactive_state == "Processed: Hello"
+    assert agent.count == 2
+
+    assert agent.reactive_state_all == "Processed ALL: World"
+    assert agent.count_all == 3
+
+
 def test_ObservableList_negative_index_normalization():
     """Test that __setitem__ with negative index emits normalized positive index."""
 
@@ -828,6 +889,40 @@ def test_ObservableList_slice_delitem():
             additional_kwargs={"index": slice(2, 4, 1), "old": [3, 4]},
         )
     )
+
+
+def test_observable_list_mutation():
+    """Test that in-place mutations of ObservableList trigger computed property updates."""
+
+    class ListAgent(Agent, HasEmitters):
+        inventory = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.inventory = [1, 2]
+
+        @computed_property
+        def inventory_size(self):
+            return len(self.inventory)
+
+    model = Model(rng=42)
+    agent = ListAgent(model)
+
+    # Initial access builds the dependency graph and caches the value
+    assert agent.inventory_size == 2
+
+    # In-place mutation
+    # Append
+    agent.inventory.append(3)
+    assert agent.inventory_size == 3
+
+    # Remove
+    agent.inventory.remove(1)
+    assert agent.inventory_size == 2
+
+    state = agent._computed_inventory_size
+    value = state.parents[agent]["inventory"]
+    assert value is None
 
 
 def test_all_sentinel():

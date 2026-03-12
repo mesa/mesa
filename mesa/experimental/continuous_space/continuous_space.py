@@ -97,7 +97,6 @@ class ContinuousSpace:
 
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, Agent] = {}
-        self._agent_to_index: dict[Agent, int | None] = {}
 
     @property
     def agents(self) -> AgentSet:
@@ -127,7 +126,7 @@ class ContinuousSpace:
                 ]
             )
 
-        self._agent_to_index[agent] = index
+        agent._mesa_index = index
         self._index_to_agent[index] = agent
 
         # we want to maintain a view rather than a copy on the active agents and positions
@@ -143,25 +142,25 @@ class ContinuousSpace:
         This method is automatically called by ContinuousSpaceAgent.remove.
 
         """
-        index = self._agent_to_index[agent]
-        self._agent_to_index.pop(agent, None)
-        self._index_to_agent.pop(index, None)
-        del self.active_agents[index]
+        index = agent._mesa_index
+        last_index = self._n_agents - 1
 
-        # Shift all subsequent agents up by 1
-        for agent in self.active_agents[index::]:
-            old_index = self._agent_to_index[agent]
-            self._agent_to_index[agent] = old_index - 1
-            self._index_to_agent[old_index - 1] = agent
+        # If the removed agent isn't already the last one, swap the last one into its place
+        if index != last_index:
+            last_agent = self.active_agents[last_index]
 
-        # Clean up the stale entry from the last shifted agent
-        if len(self.active_agents) > index:
-            self._index_to_agent.pop(len(self.active_agents), None)
+            # Swap in active_agents list
+            self.active_agents[index] = last_agent
 
-        # we move all data below the removed agent one row up
-        self._agent_positions[index : self._n_agents - 1] = self._agent_positions[
-            index + 1 : self._n_agents
-        ]
+            # Swap in numpy array
+            self._agent_positions[index] = self._agent_positions[last_index]
+
+            last_agent._mesa_index = index
+            self._index_to_agent[index] = last_agent
+
+        # Pop the last elements
+        self.active_agents.pop()
+        self._index_to_agent.pop(last_index, None)
         self._n_agents -= 1
         self.agent_positions = self._agent_positions[0 : self._n_agents]
 
@@ -179,7 +178,7 @@ class ContinuousSpace:
         positions = (
             self.agent_positions
             if agents is None
-            else self._agent_positions[[self._agent_to_index[a] for a in agents]]
+            else self._agent_positions[[a._mesa_index for a in agents]]
         )
 
         delta = positions - point
@@ -217,7 +216,7 @@ class ContinuousSpace:
             positions = self.agent_positions
             agents = self.active_agents
         else:
-            positions = self._agent_positions[[self._agent_to_index[a] for a in agents]]
+            positions = self._agent_positions[[a._mesa_index for a in agents]]
             agents = np.asarray(agents)
 
         if self.torus:
