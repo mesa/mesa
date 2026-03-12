@@ -71,15 +71,9 @@ class Sheep(Animal):
         cells_with_grass = []
 
         for cell in self.cell.neighborhood:
-            has_wolf = False
             x, y = cell.coordinate
+            has_wolf = self.model.grid.wolves.data[x, y]
             has_grass = self.model.grid.grass.data[x, y]
-
-            for obj in cell.agents:
-                # If there's a wolf, we can early exit
-                if isinstance(obj, Wolf):
-                    has_wolf = True
-                    break
 
             # Prefer cells without wolves
             if not has_wolf:
@@ -103,6 +97,11 @@ class Sheep(Animal):
 class Wolf(Animal):
     """A wolf that walks around, reproduces (asexually) and eats sheep."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        x,y = self.cell.coordinate
+        self.model.grid.wolves.data[x,y] = True
+
     def feed(self):
         """If possible, eat a sheep at current location."""
         sheep = [obj for obj in self.cell.agents if isinstance(obj, Sheep)]
@@ -119,7 +118,18 @@ class Wolf(Animal):
         target_cells = (
             cells_with_sheep if len(cells_with_sheep) > 0 else self.cell.neighborhood
         )
+
+        # Mark the cell as unoccupied by a wolf
+        old_x, old_y = self.cell.coordinate
+        self.model.grid.wolves.data[old_x, old_y] = False
+
+        # Select a random cell from the neighborhood
         self.cell = target_cells.select_random_cell()
+
+        # Mark the cell as occupied by a wolf
+        x, y = self.cell.coordinate
+        self.model.grid.wolves.data[x, y] = True
+
 
 
 class GrassPatch(FixedAgent):
@@ -141,7 +151,7 @@ class GrassPatch(FixedAgent):
         self.model.grid.grass.data[x, y] = countdown == 0
 
         # Schedule initial growth if not fully grown
-        if not self.model.grid.grass[x, y]:
+        if not self.model.grid.grass.data[x, y]:
             self.model.schedule_event(self.regrow, after=countdown)
 
     def regrow(self):

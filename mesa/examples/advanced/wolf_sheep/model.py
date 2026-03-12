@@ -82,8 +82,9 @@ class WolfSheep(Model):
             random=self.random,
         )
 
-        # Create a property layer for grass
+        # Create a property layer for grass and wolf
         self.grass_layer = self.grid.create_property_layer('grass', False)
+        self.wolves_layer = self.grid.create_property_layer('wolves', False)
 
         # Set up data collection
         model_reporters = {
@@ -120,8 +121,8 @@ class WolfSheep(Model):
             p_reproduce=scenario.wolf_reproduce,
             energy_from_food=scenario.wolf_gain_from_food,
             cell=self.random.choices(
-                self.grid.all_cells.cells, k=scenario.initial_wolves
-            ),
+            self.grid.all_cells.cells, k=scenario.initial_wolves
+        ),
         )
 
         # Create grass patches if enabled
