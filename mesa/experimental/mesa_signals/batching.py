@@ -185,7 +185,7 @@ class _BatchContext:
             # Only capture if not already snapshotted before mutation
             if name not in self._captured_values:
                 current_value = getattr(signal.owner, name, None)
-                
+
                 if isinstance(current_value, list):
                     self._captured_values[name] = list(current_value)
                 else:
