@@ -1,4 +1,4 @@
-from mesa.discrete_space import CellAgent, FixedAgent, CellCollection
+from mesa.discrete_space import CellAgent, FixedAgent
 
 
 class Animal(CellAgent):
@@ -99,8 +99,8 @@ class Wolf(Animal):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        x,y = self.cell.coordinate
-        self.model.grid.wolves.data[x,y] = True
+        x, y = self.cell.coordinate
+        self.model.grid.wolves.data[x, y] = True
 
     def feed(self):
         """If possible, eat a sheep at current location."""
@@ -129,7 +129,6 @@ class Wolf(Animal):
         # Mark the cell as occupied by a wolf
         x, y = self.cell.coordinate
         self.model.grid.wolves.data[x, y] = True
-
 
 
 class GrassPatch(FixedAgent):
