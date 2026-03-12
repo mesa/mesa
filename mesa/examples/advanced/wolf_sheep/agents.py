@@ -87,7 +87,7 @@ class Sheep(Animal):
             return
 
         # Move to a cell with grass if available, otherwise move to any safe cell
-        target_mask = (safe_grass_cells if safe_grass_cells.any() else safe_cells)
+        target_mask = safe_grass_cells if safe_grass_cells.any() else safe_cells
         self.cell = self.random.choice(neighbors[target_mask])
 
 
@@ -122,6 +122,7 @@ class Wolf(Animal):
 
         # Mark the cell as occupied by a wolf
         self.model.grid.wolves.data[self.cell.coordinate] = True
+
 
 class GrassPatch(FixedAgent):
     """A patch of grass that grows at a fixed rate and can be eaten by sheep."""
