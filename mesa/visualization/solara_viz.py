@@ -977,6 +977,7 @@ def UserInputs(user_params, on_change=None):
             )
 
         elif input_type == "InputText":
+
             def input_change_handler(value, name=name):
                 converted = value
                 with contextlib.suppress(ValueError, TypeError):
