@@ -975,6 +975,7 @@ def UserInputs(user_params, on_change=None):
                 value=options.get("value"),
             )
         elif input_type == "InputText":
+
             def input_change_handler(value, name=name):
                 try:
                     value = int(value)
