@@ -3,8 +3,8 @@
 import pickle
 
 import numpy as np
-import scipy.stats.qmc as qmc
 import pytest
+import scipy.stats.qmc as qmc
 
 from mesa import Agent, Model
 from mesa.experimental.scenarios import Scenario
@@ -183,6 +183,7 @@ def test_scenario_spawn_replications():
             "generators are not the same"
         )
 
+
 def test_scenario_from():
     """Test that scenario generation from numpy/pandas dataframe."""
     # we don't directly test from_dataframe because its called by from_numpy.
@@ -204,7 +205,9 @@ def test_scenario_from():
 
     # check replication creation
     replications = 10
-    scenarios = Scenario.from_ndarray(samples, parameter_names=parameter_names, rng=42, replications=replications)
+    scenarios = Scenario.from_ndarray(
+        samples, parameter_names=parameter_names, rng=42, replications=replications
+    )
     assert len(scenarios) == n * replications
     assert len(scenarios[0]) == d
 
