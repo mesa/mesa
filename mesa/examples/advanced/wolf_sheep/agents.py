@@ -67,24 +67,38 @@ class Sheep(Animal):
 
     def move(self):
         """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
-        cells_without_wolves = self.cell.neighborhood.select(
-            lambda cell: not any(isinstance(obj, Wolf) for obj in cell.agents)
-        )
+        cells_without_wolves = []
+        cells_with_grass = []
+
+        for cell in self.cell.neighborhood:
+            has_wolf = False
+            has_grass = False
+
+            for obj in cell.agents:
+                # If there's a wolf, we can early exit
+                if isinstance(obj, Wolf):
+                    has_wolf = True
+                    break
+                elif isinstance(obj, GrassPatch) and obj.fully_grown:
+                    has_grass = True
+
+            # Prefer cells without wolves
+            if not has_wolf:
+                cells_without_wolves.append(cell)
+
+                # Among safe cells, pick those with grown grass
+                if has_grass:
+                    cells_with_grass.append(cell)
+
         # If all surrounding cells have wolves, stay put
         if len(cells_without_wolves) == 0:
             return
 
-        # Among safe cells, prefer those with grown grass
-        cells_with_grass = cells_without_wolves.select(
-            lambda cell: any(
-                isinstance(obj, GrassPatch) and obj.fully_grown for obj in cell.agents
-            )
-        )
         # Move to a cell with grass if available, otherwise move to any safe cell
         target_cells = (
             cells_with_grass if len(cells_with_grass) > 0 else cells_without_wolves
         )
-        self.cell = target_cells.select_random_cell()
+        self.cell = self.random.choice(target_cells)
 
 
 class Wolf(Animal):
