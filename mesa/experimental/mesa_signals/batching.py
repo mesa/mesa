@@ -185,11 +185,11 @@ class _BatchContext:
             # Only capture if not already snapshotted before mutation
             if name not in self._captured_values:
                 current_value = getattr(signal.owner, name, None)
-                try:
+                
+                if isinstance(current_value, list):
                     self._captured_values[name] = list(current_value)
-                except TypeError:
+                else:
                     self._captured_values[name] = current_value
-
         self.buffer[name].append(signal)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
