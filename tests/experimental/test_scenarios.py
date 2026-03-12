@@ -3,6 +3,7 @@
 import pickle
 
 import numpy as np
+import scipy.stats.qmc as qmc
 import pytest
 
 from mesa import Agent, Model
@@ -181,3 +182,38 @@ def test_scenario_spawn_replications():
         assert r1.initial_rng_state == r2.initial_rng_state, (
             "generators are not the same"
         )
+
+def test_scenario_from():
+    """Test that scenario generation from numpy/pandas dataframe."""
+    # we don't directly test from_dataframe because its called by from_numpy.
+    # create a 100X3 LHS sample on unit interval
+    d = 3
+    n = 100
+    parameter_names = ["a", "b", "c"]
+    samples = qmc.LatinHypercube(d).random(n)
+
+    # check scenario generation
+    scenarios = Scenario.from_ndarray(samples, parameter_names=parameter_names, rng=42)
+    assert len(scenarios) == n
+    assert len(scenarios[0]) == d
+
+    for scenario in scenarios:
+        values = samples[scenario.scenario_id, :]
+        for i, entry in enumerate(parameter_names):
+            assert values[i] == getattr(scenario, entry)
+
+    # check replication creation
+    replications = 10
+    scenarios = Scenario.from_ndarray(samples, parameter_names=parameter_names, rng=42, replications=replications)
+    assert len(scenarios) == n * replications
+    assert len(scenarios[0]) == d
+
+    for j, scenario in enumerate(scenarios[0:10]):
+        assert scenario.replication_id == j
+        values = samples[scenario.scenario_id, :]
+        for i, entry in enumerate(parameter_names):
+            assert values[i] == getattr(scenario, entry)
+
+    # check if parameter names matches number of columns in numpy array
+    with pytest.raises(ValueError):
+        Scenario.from_ndarray(samples, parameter_names=[], rng=42)

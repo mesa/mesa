@@ -217,7 +217,7 @@ class Scenario:
         scenarios = []
 
         for i, entry in enumerate(experiments.to_dict(orient="records")):
-            scenario = Scenario(rng=rng, experiment_id=i, **entry)
+            scenario = Scenario(rng=rng, scenario_id=i, **entry)
             if replications is None:
                 scenarios.append(scenario)
             else:
@@ -227,7 +227,7 @@ class Scenario:
         return scenarios
 
     @classmethod
-    def from_numpy(
+    def from_ndarray(
         cls,
         experiments: np.ndarray,
         parameter_names: list[str],
