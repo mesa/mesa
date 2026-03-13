@@ -14,7 +14,7 @@ Mesa 4.0 follows through on deprecations announced in Mesa 3.x by removing sever
 - **`model.steps` removed** (#3328): The step counter has been replaced by `model.time`, completing the shift to a time-centric simulation model. All internal usages now reference `model.time`, and the step-wrapping machinery has been simplified accordingly.
 - **`batch_run` removed** (#3325): The `batch_run` function and all associated files have been removed. Users should manage experiment execution through `Scenario` and direct model control (see #3134 for background).
 - **`mesa.space` removed** (#3337): The legacy space module and `agent.pos` have been removed. Use `mesa.discrete_space` for grid-based and network models.
-- **`PropertyLayer` and `HasPropertyLayers` mixin removed** (#3340, #3432): The standalone `PropertyLayer` class is replaced by raw NumPy arrays stored directly on the grid as `_property_layers`. Property access on cells now uses native property closures on a dynamic `GridCell` class, simplifying the internals.
+- **`PropertyLayer` and `HasPropertyLayers` mixin removed** (#3340, #3432): The standalone `PropertyLayer` class is replaced by raw NumPy arrays stored directly on the grid as `property_layers`. Property access on cells now uses native property closures on a dynamic `GridCell` class, simplifying the internals.
 
 ### Experimental: Timed agent actions
 Mesa 4.0a0 introduces an experimental `Action` system (#3461), giving agents a built-in concept of *doing something over time*. Actions integrate with Mesa's event scheduling for precise timing, support interruption with progress tracking, and can be resumed.
