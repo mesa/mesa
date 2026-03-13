@@ -787,5 +787,17 @@ def test_get_table_dataframe_nonexistent():
         dc.get_table_dataframe("nonexistent")
 
 
+def test_datacollector_malformed_list_reporter_raises_valueerror():
+    """Test that malformed list-style model_reporters raise ValueError instead of IndexError."""
+
+    def f(model):
+        return 1
+
+    m = Model()
+    dc = DataCollector(model_reporters={"bad": [f]})
+    with pytest.raises(ValueError, match="List-style reporters must follow the format"):
+        dc.collect(m)
+
+
 if __name__ == "__main__":
     unittest.main()
