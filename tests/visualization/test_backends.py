@@ -324,7 +324,6 @@ def test_backend_get_agent_pos():
     assert (x, y) == (3, 4)
 
 
-
 def test_backend_get_agent_pos_uses_space_drawer_viz_dims():
     """Backends should project continuous positions using the space drawer's viz_dims."""
     mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))

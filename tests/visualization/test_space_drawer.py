@@ -228,7 +228,6 @@ class TestContinuousSpaceDrawer:
         assert drawer.viz_ymin == expected_ymin
         assert drawer.viz_ymax == expected_ymax
 
-
     def test_viz_dims_projection_updates_bounds(self):  # noqa: D102
         space = ContinuousSpace(
             ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)

@@ -64,7 +64,6 @@ class AbstractRenderer(ABC):
                 "visualization projection"
             ) from err
 
-
     @abstractmethod
     def initialize_canvas(self):
         """Set up the drawing canvas."""
