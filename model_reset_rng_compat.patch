@@ -3,7 +3,7 @@
 @@ -137,6 +137,9 @@
          self.rng: np.random.Generator = scenario.rng
          self.random = random.Random(scenario._stdlib_seed)
- 
+
 +        # Store initial RNG state for reproducibility and to support reset_rng().
 +        self._rng: dict[str, Any] = scenario.initial_rng_state
 +
@@ -13,7 +13,7 @@
 @@ -313,6 +316,58 @@
      def step(self) -> None:
          """A single step. Fill in here."""
- 
+
 +    def reset_rng(self, rng: RNGLike | SeedLike | None = None) -> None:
 +        """Reset the model random number generators.
 +
@@ -68,4 +68,4 @@
 +
      def remove_all_agents(self):
          """Remove all agents from the model.
- 
+
