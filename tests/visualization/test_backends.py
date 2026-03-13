@@ -324,6 +324,29 @@ def test_backend_get_agent_pos():
     assert (x, y) == (3, 4)
 
 
+
+def test_backend_get_agent_pos_uses_space_drawer_viz_dims():
+    """Backends should project continuous positions using the space drawer's viz_dims."""
+    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
+
+    class DummyAgent:
+        position = (0.1, 0.2, 0.3)
+
+    x, y = mb._get_agent_pos(DummyAgent(), None)
+    assert (x, y) == (0.1, 0.3)
+
+
+def test_backend_get_agent_pos_raises_when_viz_dims_out_of_range():
+    """Backends should raise a helpful error when viz_dims do not match the position."""
+    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
+
+    class DummyAgent:
+        position = (0.1, 0.2)
+
+    with pytest.raises(ValueError, match="not have enough dimensions"):
+        mb._get_agent_pos(DummyAgent(), None)
+
+
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
 def test_backend_collect_agent_data_projects_3d_continuous_positions(backend_cls):
     """Test collect_agent_data projects nD continuous positions onto viz_dims."""
