@@ -43,7 +43,6 @@ class ContinuousSpaceAgent(Agent):
 
         self.space.agent_positions[self._mesa_index] = value
 
-
     def __init__(self, space: ContinuousSpace, model):
         """Initialize a continuous space agent.
 
