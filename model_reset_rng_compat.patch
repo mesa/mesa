@@ -1,0 +1,71 @@
+--- a/mesa/model.py
++++ b/mesa/model.py
+@@ -137,6 +137,9 @@
+         self.rng: np.random.Generator = scenario.rng
+         self.random = random.Random(scenario._stdlib_seed)
+ 
++        # Store initial RNG state for reproducibility and to support reset_rng().
++        self._rng: dict[str, Any] = scenario.initial_rng_state
++
+         # Store user's step method and create the default step schedule.
+         # Uses EventGenerator to schedule _do_step every 1.0 time units.
+         self._user_step = self.step
+@@ -313,6 +316,58 @@
+     def step(self) -> None:
+         """A single step. Fill in here."""
+ 
++    def reset_rng(self, rng: RNGLike | SeedLike | None = None) -> None:
++        """Reset the model random number generators.
++
++        Args:
++            rng: A new seed (or Generator / BitGenerator) for the RNG. If None, reset
++                using the stored initial RNG state.
++
++        Notes:
++            Mesa's random number generators are exposed as:
++            - ``self.rng`` (NumPy Generator)
++            - ``self.random`` (stdlib ``random.Random``)
++
++            ``reset_rng`` recreates the model's Scenario (preserving its parameters)
++            so that the scenario's ``rng`` and ``initial_rng_state`` remain
++            consistent with the model RNGs.
++        """
++        if rng is None:
++            try:
++                bg_class = getattr(np.random, self._rng["bit_generator"])
++            except (TypeError, KeyError, AttributeError):
++                # Fall back to NumPy's default seeding behavior.
++                rng = None
++            else:
++                bg = bg_class()
++                bg.state = self._rng
++                rng = np.random.Generator(bg)
++
++        scenario_cls = type(self.scenario)
++        scenario_kwargs = self.scenario.__dict__.copy()
++
++        try:
++            scenario = scenario_cls(
++                rng=rng,
++                scenario_id=self.scenario.scenario_id,
++                replication_id=self.scenario.replication_id,
++                **scenario_kwargs,
++            )
++        except TypeError:
++            # Some custom Scenario subclasses might not accept scenario_id /
++            # replication_id in their __init__. Preserve the user parameters.
++            scenario = scenario_cls(rng=rng, **scenario_kwargs)
++
++        self.scenario = scenario
++        self.rng = scenario.rng
++        self.random = random.Random(scenario._stdlib_seed)
++        self._rng = scenario.initial_rng_state
++
++        # Keep AgentSet RNGs consistent with the model RNG.
++        self._all_agents.random = self.random
++        for agent_set in self._agents_by_type.values():
++            agent_set.random = self.random
++
+     def remove_all_agents(self):
+         """Remove all agents from the model.
+ 
