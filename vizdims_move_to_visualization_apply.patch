@@ -1,0 +1,377 @@
+diff --git a/mesa/experimental/continuous_space/continuous_space.py b/mesa/experimental/continuous_space/continuous_space.py
+index 7f31235..82dc44c 100644
+--- a/mesa/experimental/continuous_space/continuous_space.py
++++ b/mesa/experimental/continuous_space/continuous_space.py
+@@ -51,7 +51,6 @@ class ContinuousSpace:
+         torus: bool = False,
+         random: Random | None = None,
+         n_agents: int = 100,
+-        viz_dims: tuple[int, int] = (0, 1),
+     ) -> None:
+         """Create a new continuous space.
+ 
+@@ -60,7 +59,6 @@ class ContinuousSpace:
+             torus: boolean for whether the space wraps around or not
+             random: a seeded stdlib random.Random instance
+             n_agents: the expected number of agents in the space
+-            viz_dims: the dimensions projected to x/y for visualization backends
+ 
+         Internally, a numpy array is used to store the positions of all agents. This is resized if needed,
+         but you can control the initial size explicitly by passing n_agents.
+@@ -79,22 +77,6 @@ class ContinuousSpace:
+         self.dimensions: np.array = np.asanyarray(dimensions)
+         self.ndims: int = self.dimensions.shape[0]
+ 
+-        if self.ndims < 2:
+-            raise ValueError(
+-                "ContinuousSpace visualization requires at least 2 dimensions"
+-            )
+-
+-        if len(viz_dims) != 2:
+-            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+-        if viz_dims[0] == viz_dims[1]:
+-            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+-        if any(dim < 0 or dim >= self.ndims for dim in viz_dims):
+-            raise ValueError(
+-                f"viz_dims must be within [0, {self.ndims - 1}] for this space"
+-            )
+-
+-        self.viz_dims: tuple[int, int] = viz_dims
+-
+         self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
+         self.center: np.array = np.sum(self.dimensions, axis=1) / 2
+ 
+diff --git a/mesa/visualization/backends/abstract_renderer.py b/mesa/visualization/backends/abstract_renderer.py
+index d22192a..6b399ed 100644
+--- a/mesa/visualization/backends/abstract_renderer.py
++++ b/mesa/visualization/backends/abstract_renderer.py
+@@ -46,8 +46,24 @@ class AbstractRenderer(ABC):
+                 "Continuous space visualization requires at least 2 dimensions"
+             )
+ 
+-        i, j = getattr(space, "viz_dims", (0, 1))
+-        return pos[i], pos[j]
++        viz_dims = getattr(self.space_drawer, "viz_dims", None)
++        if (
++            isinstance(viz_dims, tuple)
++            and len(viz_dims) == 2
++            and all(isinstance(dim, int) for dim in viz_dims)
++        ):
++            i, j = viz_dims
++        else:
++            i, j = (0, 1)
++
++        try:
++            return pos[i], pos[j]
++        except IndexError as err:
++            raise ValueError(
++                "Agent position does not have enough dimensions for the selected "
++                "visualization projection"
++            ) from err
++
+ 
+     @abstractmethod
+     def initialize_canvas(self):
+diff --git a/mesa/visualization/space_drawers.py b/mesa/visualization/space_drawers.py
+index cc2f722..6a2ed49 100644
+--- a/mesa/visualization/space_drawers.py
++++ b/mesa/visualization/space_drawers.py
+@@ -510,15 +510,63 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
+ class ContinuousSpaceDrawer(BaseSpaceDrawer):
+     """Drawer for continuous spaces."""
+ 
+-    def __init__(self, space: ContinuousSpace):
++    def __init__(self, space: ContinuousSpace, viz_dims: tuple[int, int] = (0, 1)):
+         """Initialize the continuous space drawer.
+ 
+         Args:
+-            space: The continuous space to draw
++            space: The continuous space to draw.
++            viz_dims: The pair of dimension indices to project onto the x and y axes.
++
++        Raises:
++            ValueError: If the space has fewer than two dimensions.
++            ValueError: If viz_dims does not contain exactly two distinct valid indices.
+         """
+         super().__init__(space)
+-        width = self.space.x_max - self.space.x_min
+-        height = self.space.y_max - self.space.y_min
++        # Default is the classic 2D XY plane.
++        self.viz_dims: tuple[int, int] = (0, 1)
++        self.set_viz_dims(viz_dims)
++
++    def set_viz_dims(self, viz_dims: tuple[int, int]) -> None:
++        """Set which dimensions are visualized on the x and y axes.
++
++        Args:
++            viz_dims: Tuple of two distinct dimension indices.
++
++        Raises:
++            ValueError: If viz_dims is invalid for the underlying space.
++        """
++        self._validate_viz_dims(viz_dims)
++        # Normalize to a plain tuple[int, int]
++        self.viz_dims = (int(viz_dims[0]), int(viz_dims[1]))
++        self._update_viz_params()
++
++    def _validate_viz_dims(self, viz_dims) -> None:
++        """Validate viz_dims against the underlying space."""
++        ndims = getattr(self.space, "ndims", self.space.dimensions.shape[0])
++        if ndims < 2:
++            raise ValueError(
++                "Continuous space visualization requires at least 2 dimensions"
++            )
++
++        if not isinstance(viz_dims, (tuple, list)) or len(viz_dims) != 2:
++            raise ValueError("viz_dims must contain exactly two distinct dimensions")
++
++        i, j = viz_dims
++        if not isinstance(i, int) or not isinstance(j, int) or i == j:
++            raise ValueError("viz_dims must contain exactly two distinct dimensions")
++
++        if any(dim < 0 or dim >= ndims for dim in (i, j)):
++            raise ValueError(f"viz_dims must be within [0, {ndims - 1}] for this space")
++
++    def _update_viz_params(self) -> None:
++        """Recompute visualization limits and marker defaults."""
++        i, j = self.viz_dims
++        x_min, x_max = self.space.dimensions[i]
++        y_min, y_max = self.space.dimensions[j]
++
++        width = x_max - x_min
++        height = y_max - y_min
++
+         self.s_default = (
+             (180 / max(width, height)) ** 2 if width > 0 or height > 0 else 1
+         )
+@@ -526,24 +574,35 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
+         x_padding = width / 20
+         y_padding = height / 20
+ 
+-        self.viz_xmin = self.space.x_min - x_padding
+-        self.viz_xmax = self.space.x_max + x_padding
+-        self.viz_ymin = self.space.y_min - y_padding
+-        self.viz_ymax = self.space.y_max + y_padding
++        self.viz_xmin = x_min - x_padding
++        self.viz_xmax = x_max + x_padding
++        self.viz_ymin = y_min - y_padding
++        self.viz_ymax = y_max + y_padding
++
++    def project(self, position):
++        """Project an n-dimensional position onto the configured 2D plane."""
++        i, j = self.viz_dims
++        return position[i], position[j]
+ 
+     def draw_matplotlib(self, ax=None, **draw_space_kwargs):
+         """Draw the continuous space using matplotlib.
+ 
+         Args:
+-            ax: Matplotlib axes object to draw on
+-            **draw_space_kwargs: Keyword arguments for styling the axis frame.
++            ax: Matplotlib axes object to draw on.
++            **draw_space_kwargs: Keyword arguments for styling the axis frame. You may
++                optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
++                n-dimensional space are projected to x/y.
+ 
+         Examples:
+                 linewidth=3, color="green"
+ 
+         Returns:
+-            The modified axes object
++            The modified axes object.
+         """
++        viz_dims = draw_space_kwargs.pop("viz_dims", None)
++        if viz_dims is not None:
++            self.set_viz_dims(viz_dims)
++
+         if ax is None:
+             _, ax = plt.subplots()
+ 
+@@ -563,14 +622,19 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
+         """Draw the continuous space using Altair.
+ 
+         Args:
+-            chart_width: Width for the shown chart
+-            chart_height: Height for the shown chart
++            chart_width: Width for the shown chart.
++            chart_height: Height for the shown chart.
+             **draw_chart_kwargs: Keyword arguments for styling the chart's view properties.
+-                            See Altair's documentation for `configure_view`.
++                You may optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
++                n-dimensional space are projected to x/y.
+ 
+         Returns:
+             An Altair Chart object representing the space.
+         """
++        viz_dims = draw_chart_kwargs.pop("viz_dims", None)
++        if viz_dims is not None:
++            self.set_viz_dims(viz_dims)
++
+         chart_props = {"width": chart_width, "height": chart_height}
+         chart_props.update(draw_chart_kwargs)
+ 
+diff --git a/mesa/visualization/space_renderer.py b/mesa/visualization/space_renderer.py
+index f8edaa2..d2a8bad 100644
+--- a/mesa/visualization/space_renderer.py
++++ b/mesa/visualization/space_renderer.py
+@@ -150,7 +150,9 @@ class SpaceRenderer:
+         """Setup the space structure without drawing.
+ 
+         Args:
+-            **kwargs: Additional keyword arguments for the setup function.
++            **kwargs: Additional keyword arguments for the setup function. For ContinuousSpace,
++                you may pass ``viz_dims=(i, j)`` to select which two dimensions are projected
++                to x/y.
+             Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+ 
+         Returns:
+diff --git a/tests/experimental/test_continuous_space_viz_dims.py b/tests/experimental/test_continuous_space_viz_dims.py
+deleted file mode 100644
+index b3659cf..0000000
+--- a/tests/experimental/test_continuous_space_viz_dims.py
++++ /dev/null
+@@ -1,42 +0,0 @@
+-"""Tests for ContinuousSpace viz_dims validation."""
+-
+-from random import Random
+-
+-import numpy as np
+-import pytest
+-
+-from mesa.experimental.continuous_space import ContinuousSpace
+-
+-
+-def test_continuous_space_requires_at_least_2_dimensions():
+-    """ContinuousSpace should reject spaces with fewer than 2 dimensions."""
+-    dims = np.array([[0.0, 1.0]])
+-    with pytest.raises(ValueError, match="at least 2 dimensions"):
+-        ContinuousSpace(dims, random=Random(1))
+-
+-
+-@pytest.mark.parametrize("viz_dims", [(0,), (0, 1, 2)])
+-def test_viz_dims_must_be_length_2(viz_dims):
+-    """viz_dims must contain exactly 2 indices."""
+-    dims = np.array([[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]])
+-    with pytest.raises(
+-        ValueError, match="viz_dims must contain exactly two distinct dimensions"
+-    ):
+-        ContinuousSpace(dims, viz_dims=viz_dims, random=Random(1))
+-
+-
+-def test_viz_dims_must_be_distinct():
+-    """viz_dims must not repeat the same index (e.g., (0, 0))."""
+-    dims = np.array([[0.0, 1.0], [0.0, 1.0]])
+-    with pytest.raises(
+-        ValueError, match="viz_dims must contain exactly two distinct dimensions"
+-    ):
+-        ContinuousSpace(dims, viz_dims=(0, 0), random=Random(1))
+-
+-
+-@pytest.mark.parametrize("viz_dims", [(0, 3), (-1, 1)])
+-def test_viz_dims_must_be_in_range(viz_dims):
+-    """viz_dims indices must be within the dimension range of the space."""
+-    dims = np.array([[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]])
+-    with pytest.raises(ValueError, match=r"viz_dims must be within"):
+-        ContinuousSpace(dims, viz_dims=viz_dims, random=Random(1))
+diff --git a/tests/visualization/test_backends.py b/tests/visualization/test_backends.py
+index cecb00c..c9f713c 100644
+--- a/tests/visualization/test_backends.py
++++ b/tests/visualization/test_backends.py
+@@ -324,6 +324,29 @@ def test_backend_get_agent_pos():
+     assert (x, y) == (3, 4)
+ 
+ 
++
++def test_backend_get_agent_pos_uses_space_drawer_viz_dims():
++    """Backends should project continuous positions using the space drawer's viz_dims."""
++    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
++
++    class DummyAgent:
++        position = (0.1, 0.2, 0.3)
++
++    x, y = mb._get_agent_pos(DummyAgent(), None)
++    assert (x, y) == (0.1, 0.3)
++
++
++def test_backend_get_agent_pos_raises_when_viz_dims_out_of_range():
++    """Backends should raise a helpful error when viz_dims do not match the position."""
++    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
++
++    class DummyAgent:
++        position = (0.1, 0.2)
++
++    with pytest.raises(ValueError, match="not have enough dimensions"):
++        mb._get_agent_pos(DummyAgent(), None)
++
++
+ @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+ def test_backend_collect_agent_data_projects_3d_continuous_positions(backend_cls):
+     """Test collect_agent_data projects nD continuous positions onto viz_dims."""
+diff --git a/tests/visualization/test_space_drawer.py b/tests/visualization/test_space_drawer.py
+index d03f6bc..17cf800 100644
+--- a/tests/visualization/test_space_drawer.py
++++ b/tests/visualization/test_space_drawer.py
+@@ -229,6 +229,63 @@ class TestContinuousSpaceDrawer:
+         assert drawer.viz_ymax == expected_ymax
+ 
+ 
++    def test_viz_dims_projection_updates_bounds(self):  # noqa: D102
++        space = ContinuousSpace(
++            ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
++        )
++        drawer = ContinuousSpaceDrawer(space, viz_dims=(0, 2))
++
++        assert drawer.viz_xmin == pytest.approx(-0.5)
++        assert drawer.viz_xmax == pytest.approx(10.5)
++        assert drawer.viz_ymin == pytest.approx(-5.0)
++        assert drawer.viz_ymax == pytest.approx(105.0)
++
++        assert drawer.project([1, 2, 3]) == (1, 3)
++
++    @patch("matplotlib.pyplot.subplots")
++    def test_draw_matplotlib_accepts_viz_dims_kwarg(self, mock_subplots):  # noqa: D102
++        mock_ax = MagicMock()
++        mock_fig = MagicMock()
++        mock_subplots.return_value = (mock_fig, mock_ax)
++
++        space = ContinuousSpace(
++            ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
++        )
++        drawer = ContinuousSpaceDrawer(space)
++
++        ax = drawer.draw_matplotlib(ax=mock_ax, viz_dims=(1, 2))
++        assert ax == mock_ax
++        assert drawer.viz_dims == (1, 2)
++
++        mock_ax.set_xlim.assert_called_with(drawer.viz_xmin, drawer.viz_xmax)
++        mock_ax.set_ylim.assert_called_with(drawer.viz_ymin, drawer.viz_ymax)
++
++    def test_drawer_rejects_1d_space(self):  # noqa: D102
++        space = ContinuousSpace(((0, 1),), torus=False, random=random.Random(42))
++        with pytest.raises(ValueError, match="at least 2 dimensions"):
++            ContinuousSpaceDrawer(space)
++
++    @pytest.mark.parametrize("viz_dims", [(0,), (0, 1, 2), (0, 0)])
++    def test_viz_dims_must_be_two_distinct_indices(self, viz_dims):  # noqa: D102
++        space = ContinuousSpace(
++            ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
++        )
++        drawer = ContinuousSpaceDrawer(space)
++        with pytest.raises(
++            ValueError, match="viz_dims must contain exactly two distinct dimensions"
++        ):
++            drawer.set_viz_dims(viz_dims)
++
++    @pytest.mark.parametrize("viz_dims", [(0, 3), (-1, 1)])
++    def test_viz_dims_must_be_in_range(self, viz_dims):  # noqa: D102
++        space = ContinuousSpace(
++            ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
++        )
++        drawer = ContinuousSpaceDrawer(space)
++        with pytest.raises(ValueError, match=r"viz_dims must be within"):
++            drawer.set_viz_dims(viz_dims)
++
++
+ class TestVoronoiSpaceDrawer:
+     """Test cases for VoronoiSpaceDrawer class."""
+ 
