@@ -799,5 +799,21 @@ def test_datacollector_malformed_list_reporter_raises_valueerror():
         dc.collect(m)
 
 
+def test_datacollector_empty_list_reporter_raises_valueerror():
+    """Test that empty list model_reporter raises ValueError."""
+    m = Model()
+    dc = DataCollector(model_reporters={"bad": []})
+    with pytest.raises(ValueError):
+        dc.collect(m)
+
+
+def test_datacollector_noncallable_list_reporter_raises_valueerror():
+    """Test that non-callable first element in list reporter raises ValueError."""
+    m = Model()
+    dc = DataCollector(model_reporters={"bad": ["not_a_function", [1, 2]]})
+    with pytest.raises(ValueError):
+        dc.collect(m)
+
+
 if __name__ == "__main__":
     unittest.main()
