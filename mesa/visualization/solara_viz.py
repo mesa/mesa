@@ -159,7 +159,7 @@ def SolaraViz(
             solara.SliderInt(
                 label="Play Interval (ms)",
                 value=reactive_play_interval,
-                on_value=lambda v: reactive_play_interval.set(v),
+                on_value=reactive_play_interval.set,
                 min=1,
                 max=500,
                 step=10,
@@ -167,7 +167,7 @@ def SolaraViz(
             solara.SliderInt(
                 label="Render Interval (steps)",
                 value=reactive_render_interval,
-                on_value=lambda v: reactive_render_interval.set(v),
+                on_value=reactive_render_interval.set,
                 min=1,
                 max=100,
                 step=2,
@@ -517,7 +517,7 @@ def ModelController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-    visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
+    visualization_pause_event = solara.use_memo(threading.Event, [])
 
     error_message = solara.use_reactive(None)
 
@@ -650,8 +650,8 @@ def SimulatorController(
     if model_parameters is None:
         model_parameters = {}
     model_parameters = solara.use_reactive(model_parameters)
-    visualization_pause_event = solara.use_memo(lambda: threading.Event(), [])
-    pause_step_event = solara.use_memo(lambda: threading.Event(), [])
+    visualization_pause_event = solara.use_memo(threading.Event, [])
+    pause_step_event = solara.use_memo(threading.Event, [])
 
     error_message = solara.use_reactive(None)
 

@@ -86,14 +86,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     def scenario(self, scenario: S) -> None:
         """Set scenario instance."""
         self._scenario = scenario
-        scenario.model = self
 
     @method_logger(__name__)
     def __init__(
         self,
         *args: Any,
         rng: RNGLike | SeedLike | None = None,
-        scenario: S | None = None,
+        scenario: S | type[S] = Scenario,
         **kwargs: Any,
     ) -> None:
         """Create a new model.
@@ -103,27 +102,23 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
             args: arguments to pass onto super
-            rng: Pseudorandom number generator state. When `rng` is None, a new `numpy.random.Generator` is created
-                  using entropy from the operating system. Types other than `numpy.random.Generator` are passed to
-                  `numpy.random.default_rng` to instantiate a `Generator`. `rng` is also used to try to seed a
-                  `random.Random` instance, if this fails, a random integer will be generated using the seeded
-                  numpy random number generator with which to seed `random.Random`.
-            scenario: the scenario specifying the computational experiment to run
+            rng: Seed for the random number generator. Accepts any value accepted by
+                numpy.random.default_rng(). Ignored if a Scenario instance is passed;
+                used to instantiate the scenario when a Scenario class is passed.
+            scenario: A Scenario instance or subclass to use for this model. If a class
+                is passed it is instantiated with rng. If an instance is passed, rng
+                must not be set.
             kwargs: keyword arguments to pass onto super
 
         Notes:
-            you have to pass either seed or rng, but not both.
+            Pass either rng or a Scenario instance, not both. Passing rng alongside
+            a Scenario class is valid — rng is forwarded to the class constructor.
 
         """
         super().__init__(*args, **kwargs)
         self.running: bool = True
         self.time: float = 0.0
-        self.time: float = 0.0
         self.agent_id_counter: int = 1
-        self.rng = None
-        self._rng = None
-        self.random = None
-        self._seed = None
 
         # Track if a simulator is controlling time
         self._simulator: Simulator | None = None
@@ -133,21 +128,14 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # Strong references to active EventGenerators (prevent GC)
         self._event_generators: set[EventGenerator] = set()
 
-        # check if `scenario` is provided
-        # and if so, whether rng is the same or not
-        if scenario is not None:
-            if rng is not None and (scenario.rng != rng):
-                raise ValueError("rng and scenario.rng must be the same")
-            else:
-                rng = scenario.rng
+        if isinstance(scenario, Scenario) and rng is not None:
+            raise ValueError("Pass either rng or scenario, not both.")
+        if not isinstance(scenario, Scenario):
+            scenario = scenario(rng=rng)  # type: ignore[assignment]
 
-        self.reset_rng(rng)
-
-        # now that we have figured out the seed value for rng
-        # we can set create a scenario with this if needed
-        if scenario is None:
-            scenario = Scenario(rng=rng)  # type: ignore[assignment]
         self.scenario = scenario
+        self.rng: np.random.Generator = scenario.rng
+        self.random = random.Random(scenario._stdlib_seed)
 
         # Store user's step method and create the default step schedule.
         # Uses EventGenerator to schedule _do_step every 1.0 time units.
@@ -183,7 +171,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if until <= self.time:
             warnings.warn(
-                f"end time {until} is larger than time {self.time}",
+                f"end time {until} is not larger than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -325,39 +313,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     def step(self) -> None:
         """A single step. Fill in here."""
 
-    def reset_rng(self, rng: RNGLike | SeedLike | None = None) -> None:
-        """Reset the model random number generator.
-
-        Args:
-            rng: A new seed for the RNG; if None, reset using the current seed
-        """
-        failed = True
-        if rng is None:
-            # Restore from saved initial state
-            try:
-                bg_class = getattr(np.random, self._rng["bit_generator"])
-            except TypeError:
-                rng = None
-            else:
-                failed = False
-                bg = bg_class()
-                bg.state = self._rng
-                self.rng = np.random.Generator(bg)
-
-        if failed:
-            self.rng: np.random.Generator = np.random.default_rng(rng)
-
-        self._rng = self.rng.bit_generator.state  # this allows for reproducing the rng
-
-        try:
-            self.random = random.Random(rng)
-        except TypeError:
-            seed = int(self.rng.integers(np.iinfo(np.int32).max))
-            self.random = random.Random(seed)
-        else:
-            seed = rng
-        self._seed = seed  # this allows for reproducing stdlib.random
-
     def remove_all_agents(self):
         """Remove all agents from the model.
 
@@ -467,7 +422,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if self.time > end_time:
             warnings.warn(
-                f"end_time {end_time} is larger than time {self.time}",
+                f"end_time {end_time} is not larger than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
