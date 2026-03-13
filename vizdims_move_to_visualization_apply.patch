@@ -9,19 +9,19 @@ index 7f31235..82dc44c 100644
 -        viz_dims: tuple[int, int] = (0, 1),
      ) -> None:
          """Create a new continuous space.
- 
+
 @@ -60,7 +59,6 @@ class ContinuousSpace:
              torus: boolean for whether the space wraps around or not
              random: a seeded stdlib random.Random instance
              n_agents: the expected number of agents in the space
 -            viz_dims: the dimensions projected to x/y for visualization backends
- 
+
          Internally, a numpy array is used to store the positions of all agents. This is resized if needed,
          but you can control the initial size explicitly by passing n_agents.
 @@ -79,22 +77,6 @@ class ContinuousSpace:
          self.dimensions: np.array = np.asanyarray(dimensions)
          self.ndims: int = self.dimensions.shape[0]
- 
+
 -        if self.ndims < 2:
 -            raise ValueError(
 -                "ContinuousSpace visualization requires at least 2 dimensions"
@@ -40,7 +40,7 @@ index 7f31235..82dc44c 100644
 -
          self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
          self.center: np.array = np.sum(self.dimensions, axis=1) / 2
- 
+
 diff --git a/mesa/visualization/backends/abstract_renderer.py b/mesa/visualization/backends/abstract_renderer.py
 index d22192a..6b399ed 100644
 --- a/mesa/visualization/backends/abstract_renderer.py
@@ -48,7 +48,7 @@ index d22192a..6b399ed 100644
 @@ -46,8 +46,24 @@ class AbstractRenderer(ABC):
                  "Continuous space visualization requires at least 2 dimensions"
              )
- 
+
 -        i, j = getattr(space, "viz_dims", (0, 1))
 -        return pos[i], pos[j]
 +        viz_dims = getattr(self.space_drawer, "viz_dims", None)
@@ -69,7 +69,7 @@ index d22192a..6b399ed 100644
 +                "visualization projection"
 +            ) from err
 +
- 
+
      @abstractmethod
      def initialize_canvas(self):
 diff --git a/mesa/visualization/space_drawers.py b/mesa/visualization/space_drawers.py
@@ -79,11 +79,11 @@ index cc2f722..6a2ed49 100644
 @@ -510,15 +510,63 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
  class ContinuousSpaceDrawer(BaseSpaceDrawer):
      """Drawer for continuous spaces."""
- 
+
 -    def __init__(self, space: ContinuousSpace):
 +    def __init__(self, space: ContinuousSpace, viz_dims: tuple[int, int] = (0, 1)):
          """Initialize the continuous space drawer.
- 
+
          Args:
 -            space: The continuous space to draw
 +            space: The continuous space to draw.
@@ -147,7 +147,7 @@ index cc2f722..6a2ed49 100644
 @@ -526,24 +574,35 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
          x_padding = width / 20
          y_padding = height / 20
- 
+
 -        self.viz_xmin = self.space.x_min - x_padding
 -        self.viz_xmax = self.space.x_max + x_padding
 -        self.viz_ymin = self.space.y_min - y_padding
@@ -161,10 +161,10 @@ index cc2f722..6a2ed49 100644
 +        """Project an n-dimensional position onto the configured 2D plane."""
 +        i, j = self.viz_dims
 +        return position[i], position[j]
- 
+
      def draw_matplotlib(self, ax=None, **draw_space_kwargs):
          """Draw the continuous space using matplotlib.
- 
+
          Args:
 -            ax: Matplotlib axes object to draw on
 -            **draw_space_kwargs: Keyword arguments for styling the axis frame.
@@ -172,10 +172,10 @@ index cc2f722..6a2ed49 100644
 +            **draw_space_kwargs: Keyword arguments for styling the axis frame. You may
 +                optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
 +                n-dimensional space are projected to x/y.
- 
+
          Examples:
                  linewidth=3, color="green"
- 
+
          Returns:
 -            The modified axes object
 +            The modified axes object.
@@ -186,10 +186,10 @@ index cc2f722..6a2ed49 100644
 +
          if ax is None:
              _, ax = plt.subplots()
- 
+
 @@ -563,14 +622,19 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
          """Draw the continuous space using Altair.
- 
+
          Args:
 -            chart_width: Width for the shown chart
 -            chart_height: Height for the shown chart
@@ -199,7 +199,7 @@ index cc2f722..6a2ed49 100644
 -                            See Altair's documentation for `configure_view`.
 +                You may optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
 +                n-dimensional space are projected to x/y.
- 
+
          Returns:
              An Altair Chart object representing the space.
          """
@@ -209,21 +209,21 @@ index cc2f722..6a2ed49 100644
 +
          chart_props = {"width": chart_width, "height": chart_height}
          chart_props.update(draw_chart_kwargs)
- 
+
 diff --git a/mesa/visualization/space_renderer.py b/mesa/visualization/space_renderer.py
 index f8edaa2..d2a8bad 100644
 --- a/mesa/visualization/space_renderer.py
 +++ b/mesa/visualization/space_renderer.py
 @@ -150,7 +150,9 @@ class SpaceRenderer:
          """Setup the space structure without drawing.
- 
+
          Args:
 -            **kwargs: Additional keyword arguments for the setup function.
 +            **kwargs: Additional keyword arguments for the setup function. For ContinuousSpace,
 +                you may pass ``viz_dims=(i, j)`` to select which two dimensions are projected
 +                to x/y.
              Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
- 
+
          Returns:
 diff --git a/tests/experimental/test_continuous_space_viz_dims.py b/tests/experimental/test_continuous_space_viz_dims.py
 deleted file mode 100644
@@ -279,8 +279,8 @@ index cecb00c..c9f713c 100644
 +++ b/tests/visualization/test_backends.py
 @@ -324,6 +324,29 @@ def test_backend_get_agent_pos():
      assert (x, y) == (3, 4)
- 
- 
+
+
 +
 +def test_backend_get_agent_pos_uses_space_drawer_viz_dims():
 +    """Backends should project continuous positions using the space drawer's viz_dims."""
@@ -313,8 +313,8 @@ index d03f6bc..17cf800 100644
 +++ b/tests/visualization/test_space_drawer.py
 @@ -229,6 +229,63 @@ class TestContinuousSpaceDrawer:
          assert drawer.viz_ymax == expected_ymax
- 
- 
+
+
 +    def test_viz_dims_projection_updates_bounds(self):  # noqa: D102
 +        space = ContinuousSpace(
 +            ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
@@ -374,4 +374,4 @@ index d03f6bc..17cf800 100644
 +
  class TestVoronoiSpaceDrawer:
      """Test cases for VoronoiSpaceDrawer class."""
- 
+
