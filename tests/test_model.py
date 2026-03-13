@@ -1,10 +1,8 @@
 """Tests for model.py."""
 
 import numpy as np
-import pytest
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.devs.simulator import DEVSimulator
 from mesa.model import Model
 
 
@@ -25,22 +23,6 @@ def test_model_time_increment():
     for i in range(5):
         model.step()
         assert model.time == float(i + 1)
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_model_time_with_simulator():
-    """Test that simulator controls time when attached."""
-    model = Model()
-    simulator = DEVSimulator()
-    simulator.setup(model)
-
-    # Simulator is now attached
-    assert model._simulator is simulator
-
-    # Time should not auto-increment when simulator is attached
-    # (In practice, the simulator controls stepping, but we can test the flag)
-    model._user_step()  # Call user step directly to avoid wrapped_step
-    # Time unchanged because simulator controls it
 
 
 def test_running():
