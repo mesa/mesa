@@ -22,6 +22,9 @@ changelog:
     - title: 🐛 Bugs fixed
       labels:
         - bug
+    - title: ⚡ Performance improvements
+      labels:
+        - performance
     - title: 🔍 Examples updated
       labels:
         - example

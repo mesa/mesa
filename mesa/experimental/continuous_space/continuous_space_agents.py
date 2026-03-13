@@ -43,16 +43,6 @@ class ContinuousSpaceAgent(Agent):
 
         self.space.agent_positions[self._mesa_index] = value
 
-    @property
-    def pos(self):  # noqa: D102
-        # just here for compatibility with solara_viz.
-        return self.position
-
-    @pos.setter
-    def pos(self, value):
-        # just here for compatibility solara_viz.
-        pass
-
     def __init__(self, space: ContinuousSpace, model):
         """Initialize a continuous space agent.
 
