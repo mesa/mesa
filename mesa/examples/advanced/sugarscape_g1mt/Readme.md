@@ -43,11 +43,12 @@ The model demonstrates several Mesa concepts and features:
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Assuming Mesa is already installed, run the example with:
 
-```
-    $ solara run app.py
-```
+solara run app.py
+
+Then open the displayed local URL in your browser.
+
 
 ## Files
 

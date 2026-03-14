@@ -8,17 +8,11 @@ This model tests Mesa's continuous space feature, and uses numpy arrays to repre
 
 ## How to Run
 
-1. Install Mesa and recommended dependencies:
-
-pip install "mesa[rec]"
-
-2. Run the example:
+Assuming Mesa is already installed, run the example with:
 
 solara run app.py
 
-3. Open your browser and go to:
-
-http://localhost:8765
+Then open the displayed local URL in your browser.
 
 
 ## Files

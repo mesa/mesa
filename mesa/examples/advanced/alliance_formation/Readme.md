@@ -19,14 +19,6 @@ In MetaAgents current configuration, agents being part of multiple meta-agents i
 If you would like to see an example of explicit meta-agent formation see the [warehouse model in the Mesa example's repository](https://github.com/mesa/mesa-examples/tree/main/examples/warehouse)
 
 
-## Installation
-
-This model requires Mesa's recommended install and scipy
-
-```
-    $ pip install mesa[rec]
-```
-
 ## Files
 
 - `model.py`: Contains creation of agents, the network and management of agent execution.
@@ -41,16 +33,11 @@ https://mesa.readthedocs.io/en/latest/tutorials/intro_tutorial.html
 An example of the bilateral shapley value in another model:
 [Techno-Social Energy Infrastructure Siting: Sustainable Energy Modeling Programming (SEMPro)](https://www.jasss.org/16/3/6.html)
 
+
 ## How to Run
 
-1. Go to the example folder
-
-cd mesa/examples/advanced/alliance_formation
-
-2. Install dependencies
-
-pip install "mesa[rec]"
-
-3. Run the app
+Assuming Mesa is already installed, run the example with:
 
 solara run app.py
+
+Then open the displayed local URL in your browser.
