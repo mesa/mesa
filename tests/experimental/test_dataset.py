@@ -16,7 +16,8 @@ from mesa.experimental.data_collection.dataset import DataSet
 
 def test_data_registry():
     """Test DataRegistry."""
-    registry = DataRegistry()
+    model = Model()
+    registry = DataRegistry(model)
     dataset = TableDataSet("test", fields="field")
 
     registry.add_dataset(dataset)
@@ -39,7 +40,8 @@ def test_data_registry():
 
 def test_data_registry_create_dataset():
     """Test DataRegistry.create_dataset."""
-    registry = DataRegistry()
+    model = Model()
+    registry = DataRegistry(model)
     dataset = registry.create_dataset(TableDataSet, "table", fields=["a", "b"])
 
     assert "table" in registry
@@ -49,7 +51,8 @@ def test_data_registry_create_dataset():
 
 def test_data_registry_iteration():
     """Test DataRegistry __iter__."""
-    registry = DataRegistry()
+    model = Model()
+    registry = DataRegistry(model)
     ds1 = TableDataSet("a", fields="f1")
     ds2 = TableDataSet("b", fields="f2")
     registry.add_dataset(ds1)
@@ -86,7 +89,7 @@ def test_data_registry_track():
             )
 
     model = MyModel()
-    registry = DataRegistry()
+    registry = DataRegistry(model)
     agent_dataset = registry.track_agents(model.agents, "agent_data", fields="wealth")
     model_dataset = registry.track_model(model, "model_data", fields="summed_wealth")
 
@@ -99,7 +102,8 @@ def test_data_registry_track():
 
 def test_data_registry_close_all():
     """Test DataRegistry.close() closes all datasets."""
-    registry = DataRegistry()
+    model = Model()
+    registry = DataRegistry(model)
     ds1 = TableDataSet("a", fields="f1")
     ds2 = TableDataSet("b", fields="f2")
     registry.add_dataset(ds1)
@@ -498,3 +502,26 @@ def test_agent_dataset_dirty_flag():
     dataset.close()
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
+
+
+def test_track_agents_with_agent_class():
+    """Ensure DataRegistry.track_agents supports agent classes."""
+
+    class TestAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 10
+
+    model = Model()
+
+    for _ in range(5):
+        TestAgent(model)
+
+    registry = model.data_registry
+
+    dataset = registry.track_agents(TestAgent, "wealth_ds", fields="wealth")
+
+    data = dataset.data
+
+    assert len(data) == 5
+    assert all("wealth" in row for row in data)
