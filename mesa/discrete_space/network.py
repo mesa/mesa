@@ -50,7 +50,12 @@ class Network(DiscreteSpace[Cell]):
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
         """
-        super().__init__(capacity=capacity, shared_dims=shared_dims, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity,
+            shared_dims=shared_dims,
+            random=random,
+            cell_klass=cell_klass,
+        )
         self.G = G
 
         # Resolve positions from the layout argument

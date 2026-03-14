@@ -19,7 +19,7 @@ import warnings
 from abc import ABC, abstractmethod
 from functools import cached_property
 from random import Random
-from typing import TypeVar, Any
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -211,7 +211,7 @@ class DiscreteSpace[T: Cell](ABC):
     def add_agent(self, agent) -> None:
         new_cell = self.find_nearest_cell(agent.position)
         new_cell.add_agent(agent)
-        
+
         agent._mesa_locations[self] = new_cell
 
     def remove_agent(self, agent) -> None:
@@ -219,24 +219,28 @@ class DiscreteSpace[T: Cell](ABC):
         del agent._mesa_locations[self]
 
     def move_agent(self, agent, location) -> None:
-        
+
         if isinstance(location, np.ndarray):
             new_location = self.find_nearest_cell(location)
-        elif isinstance(location, Cell): 
+        elif isinstance(location, Cell):
             new_location = location
         else:
-            new_location = self._cells[location] 
+            new_location = self._cells[location]
 
         old_location = agent._mesa_locations.get(self)
-            
+
         if old_location is new_location:
             return
-                
+
         if old_location is not None:
             old_location.remove_agent(agent)
-                
+
         new_location.add_agent(agent)
         agent._mesa_locations[self] = new_location
 
-        if not isinstance(location, np.ndarray) and new_location.position is not None and not np.array_equal(agent.position, new_location.position):
+        if (
+            not isinstance(location, np.ndarray)
+            and new_location.position is not None
+            and not np.array_equal(agent.position, new_location.position)
+        ):
             agent.position = new_location.position

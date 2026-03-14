@@ -205,7 +205,12 @@ class VoronoiGrid(DiscreteSpace):
             capacity_function (Callable): function to compute (int) capacity according to (float) area
 
         """
-        super().__init__(capacity=capacity, shared_dims=shared_dims, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity,
+            shared_dims=shared_dims,
+            random=random,
+            cell_klass=cell_klass,
+        )
         self.centroids_coordinates = centroids_coordinates
         self._validate_parameters()
 

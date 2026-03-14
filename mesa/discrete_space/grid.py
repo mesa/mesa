@@ -98,7 +98,12 @@ class Grid(DiscreteSpace[T]):
             random: a random number generator
             cell_klass: the base class to use for the cells
         """
-        super().__init__(capacity=capacity, shared_dims=shared_dims, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity,
+            shared_dims=shared_dims,
+            random=random,
+            cell_klass=cell_klass,
+        )
         self.torus = torus
         self.dimensions = dimensions
         self._try_random = True
@@ -132,7 +137,7 @@ class Grid(DiscreteSpace[T]):
         phys_x, phys_y = self.shared_dims.dimensions
         self.x_min, self.x_max = phys_x[0], phys_x[1]
         self.y_min, self.y_max = phys_y[0], phys_y[1]
-        
+
         self.dx = (self.x_max - self.x_min) / self.dimensions[0]
         self.dy = (self.y_max - self.y_min) / self.dimensions[1]
 
