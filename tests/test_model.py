@@ -85,30 +85,6 @@ def test_rng(rng=23):
     )
 
 
-# def test_reset_rng(newseed=42):
-#     """Test resetting the random seed on the model."""
-#     model = Model(rng=5)
-#     old_rng = model._rng
-#
-#     model.reset_rng(rng=6)
-#     new_rng = model._rng
-#
-#     assert old_rng != new_rng
-#
-#     old_rng = new_rng
-#     model.reset_rng()
-#     new_rng = model.rng.bit_generator.state
-#
-#     assert old_rng == new_rng
-#
-#     model = Model(rng=np.random.MT19937(42))
-#     old_rng = model._rng
-#     model.reset_rng()
-#     new_rng = model.rng.bit_generator.state
-#
-#     assert np.all(old_rng["state"]["key"] == new_rng["state"]["key"])
-
-
 def test_agent_types():
     """Test Model.agent_types property."""
 
