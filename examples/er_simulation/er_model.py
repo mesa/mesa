@@ -6,8 +6,9 @@ Critical treatments cannot be interrupted; moderate ones can be
 bumped by a higher-priority patient and resumed later.
 """
 
-import mesa
 import numpy as np
+
+import mesa
 from mesa.experimental.actions import Action
 
 
