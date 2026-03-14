@@ -32,6 +32,7 @@ class Network(DiscreteSpace[Cell]):
         self,
         G: Any,  # noqa: N803
         capacity: int | None = None,
+        shared_dims: Any | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
         layout: Mapping | Callable | None = nx.circular_layout,
@@ -49,7 +50,7 @@ class Network(DiscreteSpace[Cell]):
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        super().__init__(capacity=capacity, shared_dims=shared_dims, random=random, cell_klass=cell_klass)
         self.G = G
 
         # Resolve positions from the layout argument
