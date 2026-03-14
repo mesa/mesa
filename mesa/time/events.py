@@ -238,6 +238,7 @@ class EventGenerator:
         self.priority = priority
 
         self._active: bool = False
+        self._paused: bool = False
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
@@ -250,6 +251,13 @@ class EventGenerator:
     def execution_count(self) -> int:
         """Return the number of times this generator has executed."""
         return self._execution_count
+
+    @property
+    def next_scheduled_time(self) -> float | None:
+        """Return the time of the next scheduled execution, or None if not scheduled."""
+        if self._current_event is None:
+            return None
+        return self._current_event.time
 
     def _get_interval(self) -> float | int:
         """Get the next interval value."""
@@ -269,7 +277,7 @@ class EventGenerator:
 
     def _execute_and_reschedule(self) -> None:
         """Execute the function and schedule the next event."""
-        if not self._active:
+        if not self._active or self._paused:
             return
 
         # Check weakref HERE (execution time), not in property getter
@@ -325,10 +333,41 @@ class EventGenerator:
     def stop(self) -> None:
         """Stop the event generator immediately."""
         self._active = False
+        self._paused = False
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
+
+    def pause(self) -> None:
+        """Pause the event generator temporarily.
+
+        This cancels the currently scheduled event but keeps the generator
+        active in the model. Execution can be resumed later using resume().
+        """
+        if not self._active or self._paused:
+            return
+
+        self._paused = True
+
+        if self._current_event is not None:
+            self._current_event.cancel()
+            self._current_event = None
+
+    def resume(self) -> None:
+        """Resume a paused event generator."""
+        if not self._active or not self._paused:
+            return
+
+        self._paused = False
+
+        next_time = self.model.time + self._get_interval()
+
+        if not self._should_stop(next_time):
+            self._schedule_next(next_time)
+        else:
+            self._active = False
+            self.model._event_generators.discard(self)
 
     def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
@@ -432,7 +471,7 @@ class EventList:
         return event in self._events
 
     def __len__(self) -> int:  # noqa
-        return len([e for e in self._events if not e.CANCELED])
+        return sum(1 for e in self._events if not e.CANCELED)
 
     def __repr__(self) -> str:
         """Return a string representation of the event list."""
