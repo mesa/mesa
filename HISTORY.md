@@ -79,6 +79,8 @@ Several targeted optimizations improve simulation performance:
 * Add time column to empty dataframe in `datarecorder` by @codebreaker32 in #3408
 * Add explicit `RUN_ENDED` signal for terminal data handling in `DataRecorder` by @codebreaker32 in #3424
 * Add Actions: event-driven timed agent behavior (v2) by @EwoutH in #3461
+* Remove ContinuousSpaceAgent.pos property by @satharyasin-hub in #3528
+* Updating Scenario in preparation for replacing batch runner by @quaquel in #3493
 ### 🛠 Enhancements made
 * Use scenario for all examples in benchmarks by @codebreaker32 in #3314
 * Fix Schedule validation for start > end by @souro26 in #3326
@@ -112,6 +114,7 @@ Several targeted optimizations improve simulation performance:
 * Fixes a cache-invalidation bug for `SignalingList` by @codebreaker32 in #3486
 * Fix incorrect warnings and exception types in `model.py` and `datacollection.py` by @codebyNJ in #3434
 * Fix sliding window eviction crash in ModelDataSet by @ShreyasN707 in #3389
+* fix: InputText widget returns string seed causing model reset to fail by @R1patil in #3518
 ### ⚡ Performance improvements
 * Optimize `Event.__lt__` to avoid tuple allocation by @souro26 in #3336
 * Use generator in peek_ahead instead of list allocation by @souro26 in #3413
@@ -132,6 +135,8 @@ Several targeted optimizations improve simulation performance:
 * Add sugarscape for benchmarking by @quaquel in #3348
 * Fix benchmark workflow permissions for fork PRs by @EwoutH in #3459
 * Use model-specific scenario classes in benchmarks by @EwoutH in #3350
+* Reorganize and deduplicate event-related tests by @EwoutH in #3529
+* Update benchmarks to use the new Scenario API by @quaquel in #3531
 
 ## New Contributors
 * @Krishsharma179 made their first contribution in #3329
@@ -140,6 +145,8 @@ Several targeted optimizations improve simulation performance:
 * @Rishav23av made their first contribution in #3415
 * @BEASTSHRIRAM made their first contribution in #3500
 * @PietroMondini made their first contribution in #3503
+* @satharyasin-hub made their first contribution in #3528
+* @R1patil made their first contribution in #3518
 
 **Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.0...v4.0.0a0
 
