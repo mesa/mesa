@@ -336,3 +336,101 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     # This should not cause a TypeError from unpacking
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
+
+
+class TestMetaAgentSelector:
+    """Tests covering selector behavior, fallback logic, and failure modes."""
+
+    def test_default_fallback_lowest_unique_id(self, setup_agents):
+        """Ensure lowest unique_id is chosen when no selector is provided."""
+        model, agents = setup_agents
+
+        ma1 = create_meta_agent(model, "Team", [agents[0]], Agent)
+        ma2 = create_meta_agent(model, "Team", [agents[1]], Agent)
+
+        result = create_meta_agent(
+            model,
+            "Team",
+            [agents[0], agents[1]],
+            Agent,
+        )
+
+        expected = sorted([ma1, ma2], key=lambda x: x.unique_id)[0]
+        assert result is expected
+
+    def test_selector_called_when_multiple_candidates(self, setup_agents):
+        """Ensure selector is invoked when multiple eligible meta-agents exist."""
+        model, agents = setup_agents
+
+        create_meta_agent(model, "Team", [agents[0]], Agent)
+        ma2 = create_meta_agent(model, "Team", [agents[1]], Agent)
+
+        def pick_last(candidates, new_agents):
+            return candidates[-1]
+
+        result = create_meta_agent(
+            model,
+            "Team",
+            [agents[0], agents[1]],
+            Agent,
+            meta_agent_selector=pick_last,
+        )
+
+        assert result is ma2
+
+    def test_selector_not_called_when_single_candidate(self, setup_agents):
+        """Ensure selector is not called when only one candidate exists."""
+        model, agents = setup_agents
+
+        ma1 = create_meta_agent(model, "Team", [agents[0]], Agent)
+
+        def explode(*_):
+            raise RuntimeError("should not be called")
+
+        result = create_meta_agent(
+            model,
+            "Team",
+            [agents[0], agents[1]],
+            Agent,
+            meta_agent_selector=explode,
+        )
+
+        assert result is ma1
+
+    def test_selector_returns_invalid_meta_agent(self, setup_agents):
+        """Ensure ValueError is raised if selector returns invalid candidate."""
+        model, agents = setup_agents
+
+        create_meta_agent(model, "Team", [agents[0]], Agent)
+        create_meta_agent(model, "Team", [agents[1]], Agent)
+
+        def bad_selector(candidates, new_agents):
+            return object()
+
+        with pytest.raises(ValueError):
+            create_meta_agent(
+                model,
+                "Team",
+                [agents[0], agents[1]],
+                Agent,
+                meta_agent_selector=bad_selector,
+            )
+
+    def test_selector_raises_exception(self, setup_agents):
+        """Ensure ValueError wraps exceptions raised inside selector."""
+        model, agents = setup_agents
+
+        create_meta_agent(model, "Team", [agents[0]], Agent)
+        create_meta_agent(model, "Team", [agents[1]], Agent)
+
+        def bad_selector(candidates, new_agents):
+            raise RuntimeError("boom")
+
+        with pytest.raises(ValueError):
+            create_meta_agent(
+                model,
+                "Team",
+                [agents[0], agents[1]],
+                Agent,
+                meta_agent_selector=bad_selector,
+            )
