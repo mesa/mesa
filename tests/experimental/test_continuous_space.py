@@ -520,4 +520,3 @@ def test_array_growth_strategy():
         np.testing.assert_array_equal(
             space._agent_positions[a._mesa_index], [float(i), float(i)]
         )
-
