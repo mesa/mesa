@@ -530,18 +530,14 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
 
     def test_malformed_list_reporter_too_many_elements(self):
         """Three-element list isn't a valid reporter format."""
-        dc = DataCollector(
-            model_reporters={"bad": [lambda m: m, [1], "extra"]}
-        )
+        dc = DataCollector(model_reporters={"bad": [lambda m: m, [1], "extra"]})
         with self.assertRaises(ValueError) as cm:
             dc.collect(self.model)
         self.assertIn("invalid list format", str(cm.exception))
 
     def test_malformed_list_reporter_params_not_list(self):
         """Second element must be a list or tuple, not a bare value."""
-        dc = DataCollector(
-            model_reporters={"bad": [lambda m: m, "not_a_list"]}
-        )
+        dc = DataCollector(model_reporters={"bad": [lambda m: m, "not_a_list"]})
         with self.assertRaises(ValueError) as cm:
             dc.collect(self.model)
         self.assertIn("must be a list of parameters", str(cm.exception))
