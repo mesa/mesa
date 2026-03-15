@@ -521,6 +521,42 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         with self.assertRaises(ValueError):
             dc_function.collect(self.model)
 
+    def test_malformed_list_reporter_missing_params(self):
+        """[func] without params list should fail, not crash in collect()."""
+        dc = DataCollector(model_reporters={"bad": [lambda m: m]})
+        with self.assertRaises(ValueError) as cm:
+            dc.collect(self.model)
+        self.assertIn("invalid list format", str(cm.exception))
+
+    def test_malformed_list_reporter_too_many_elements(self):
+        """Three-element list isn't a valid reporter format."""
+        dc = DataCollector(model_reporters={"bad": [lambda m: m, [1], "extra"]})
+        with self.assertRaises(ValueError) as cm:
+            dc.collect(self.model)
+        self.assertIn("invalid list format", str(cm.exception))
+
+    def test_malformed_list_reporter_params_not_list(self):
+        """Second element must be a list or tuple, not a bare value."""
+        dc = DataCollector(model_reporters={"bad": [lambda m: m, "not_a_list"]})
+        with self.assertRaises(ValueError) as cm:
+            dc.collect(self.model)
+        self.assertIn("must be a list of parameters", str(cm.exception))
+
+    def test_malformed_list_agent_reporter_missing_params(self):
+        """Agent reporters get the same validation at init time."""
+        with self.assertRaises(ValueError) as cm:
+            DataCollector(agent_reporters={"bad": [lambda a: a]})
+        self.assertIn("invalid list format", str(cm.exception))
+
+    def test_valid_list_reporter_still_works(self):
+        """Make sure we didn't break the happy path."""
+        dc = DataCollector(
+            model_reporters={"count": [helper_function, [self.model, 2]]}
+        )
+        dc.collect(self.model)
+        data = dc.get_model_vars_dataframe()
+        self.assertEqual(data["count"][0], self.model.num_agents * 2)
+
 
 class TestMethodReporterValidation(unittest.TestCase):
     """Tests for method reporter validation fix.
