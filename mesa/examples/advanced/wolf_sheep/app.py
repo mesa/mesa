@@ -25,7 +25,7 @@ def wolf_sheep_portrayal(agent):
     elif isinstance(agent, Sheep):
         portrayal.update(("color", "cyan"))
     elif isinstance(agent, GrassPatch):
-        if agent.fully_grown:
+        if agent.is_fully_grown():
             portrayal.update(("color", "tab:green"))
         else:
             portrayal.update(("color", "tab:brown"))
