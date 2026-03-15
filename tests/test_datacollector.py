@@ -543,6 +543,20 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         self.assertIn("bad_function", str(context.exception))
         self.assertIn("Invalid function list format", str(context.exception))
 
+    def test_function_error_after_validation(self):
+        """Test collect defensively rejects invalid reporter after validation."""
+        dc_function = DataCollector(
+            model_reporters={"bad_function": lambda m: len(m.agents)}
+        )
+        dc_function._validated = True
+        dc_function.model_reporters["bad_function"] = [lambda m: len(m.agents)]
+
+        with self.assertRaises(ValueError) as context:
+            dc_function.collect(self.model)
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("Invalid function list format", str(context.exception))
+
 
 class TestMethodReporterValidation(unittest.TestCase):
     """Tests for method reporter validation fix.
