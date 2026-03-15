@@ -49,6 +49,7 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_full",
         "_position",  # physical position
         "capacity",
         "connections",
@@ -64,6 +65,14 @@ class Cell:
     @empty.setter
     def empty(self, value: bool) -> None:
         self._empty = value
+
+    @property
+    def full(self) -> bool:  # noqa: D102
+        return self._full
+
+    @full.setter
+    def full(self, value: bool) -> None:
+        self._full = value
 
     @property
     def position(self) -> np.ndarray:
@@ -105,6 +114,7 @@ class Cell:
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
         self.capacity: int | None = capacity
+        self._full: bool = False
         self.properties: dict[
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
@@ -153,6 +163,7 @@ class Cell:
             raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
+        self.full = self.is_full
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -167,6 +178,7 @@ class Cell:
             raise AgentMissingException(agent, self.coordinate) from e
 
         self.empty = self.is_empty
+        self.full = self.is_full
 
     @property
     def is_empty(self) -> bool:
