@@ -77,7 +77,7 @@ class SugarscapeG1mt(mesa.Model):
                     flatten([a.prices for a in m.agents])
                 ),
             },
-            agent_reporters={"Trade Network": lambda a: get_trade(a)},
+            agent_reporters={"Trade Network": lambda a: get_trade(a)},  # noqa: PLW0108
         )
 
         # read in landscape file from supplementary material

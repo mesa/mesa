@@ -338,7 +338,7 @@ class TestPropertyLayer(unittest.TestCase):  # noqa: D101
     # Aggregate Property Test
     def test_aggregate_property_lambda(self):  # noqa: D102
         self.layer.data = np.arange(100).reshape(10, 10)
-        result = self.layer.aggregate_property(lambda x: np.sum(x))
+        result = self.layer.aggregate_property(lambda x: np.sum(x))  # noqa: PLW0108
         self.assertEqual(result, np.sum(np.arange(100)))
 
     def test_aggregate_property_ufunc(self):  # noqa: D102
