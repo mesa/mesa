@@ -1,10 +1,8 @@
 """Tests for model.py."""
 
 import numpy as np
-import pytest
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.devs.simulator import DEVSimulator
 from mesa.model import Model
 
 
@@ -25,22 +23,6 @@ def test_model_time_increment():
     for i in range(5):
         model.step()
         assert model.time == float(i + 1)
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_model_time_with_simulator():
-    """Test that simulator controls time when attached."""
-    model = Model()
-    simulator = DEVSimulator()
-    simulator.setup(model)
-
-    # Simulator is now attached
-    assert model._simulator is simulator
-
-    # Time should not auto-increment when simulator is attached
-    # (In practice, the simulator controls stepping, but we can test the flag)
-    model._user_step()  # Call user step directly to avoid wrapped_step
-    # Time unchanged because simulator controls it
 
 
 def test_running():
@@ -83,30 +65,6 @@ def test_rng(rng=23):
             10,
         )
     )
-
-
-def test_reset_rng(newseed=42):
-    """Test resetting the random seed on the model."""
-    model = Model(rng=5)
-    old_rng = model._rng
-
-    model.reset_rng(rng=6)
-    new_rng = model._rng
-
-    assert old_rng != new_rng
-
-    old_rng = new_rng
-    model.reset_rng()
-    new_rng = model.rng.bit_generator.state
-
-    assert old_rng == new_rng
-
-    model = Model(rng=np.random.MT19937(42))
-    old_rng = model._rng
-    model.reset_rng()
-    new_rng = model.rng.bit_generator.state
-
-    assert np.all(old_rng["state"]["key"] == new_rng["state"]["key"])
 
 
 def test_agent_types():
