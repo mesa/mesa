@@ -197,7 +197,11 @@ class DataCollector:
                 ) from e
 
         # Type 4: Function with parameters in list
-        if isinstance(reporter, list) and (not reporter or not callable(reporter[0])):
+        if isinstance(reporter, list) and (
+            len(reporter) != 2
+            or not callable(reporter[0])
+            or not isinstance(reporter[1], (list, tuple))
+        ):
             raise ValueError(
                 f"Invalid function list format for reporter '{name}'\n"
                 f"Expected: [function, [param1, param2]], got: {reporter}"
@@ -381,6 +385,15 @@ class DataCollector:
                     )
                 # Check if function with arguments
                 elif isinstance(reporter, list):
+                    if (
+                        len(reporter) != 2
+                        or not callable(reporter[0])
+                        or not isinstance(reporter[1], (list, tuple))
+                    ):
+                        raise ValueError(
+                            f"Invalid function list format for reporter '{var}'\n"
+                            f"Expected: [function, [param1, param2]], got: {reporter}"
+                        )
                     self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
                 # Assume it's a callable otherwise (e.g., method)
                 else:
