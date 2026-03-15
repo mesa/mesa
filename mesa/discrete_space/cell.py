@@ -79,6 +79,7 @@ class Cell:
     def __init__(
         self,
         coordinate: Coordinate,
+        *,
         position: np.ndarray | None = None,
         capacity: int | None = None,
         random: Random | None = None,
