@@ -48,7 +48,7 @@ def run_model(model_class, steps, scenario):
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
-# Function to run experiments and save the fastest replication for each seed
+# Function to run experiments and save the fastest iteration for each scenario
 def run_experiments(model_class, config):
     """Run performance benchmarks.
 
@@ -57,30 +57,23 @@ def run_experiments(model_class, config):
         config: the benchmark configuration
 
     """
-    sys.path.insert(0, os.path.abspath("."))
-
     init_times = []
     run_times = []
 
     steps = config["steps"]
-    scenario_class = config["scenario_class"]
-    base_params = config["parameters"]
 
-    for seed in range(1, config["seeds"] + 1):
+    for scenario in config["scenario"].spawn_replications(config["replications"]):
         fastest_init = float("inf")
         fastest_run = float("inf")
-        seed_params = {**base_params, "rng": seed}
 
         # Warm-up: run 3 times before starting measurement
         # This eliminates cold start penalty
         for _ in range(3):
-            run_model(model_class, steps, scenario_class(**seed_params))
+            run_model(model_class, steps, scenario)
 
-        # Actual measured replications
-        for _replication in range(1, config["replications"] + 1):
-            init_time, run_time = run_model(
-                model_class, steps, scenario_class(**seed_params)
-            )
+        # Actual measured iterations
+        for _ in range(config["iterations"]):
+            init_time, run_time = run_model(model_class, steps, scenario)
             if init_time < fastest_init:
                 fastest_init = init_time
             if run_time < fastest_run:

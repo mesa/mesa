@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 import pytest
+import scipy.stats.qmc as qmc
 
 from mesa import Agent, Model
 from mesa.experimental.scenarios import Scenario
@@ -14,51 +15,37 @@ def test_scenario():
     Scenario._reset_counter()
 
     scenario = Scenario(a=1, b=2, c=3, rng=42)
-    assert scenario._scenario_id == 0
-    assert scenario.model is None
+    assert scenario.scenario_id == 0
     assert scenario.a == 1
-    assert len(scenario) == 4
+    assert len(scenario) == 3
+    assert isinstance(scenario.rng, np.random.Generator)
 
-    values = {"a": 1, "b": 2, "c": 3, "rng": 42}
-    for k, v in scenario:
-        assert values[k] == v
-    assert scenario.to_dict() == {
-        "a": 1,
-        "b": 2,
-        "c": 3,
-        "rng": 42,
-        "model": None,
-        "_scenario_id": 0,
-    }
+    d = scenario.to_dict()
+    assert d["a"] == 1
+    assert d["scenario_id"] == 0
+    assert d["replication_id"] is None
 
-    scenario.c = 4
-    assert scenario.c == 4
+    with pytest.raises(TypeError):
+        scenario.c = 4
 
-    del scenario.c
-    with pytest.raises(AttributeError):
-        _ = scenario.c
+    with pytest.raises(TypeError):
+        del scenario.c
 
-    scenario = Scenario(**values)
-    assert scenario._scenario_id == 1
+    scenario = Scenario(a=1, b=2, c=3, rng=42)
+    assert scenario.scenario_id == 1
 
     model = Model(scenario=scenario)
-    model.running = True
-    assert model.scenario.model is model
+    assert model.scenario is scenario
 
-    with pytest.raises(ValueError):
-        scenario.a = 5
-
+    # When no scenario is passed, the auto-created scenario shares the model's Generator
     model = Model()
-    assert model.scenario.rng is model._seed
+    assert model.scenario.rng is model.rng
 
+    # Passing a pre-built Generator is forwarded as-is
     gen = np.random.default_rng(42)
     scenario = Scenario(rng=gen)
     model = Model(scenario=scenario)
-    # Should work without error
-    assert model.rng is not None
-    assert (
-        model.rng is gen
-    )  # fixme we might want to spawn a generator (in essence a copy)
+    assert model.rng is gen
 
 
 def test_scenario_serialization():
@@ -68,14 +55,16 @@ def test_scenario_serialization():
     pickled = pickle.dumps(scenario)
     unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
-    assert unpickled._scenario_id == scenario._scenario_id
+    assert unpickled.scenario_id == scenario.scenario_id
+    assert unpickled.replication_id == scenario.replication_id
+    assert unpickled.initial_rng_state == scenario.initial_rng_state
 
     scenario = Scenario(a=1, rng=np.random.default_rng(42))
 
     pickled = pickle.dumps(scenario)
     unpickled = pickle.loads(pickled)  # noqa: S301
     assert unpickled.a == scenario.a
-    assert unpickled._scenario_id == scenario._scenario_id
+    assert unpickled.scenario_id == scenario.scenario_id
 
 
 def test_agent_scenario_property():
@@ -106,7 +95,7 @@ def test_scenario_subclassing():
     assert scenario.density == 0.8
     assert scenario.vision == 7
     assert scenario.movement is True
-    assert scenario.rng == 42
+    assert isinstance(scenario.rng, np.random.Generator)
 
     # Test overriding defaults
     scenario = MyScenario(rng=42, density=0.5, vision=10)
@@ -132,23 +121,102 @@ def test_scenario_subclass_with_model():
     assert model.scenario.cop_vision == 7
 
 
-def test_scenario_fresh_instance_per_model():
-    """Test that each model gets a fresh scenario instance (no shared state)."""
+def test_scenario_frozen():
+    """Test that scenario parameters cannot be modified after initialisation."""
 
     class MyScenario(Scenario):
         counter: int = 0
 
-    # Create first model
+    scenario = MyScenario(rng=42)
+    assert scenario.counter == 0
+
+    with pytest.raises(TypeError):
+        scenario.counter = 5
+
+    with pytest.raises(TypeError):
+        del scenario.counter
+
+    # Two scenarios created from the same defaults are independent
     scenario1 = MyScenario(rng=42)
-    model1 = Model(scenario=scenario1)
-    model1.running = True
-
-    # Create second model with fresh scenario
-    scenario2 = MyScenario(rng=43)
-    model2 = Model(scenario=scenario2)
-    model2.running = False  # Not running yet
-
-    # Should not raise error - different scenario instances
-    scenario2.counter = 5
-    assert scenario2.counter == 5
+    scenario2 = MyScenario(rng=43, counter=5)
     assert scenario1.counter == 0
+    assert scenario2.counter == 5
+
+
+def test_scenario_spawn_replications():
+    """Test that replicate() produces correctly seeded copies."""
+
+    class MyScenario(Scenario):
+        density: float = 0.8
+
+    base = MyScenario(rng=42, scenario_id=3)
+    replicas = base.spawn_replications(5)
+
+    assert len(replicas) == 5
+    for i, r in enumerate(replicas):
+        assert r.replication_id == i
+        assert r.scenario_id == 3
+        assert r.density == 0.8
+        assert (
+            r.initial_rng_state != base.initial_rng_state
+        )  # derived seed, not the same
+
+    # Seeds are deterministic: same base produces same replicas
+    base2 = MyScenario(rng=42, scenario_id=3)
+    replicas2 = base2.spawn_replications(5)
+    for r1, r2 in zip(replicas, replicas2):
+        assert r1.initial_rng_state == r2.initial_rng_state, (
+            "generators are not the same"
+        )
+
+    # Replicas are also frozen
+    with pytest.raises(TypeError):
+        replicas[0].density = 0.5
+
+    # SeedSequence rng works and is reproducible
+    base_1 = MyScenario(rng=np.random.SeedSequence(42))
+    base_2 = MyScenario(rng=np.random.SeedSequence(42))
+    replicas_ss1 = base_1.spawn_replications(3)
+    replicas_ss2 = base_2.spawn_replications(3)
+    for r1, r2 in zip(replicas_ss1, replicas_ss2):
+        assert r1.initial_rng_state == r2.initial_rng_state, (
+            "generators are not the same"
+        )
+
+
+def test_scenario_from():
+    """Test that scenario generation from numpy/pandas dataframe."""
+    # we don't directly test from_dataframe because its called by from_numpy.
+    # create a 100X3 LHS sample on unit interval
+    d = 3
+    n = 100
+    parameter_names = ["a", "b", "c"]
+    samples = qmc.LatinHypercube(d).random(n)
+
+    # check scenario generation
+    scenarios = Scenario.from_ndarray(samples, parameter_names=parameter_names, rng=42)
+    assert len(scenarios) == n
+    assert len(scenarios[0]) == d
+
+    for scenario in scenarios:
+        values = samples[scenario.scenario_id, :]
+        for i, entry in enumerate(parameter_names):
+            assert values[i] == getattr(scenario, entry)
+
+    # check replication creation
+    replications = 10
+    scenarios = Scenario.from_ndarray(
+        samples, parameter_names=parameter_names, rng=42, replications=replications
+    )
+    assert len(scenarios) == n * replications
+    assert len(scenarios[0]) == d
+
+    for j, scenario in enumerate(scenarios[0:10]):
+        assert scenario.replication_id == j
+        values = samples[scenario.scenario_id, :]
+        for i, entry in enumerate(parameter_names):
+            assert values[i] == getattr(scenario, entry)
+
+    # check if parameter names matches number of columns in numpy array
+    with pytest.raises(ValueError):
+        Scenario.from_ndarray(samples, parameter_names=[], rng=42)

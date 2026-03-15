@@ -1,7 +1,7 @@
-"""Tests for experimental Simulator classes."""
+"""Tests for Event, EventList, Schedule, and EventGenerator."""
+# ruff: noqa: D101, D102
 
 import gc
-import unittest
 from collections.abc import Callable
 from functools import partial
 from unittest.mock import MagicMock
@@ -17,411 +17,458 @@ from mesa.time import (
     Schedule,
 )
 
-# Ignore deprecation warnings for Simulator classes in this test file
+# Ignore deprecation warnings in this test file
 pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
 
 
-def test_simulation_event():
-    """Tests for Event class."""
-    some_test_function = MagicMock()
+# ---------------------------------------------------------------------------
+# Schedule
+# ---------------------------------------------------------------------------
+class TestSchedule:
+    def test_defaults(self):
+        s = Schedule()
+        assert s.interval == 1
+        assert s.start is None
+        assert s.end is None
+        assert s.count is None
 
-    time = 10
-    event = Event(
-        time,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
+    def test_custom_values(self):
+        s = Schedule(start=5, end=10, interval=2)
+        assert s.start == 5
+        assert s.end == 10
+        assert s.interval == 2
+        assert s.count is None
 
-    assert event.time == time
-    assert event.fn() is some_test_function
-    assert event.function_args == []
-    assert event.function_kwargs == {}
-    assert event.priority == Priority.DEFAULT
+    def test_with_count(self):
+        s = Schedule(start=5, interval=2, count=5)
+        assert s.count == 5
+        assert s.end is None
 
-    # execute
-    event.execute()
-    some_test_function.assert_called_once()
+    def test_callable_interval(self):
+        s = Schedule(start=5, interval=lambda m: m.time + 1, count=5)
+        assert isinstance(s.interval, Callable)
 
-    with pytest.raises(TypeError, match="function must be a callable"):
-        Event(
-            time, None, priority=Priority.DEFAULT, function_args=[], function_kwargs={}
-        )
+    def test_rejects_nonpositive_interval(self):
+        with pytest.raises(ValueError):
+            Schedule(interval=0)
+        with pytest.raises(ValueError):
+            Schedule(interval=-1)
 
-    # check calling with arguments
-    some_test_function = MagicMock()
-    event = Event(
-        time,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=["1"],
-        function_kwargs={"x": 2},
-    )
-    event.execute()
-    some_test_function.assert_called_once_with("1", x=2)
+    def test_rejects_nonpositive_count(self):
+        with pytest.raises(ValueError):
+            Schedule(interval=1.0, count=0)
+        with pytest.raises(ValueError):
+            Schedule(interval=1.0, count=-5)
 
-    # check if we pass over deletion of callable silently because of weakrefs
-    def some_test_function(x, y):
-        return x + y
-
-    event = Event(time, some_test_function, priority=Priority.DEFAULT)
-    del some_test_function
-    event.execute()
-
-    # cancel
-    some_test_function = MagicMock()
-    event = Event(
-        time,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=["1"],
-        function_kwargs={"x": 2},
-    )
-    event.cancel()
-    assert event.fn is None
-    assert event.function_args == []
-    assert event.function_kwargs == {}
-    assert event.priority == Priority.DEFAULT
-    assert event.CANCELED
-
-    # comparison for sorting
-    event1 = Event(
-        10,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    event2 = Event(
-        10,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    assert event1 < event2  # based on just unique_id as tiebraker
-
-    event1 = Event(
-        11,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    event2 = Event(
-        10,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    assert event1 > event2
-
-    event1 = Event(
-        10,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    event2 = Event(
-        10,
-        some_test_function,
-        priority=Priority.HIGH,
-        function_args=[],
-        function_kwargs={},
-    )
-    assert event1 > event2
+    def test_start_after_end_raises(self):
+        with pytest.raises(ValueError):
+            Schedule(interval=1.0, start=10, end=5)
 
 
-def test_schedule():
-    """Tests for Schedule."""
-    schedule = Schedule()
-    assert schedule.start is None
-    assert schedule.end is None
-    assert schedule.count is None
-    assert schedule.interval == 1
+# ---------------------------------------------------------------------------
+# Event — creation
+# ---------------------------------------------------------------------------
+class TestEventCreation:
+    def test_basic_attributes(self):
+        fn = MagicMock()
+        event = Event(10, fn, priority=Priority.DEFAULT)
+        assert event.time == 10
+        assert event.fn() is fn
+        assert event.priority == Priority.DEFAULT
+        assert event.function_args == []
+        assert event.function_kwargs == {}
 
-    schedule = Schedule(start=5, end=10, interval=2)
-    assert schedule.start == 5
-    assert schedule.end == 10
-    assert schedule.count is None
-    assert schedule.interval == 2
-
-    schedule = Schedule(start=5, interval=2, count=5)
-    assert schedule.start == 5
-    assert schedule.end is None
-    assert schedule.count == 5
-    assert schedule.interval == 2
-
-    schedule = Schedule(start=5, interval=lambda m: m.time + 1, count=5)
-    assert schedule.start == 5
-    assert schedule.end is None
-    assert schedule.count == 5
-    assert isinstance(schedule.interval, Callable)
-
-    with pytest.raises(ValueError):
-        _ = Schedule(start=10, end=5)
-
-    with pytest.raises(ValueError):
-        _ = Schedule(count=-1)
-
-    with pytest.raises(ValueError):
-        _ = Schedule(interval=-1)
-
-
-def test_simulation_event_pickle():
-    """Test pickling and unpickling of Event."""
-
-    # Test with regular function
-    def test_fn():
-        return "test"
-
-    event = Event(
-        10.0,
-        test_fn,
-        priority=Priority.HIGH,
-        function_args=["arg1"],
-        function_kwargs={"key": "value"},
-    )
-
-    # Pickle and unpickle
-    state = event.__getstate__()
-    assert state["_fn_strong"] is test_fn
-    assert state["fn"] is None
-
-    new_event = Event.__new__(Event)
-    new_event.__setstate__(state)
-
-    assert new_event.time == 10.0
-    assert new_event.priority == Priority.HIGH.value
-    assert new_event.function_args == ["arg1"]
-    assert new_event.function_kwargs == {"key": "value"}
-    assert new_event.fn() is test_fn
-
-    # Test with canceled event
-    event.cancel()
-    state = event.__getstate__()
-    assert state["_fn_strong"] is None
-
-    new_event = Event.__new__(Event)
-    new_event.__setstate__(state)
-    assert new_event.fn is None
-
-
-def test_eventlist():
-    """Tests for EventList."""
-    event_list = EventList()
-
-    assert len(event_list._events) == 0
-    assert isinstance(event_list._events, list)
-    assert event_list.is_empty()
-
-    # add event
-    some_test_function = MagicMock()
-    event = Event(
-        1,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    event_list.add_event(event)
-    assert len(event_list) == 1
-    assert event in event_list
-
-    # remove event
-    event_list.remove(event)
-    assert len(event_list) == 0
-    assert event.CANCELED
-    assert event not in event_list
-
-    # peak ahead
-    event_list = EventList()
-    for i in range(10):
+    def test_with_args_and_kwargs(self):
+        fn = MagicMock()
         event = Event(
-            i,
-            some_test_function,
+            10,
+            fn,
             priority=Priority.DEFAULT,
-            function_args=[],
-            function_kwargs={},
+            function_args=["1"],
+            function_kwargs={"x": 2},
         )
-        event_list.add_event(event)
-    events = event_list.peek_ahead(2)
-    assert len(events) == 2
-    assert events[0].time == 0
-    assert events[1].time == 1
+        assert event.function_args == ["1"]
+        assert event.function_kwargs == {"x": 2}
 
-    events = event_list.peek_ahead(11)
-    assert len(events) == 10
+    def test_rejects_non_callable(self):
+        with pytest.raises(TypeError, match="function must be a callable"):
+            Event(10, None, priority=Priority.DEFAULT)
 
-    event_list._events[6].cancel()
-    events = event_list.peek_ahead(10)
-    assert len(events) == 9
+    def test_rejects_non_weakrefable(self):
+        class NoWeakRef:
+            __slots__ = ()
 
-    event_list = EventList()
-    with pytest.raises(Exception):
-        event_list.peek_ahead()
+            def __call__(self):
+                return None
 
-    # peek_ahead should return events in chronological order
-    # This tests the fix for heap iteration bug where events were returned
-    event_list = EventList()
-    some_test_function = MagicMock()
-    times = [5.0, 15.0, 10.0, 25.0, 20.0, 8.0]
-    for t in times:
+        with pytest.raises(TypeError, match="function must be weak referenceable"):
+            Event(10, NoWeakRef(), priority=Priority.DEFAULT)
+
+    def test_rejects_inline_lambda(self):
+        with pytest.raises(
+            ValueError, match="function must be alive at Event creation"
+        ):
+            Event(10, lambda: None, priority=Priority.DEFAULT)
+
+    def test_accepts_partial(self):
+        fn = MagicMock()
+        Event(10, partial(fn, "x"), priority=Priority.DEFAULT)
+
+
+# ---------------------------------------------------------------------------
+# Event — execution
+# ---------------------------------------------------------------------------
+class TestEventExecution:
+    def test_basic_execution(self):
+        fn = MagicMock()
+        event = Event(10, fn, priority=Priority.DEFAULT)
+        event.execute()
+        fn.assert_called_once()
+
+    def test_execution_with_arguments(self):
+        fn = MagicMock()
         event = Event(
-            t,
-            some_test_function,
+            10,
+            fn,
             priority=Priority.DEFAULT,
-            function_args=[],
-            function_kwargs={},
+            function_args=["1"],
+            function_kwargs={"x": 2},
         )
-        event_list.add_event(event)
+        event.execute()
+        fn.assert_called_once_with("1", x=2)
 
-    events = event_list.peek_ahead(5)
-    event_times = [e.time for e in events]
-    # Events should be in chronological order
-    assert event_times == sorted(times)[:5]
+    def test_partial_execution(self):
+        fn = MagicMock()
+        callback = partial(fn, "x")
+        Event(10, callback, priority=Priority.DEFAULT).execute()
+        fn.assert_called_once_with("x")
 
-    # pop event
-    event_list = EventList()
-    for i in range(10):
+    def test_silent_noop_when_weakref_dead(self):
+        def temp_fn(x, y):
+            return x + y
+
+        event = Event(10, temp_fn, priority=Priority.DEFAULT)
+        del temp_fn
+        event.execute()  # should not raise
+
+    def test_named_callback_executes(self):
+        called = []
+
+        def callback():
+            called.append("fired")
+
+        Event(10, callback, priority=Priority.DEFAULT).execute()
+        assert called == ["fired"]
+
+
+# ---------------------------------------------------------------------------
+# Event — cancellation
+# ---------------------------------------------------------------------------
+class TestEventCancellation:
+    def test_cancel(self):
+        fn = MagicMock()
         event = Event(
-            i,
-            some_test_function,
+            10,
+            fn,
             priority=Priority.DEFAULT,
-            function_args=[],
-            function_kwargs={},
+            function_args=["1"],
+            function_kwargs={"x": 2},
         )
-        event_list.add_event(event)
-    event = event_list.pop_event()
-    assert event.time == 0
+        event.cancel()
+        assert event.CANCELED
+        assert event.fn is None
+        assert event.function_args == []
+        assert event.function_kwargs == {}
 
-    event_list = EventList()
-    event = Event(
-        9,
-        some_test_function,
-        priority=Priority.DEFAULT,
-        function_args=[],
-        function_kwargs={},
-    )
-    event_list.add_event(event)
-    event.cancel()
-    with pytest.raises(Exception):
-        event_list.pop_event()
-
-    # explicit compact removes canceled events from internal heap
-    event_list = EventList()
-    some_test_function = MagicMock()
-
-    events = []
-    for i in range(10):
-        e = Event(i, some_test_function, priority=Priority.DEFAULT)
-        events.append(e)
-        event_list.add_event(e)
-
-    for e in events[:6]:
-        e.cancel()
-
-    assert len(event_list._events) == 10
-    event_list.compact()
-    assert len(event_list._events) == 4
-
-    remaining = []
-    while not event_list.is_empty():
-        remaining.append(event_list.pop_event().time)
-
-    assert remaining == [6, 7, 8, 9]
-
-    # clear
-    event_list.clear()
-    assert len(event_list) == 0
+    def test_canceled_event_not_executed(self):
+        fn = MagicMock()
+        event = Event(10, fn, priority=Priority.DEFAULT)
+        event.cancel()
+        event.execute()
+        fn.assert_not_called()
 
 
-def test_eventlist_event_id_tie_breaking():
-    """Events with identical time and priority execute in event_id order."""
-    event_list = EventList()
-    execution_order = []
+# ---------------------------------------------------------------------------
+# Event — ordering
+# ---------------------------------------------------------------------------
+class TestEventOrdering:
+    def test_earlier_time_is_less(self):
+        fn = MagicMock()
+        e1 = Event(9, fn, priority=Priority.DEFAULT)
+        e2 = Event(10, fn, priority=Priority.DEFAULT)
+        assert e1 < e2
 
-    def make_fn(i: int):
-        def fn():
-            execution_order.append(i)
+    def test_later_time_is_greater(self):
+        fn = MagicMock()
+        e1 = Event(11, fn, priority=Priority.DEFAULT)
+        e2 = Event(10, fn, priority=Priority.DEFAULT)
+        assert e1 > e2
 
-        return fn
+    def test_higher_priority_is_less_at_same_time(self):
+        fn = MagicMock()
+        e_default = Event(10, fn, priority=Priority.DEFAULT)
+        e_high = Event(10, fn, priority=Priority.HIGH)
+        assert e_high < e_default
 
-    functions = [make_fn(i) for i in range(10)]
-    events = [Event(5, fn, priority=Priority.DEFAULT) for fn in functions]
-
-    for e in reversed(events):
-        event_list.add_event(e)
-
-    while not event_list.is_empty():
-        event_list.pop_event().execute()
-
-    assert execution_order == list(range(10))
-
-
-def test_eventlist_recursive_same_timestamp_execution():
-    """Events scheduled at same timestamp during execution execute in same cycle."""
-    event_list = EventList()
-    execution_trace = []
-
-    def event_b():
-        execution_trace.append("B")
-
-    def event_a():
-        execution_trace.append("A")
-        event_list.add_event(Event(5, event_b, priority=Priority.DEFAULT))
-
-    event_list.add_event(Event(5, event_a, priority=Priority.DEFAULT))
-
-    while not event_list.is_empty():
-        event_list.pop_event().execute()
-
-    assert execution_trace == ["A", "B"]
+    def test_unique_id_tiebreaker(self):
+        fn = MagicMock()
+        e1 = Event(10, fn, priority=Priority.DEFAULT)
+        e2 = Event(10, fn, priority=Priority.DEFAULT)
+        assert e1 < e2  # earlier unique_id wins
 
 
-def test_eventlist_execution_skips_canceled_events():
-    """Canceled events are never executed."""
-    event_list = EventList()
-    execution = []
+# ---------------------------------------------------------------------------
+# Event — pickling
+# ---------------------------------------------------------------------------
+class TestEventPickle:
+    def test_getstate_setstate(self):
+        def test_fn():
+            return "test"
 
-    def make_fn(i: int):
-        def fn():
-            execution.append(i)
+        event = Event(
+            10.0,
+            test_fn,
+            priority=Priority.HIGH,
+            function_args=["arg1"],
+            function_kwargs={"key": "value"},
+        )
 
-        return fn
+        state = event.__getstate__()
+        assert state["_fn_strong"] is test_fn
+        assert state["fn"] is None
 
-    functions = [make_fn(i) for i in range(10)]
+        new_event = Event.__new__(Event)
+        new_event.__setstate__(state)
 
-    events = []
-    for fn in functions:
-        e = Event(5, fn, priority=Priority.DEFAULT)
-        events.append(e)
-        event_list.add_event(e)
+        assert new_event.time == 10.0
+        assert new_event.priority == Priority.HIGH.value
+        assert new_event.function_args == ["arg1"]
+        assert new_event.function_kwargs == {"key": "value"}
+        assert new_event.fn() is test_fn
 
-    for e in events[:5]:
-        e.cancel()
+    def test_canceled_event_pickle(self):
+        def test_fn():
+            return "test"
 
-    while not event_list.is_empty():
-        event_list.pop_event().execute()
+        event = Event(10.0, test_fn, priority=Priority.HIGH)
+        event.cancel()
 
-    assert execution == list(range(5, 10))
+        state = event.__getstate__()
+        assert state["_fn_strong"] is None
+
+        new_event = Event.__new__(Event)
+        new_event.__setstate__(state)
+        assert new_event.fn is None
 
 
+# ---------------------------------------------------------------------------
+# EventList
+# ---------------------------------------------------------------------------
+class TestEventListBasics:
+    def test_empty_on_init(self):
+        el = EventList()
+        assert el.is_empty()
+        assert len(el) == 0
+
+    def test_add_and_contains(self):
+        el = EventList()
+        fn = MagicMock()
+        event = Event(1, fn, priority=Priority.DEFAULT)
+        el.add_event(event)
+        assert len(el) == 1
+        assert event in el
+
+    def test_remove(self):
+        el = EventList()
+        fn = MagicMock()
+        event = Event(1, fn, priority=Priority.DEFAULT)
+        el.add_event(event)
+        el.remove(event)
+        assert len(el) == 0
+        assert event.CANCELED
+        assert event not in el
+
+    def test_clear(self):
+        el = EventList()
+        fn = MagicMock()
+        for i in range(5):
+            el.add_event(Event(i, fn, priority=Priority.DEFAULT))
+        el.clear()
+        assert len(el) == 0
+
+
+class TestEventListPeekAhead:
+    def test_basic_peek(self):
+        el = EventList()
+        fn = MagicMock()
+        for i in range(10):
+            el.add_event(Event(i, fn, priority=Priority.DEFAULT))
+
+        events = el.peek_ahead(2)
+        assert len(events) == 2
+        assert events[0].time == 0
+        assert events[1].time == 1
+
+    def test_peek_more_than_available(self):
+        el = EventList()
+        fn = MagicMock()
+        for i in range(10):
+            el.add_event(Event(i, fn, priority=Priority.DEFAULT))
+
+        events = el.peek_ahead(11)
+        assert len(events) == 10
+
+    def test_peek_skips_canceled(self):
+        el = EventList()
+        fn = MagicMock()
+        for i in range(10):
+            el.add_event(Event(i, fn, priority=Priority.DEFAULT))
+
+        el._events[6].cancel()
+        events = el.peek_ahead(10)
+        assert len(events) == 9
+
+    def test_peek_empty_raises(self):
+        el = EventList()
+        with pytest.raises(IndexError):
+            el.peek_ahead()
+
+    def test_peek_returns_chronological_order(self):
+        el = EventList()
+        fn = MagicMock()
+        times = [5.0, 15.0, 10.0, 25.0, 20.0, 8.0]
+        for t in times:
+            el.add_event(Event(t, fn, priority=Priority.DEFAULT))
+
+        events = el.peek_ahead(5)
+        event_times = [e.time for e in events]
+        assert event_times == sorted(times)[:5]
+
+
+class TestEventListPop:
+    def test_pop_returns_earliest(self):
+        el = EventList()
+        fn = MagicMock()
+        for i in range(10):
+            el.add_event(Event(i, fn, priority=Priority.DEFAULT))
+
+        event = el.pop_event()
+        assert event.time == 0
+
+    def test_pop_skips_canceled(self):
+        el = EventList()
+        fn = MagicMock()
+        event = Event(9, fn, priority=Priority.DEFAULT)
+        el.add_event(event)
+        event.cancel()
+        with pytest.raises(IndexError):
+            el.pop_event()
+
+    def test_event_id_tie_breaking(self):
+        """Events with identical time and priority execute in event_id order."""
+        el = EventList()
+        execution_order = []
+
+        def make_fn(i):
+            def fn():
+                execution_order.append(i)
+
+            return fn
+
+        functions = [make_fn(i) for i in range(10)]
+        events = [Event(5, fn, priority=Priority.DEFAULT) for fn in functions]
+
+        for e in reversed(events):
+            el.add_event(e)
+
+        while not el.is_empty():
+            el.pop_event().execute()
+
+        assert execution_order == list(range(10))
+
+    def test_recursive_same_timestamp(self):
+        """Events scheduled at same timestamp during execution execute in same cycle."""
+        el = EventList()
+        trace = []
+
+        def event_b():
+            trace.append("B")
+
+        def event_a():
+            trace.append("A")
+            el.add_event(Event(5, event_b, priority=Priority.DEFAULT))
+
+        el.add_event(Event(5, event_a, priority=Priority.DEFAULT))
+
+        while not el.is_empty():
+            el.pop_event().execute()
+
+        assert trace == ["A", "B"]
+
+    def test_skips_canceled_events(self):
+        """Canceled events are never executed."""
+        el = EventList()
+        execution = []
+
+        def make_fn(i):
+            def fn():
+                execution.append(i)
+
+            return fn
+
+        functions = [make_fn(i) for i in range(10)]
+        events = []
+        for fn in functions:
+            e = Event(5, fn, priority=Priority.DEFAULT)
+            events.append(e)
+            el.add_event(e)
+
+        for e in events[:5]:
+            e.cancel()
+
+        while not el.is_empty():
+            el.pop_event().execute()
+
+        assert execution == list(range(5, 10))
+
+
+class TestEventListCompact:
+    def test_compact_removes_canceled(self):
+        el = EventList()
+        fn = MagicMock()
+
+        events = []
+        for i in range(10):
+            e = Event(i, fn, priority=Priority.DEFAULT)
+            events.append(e)
+            el.add_event(e)
+
+        for e in events[:6]:
+            e.cancel()
+
+        assert len(el._events) == 10
+        el.compact()
+        assert len(el._events) == 4
+
+        remaining = []
+        while not el.is_empty():
+            remaining.append(el.pop_event().time)
+
+        assert remaining == [6, 7, 8, 9]
+
+
+# ---------------------------------------------------------------------------
+# EventGenerator
+# ---------------------------------------------------------------------------
 @pytest.fixture
 def setup():
-    """Create a model with simulator and mock function."""
+    """Create a model and mock function."""
     model = Model()
     return model, MagicMock()
 
 
-class TestEventGenerator:
-    """Tests for EventGenerator."""
-
-    def test_init(self, setup):
-        """Test initialization with Schedule."""
+class TestEventGeneratorInit:
+    def test_defaults(self, setup):
         model, fn = setup
         schedule = Schedule(interval=5.0, start=10, end=100, count=5)
         gen = EventGenerator(model, fn, schedule)
@@ -432,12 +479,35 @@ class TestEventGenerator:
         assert not gen.is_active
         assert gen.execution_count == 0
 
-    def test_init_with_priority(self, setup):
-        """Test initialization with custom priority."""
+    def test_custom_priority(self, setup):
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(), priority=Priority.HIGH)
         assert gen.priority == Priority.HIGH
 
+    def test_rejects_non_callable(self):
+        model = Model()
+        with pytest.raises(TypeError):
+            EventGenerator(model, 42, Schedule(interval=1.0))
+
+    def test_rejects_non_weakrefable(self):
+        model = Model()
+
+        class NoWeakRef:
+            __slots__ = ()
+
+            def __call__(self):
+                pass
+
+        with pytest.raises(TypeError):
+            EventGenerator(model, NoWeakRef(), Schedule(interval=1.0))
+
+    def test_rejects_lambda(self):
+        model = Model()
+        with pytest.raises(ValueError, match="alive"):
+            EventGenerator(model, lambda: 10, Schedule(interval=1.0))
+
+
+class TestEventGeneratorStartStop:
     def test_start_with_schedule_start(self, setup):
         """Test start uses schedule.start time."""
         model, fn = setup
@@ -473,7 +543,6 @@ class TestEventGenerator:
         assert len(model._event_list) == event_count
 
     def test_stop(self, setup):
-        """Test immediate stop."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start().stop()
@@ -481,6 +550,17 @@ class TestEventGenerator:
 
         model.run_for(5.0)
         fn.assert_not_called()
+
+
+class TestEventGeneratorExecution:
+    def test_recurring_execution(self, setup):
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=2.0, start=0.0))
+        gen.start()
+
+        model.run_for(7.0)
+        assert fn.call_count == 4  # t=0, 2, 4, 6
+        assert gen.execution_count == 4
 
     def test_schedule_end(self, setup):
         """Test schedule.end stops execution."""
@@ -503,26 +583,15 @@ class TestEventGenerator:
         assert gen.execution_count == 3
         assert not gen.is_active
 
-    def test_schedule_end_and_count(self, setup):
+    def test_count_reached_before_end(self, setup):
         """Test count reached before end."""
         model, fn = setup
         gen = EventGenerator(
             model, fn, Schedule(interval=1.0, start=0.0, end=100, count=2)
         )
         gen.start()
-
         model.run_for(10.0)
         assert fn.call_count == 2
-
-    def test_recurring_execution(self, setup):
-        """Test recurring execution and count tracking."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=2.0, start=0.0))
-        gen.start()
-
-        model.run_for(7.0)
-        assert fn.call_count == 4  # t=0, 2, 4, 6
-        assert gen.execution_count == 4
 
     def test_callable_interval(self, setup):
         """Test callable interval evaluated each time."""
@@ -535,20 +604,19 @@ class TestEventGenerator:
         model.run_for(4.5)
         assert fn.call_count == 4  # t=0, 1, 3, 4
 
-    def test_callable_interval_raises(self, setup):
+    def test_callable_interval_negative_raises(self, setup):
         """Test if callable interval raises exception if return is negative."""
-        with pytest.raises(ValueError):
-            model, fn = setup
-            gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: -0.5))
-            gen.start()
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: -0.5))
+        gen.start()
 
+        with pytest.raises(ValueError):
             model.run_for(3)
 
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""
         model, fn = setup
         partial_func = partial(fn, "a", k="v")
-
         gen = EventGenerator(model, partial_func, Schedule(interval=1.0, start=0.0))
         gen.start()
 
@@ -567,71 +635,56 @@ class TestEventGenerator:
             order.append("H")
 
         low = EventGenerator(
-            model,
-            func_a,
-            Schedule(interval=1.0, start=1.0),
-            Priority.LOW,
+            model, func_a, Schedule(interval=1.0, start=1.0), Priority.LOW
         )
         high = EventGenerator(
-            model,
-            func_b,
-            Schedule(interval=1.0, start=1.0),
-            Priority.HIGH,
+            model, func_b, Schedule(interval=1.0, start=1.0), Priority.HIGH
         )
-
         low.start()
         high.start()
 
         model.run_for(1.5)
         assert order == ["H", "L"]
 
-    def test_introspection_properties(self, setup):
-        """Test next_scheduled_time property."""
-        model, fn = setup
 
+class TestEventGeneratorIntrospection:
+    def test_next_scheduled_time(self, setup):
+        model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=2.0))
 
-        # Before start
         assert not gen.is_active
         assert gen.next_scheduled_time is None
 
-        # After start
         gen.start()
         assert gen.is_active
         assert gen.next_scheduled_time == model.time + 2.0
 
-        # After stop
         gen.stop()
         assert not gen.is_active
         assert gen.next_scheduled_time is None
 
-    def test_pause_resume_full_stress(self, setup):
-        """Full stress test for pause/resume lifecycle."""
-        model, fn = setup
 
+class TestEventGeneratorPauseResume:
+    def test_full_lifecycle(self, setup):
+        model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
 
-        # initial execution
         model.run_for(1.0)
         assert fn.call_count == 1
 
-        # pause stops future execution
         gen.pause()
         model.run_for(10.0)
         assert fn.call_count == 1
 
-        # resume continues execution
         gen.resume()
         model.run_for(1.0)
         assert fn.call_count == 2
 
-        # pause again
         gen.pause()
         model.run_for(5.0)
         assert fn.call_count == 2
 
-        # resume again
         gen.resume()
         model.run_for(2.0)
         assert fn.call_count == 4
@@ -639,34 +692,27 @@ class TestEventGenerator:
     def test_pause_idempotent(self, setup):
         """Calling pause multiple times should be safe."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
-
         gen.pause()
         gen.pause()
         gen.pause()
-
         model.run_for(5.0)
         assert fn.call_count == 0
 
     def test_resume_idempotent(self, setup):
         """Calling resume while running should do nothing."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
-
         gen.resume()
         gen.resume()
-
         model.run_for(1.0)
         assert fn.call_count == 1
 
     def test_pause_during_execution(self, setup):
         """Pause called inside callback should prevent future scheduling."""
         model, _ = setup
-
         call_count = {"n": 0}
 
         def fn():
@@ -676,22 +722,16 @@ class TestEventGenerator:
 
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
-
         model.run_for(5.0)
-
-        # only first execution should happen
         assert call_count["n"] == 1
 
     def test_stop_while_paused(self, setup):
         """Stopping while paused should fully deactivate generator."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
-
         gen.pause()
         gen.stop()
-
         model.run_for(5.0)
         assert fn.call_count == 0
         assert not gen.is_active
@@ -699,23 +739,18 @@ class TestEventGenerator:
     def test_resume_after_stop(self, setup):
         """Resume should do nothing after stop."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
-
         gen.stop()
         gen.resume()
-
         model.run_for(5.0)
         assert fn.call_count == 0
 
     def test_next_scheduled_time_updates(self, setup):
         """next_scheduled_time should reflect pause/resume state."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=2.0))
         gen.start()
-
         assert gen.next_scheduled_time is not None
 
         gen.pause()
@@ -727,154 +762,83 @@ class TestEventGenerator:
     def test_pause_before_start_is_safe(self, setup):
         """Pausing before start should be a no-op."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
-
         gen.pause()  # should not crash
-
         model.run_for(5.0)
         assert fn.call_count == 0
 
     def test_resume_schedules_from_current_time(self, setup):
         """Resume should schedule next execution relative to current time."""
         model, fn = setup
-
         gen = EventGenerator(model, fn, Schedule(interval=2.0))
         gen.start()
 
         model.run_for(1.0)
         gen.pause()
-
         model.run_for(5.0)  # time advances while paused
 
         gen.resume()
-
         model.run_for(1.9)
         assert fn.call_count == 0
-
         model.run_for(0.1)
         assert fn.call_count == 1
 
 
-class TestEventGeneratorMemoryLeak(unittest.TestCase):
-    """Tests EventGenerator error handling, memory behavior, and state restoration."""
-
-    def test_error_cases_and_valid_usage(self):
-        """Test all error cases + valid usage patterns."""
+class TestEventGeneratorPickle:
+    def test_getstate_setstate(self):
         model = Model()
-        schedule = Schedule(interval=1.0)
 
-        # Test 1: Non-callable → TypeError
-        with self.assertRaises(TypeError):
-            EventGenerator(model, 42, schedule)
-
-        # Test 2: Non-weakly-referenceable callable → TypeError
-        class NoWeakRef:
-            __slots__ = ()
-
-            def __call__(self):
-                pass
-
-        with self.assertRaises(TypeError):
-            EventGenerator(model, NoWeakRef(), schedule)
-
-        # Test 3: lambda → ValueError
-        with self.assertRaises(ValueError) as cm:
-            EventGenerator(model, lambda: 10, schedule)
-        self.assertIn("alive", str(cm.exception).lower())
-
-        # Test 4: Named function (strong ref) → works fine
-        def assigned_func():
-            return 5
-
-        gen = EventGenerator(model, assigned_func, schedule)
-        self.assertIsNotNone(gen.function())
-        self.assertEqual(gen.function()(), 5)
-
-    def test_state_preparation_and_restoration(self):
-        """Test __getstate__ and __setstate__ directly (no actual pickling)."""
-        model = Model()
-        schedule = Schedule(interval=1.0)
-
-        # Create a simple callable
         def test_func():
             return "hello"
 
-        # Create generator
-        gen = EventGenerator(model, test_func, schedule)
+        gen = EventGenerator(model, test_func, Schedule(interval=1.0))
 
-        # 1. Test __getstate__ with valid function
         state = gen.__getstate__()
+        assert state["_fn_strong"] is not None
+        assert state["_fn_strong"]() == "hello"
+        assert state["function"] is None
 
-        # Verify state contains expected keys
-        self.assertIn("_fn_strong", state)
-        self.assertIn("function", state)
-        self.assertIsNone(state["function"])
-
-        # Verify _fn_strong is the actual function
-        self.assertEqual(state["_fn_strong"](), "hello")
-
-        # 2. Test __setstate__ with valid function
         new_gen = EventGenerator.__new__(EventGenerator)
         new_gen.__setstate__(state)
+        assert new_gen.function() is not None
+        assert new_gen.function()() == "hello"
 
-        # Verify weak reference was recreated correctly
-        self.assertIsNotNone(new_gen.function())
-        self.assertEqual(new_gen.function()(), "hello")
-
-        # Verify other state was preserved
-        self.assertEqual(new_gen.schedule, schedule)
-        self.assertEqual(new_gen.priority, Priority.DEFAULT)
-
-        # 3. Test __setstate__ with None function (edge case)
-        state_with_none = {
+    def test_getstate_setstate_with_none(self):
+        state = {
             "_fn_strong": None,
             "function": None,
-            "schedule": schedule,
+            "schedule": Schedule(interval=1.0),
             "priority": Priority.DEFAULT,
             "_active": False,
+            "_paused": False,
             "_current_event": None,
             "_execution_count": 0,
+            "model": Model(),
         }
 
-        none_gen = EventGenerator.__new__(EventGenerator)
-        none_gen.__setstate__(state_with_none)
+        gen = EventGenerator.__new__(EventGenerator)
+        gen.__setstate__(state)
+        assert gen.function is None
 
-        # Verify _function is None when _fn_strong was None
-        self.assertIsNone(none_gen.function)
-        self.assertEqual(none_gen.schedule, schedule)
 
-    def test_no_op_during_execution_when_weakref_dies(self):
-        """Test generator stops silently when weakref dies during execution."""
+class TestEventGeneratorWeakref:
+    def test_stops_silently_when_weakref_dies(self):
         model = Model()
-        schedule = Schedule(interval=1.0)
-
-        # Track calls
         call_count = [0]
 
         def temp_func():
             call_count[0] += 1
 
-        # Create and start generator
-        gen = EventGenerator(model, temp_func, schedule)
+        gen = EventGenerator(model, temp_func, Schedule(interval=1.0))
         gen.start()
 
-        # First execution
         model.run_for(1.0)
-        self.assertEqual(call_count[0], 1)
-        self.assertTrue(gen.is_active)
+        assert call_count[0] == 1
+        assert gen.is_active
 
-        # Remove strong reference
         del temp_func
         gc.collect()
 
-        # Second execution - should trigger no-op and stop silently
         model.run_for(1.0)
-
-        # Verify generator stopped (no error raised)
-        self.assertFalse(gen.is_active)
-        self.assertEqual(call_count[0], 1)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert not gen.is_active
+        assert call_count[0] == 1
