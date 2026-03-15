@@ -293,4 +293,8 @@ class VoronoiGrid(DiscreteSpace):
             self._cells[region].properties["polygon"] = polygon
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
-            self._cells[region].capacity = self.capacity_function(polygon_area)
+            # Fix: only derive capacity from area when the user did NOT supply one.
+            # Previously this line ran unconditionally, silently overwriting any
+            # explicit capacity= argument passed to __init__ (Issue #3543).
+            if self.capacity is None:
+                self._cells[region].capacity = self.capacity_function(polygon_area)
