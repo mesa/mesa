@@ -228,6 +228,12 @@ class VoronoiGrid(DiscreteSpace):
         self.voronoi_coordinates = None
         self.capacity_function = capacity_function
 
+        if capacity is not None and capacity_function is not round_float:
+            raise ValueError(
+                "Passing both capacity and a custom capacity_function is not allowed. "
+                "Use capacity for a fixed per-cell limit, or capacity_function to derive "
+                "per-cell limits from polygon area — not both."
+            )
         self._connect_cells()
         self._build_cell_polygons()
 
@@ -293,4 +299,7 @@ class VoronoiGrid(DiscreteSpace):
             self._cells[region].properties["polygon"] = polygon
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
-            self._cells[region].capacity = self.capacity_function(polygon_area)
+            if self.capacity is not None:
+                self._cells[region].capacity = self.capacity
+            else:
+                self._cells[region].capacity = self.capacity_function(polygon_area)
