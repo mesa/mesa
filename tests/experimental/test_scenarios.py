@@ -317,8 +317,6 @@ def test_rescale_large_sample():
     assert scaled.shape == samples.shape
     assert np.all(scaled[:, 0] >= 0)
     assert np.all(scaled[:, 0] <= 10)
-<<<<<<< HEAD
-=======
 
 def test_rescale_invalid_samples_shape():
     """Rescale should raise error if samples is not a 2D array."""
@@ -338,4 +336,3 @@ def test_rescale_bounds_mapping():
     expected = np.array([[5, 2]])
     assert np.allclose(scaled, expected)
 
->>>>>>> 97fde19e (added more tests)
