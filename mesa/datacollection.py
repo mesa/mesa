@@ -146,6 +146,20 @@ class DataCollector:
             for name, columns in tables.items():
                 self._new_table(name, columns)
 
+    @staticmethod
+    def _check_list_reporter(name, reporter):
+        """Validate that a list-style reporter has the form [callable, [params]]."""
+        if len(reporter) != 2 or not callable(reporter[0]):
+            raise ValueError(
+                f"Reporter '{name}' has invalid list format: expected "
+                f"[function, [param1, param2]], got {reporter}"
+            )
+        if not isinstance(reporter[1], (list, tuple)):
+            raise ValueError(
+                f"Reporter '{name}' has invalid list format: second element "
+                f"must be a list of parameters, got {type(reporter[1]).__name__}"
+            )
+
     def _validate_model_reporter(self, name, reporter, model):
         """Validate model reporter and handle validation results appropriately.
 
@@ -160,9 +174,8 @@ class DataCollector:
             TypeError: If reporter type is not supported
             RuntimeError: If reporter execution fails
         """
-        self._validated = True  # put the change of signal firstly avoid losing efficacy
+        self._validated = True
 
-        # Type 1: Lambda function or partial
         if isinstance(reporter, (types.LambdaType, partial)):
             try:
                 reporter(model)
@@ -172,36 +185,28 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        # Type 2: Method of class/instance (bound methods are callable)
         if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
             try:
-                reporter()  # Call without args for bound methods
+                reporter()
             except Exception as e:
                 raise RuntimeError(
                     f"Method reporter '{name}' failed validation: {e!s}"
                 ) from e
-        # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-        #     pass
 
-        # Type 3: Model attribute (string)
         if isinstance(reporter, str):
             try:
                 if not hasattr(model, reporter):
                     raise AttributeError(
                         f"Model reporter '{name}' references non-existent attribute '{reporter}'\n"
                     )
-                getattr(model, reporter)  # verify attribute is accessible
+                getattr(model, reporter)
             except AttributeError as e:
                 raise AttributeError(
                     f"Model reporter '{name}' attribute validation failed: {e!s}\n"
                 ) from e
 
-        # Type 4: Function with parameters in list
-        if isinstance(reporter, list) and (not reporter or not callable(reporter[0])):
-            raise ValueError(
-                f"Invalid function list format for reporter '{name}'\n"
-                f"Expected: [function, [param1, param2]], got: {reporter}"
-            )
+        if isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
 
     def _new_model_reporter(self, name, reporter):
         """Add a new model-level reporter to collect.
@@ -241,8 +246,8 @@ class DataCollector:
 
             reporter = attr_reporter
 
-        # Check if the reporter is a function with arguments placed in a list
         elif isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
@@ -284,6 +289,7 @@ class DataCollector:
             reporter = attr_reporter
 
         elif isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
