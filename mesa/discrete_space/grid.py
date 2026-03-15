@@ -123,6 +123,7 @@ class Grid(DiscreteSpace[T]):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+        self.create_property_layer("full", default_value=False, dtype=bool)
 
     def create_property_layer(
         self,
@@ -310,7 +311,7 @@ class Grid(DiscreteSpace[T]):
         return self._cells[tuple(random_coord)]
 
     @property
-    def available_cells(self) -> CellCollection[T]:
+    def not_full_cells(self) -> CellCollection[T]:
         """Return all cells that have available capacity (i.e. are not full).
 
         A cell is considered *available* if ``not cell.is_full``.
@@ -338,7 +339,7 @@ class Grid(DiscreteSpace[T]):
         """
         return self.all_cells.select(lambda cell: not cell.is_full)
 
-    def select_random_available_cell(self) -> T:
+    def select_random_not_full_cell(self) -> T:
         """Select a random cell that has remaining capacity.
 
         Uses the same two-phase heuristic as :meth:`select_random_empty_cell`:
@@ -373,12 +374,13 @@ class Grid(DiscreteSpace[T]):
                 if not cell.is_full:
                     return cell
 
-        available = [cell for cell in cells if not cell.is_full]
-        if not available:
+        full_coords = np.argwhere(self.property_layers["full"] == False)  # noqa: E712
+        if len(full_coords) == 0:
             raise IndexError(
                 "No available cells exist in the grid: all cells are at full capacity."
             )
-        return random.choice(available)
+        random_coord = random.choice(full_coords)
+        return self._cells[tuple(random_coord)]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
