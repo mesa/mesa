@@ -219,6 +219,10 @@ def create_meta_agent(
             "name",
             "random",
             "rng",
+            "cell",
+            "current_action",
+            "meta_agent",
+            "meta_agents",
         ]
 
         if assume_constituting_agent_attributes:

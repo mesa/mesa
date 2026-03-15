@@ -336,3 +336,41 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     # This should not cause a TypeError from unpacking
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
+
+
+def test_assume_attributes_does_not_overwrite_mesa_internals():
+    """Test that assume_constituting_agent_attributes skips mesa-internal attributes.
+
+    Constituent agents with attributes named 'cell' or 'current_action' should
+    not silently overwrite those attributes on the meta-agent.
+    """
+
+    class SpatialWorker(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.cell = "worker_cell"
+            self.current_action = "worker_action"
+            self.wealth = 100  # a normal user attribute
+
+    model = Model()
+    w1 = SpatialWorker(model)
+    w2 = SpatialWorker(model)
+
+    # First call creates the meta-agent (Path 3)
+    create_meta_agent(model, "Team", [w1], Agent)
+
+    # Second call hits Path 1 with assume_constituting_agent_attributes
+    ma = create_meta_agent(
+        model,
+        "Team",
+        [w1, w2],
+        Agent,
+        assume_constituting_agent_attributes=True,
+    )
+
+    # 'wealth' should be copied (it's a normal user attribute)
+    assert ma.wealth == 100
+
+    # 'cell' and 'current_action' must NOT be overwritten by constituent values
+    assert getattr(ma, "cell", None) != "worker_cell"
+    assert getattr(ma, "current_action", None) != "worker_action"
