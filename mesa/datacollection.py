@@ -197,11 +197,18 @@ class DataCollector:
                 ) from e
 
         # Type 4: Function with parameters in list
-        if isinstance(reporter, list) and (not reporter or not callable(reporter[0])):
-            raise ValueError(
-                f"Invalid function list format for reporter '{name}'\n"
-                f"Expected: [function, [param1, param2]], got: {reporter}"
-            )
+        if isinstance(reporter, list):
+            if not reporter or not callable(reporter[0]):
+                raise ValueError(
+                    f"Invalid function list format for reporter '{name}'\n"
+                    f"Expected: [function, [param1, param2]], got: {reporter}"
+                )
+            if len(reporter) < 2:
+                raise ValueError(
+                    f"Invalid function list format for reporter '{name}'\n"
+                    f"List-style reporters must follow the format [function, [param1, param2, ...]].\n"
+                    f"Got: {reporter}"
+                )
 
     def _new_model_reporter(self, name, reporter):
         """Add a new model-level reporter to collect.
