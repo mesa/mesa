@@ -19,18 +19,16 @@ def rescale(samples: np.ndarray, ranges: np.ndarray) -> np.ndarray:
     """Rescale samples from the unit interval [0,1] to parameter ranges.
 
     Parameters:
-        
+
         samples : ndarray (n, d)
             Samples in the unit interval.
         ranges : ndarray (d, 2)
             Parameter ranges as [[min, max], ...].
 
     Returns:
-        
         ndarray (n, d)
             Rescaled samples.
     """
-
     samples = np.asarray(samples)
     ranges = np.asarray(ranges)
 

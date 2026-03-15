@@ -221,7 +221,8 @@ def test_scenario_from():
     # check if parameter names matches number of columns in numpy array
     with pytest.raises(ValueError):
         Scenario.from_ndarray(samples, parameter_names=[], rng=42)
-        
+
+
 def test_rescale_basic():
     """Test basic rescaling from unit interval to parameter ranges."""
     samples = np.array([[0.0, 0.5, 1.0], [0.25, 0.75, 0.5]])
@@ -233,7 +234,8 @@ def test_rescale_basic():
     expected = np.array([[0, 15, 1], [2.5, 17.5, 0]])
 
     assert np.allclose(scaled, expected)
-    
+
+
 def test_rescale_shape_preserved():
     """Rescaling should preserve the (n, d) shape of samples."""
     samples = np.random.random((50, 4))
@@ -242,7 +244,8 @@ def test_rescale_shape_preserved():
     scaled = rescale(samples, ranges)
 
     assert scaled.shape == samples.shape
-    
+
+
 def test_rescale_shape_preserved():
     """Rescaling should preserve the (n, d) shape of samples."""
     samples = np.random.random((50, 4))
@@ -251,7 +254,8 @@ def test_rescale_shape_preserved():
     scaled = rescale(samples, ranges)
 
     assert scaled.shape == samples.shape
-    
+
+
 def test_rescale_negative_ranges():
     """Rescale should correctly handle negative parameter ranges."""
     samples = np.array([[0.0, 1.0], [0.5, 0.25]])
@@ -263,7 +267,8 @@ def test_rescale_negative_ranges():
     expected = np.array([[-10, 5], [-6, -2.5]])
 
     assert np.allclose(scaled, expected)
-    
+
+
 def test_rescale_single_dimension():
     """Rescale should work for a single parameter dimension."""
     samples = np.array([[0.0], [0.5], [1.0]])
@@ -274,7 +279,8 @@ def test_rescale_single_dimension():
     expected = np.array([[10], [15], [20]])
 
     assert np.allclose(scaled, expected)
-    
+
+
 def test_rescale_single_dimension():
     """Rescale should work for a single parameter dimension."""
     samples = np.array([[0.0], [0.5], [1.0]])
@@ -285,7 +291,8 @@ def test_rescale_single_dimension():
     expected = np.array([[10], [15], [20]])
 
     assert np.allclose(scaled, expected)
-    
+
+
 def test_rescale_dimension_mismatch():
     """Rescale should raise error if dimensions do not match."""
     samples = np.random.random((10, 3))
@@ -293,7 +300,8 @@ def test_rescale_dimension_mismatch():
 
     with pytest.raises(ValueError):
         rescale(samples, ranges)
-        
+
+
 def test_rescale_invalid_range_shape():
     """Rescale should raise error if ranges do not have shape (d,2)."""
     samples = np.random.random((10, 3))
@@ -301,7 +309,8 @@ def test_rescale_invalid_range_shape():
 
     with pytest.raises(ValueError):
         rescale(samples, ranges)
-        
+
+
 def test_rescale_large_sample():
     """Rescale should work correctly for larger experiment matrices."""
     samples = np.random.random((1000, 5))
@@ -320,5 +329,3 @@ def test_rescale_large_sample():
     assert scaled.shape == samples.shape
     assert np.all(scaled[:, 0] >= 0)
     assert np.all(scaled[:, 0] <= 10)
-    
-
