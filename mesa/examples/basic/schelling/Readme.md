@@ -8,11 +8,12 @@ By default, the number of similar neighbors the agents need to be happy is set t
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Assuming Mesa is already installed, run the example with:
 
-```
-    $ solara run app.py
-```
+solara run app.py
+
+Then open the displayed local URL in your browser.
+
 
 ## Files
 
