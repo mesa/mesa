@@ -245,17 +245,6 @@ def test_rescale_shape_preserved():
 
     assert scaled.shape == samples.shape
 
-
-def test_rescale_shape_preserved():
-    """Rescaling should preserve the (n, d) shape of samples."""
-    samples = np.random.random((50, 4))
-    ranges = np.array([[0, 1], [10, 20], [-5, 5], [100, 200]])
-
-    scaled = rescale(samples, ranges)
-
-    assert scaled.shape == samples.shape
-
-
 def test_rescale_negative_ranges():
     """Rescale should correctly handle negative parameter ranges."""
     samples = np.array([[0.0, 1.0], [0.5, 0.25]])
@@ -279,7 +268,6 @@ def test_rescale_single_dimension():
     expected = np.array([[10], [15], [20]])
 
     assert np.allclose(scaled, expected)
-
 
 def test_rescale_single_dimension():
     """Rescale should work for a single parameter dimension."""
@@ -329,3 +317,25 @@ def test_rescale_large_sample():
     assert scaled.shape == samples.shape
     assert np.all(scaled[:, 0] >= 0)
     assert np.all(scaled[:, 0] <= 10)
+<<<<<<< HEAD
+=======
+    
+def test_rescale_invalid_samples_shape():
+    """Rescale should raise error if samples is not a 2D array."""
+    samples = np.array([0.1, 0.2, 0.3])  # 1D array
+    ranges = np.array([[0, 1]])
+
+    with pytest.raises(ValueError):
+        rescale(samples, ranges)
+        
+def test_rescale_bounds_mapping():
+    """0 should map to min and 1 should map to max of each range."""
+    samples = np.array([[0.0, 1.0]])
+    ranges = np.array([[5, 10], [-2, 2]])
+
+    scaled = rescale(samples, ranges)
+
+    expected = np.array([[5, 2]])
+    assert np.allclose(scaled, expected)
+
+>>>>>>> 97fde19e (added more tests)
