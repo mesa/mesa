@@ -76,6 +76,7 @@ class ContinuousSpace:
 
         self.dimensions: np.array = np.asanyarray(dimensions)
         self.ndims: int = self.dimensions.shape[0]
+
         self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
         self.center: np.array = np.sum(self.dimensions, axis=1) / 2
 
