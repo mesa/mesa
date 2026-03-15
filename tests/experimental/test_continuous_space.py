@@ -489,3 +489,35 @@ def test_agent_removal_no_ghost_entries():
     for idx, agent in enumerate(space.active_agents):
         assert agent._mesa_index == idx
         assert space._index_to_agent[idx] == agent
+
+
+def test_array_growth_strategy():
+    """Adding agents past initial capacity should grow the array geometrically."""
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 10], [0, 10]])
+    initial_capacity = 5
+    space = ContinuousSpace(
+        dimensions, torus=False, random=model.random, n_agents=initial_capacity
+    )
+
+    agents = []
+    for i in range(initial_capacity):
+        a = ContinuousSpaceAgent(space, model)
+        a.position = [float(i), float(i)]
+        agents.append(a)
+
+    assert space._agent_positions.shape[0] == initial_capacity
+
+    # one more agent triggers growth
+    extra = ContinuousSpaceAgent(space, model)
+    extra.position = [9.0, 9.0]
+
+    new_capacity = space._agent_positions.shape[0]
+    assert new_capacity >= initial_capacity + space._MIN_GROWTH
+
+    # all previously placed agents should still be at their positions
+    for i, a in enumerate(agents):
+        np.testing.assert_array_equal(
+            space._agent_positions[a._mesa_index], [float(i), float(i)]
+        )
+

@@ -15,6 +15,9 @@ from mesa.agent import Agent, AgentSet
 class ContinuousSpace:
     """Continuous space where each agent can have an arbitrary position."""
 
+    _GROWTH_FACTOR = 2.0
+    _MIN_GROWTH = 100
+
     @property
     def x_min(self):  # noqa: D102
         # compatibility with solara_viz
@@ -114,17 +117,15 @@ class ContinuousSpace:
         self._n_agents += 1
 
         if self._agent_positions.shape[0] <= index:
-            # we are out of space
-            fraction = 0.2  # we add 20%  Fixme
-            n = round(fraction * self._n_agents, None)
-            self._agent_positions = np.vstack(
-                [
-                    self._agent_positions,
-                    np.empty(
-                        (n, self.dimensions.shape[0]),
-                    ),
-                ]
+            current_size = self._agent_positions.shape[0]
+            growth = max(
+                int(current_size * (self._GROWTH_FACTOR - 1)), self._MIN_GROWTH
             )
+            new_positions = np.empty(
+                (current_size + growth, self.dimensions.shape[0]), dtype=float
+            )
+            new_positions[:current_size] = self._agent_positions
+            self._agent_positions = new_positions
 
         agent._mesa_index = index
         self._index_to_agent[index] = agent
