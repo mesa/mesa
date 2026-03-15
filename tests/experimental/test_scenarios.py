@@ -269,7 +269,7 @@ def test_rescale_single_dimension():
     expected = np.array([[10], [15], [20]])
 
     assert np.allclose(scaled, expected)
-    
+
 
 def test_rescale_dimension_mismatch():
     """Rescale should raise error if dimensions do not match."""
