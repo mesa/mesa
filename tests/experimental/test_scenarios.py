@@ -319,7 +319,7 @@ def test_rescale_large_sample():
     assert np.all(scaled[:, 0] <= 10)
 <<<<<<< HEAD
 =======
-    
+
 def test_rescale_invalid_samples_shape():
     """Rescale should raise error if samples is not a 2D array."""
     samples = np.array([0.1, 0.2, 0.3])  # 1D array
@@ -327,7 +327,7 @@ def test_rescale_invalid_samples_shape():
 
     with pytest.raises(ValueError):
         rescale(samples, ranges)
-        
+
 def test_rescale_bounds_mapping():
     """0 should map to min and 1 should map to max of each range."""
     samples = np.array([[0.0, 1.0]])
