@@ -184,12 +184,8 @@ def create_meta_agent(
         """
         resolved_meta_methods = dict(meta_methods or {})
         if assume_constituting_agent_methods:
-            seen_classes = set()
-            for agent in agents:
-                agent_class = type(agent)
-                if agent_class in seen_classes:
-                    continue
-                seen_classes.add(agent_class)
+            agent_classes = dict.fromkeys(type(agent) for agent in agents)
+            for agent_class in agent_classes:
                 for name in agent_class.__dict__:
                     if callable(getattr(agent_class, name)) and not name.startswith(
                         "__"
