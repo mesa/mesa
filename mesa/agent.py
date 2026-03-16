@@ -1,49 +1,53 @@
 """Agent related classes.
 
-Core Objects: Agent and AgentSet.
+Core Objects: Agent.
 """
 
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import contextlib
-import copy
-import functools
 import itertools
-import operator
-import warnings
-import weakref
-from collections import defaultdict
-from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
 from random import Random
-
-# mypy
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
+    from mesa.experimental.actions import Action
     from mesa.model import Model
-    from mesa.space import Position
+
+from mesa.agentset import AgentSet
 
 
-class Agent:
+class Agent[M: Model]:
     """Base class for a model agent in Mesa.
 
     Attributes:
         model (Model): A reference to the model instance.
         unique_id (int): A unique identifier for this agent.
-        pos (Position): A reference to the position where this agent is located.
 
     Notes:
+        Agents must be hashable to be used in an AgentSet.
+        In Python 3, defining `__eq__` without `__hash__` makes an object unhashable,
+        which will break AgentSet usage.
         unique_id is unique relative to a model instance and starts from 1
+
     """
 
-    # Class-level attribute: dictionary indexed by model instance
-    _ids: ClassVar[defaultdict[Model, Iterator[int]]] = defaultdict(
-        functools.partial(itertools.count, 1)
-    )
+    _datasets: ClassVar = set()
 
-    def __init__(self, model: Model, *args, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs):
+        """Called when DatasetTrackedAgent is subclassed."""
+        super().__init_subclass__(**kwargs)
+        # Each subclass gets its own dataset set
+        # we use strings on this to avoid memory leaks
+        # and ensure the retrieved dataset belongs to the same
+        # model instance as the agent
+        cls._datasets = set()
+
+    def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
 
         Args:
@@ -57,65 +61,48 @@ class Agent:
         """
         super().__init__(*args, **kwargs)
 
-        self.model: Model = model
-        self.unique_id: int = next(self._ids[model])
-        self.pos: Position | None = None
-        # Use a WeakSet to store meta-agent memberships to prevent memory leaks
-        self.meta_agents: weakref.WeakSet = weakref.WeakSet()
+        self.model: M = model
+        self.unique_id = None
+        self.current_action: Action | None = None
         self.model.register_agent(self)
 
-    @property
-    def meta_agent(self):
-        """Backwards-compatible property for single meta-agent access.
-
-        Returns one of the meta-agents if the agent belongs to any, or None otherwise.
-        """
-        warnings.warn(
-            "The `meta_agent` property is deprecated and will be removed in a future version. "
-            "Use the `meta_agents` set to manage multiple memberships.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return next(iter(self.meta_agents), None)
-
-    @meta_agent.setter
-    def meta_agent(self, meta_agent_instance):
-        """Backwards-compatible setter for single meta-agent access."""
-        warnings.warn(
-            "Setting `meta_agent` is deprecated. Add the agent to the meta-agent's "
-            "agents directly (e.g., `my_meta_agent.add_agents({agent})`).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.meta_agents.clear()
-        if meta_agent_instance is not None:
-            self.meta_agents.add(meta_agent_instance)
-
-    @property
-    def scenario(self):
-        """Reference to the scenario object (if set on the model)."""
-        return getattr(self.model, "scenario", None)
-
-    def __getstate__(self):
-        """Handle pickling of the agent, converting WeakSet to a regular set."""
-        state = self.__dict__.copy()
-        state["meta_agents"] = set(state["meta_agents"])  # Convert to a pickleable set
-        return state
-
-    def __setstate__(self, state):
-        """Handle unpickling, converting the set back to a WeakSet."""
-        self.__dict__.update(state)
-        self.meta_agents = weakref.WeakSet(state["meta_agents"])
+        for dataset in self._datasets:
+            self.model.data_registry[dataset].add_agent(self)
 
     def remove(self) -> None:
         """Remove and delete the agent from the model.
 
+        If the agent is currently performing an action, the action's
+        scheduled completion event is cancelled silently. The action's
+        on_interrupt() callback is NOT fired, because the agent is being
+        destroyed — not making a behavioral decision. The action moves
+        to no defined end state; it is simply abandoned.
+
+        If your action holds external resources (e.g., a Resource slot,
+        a reservation, a lock), override Agent.remove() and call
+        self.cancel_action() before super().remove() to ensure
+        on_interrupt() fires and cleanup logic runs:
+
+            def remove(self):
+                self.cancel_action()  # Fires on_interrupt for cleanup
+                super().remove()
+
         Notes:
-            If you need to do additional cleanup when removing an agent by for example removing
-            it from a space, consider extending this method in your own agent class.
+            This is a deliberate design choice. The default silent
+            cleanup is safe and avoids callbacks touching agent state
+            during teardown. Models that need cleanup should opt in
+            explicitly.
         """
+        if self.current_action is not None:
+            self.current_action._cancel_event()  # Silent cleanup, no callback
+            self.current_action = None
+
         with contextlib.suppress(KeyError):
             self.model.deregister_agent(self)
+
+        # ensures models are also removed from datasets
+        for dataset in self._datasets:
+            self.model.data_registry[dataset].remove_agent(self)
 
     def step(self) -> None:
         """A single step of the agent."""
@@ -124,7 +111,9 @@ class Agent:
         pass
 
     @classmethod
-    def create_agents(cls, model: Model, n: int, *args, **kwargs) -> AgentSet[Agent]:
+    def create_agents[T: Agent](
+        cls: type[T], model: Model, n: int, *args, **kwargs
+    ) -> AgentSet[T]:
         """Create N agents.
 
         Args:
@@ -137,40 +126,83 @@ class Agent:
 
         Returns:
             AgentSet containing the agents created.
+
         """
-
-        class ListLike:
-            """Make default arguments act as if they are in a list of length N.
-
-            This is a helper class.
-            """
-
-            def __init__(self, value):
-                self.value = value
-
-            def __getitem__(self, i):
-                return self.value
-
-        listlike_args = []
-        for arg in args:
-            if isinstance(arg, (list | np.ndarray | tuple)) and len(arg) == n:
-                listlike_args.append(arg)
-            else:
-                listlike_args.append(ListLike(arg))
-
-        listlike_kwargs = {}
-        for k, v in kwargs.items():
-            if isinstance(v, (list | np.ndarray | tuple)) and len(v) == n:
-                listlike_kwargs[k] = v
-            else:
-                listlike_kwargs[k] = ListLike(v)
-
         agents = []
-        for i in range(n):
-            instance_args = [arg[i] for arg in listlike_args]
-            instance_kwargs = {k: v[i] for k, v in listlike_kwargs.items()}
-            agent = cls(model, *instance_args, **instance_kwargs)
-            agents.append(agent)
+
+        if not args and not kwargs:
+            for _ in range(n):
+                agents.append(cls(model))
+            return AgentSet(agents, random=model.random)
+
+        # Prepare positional argument iterators
+        arg_iters = []
+        for arg in args:
+            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
+                arg_iters.append(arg)
+            else:
+                arg_iters.append(itertools.repeat(arg, n))
+
+        # Prepare keyword argument iterators
+        kw_keys = list(kwargs.keys())
+        kw_val_iters = []
+        for v in kwargs.values():
+            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
+                kw_val_iters.append(v)
+            else:
+                kw_val_iters.append(itertools.repeat(v, n))
+
+        # If arg_iters is empty, zip(*[]) returns nothing, so we use repeat(())
+        pos_iter = zip(*arg_iters) if arg_iters else itertools.repeat(())
+
+        kw_iter = zip(*kw_val_iters) if kw_val_iters else itertools.repeat(())
+
+        # We rely on range(n) to drive the loop length
+        if kwargs:
+            for _, p_args, k_vals in zip(range(n), pos_iter, kw_iter):
+                agents.append(cls(model, *p_args, **dict(zip(kw_keys, k_vals))))
+        else:
+            for _, p_args in zip(range(n), pos_iter):
+                agents.append(cls(model, *p_args))
+
+        return AgentSet(agents, random=model.random)
+
+    @classmethod
+    def from_dataframe[T: Agent](
+        cls: type[T], model: Model, df: pd.DataFrame, **kwargs
+    ) -> AgentSet[T]:
+        """Create agents from a pandas DataFrame.
+
+        Each row of the DataFrame represents one agent. The DataFrame columns are
+        mapped to the agent's constructor as keyword arguments. Additional keyword
+        arguments (`**kwargs`) can be used to set constant attributes for all agents.
+
+        Args:
+            model: The model instance.
+            df: The pandas DataFrame. Each row represents an agent.
+            **kwargs: Constant values to pass to every agent's constructor.
+                Only non-sequence data is allowed in kwargs to avoid ambiguity
+                with DataFrame columns.
+
+        Returns:
+            AgentSet containing the agents created.
+
+        Note:
+            If you need to pass variable data or sequences, add them as columns
+            to the DataFrame before calling this method.
+        """
+        for key, value in kwargs.items():
+            if isinstance(value, (list, np.ndarray, tuple, pd.Series)):
+                raise TypeError(
+                    f"from_dataframe does not support sequence data in kwargs ('{key}'). "
+                    "Please add this data to the DataFrame before calling from_dataframe."
+                )
+
+        agents = [
+            cls(model, **{**record, **kwargs})
+            for record in df.to_dict(orient="records")
+        ]
+
         return AgentSet(agents, random=model.random)
 
     @property
@@ -183,568 +215,87 @@ class Agent:
         """Return a seeded np.random rng."""
         return self.model.rng
 
+    @property
+    def scenario(self):
+        """Return the scenario associated with the model."""
+        return self.model.scenario
 
-class AgentSet(MutableSet, Sequence):
-    """A collection class that represents an ordered set of agents within an agent-based model (ABM).
+    # Actions methods
+    def start_action(self, action: Action) -> Action:
+        """Start performing an action.
 
-    This class extends both MutableSet and Sequence, providing set-like functionality with order preservation and
-    sequence operations.
-
-    Attributes:
-        model (Model): The ABM model instance to which this AgentSet belongs.
-
-    Notes:
-        The AgentSet maintains weak references to agents, allowing for efficient management of agent lifecycles
-        without preventing garbage collection. It is associated with a specific model instance, enabling
-        interactions with the model's environment and other agents.The implementation uses a WeakKeyDictionary to store agents,
-        which means that agents not referenced elsewhere in the program may be automatically removed from the AgentSet.
-
-    Notes:
-        If random is None then the random number generator in the model of the first agent is used.
-        If the agents list is empty and random is also None a user warning is issued and the AgentSet
-        is an empty list and a default random number generator.  This can make models non-reproducible.
-        If your code may create an AgentSet with no agents please pass a random number generator explicitly.
-
-    """
-
-    def __init__(
-        self,
-        agents: Iterable[Agent],
-        random: Random | None = None,
-    ):
-        """Initializes the AgentSet with a collection of agents and a reference to the model.
+        The action must be in PENDING or INTERRUPTED state and the agent
+        must not be currently performing another action.
 
         Args:
-            agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
-            random (Random | np.random.Generator | None): the random number generator
-        """
-        self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
-        if (len(self._agents) == 0) and random is None:
-            warnings.warn(
-                "No Agents specified in creation of AgentSet and no random number generator specified. "
-                "This can make models non-reproducible. Please pass a random number generator explicitly",
-                UserWarning,
-                stacklevel=2,
-            )
-            random = Random()
-
-        if random is not None:
-            self.random = random
-        else:
-            # all agents in an AgentSet should share the same model, just take it from first
-            self.random = next(iter(self._agents)).model.random
-
-    def __len__(self) -> int:  # noqa: D105
-        return len(self._agents)
-
-    def __iter__(self) -> Iterator[Agent]:  # noqa: D105
-        return iter(self._agents)
-
-    def __contains__(self, agent: Agent) -> bool:  # noqa: D105
-        return agent in self._agents
-
-    def select(
-        self,
-        filter_func: Callable[[Agent], bool] | None = None,
-        at_most: int | float = float("inf"),
-        inplace: bool = False,
-        agent_type: type[Agent] | None = None,
-    ) -> AgentSet:
-        """Select a subset of agents from the AgentSet based on a filter function and/or quantity limit.
-
-        Args:
-            filter_func (Callable[[Agent], bool], optional): A function that takes an Agent and returns True if the
-                agent should be included in the result. Defaults to None, meaning no filtering is applied.
-            at_most (int | float, optional): The maximum amount of agents to select. Defaults to infinity.
-              - If an integer, at most the first number of matching agents are selected.
-              - If a float between 0 and 1, at most that fraction of original the agents are selected.
-            inplace (bool, optional): If True, modifies the current AgentSet; otherwise, returns a new AgentSet. Defaults to False.
-            agent_type (type[Agent], optional): The class type of the agents to select. Defaults to None, meaning no type filtering is applied.
+            action: The Action to perform. Must have been created with
+                this agent as its agent.
 
         Returns:
-            AgentSet: A new AgentSet containing the selected agents, unless inplace is True, in which case the current AgentSet is updated.
-
-        Notes:
-            - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
-            - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
-        """
-        inf = float("inf")
-        if filter_func is None and agent_type is None and at_most == inf:
-            return self if inplace else copy.copy(self)
-
-        # Check if at_most is of type float
-        if at_most <= 1.0 and isinstance(at_most, float):
-            at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
-
-        def agent_generator(filter_func, agent_type, at_most):
-            count = 0
-            for agent in self:
-                if count >= at_most:
-                    break
-                if (not filter_func or filter_func(agent)) and (
-                    not agent_type or isinstance(agent, agent_type)
-                ):
-                    yield agent
-                    count += 1
-
-        agents = agent_generator(filter_func, agent_type, at_most)
-
-        return AgentSet(agents, self.random) if not inplace else self._update(agents)
-
-    def shuffle(self, inplace: bool = False) -> AgentSet:
-        """Randomly shuffle the order of agents in the AgentSet.
-
-        Args:
-            inplace (bool, optional): If True, shuffles the agents in the current AgentSet; otherwise, returns a new shuffled AgentSet. Defaults to False.
-
-        Returns:
-            AgentSet: A shuffled AgentSet. Returns the current AgentSet if inplace is True.
-
-        Note:
-            Using inplace = True is more performant
-
-        """
-        weakrefs = list(self._agents.keyrefs())
-        self.random.shuffle(weakrefs)
-
-        if inplace:
-            self._agents.data = dict.fromkeys(weakrefs)
-            return self
-        else:
-            return AgentSet(
-                (agent for ref in weakrefs if (agent := ref()) is not None), self.random
-            )
-
-    def sort(
-        self,
-        key: Callable[[Agent], Any] | str,
-        ascending: bool = False,
-        inplace: bool = False,
-    ) -> AgentSet:
-        """Sort the agents in the AgentSet based on a specified attribute or custom function.
-
-        Args:
-            key (Callable[[Agent], Any] | str): A function or attribute name based on which the agents are sorted.
-            ascending (bool, optional): If True, the agents are sorted in ascending order. Defaults to False.
-            inplace (bool, optional): If True, sorts the agents in the current AgentSet; otherwise, returns a new sorted AgentSet. Defaults to False.
-
-        Returns:
-            AgentSet: A sorted AgentSet. Returns the current AgentSet if inplace is True.
-        """
-        if isinstance(key, str):
-            key = operator.attrgetter(key)
-
-        sorted_agents = sorted(self._agents.keys(), key=key, reverse=not ascending)
-
-        return (
-            AgentSet(sorted_agents, self.random)
-            if not inplace
-            else self._update(sorted_agents)
-        )
-
-    def _update(self, agents: Iterable[Agent]):
-        """Update the AgentSet with a new set of agents.
-
-        This is a private method primarily used internally by other methods like select, shuffle, and sort.
-        """
-        self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
-        return self
-
-    def do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
-        """Invoke a method or function on each agent in the AgentSet.
-
-        Args:
-            method (str, callable): the callable to do on each agent
-
-                                        * in case of str, the name of the method to call on each agent.
-                                        * in case of callable, the function to be called with each agent as first argument
-
-            *args: Variable length argument list passed to the callable being called.
-            **kwargs: Arbitrary keyword arguments passed to the callable being called.
-
-        Returns:
-            AgentSet | list[Any]: The results of the callable calls if return_results is True, otherwise the AgentSet itself.
-        """
-        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
-        if isinstance(method, str):
-            for agentref in self._agents.keyrefs():
-                if (agent := agentref()) is not None:
-                    getattr(agent, method)(*args, **kwargs)
-        else:
-            for agentref in self._agents.keyrefs():
-                if (agent := agentref()) is not None:
-                    method(agent, *args, **kwargs)
-
-        return self
-
-    def shuffle_do(self, method: str | Callable, *args, **kwargs) -> AgentSet:
-        """Shuffle the agents in the AgentSet and then invoke a method or function on each agent.
-
-        It's a fast, optimized version of calling shuffle() followed by do().
-        """
-        weakrefs = list(self._agents.keyrefs())
-        self.random.shuffle(weakrefs)
-
-        if isinstance(method, str):
-            for ref in weakrefs:
-                if (agent := ref()) is not None:
-                    getattr(agent, method)(*args, **kwargs)
-        else:
-            for ref in weakrefs:
-                if (agent := ref()) is not None:
-                    method(agent, *args, **kwargs)
-
-        return self
-
-    def map(self, method: str | Callable, *args, **kwargs) -> list[Any]:
-        """Invoke a method or function on each agent in the AgentSet and return the results.
-
-        Args:
-            method (str, callable): the callable to apply on each agent
-
-                                        * in case of str, the name of the method to call on each agent.
-                                        * in case of callable, the function to be called with each agent as first argument
-
-            *args: Variable length argument list passed to the callable being called.
-            **kwargs: Arbitrary keyword arguments passed to the callable being called.
-
-        Returns:
-           list[Any]: The results of the callable calls
-        """
-        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
-        if isinstance(method, str):
-            res = [
-                getattr(agent, method)(*args, **kwargs)
-                for agentref in self._agents.keyrefs()
-                if (agent := agentref()) is not None
-            ]
-        else:
-            res = [
-                method(agent, *args, **kwargs)
-                for agentref in self._agents.keyrefs()
-                if (agent := agentref()) is not None
-            ]
-
-        return res
-
-    def agg(
-        self, attribute: str, func: Callable | Iterable[Callable]
-    ) -> Any | list[Any]:
-        """Aggregate an attribute of all agents in the AgentSet using one or more functions.
-
-        Args:
-            attribute (str): The name of the attribute to aggregate.
-            func (Callable | Iterable[Callable]):
-                - If Callable: A single function to apply to the attribute values (e.g., min, max, sum, np.mean)
-                - If Iterable: Multiple functions to apply to the attribute values
-
-        Returns:
-            Any | [Any, ...]: Result of applying the function(s) to the attribute values.
-
-        Examples:
-            # Single function
-            avg_energy = model.agents.agg("energy", np.mean)
-
-            # Multiple functions
-            min_wealth, max_wealth, total_wealth = model.agents.agg("wealth", [min, max, sum])
-        """
-        values = self.get(attribute)
-
-        if isinstance(func, Callable):
-            return func(values)
-        else:
-            return [f(values) for f in func]
-
-    @overload
-    def get(
-        self,
-        attr_names: str,
-        handle_missing: Literal["error", "default"] = "error",
-        default_value: Any = None,
-    ) -> list[Any]: ...
-
-    @overload
-    def get(
-        self,
-        attr_names: list[str],
-        handle_missing: Literal["error", "default"] = "error",
-        default_value: Any = None,
-    ) -> list[list[Any]]: ...
-
-    def get(
-        self,
-        attr_names,
-        handle_missing="error",
-        default_value=None,
-    ):
-        """Retrieve the specified attribute(s) from each agent in the AgentSet.
-
-        Args:
-            attr_names (str | list[str]): The name(s) of the attribute(s) to retrieve from each agent.
-            handle_missing (str, optional): How to handle missing attributes. Can be:
-                                            - 'error' (default): raises an AttributeError if attribute is missing.
-                                            - 'default': returns the specified default_value.
-            default_value (Any, optional): The default value to return if 'handle_missing' is set to 'default'
-                                           and the agent does not have the attribute.
-
-        Returns:
-            list[Any]: A list with the attribute value for each agent if attr_names is a str.
-            list[list[Any]]: A list with a lists of attribute values for each agent if attr_names is a list of str.
+            The started Action.
 
         Raises:
-            AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
-            ValueError: If an unknown 'handle_missing' option is provided.
+            ValueError: If the agent is already performing an action,
+                or if the action doesn't belong to this agent.
         """
-        is_single_attr = isinstance(attr_names, str)
-
-        if handle_missing == "error":
-            if is_single_attr:
-                return [getattr(agent, attr_names) for agent in self._agents]
-            else:
-                return [
-                    [getattr(agent, attr) for attr in attr_names]
-                    for agent in self._agents
-                ]
-
-        elif handle_missing == "default":
-            if is_single_attr:
-                return [
-                    getattr(agent, attr_names, default_value) for agent in self._agents
-                ]
-            else:
-                return [
-                    [getattr(agent, attr, default_value) for attr in attr_names]
-                    for agent in self._agents
-                ]
-
-        else:
+        if self.current_action is not None:
             raise ValueError(
-                f"Unknown handle_missing option: {handle_missing}, "
-                "should be one of 'error' or 'default'"
+                f"Agent {self.unique_id} is already performing an action "
+                f"({self.current_action!r}). Use interrupt_for() or "
+                f"cancel_action() first."
             )
 
-    def set(self, attr_name: str, value: Any) -> AgentSet:
-        """Set a specified attribute to a given value for all agents in the AgentSet.
-
-        Args:
-            attr_name (str): The name of the attribute to set.
-            value (Any): The value to set the attribute to.
-
-        Returns:
-            AgentSet: The AgentSet instance itself, after setting the attribute.
-        """
-        for agent in self:
-            setattr(agent, attr_name, value)
-        return self
-
-    def __getitem__(self, item: int | slice) -> Agent:
-        """Retrieve an agent or a slice of agents from the AgentSet.
-
-        Args:
-            item (int | slice): The index or slice for selecting agents.
-
-        Returns:
-            Agent | list[Agent]: The selected agent or list of agents based on the index or slice provided.
-        """
-        return list(self._agents.keys())[item]
-
-    def add(self, agent: Agent):
-        """Add an agent to the AgentSet.
-
-        Args:
-            agent (Agent): The agent to add to the set.
-
-        Note:
-            This method is an implementation of the abstract method from MutableSet.
-        """
-        self._agents[agent] = None
-
-    def discard(self, agent: Agent):
-        """Remove an agent from the AgentSet if it exists.
-
-        This method does not raise an error if the agent is not present.
-
-        Args:
-            agent (Agent): The agent to remove from the set.
-
-        Note:
-            This method is an implementation of the abstract method from MutableSet.
-        """
-        with contextlib.suppress(KeyError):
-            del self._agents[agent]
-
-    def remove(self, agent: Agent):
-        """Remove an agent from the AgentSet.
-
-        This method raises an error if the agent is not present.
-
-        Args:
-            agent (Agent): The agent to remove from the set.
-
-        Note:
-            This method is an implementation of the abstract method from MutableSet.
-        """
-        del self._agents[agent]
-
-    def __getstate__(self):
-        """Retrieve the state of the AgentSet for serialization.
-
-        Returns:
-            dict: A dictionary representing the state of the AgentSet.
-        """
-        return {"agents": list(self._agents.keys()), "random": self.random}
-
-    def __setstate__(self, state):
-        """Set the state of the AgentSet during deserialization.
-
-        Args:
-            state (dict): A dictionary representing the state to restore.
-        """
-        self.random = state["random"]
-        self._update(state["agents"])
-
-    def groupby(self, by: Callable | str, result_type: str = "agentset") -> GroupBy:
-        """Group agents by the specified attribute or return from the callable.
-
-        Args:
-            by (Callable, str): used to determine what to group agents by
-
-                                * if ``by`` is a callable, it will be called for each agent and the return is used
-                                  for grouping
-                                * if ``by`` is a str, it should refer to an attribute on the agent and the value
-                                  of this attribute will be used for grouping
-            result_type (str, optional): The datatype for the resulting groups {"agentset", "list"}
-
-        Returns:
-            GroupBy
-
-
-        Notes:
-        There might be performance benefits to using `result_type='list'` if you don't need the advanced functionality
-        of an AgentSet.
-
-        """
-        groups = defaultdict(list)
-
-        if isinstance(by, Callable):
-            for agent in self:
-                groups[by(agent)].append(agent)
-        else:
-            for agent in self:
-                groups[getattr(agent, by)].append(agent)
-
-        if result_type == "agentset":
-            return GroupBy(
-                {k: AgentSet(v, random=self.random) for k, v in groups.items()}
+        if action.agent is not self:
+            raise ValueError(
+                f"Action's agent (id={action.agent.unique_id}) does not match "
+                f"this agent (id={self.unique_id})."
             )
-        else:
-            return GroupBy(groups)
 
-    # consider adding for performance reasons
-    # for Sequence: __reversed__, index, and count
-    # for MutableSet clear, pop, remove, __ior__, __iand__, __ixor__, and __isub__
+        self.current_action = action
+        action.start()
 
+        # If the action completed instantly (duration=0), start() already
+        # called _do_complete which cleared current_action via the Action.
+        return action
 
-class GroupBy:
-    """Helper class for AgentSet.groupby.
+    def interrupt_for(self, new_action: Action) -> bool:
+        """Interrupt the current action and start a new one.
 
-    Attributes:
-        groups (dict): A dictionary with the group_name as key and group as values
-
-    """
-
-    def __init__(self, groups: dict[Any, list | AgentSet]):
-        """Initialize a GroupBy instance.
+        If there is no current action, simply starts the new one. If the
+        current action is non-interruptible, returns False and does nothing.
 
         Args:
-            groups (dict): A dictionary with the group_name as key and group as values
-
-        """
-        self.groups: dict[Any, list | AgentSet] = groups
-
-    def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
-        """Apply the specified callable to each group and return the results.
-
-        Args:
-            method (Callable, str): The callable to apply to each group,
-
-                                    * if ``method`` is a callable, it will be called it will be called with the group as first argument
-                                    * if ``method`` is a str, it should refer to a method on the group
-
-                                    Additional arguments and keyword arguments will be passed on to the callable.
-            args: arguments to pass to the callable
-            kwargs: keyword arguments to pass to the callable
+            new_action: The Action to perform instead.
 
         Returns:
-            dict with group_name as key and the return of the method as value
-
-        Notes:
-            this method is useful for methods or functions that do return something. It
-            will break method chaining. For that, use ``do`` instead.
-
+            True if the new action was started (either no current action,
+            or the current one was successfully interrupted). False if the
+            current action is non-interruptible.
         """
-        if isinstance(method, str):
-            return {
-                k: getattr(v, method)(*args, **kwargs) for k, v in self.groups.items()
-            }
-        else:
-            return {k: method(v, *args, **kwargs) for k, v in self.groups.items()}
+        if self.current_action is not None and not self.current_action.interrupt():
+            return False
+            # interrupt() already cleared current_action
 
-    def do(self, method: Callable | str, *args, **kwargs) -> GroupBy:
-        """Apply the specified callable to each group.
+        self.start_action(new_action)
+        return True
 
-        Args:
-            method (Callable, str): The callable to apply to each group,
+    def cancel_action(self) -> bool:
+        """Cancel the current action, ignoring interruptible flag.
 
-                                    * if ``method`` is a callable, it will be called it will be called with the group as first argument
-                                    * if ``method`` is a str, it should refer to a method on the group
-
-                                    Additional arguments and keyword arguments will be passed on to the callable.
-            args: arguments to pass to the callable
-            kwargs: keyword arguments to pass to the callable
+        Calls on_interrupt with partial progress. Returns False only if
+        there is no current action.
 
         Returns:
-            the original GroupBy instance
-
-        Notes:
-            this method is useful for methods or functions that don't return anything and/or
-            if you want to chain multiple do calls
-
+            True if an action was cancelled, False if idle.
         """
-        if isinstance(method, str):
-            for v in self.groups.values():
-                getattr(v, method)(*args, **kwargs)
-        else:
-            for v in self.groups.values():
-                method(v, *args, **kwargs)
+        if self.current_action is None:
+            return False
 
-        return self
+        self.current_action.cancel()
+        # cancel() already cleared current_action
+        return True
 
-    def count(self) -> dict[Any, int]:
-        """Return the count of agents in each group.
-
-        Returns:
-            dict: A dictionary mapping group names to the number of agents in each group.
-        """
-        return {k: len(v) for k, v in self.groups.items()}
-
-    def agg(self, attr_name: str, func: Callable) -> dict[Hashable, Any]:
-        """Aggregate the values of a specific attribute across each group using the provided function.
-
-        Args:
-            attr_name (str): The name of the attribute to aggregate.
-            func (Callable): The function to apply (e.g., sum, min, max, mean).
-
-        Returns:
-            dict[Hashable, Any]: A dictionary mapping group names to the result of applying the aggregation function.
-        """
-        return {
-            group_name: func([getattr(agent, attr_name) for agent in group])
-            for group_name, group in self.groups.items()
-        }
-
-    def __iter__(self):  # noqa: D105
-        return iter(self.groups.items())
-
-    def __len__(self):  # noqa: D105
-        return len(self.groups)
+    @property
+    def is_busy(self) -> bool:
+        """Whether the agent is currently performing an action."""
+        return self.current_action is not None
