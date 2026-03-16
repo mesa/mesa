@@ -40,9 +40,7 @@ class VirusOnNetwork(Model):
     ):
         super().__init__(rng=rng)
         prob = avg_node_degree / num_nodes
-        # Ensure the generated graph is reproducible given the model RNG.
-        # This avoids test flakiness and makes the example easier to debug.
-        graph = nx.erdos_renyi_graph(n=num_nodes, p=prob, seed=self.rng)
+        graph = nx.erdos_renyi_graph(n=num_nodes, p=prob)
         self.grid = Network(graph, capacity=1, random=self.random)
 
         self.initial_outbreak_size = (
