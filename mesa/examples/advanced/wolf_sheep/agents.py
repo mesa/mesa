@@ -128,6 +128,7 @@ class Wolf(Animal):
         self.model.grid.wolves.data[self.cell.coordinate] = False
         super().remove()
 
+
 class GrassPatch(FixedAgent):
     """A patch of grass that grows at a fixed rate and can be eaten by sheep."""
 
