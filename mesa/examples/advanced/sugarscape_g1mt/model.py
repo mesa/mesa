@@ -45,10 +45,7 @@ class SugarscapeG1mt(mesa.Model):
     Manager class to run Sugarscape with Traders
     """
 
-    def __init__(self, scenario=None):
-        if scenario is None:
-            scenario = SugarScapeScenario()
-
+    def __init__(self, scenario: SugarScapeScenario = SugarScapeScenario):
         super().__init__(scenario=scenario)
         # Initiate width and height of sugarscape
         self.width = 50

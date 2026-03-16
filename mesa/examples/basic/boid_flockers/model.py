@@ -49,15 +49,12 @@ class BoidsScenario(Scenario):
 class BoidFlockers(Model):
     """Flocker model class. Handles agent creation, placement and scheduling."""
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: BoidsScenario = BoidsScenario):
         """Create a new Boids Flocking model.
 
         Args:
             scenario: BoidsScenario object containing model parameters.
         """
-        if scenario is None:
-            scenario = BoidsScenario()
-
         super().__init__(scenario=scenario)
 
         self.agent_angles = np.zeros(

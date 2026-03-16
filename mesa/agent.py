@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    from mesa.experimental.actions import Action
     from mesa.model import Model
 
 from mesa.agentset import AgentSet
@@ -62,6 +63,7 @@ class Agent[M: Model]:
 
         self.model: M = model
         self.unique_id = None
+        self.current_action: Action | None = None
         self.model.register_agent(self)
 
         for dataset in self._datasets:
@@ -70,11 +72,31 @@ class Agent[M: Model]:
     def remove(self) -> None:
         """Remove and delete the agent from the model.
 
-        Notes:
-            If you need to do additional cleanup when removing an agent by for example removing
-            it from a space, consider extending this method in your own agent class.
+        If the agent is currently performing an action, the action's
+        scheduled completion event is cancelled silently. The action's
+        on_interrupt() callback is NOT fired, because the agent is being
+        destroyed — not making a behavioral decision. The action moves
+        to no defined end state; it is simply abandoned.
 
+        If your action holds external resources (e.g., a Resource slot,
+        a reservation, a lock), override Agent.remove() and call
+        self.cancel_action() before super().remove() to ensure
+        on_interrupt() fires and cleanup logic runs:
+
+            def remove(self):
+                self.cancel_action()  # Fires on_interrupt for cleanup
+                super().remove()
+
+        Notes:
+            This is a deliberate design choice. The default silent
+            cleanup is safe and avoids callbacks touching agent state
+            during teardown. Models that need cleanup should opt in
+            explicitly.
         """
+        if self.current_action is not None:
+            self.current_action._cancel_event()  # Silent cleanup, no callback
+            self.current_action = None
+
         with contextlib.suppress(KeyError):
             self.model.deregister_agent(self)
 
@@ -197,3 +219,83 @@ class Agent[M: Model]:
     def scenario(self):
         """Return the scenario associated with the model."""
         return self.model.scenario
+
+    # Actions methods
+    def start_action(self, action: Action) -> Action:
+        """Start performing an action.
+
+        The action must be in PENDING or INTERRUPTED state and the agent
+        must not be currently performing another action.
+
+        Args:
+            action: The Action to perform. Must have been created with
+                this agent as its agent.
+
+        Returns:
+            The started Action.
+
+        Raises:
+            ValueError: If the agent is already performing an action,
+                or if the action doesn't belong to this agent.
+        """
+        if self.current_action is not None:
+            raise ValueError(
+                f"Agent {self.unique_id} is already performing an action "
+                f"({self.current_action!r}). Use interrupt_for() or "
+                f"cancel_action() first."
+            )
+
+        if action.agent is not self:
+            raise ValueError(
+                f"Action's agent (id={action.agent.unique_id}) does not match "
+                f"this agent (id={self.unique_id})."
+            )
+
+        self.current_action = action
+        action.start()
+
+        # If the action completed instantly (duration=0), start() already
+        # called _do_complete which cleared current_action via the Action.
+        return action
+
+    def interrupt_for(self, new_action: Action) -> bool:
+        """Interrupt the current action and start a new one.
+
+        If there is no current action, simply starts the new one. If the
+        current action is non-interruptible, returns False and does nothing.
+
+        Args:
+            new_action: The Action to perform instead.
+
+        Returns:
+            True if the new action was started (either no current action,
+            or the current one was successfully interrupted). False if the
+            current action is non-interruptible.
+        """
+        if self.current_action is not None and not self.current_action.interrupt():
+            return False
+            # interrupt() already cleared current_action
+
+        self.start_action(new_action)
+        return True
+
+    def cancel_action(self) -> bool:
+        """Cancel the current action, ignoring interruptible flag.
+
+        Calls on_interrupt with partial progress. Returns False only if
+        there is no current action.
+
+        Returns:
+            True if an action was cancelled, False if idle.
+        """
+        if self.current_action is None:
+            return False
+
+        self.current_action.cancel()
+        # cancel() already cleared current_action
+        return True
+
+    @property
+    def is_busy(self) -> bool:
+        """Whether the agent is currently performing an action."""
+        return self.current_action is not None
