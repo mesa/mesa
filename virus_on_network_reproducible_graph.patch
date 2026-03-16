@@ -10,5 +10,5 @@ diff --git a/mesa/examples/basic/virus_on_network/model.py b/mesa/examples/basic
 +        # This avoids test flakiness and makes the example easier to debug.
 +        graph = nx.erdos_renyi_graph(n=num_nodes, p=prob, seed=self.rng)
          self.grid = Network(graph, capacity=1, random=self.random)
- 
+
          self.initial_outbreak_size = (
