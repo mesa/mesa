@@ -309,7 +309,7 @@ def test_rescale_bounds_mapping():
 
     expected = np.array([[5, 2]])
     assert np.allclose(scaled, expected)
-    
+
 
 def test_rescale_inplace():
     """Check that inplace=True modifies the original array."""

@@ -21,8 +21,7 @@ def rescale_samples(
     *,
     inplace: bool = False,
 ) -> np.ndarray:
-    """
-    Rescale samples from the unit interval [0, 1] to parameter ranges.
+    """Rescale samples from the unit interval [0, 1] to parameter ranges.
 
     Parameters
     ----------
@@ -35,17 +34,16 @@ def rescale_samples(
         If False (default), a new array containing the rescaled samples
         is returned.
 
-    Returns
+    Returns:
     -------
     ndarray (n, d)
         Rescaled samples.
 
-    Notes
+    Notes:
     -----
     The rescaling is performed using NumPy broadcasting. If ``inplace=True``,
     the original ``samples`` array is overwritten.
     """
-
     samples = np.asarray(samples)
     ranges = np.asarray(ranges)
 
