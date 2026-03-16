@@ -113,18 +113,18 @@ class ContinuousSpace:
         index = self._n_agents
         self._n_agents += 1
 
-        if self._agent_positions.shape[0] <= index:
-            # we are out of space
-            fraction = 0.2  # we add 20%  Fixme
-            n = round(fraction * self._n_agents, None)
-            self._agent_positions = np.vstack(
-                [
-                    self._agent_positions,
-                    np.empty(
-                        (n, self.dimensions.shape[0]),
-                    ),
-                ]
+        current_capacity = self._agent_positions.shape[0]
+        if current_capacity <= index:
+            # expand using pre-allocation with a growth factor
+            growth_factor = 0.2
+            n = max(int(current_capacity * growth_factor), 20)
+            new_capacity = current_capacity + n
+
+            new_positions = np.empty(
+                (new_capacity, self.dimensions.shape[0]), dtype=float
             )
+            new_positions[:current_capacity] = self._agent_positions
+            self._agent_positions = new_positions
 
         agent._mesa_index = index
         self._index_to_agent[index] = agent
