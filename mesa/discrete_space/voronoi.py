@@ -12,7 +12,7 @@ Useful for models requiring irregular but mathematically meaningful spatial
 divisions, like territories, service areas, or natural regions.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from itertools import combinations
 from random import Random
 
@@ -188,7 +188,7 @@ class VoronoiGrid(DiscreteSpace):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        capacity_function: callable | None = None,
+        capacity_function: Callable | None = None,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
