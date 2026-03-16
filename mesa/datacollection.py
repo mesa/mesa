@@ -120,7 +120,7 @@ class DataCollector:
             "DataCollector is deprecated and will be removed in Mesa 4.0. "
             "Use the new data collection system (DataRegistry, DataSet, DataRecorder) instead. "
             "See: https://mesa.readthedocs.io/latest/migration_guide.html",
-            FutureWarning,
+            PendingDeprecationWarning,
             stacklevel=2,
         )
 
