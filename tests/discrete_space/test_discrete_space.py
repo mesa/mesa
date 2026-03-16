@@ -1251,3 +1251,27 @@ def test_network_missing_layout_node():
         SpaceException, match="is missing from the provided layout dictionary"
     ):
         Network(g, layout=partial_layout, random=rng)
+
+
+def test_cell_repr():
+    """Test Cell.__repr__ output."""
+    rng = random.Random(42)
+    cell = Cell((1, 2), capacity=None, random=rng)
+    result = repr(cell)
+    assert "Cell" in result
+    assert "(1, 2)" in result
+    assert "[]" in result
+
+
+def test_cell_reassignment_noop():
+    """Test that assigning agent to its current cell is a no-op."""
+    model = Model()
+    grid = OrthogonalMooreGrid((5, 5), torus=True, random=model.random)
+    cell = grid._cells[(2, 2)]
+    agent = CellAgent(model)
+    agent.cell = cell
+
+    # Reassign to same cell — should not raise or change anything
+    agent.cell = cell
+    assert agent.cell is cell
+    assert len(cell._agents) == 1
