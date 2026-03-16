@@ -33,8 +33,6 @@ datacollector = DataCollector(
 from mesa.datacollection import DataRegistry
 ```
 
-- Ref: [Issue #3547](https://github.com/projectmesa/mesa/issues/3547), [PR #3550](https://github.com/projectmesa/mesa/pull/3550)
-
 ### Event scheduling and time advancement
 Mesa 3.5 introduces public methods for event scheduling and time advancement directly on `Model`, replacing the need for `Simulator` classes.
 
