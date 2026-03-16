@@ -407,7 +407,7 @@ class DataCollector:
                             if False, throw an error if any columns are missing
         """
         if table_name not in self.tables:
-            raise Exception("Table does not exist.")
+            raise KeyError(f"Table '{table_name}' does not exist.")
 
         for column in self.tables[table_name]:
             if column in row:
@@ -415,7 +415,7 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise Exception("Could not insert row with missing column")
+                raise ValueError("Could not insert row with missing column")
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
