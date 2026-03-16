@@ -1254,56 +1254,42 @@ def test_network_missing_layout_node():
         Network(g, layout=partial_layout, random=rng)
 
 
-# ---------------------------------------------------------------------------
-# VoronoiGrid capacity fix — Issue #3543
-# ---------------------------------------------------------------------------
-
-
 def test_voronoi_default_no_capacity() -> None:
-    """Default VoronoiGrid (no capacity, no function) leaves cells with None capacity."""
+    """Default VoronoiGrid (capacity=None) leaves cells with None capacity."""
     centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
     grid = VoronoiGrid(centroids, random=random.Random(42))
     for cell in grid._cells.values():
         assert cell.capacity is None
 
 
-def test_voronoi_explicit_capacity_is_preserved() -> None:
-    """Explicit capacity must not be overwritten by the area function."""
+def test_voronoi_int_capacity_applied_to_all_cells() -> None:
+    """Integer capacity is applied uniformly to every cell."""
     centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
     grid = VoronoiGrid(centroids, capacity=5, random=random.Random(42))
     for cell in grid._cells.values():
         assert cell.capacity == 5
 
 
-def test_voronoi_capacity_function_used_when_no_capacity() -> None:
-    """capacity_function is applied per-cell when capacity=None."""
+def test_voronoi_callable_capacity_derives_from_area() -> None:
+    """A callable capacity is called per-cell with polygon area and must return int."""
     centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
-    grid = VoronoiGrid(
-        centroids,
-        capacity=None,
-        capacity_function=round_float,
-        random=random.Random(42),
-    )
+    grid = VoronoiGrid(centroids, capacity=round_float, random=random.Random(42))
     for cell in grid._cells.values():
         assert cell.capacity is not None
         assert isinstance(cell.capacity, int)
         assert cell.capacity >= 0
 
 
-def test_voronoi_raises_when_both_capacity_and_function_provided() -> None:
-    """Providing both capacity and capacity_function must raise ValueError."""
+def test_voronoi_callable_capacity_custom_function() -> None:
+    """A custom callable capacity is applied correctly."""
     centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
-    with pytest.raises(ValueError, match="Cannot provide both"):
-        VoronoiGrid(
-            centroids,
-            capacity=3,
-            capacity_function=lambda area: 10,
-            random=random.Random(42),
-        )
+    grid = VoronoiGrid(centroids, capacity=lambda area: 10, random=random.Random(42))
+    for cell in grid._cells.values():
+        assert cell.capacity == 10
 
 
-def test_voronoi_explicit_capacity_enforced_at_runtime() -> None:
-    """CellFullException fires at runtime with explicit capacity=1."""
+def test_voronoi_int_capacity_enforced_at_runtime() -> None:
+    """CellFullException fires when integer capacity is exceeded."""
     centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
     model = Model(rng=42)
     grid = VoronoiGrid(centroids, capacity=1, random=random.Random(42))
