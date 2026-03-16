@@ -206,6 +206,7 @@ class VoronoiGrid(DiscreteSpace):
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.centroids_coordinates = centroids_coordinates
+        self.capacity_function = capacity_function
         self._validate_parameters()
 
         # Build KD-tree for fast nearest-centroid lookup
@@ -226,7 +227,6 @@ class VoronoiGrid(DiscreteSpace):
         self.regions = None
         self.triangulation = None
         self.voronoi_coordinates = None
-        self.capacity_function = capacity_function
 
         if capacity is not None and capacity_function is not None:
             raise ValueError(
