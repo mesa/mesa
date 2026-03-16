@@ -99,3 +99,9 @@ def test_voronoi_capacity_none_and_no_function_allows_unlimited() -> None:
     for _ in range(10):
         make_agent(model).move_to(cell)
     assert len(cell._agents) == 10
+
+
+def test_voronoi_raises_on_non_callable_capacity_function() -> None:
+    """Passing a non-callable as capacity_function must raise ValueError."""
+    with pytest.raises(ValueError, match="callable"):
+        VoronoiGrid(CENTROIDS, capacity_function=42, random=RNG)
