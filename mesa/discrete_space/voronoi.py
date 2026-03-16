@@ -188,7 +188,7 @@ class VoronoiGrid(DiscreteSpace):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        capacity_function: callable = round_float,
+        capacity_function: callable | None = None,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
@@ -228,11 +228,11 @@ class VoronoiGrid(DiscreteSpace):
         self.voronoi_coordinates = None
         self.capacity_function = capacity_function
 
-        if capacity is not None and capacity_function is not round_float:
+        if capacity is not None and capacity_function is not None:
             raise ValueError(
-                "Passing both capacity and a custom capacity_function is not allowed. "
-                "Use capacity for a fixed per-cell limit, or capacity_function to derive "
-                "per-cell limits from polygon area — not both."
+                "Cannot provide both capacity and capacity_function. "
+                "Use capacity for a fixed per-cell limit, or capacity_function "
+                "to derive per-cell limits from polygon area — not both."
             )
         self._connect_cells()
         self._build_cell_polygons()
@@ -300,6 +300,9 @@ class VoronoiGrid(DiscreteSpace):
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
             if self.capacity is not None:
+                # User provided a fixed capacity — use it directly.
                 self._cells[region].capacity = self.capacity
-            else:
+            elif self.capacity_function is not None:
+                # No fixed capacity but a function was provided — derive from area.
                 self._cells[region].capacity = self.capacity_function(polygon_area)
+            # else: both are None — cell capacity stays None (no limit).
