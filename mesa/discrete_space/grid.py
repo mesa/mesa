@@ -123,7 +123,6 @@ class Grid(DiscreteSpace[T]):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
-        self.create_property_layer("full", default_value=False, dtype=bool)
 
     def create_property_layer(
         self,
@@ -374,13 +373,12 @@ class Grid(DiscreteSpace[T]):
                 if not cell.is_full:
                     return cell
 
-        full_coords = np.argwhere(self.property_layers["full"] == False)  # noqa: E712
-        if len(full_coords) == 0:
+        not_full = [cell for cell in cells if not cell.is_full]
+        if not not_full:
             raise IndexError(
                 "No available cells exist in the grid: all cells are at full capacity."
             )
-        random_coord = random.choice(full_coords)
-        return self._cells[tuple(random_coord)]
+        return random.choice(not_full)
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate

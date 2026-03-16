@@ -840,7 +840,7 @@ def test_property_layer_integration():
 
     grid.create_property_layer("elevation", default_value=0.0)
     assert "elevation" in grid.property_layers
-    assert len(grid.property_layers) == 3
+    assert len(grid.property_layers) == 2
 
     # Test accessing Property Layer from a cell
     cell = grid._cells[(0, 0)]
@@ -910,7 +910,7 @@ def test_multiple_property_layers():
     grid.create_property_layer("temperature", default_value=20.0)
     assert "elevation" in grid.property_layers
     assert "temperature" in grid.property_layers
-    assert len(grid.property_layers) == 4  # empty + full + elevation + temperature
+    assert len(grid.property_layers) == 3  # empty + elevation + temperature
 
     grid.property_layers["elevation"][:] += 10
     grid.property_layers["temperature"][:] += 5
