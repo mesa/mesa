@@ -185,10 +185,9 @@ class VoronoiGrid(DiscreteSpace):
     def __init__(
         self,
         centroids_coordinates: Sequence[Sequence[float]],
-        capacity: float | None = None,
+        capacity: int | Callable | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        capacity_function: Callable | None = None,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
@@ -204,7 +203,17 @@ class VoronoiGrid(DiscreteSpace):
             capacity_function (Callable): function to compute (int) capacity according to (float) area
 
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        # Separate callable capacity from numeric capacity before passing to base class
+        if callable(capacity):
+            capacity_function = capacity
+            numeric_capacity = None
+        else:
+            capacity_function = None
+            numeric_capacity = capacity
+
+        super().__init__(
+            capacity=numeric_capacity, random=random, cell_klass=cell_klass
+        )
         self.centroids_coordinates = centroids_coordinates
         self.capacity_function = capacity_function
         self._validate_parameters()
@@ -228,12 +237,6 @@ class VoronoiGrid(DiscreteSpace):
         self.triangulation = None
         self.voronoi_coordinates = None
 
-        if capacity is not None and capacity_function is not None:
-            raise ValueError(
-                "Cannot provide both capacity and capacity_function. "
-                "Use capacity for a fixed per-cell limit, or capacity_function "
-                "to derive per-cell limits from polygon area — not both."
-            )
         self._connect_cells()
         self._build_cell_polygons()
 
@@ -268,8 +271,7 @@ class VoronoiGrid(DiscreteSpace):
     def _validate_parameters(self) -> None:
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise ValueError("Capacity must be a number or None.")
-        if self.capacity_function is not None and not callable(self.capacity_function):
-            raise ValueError("capacity_function must be callable or None.")
+
         if not isinstance(self.centroids_coordinates, Sequence) or not isinstance(
             self.centroids_coordinates[0], Sequence
         ):
