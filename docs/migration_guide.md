@@ -14,28 +14,109 @@ Users should migrate to the new data collection system:
 - `DataSet`
 - `DataRecorder`
 
-The legacy `DataCollector` class will continue to work for now but will emit a `FutureWarning` to notify users about the upcoming removal.
+The legacy `DataCollector` class will continue to work for now but will emit a `PendingDeprecationWarning` to notify users about the upcoming removal.
 
-#### Example
+### Example: Migrating from DataCollector to DataRegistry
+
+Old (DataCollector) → New (DataRegistry + DataRecorder)
+
+Key Concepts:
+- DataRegistry → defines WHAT to collect
+- DatasetConfig → defines WHEN to collect
+- DataRecorder → defines HOW to store
+
+### Note
+
+In the current experimental data collection API, data collection may not be triggered automatically in all execution flows.  
+To ensure data is recorded, call `recorder.collect()` explicitly inside the model `step()` method.
 
 ```python
-# Old (deprecated)
+# =========================
+# OLD APPROACH (DEPRECATED)
+# =========================
+
+from mesa import Model, Agent
 from mesa.datacollection import DataCollector
 
-datacollector = DataCollector(
-    model_reporters={"AgentCount": lambda m: len(m.agents)}
+
+class OldModel(Model):
+    def __init__(self):
+        super().__init__()
+
+        self.agents_list = [Agent(self) for _ in range(5)]
+
+        self.datacollector = DataCollector(
+            model_reporters={
+                "AgentCount": lambda m: len(m.agents_list)
+            }
+        )
+
+    def step(self):
+        self.datacollector.collect(self)
+
+
+# =========================
+# NEW APPROACH (RECOMMENDED)
+# =========================
+
+from mesa import Model, Agent
+from mesa.experimental.data_collection import (
+    DataRecorder,
+    DatasetConfig,
+    ModelDataSet
 )
+
+
+class NewAgent(Agent):
+    def __init__(self, model):
+        super().__init__(model)
+
+
+class NewModel(Model):
+    def __init__(self):
+        super().__init__()
+
+        # Create agents
+        self.agents_list = [NewAgent(self) for _ in range(5)]
+
+        # 1️⃣ WHAT to collect
+        dataset = ModelDataSet(
+            name="model_data",
+            model=self,
+            fields=["agent_count"]
+        )
+        self.data_registry.add_dataset(dataset)
+
+        # 2️⃣ WHEN to collect
+        config = {
+            "model_data": DatasetConfig(interval=1)
+        }
+
+        # 3️⃣ HOW to store
+        self.recorder = DataRecorder(self, config=config)
+
+    @property
+    def agent_count(self):
+        return len(self.agents_list)
+
+    def step(self):
+        # Manual collection (important for experimental API)
+        self.recorder.collect()
+
+
+# =========================
+# RUN EXAMPLE
+# =========================
+
+if __name__ == "__main__":
+    model = NewModel()
+
+    for _ in range(5):
+        model.step()
+
+    df = model.recorder.get_table_dataframe("model_data")
+    print(df)
 ```
-
-```python
-# New
-# Use the new data collection system instead
-from mesa.datacollection import DataRegistry
-```
-
-### Event scheduling and time advancement
-Mesa 3.5 introduces public methods for event scheduling and time advancement directly on `Model`, replacing the need for `Simulator` classes.
-
 #### Time-based advancement replaces step loops
 ```python
 # Old
