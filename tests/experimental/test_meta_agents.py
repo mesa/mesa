@@ -181,6 +181,8 @@ def test_explicit_meta_attributes_and_methods_take_precedence():
 
     model = Model()
     a = A(model)
+    # Ensure the original agent method is executed (coverage for line 180).
+    assert a.custom_method() == "from_agent"
 
     meta = create_meta_agent(
         model,
