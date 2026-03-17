@@ -16,12 +16,15 @@ The model is tests and demonstrates several Mesa concepts and features:
 
 ## How to Run
 
-Assuming Mesa is already installed, run the example with:
+Install Mesa with recommended dependencies:
+
+pip install "mesa[rec]"
+
+Then run the example:
 
 solara run app.py
 
-Then open the displayed local URL in your browser.
-
+Open the displayed local URL in your browser.
 
 ## Files
 

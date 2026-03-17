@@ -9,11 +9,15 @@ The "game" is a zero-player game, meaning that its evolution is determined by it
 
 ## How to Run
 
-Assuming Mesa is already installed, run the example with:
+Install Mesa with recommended dependencies:
+
+pip install "mesa[rec]"
+
+Then run the example:
 
 solara run app.py
 
-Then open the displayed local URL in your browser.
+Open the displayed local URL in your browser.
 
 
 
