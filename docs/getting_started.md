@@ -58,7 +58,7 @@ You can install Mesa using pip:
 pip install mesa
 import mesa
 print(mesa._version_)
-
+if no errors occur,mesa is successfully
 
 
 
