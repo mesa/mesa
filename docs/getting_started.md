@@ -50,6 +50,14 @@ To further explore Mesa and its features, we have the following resources availa
 - [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org): Real-time chat for quick questions and community interaction.
 
 Enjoy modelling with Mesa, and feel free to reach out!
+**Quick Installation**
+
+You can install Mesa using pip:
+
+***bash
+pip install mesa
+import mesa
+print(mesa._version_)
 
 
 
