@@ -27,7 +27,7 @@ Key Concepts:
 
 ### Note
 
-In the current experimental data collection API, data collection may not be triggered automatically in all execution flows.  
+In the current experimental data collection API, data collection may not be triggered automatically in all execution flows.
 To ensure data is recorded, call `recorder.collect()` explicitly inside the model `step()` method.
 
 ```python
