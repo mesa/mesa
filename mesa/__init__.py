@@ -27,14 +27,18 @@ __copyright__ = f"Copyright {_this_year} Mesa Team"
 
 # Lazy import to avoid importing optional dependencies at package import time
 
+
 def __getattr__(name):
     if name == "discrete_space":
         import mesa.discrete_space as discrete_space
+
         return discrete_space
     elif name == "experimental":
         import mesa.experimental as experimental
+
         return experimental
     elif name == "time":
         import mesa.time as time
+
         return time
     raise AttributeError(f"module 'mesa' has no attribute '{name}'")
