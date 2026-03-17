@@ -22,6 +22,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.discrete_space.voronoi import round_float
 from mesa.exceptions import (
     AgentMissingException,
     CellFullException,
@@ -1096,7 +1097,7 @@ def test_select_random_agent_empty_safe():
 
 
 def test_infinite_loop_on_full_grid():
-    """Test that select_random_empty_cell does not hang on a full grid."""
+    """Test that select_random_empty_cell raises ValueError with informative message on a full grid."""
     # 1. Create a small 2x2 model
     model = Model()
     grid = OrthogonalMooreGrid((2, 2), random=model.random)
@@ -1109,7 +1110,8 @@ def test_infinite_loop_on_full_grid():
     # 3. Verify grid is full
     assert len(grid.empties) == 0
 
-    with pytest.raises(IndexError):
+    # 4. Ensure ValueError is raised with a clear message
+    with pytest.raises(ValueError, match="Grid is completely full"):
         grid.select_random_empty_cell()
 
 
@@ -1250,3 +1252,50 @@ def test_network_missing_layout_node():
         SpaceException, match="is missing from the provided layout dictionary"
     ):
         Network(g, layout=partial_layout, random=rng)
+
+
+def test_voronoi_default_no_capacity() -> None:
+    """Default VoronoiGrid (capacity=None) leaves cells with None capacity."""
+    centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+    for cell in grid._cells.values():
+        assert cell.capacity is None
+
+
+def test_voronoi_int_capacity_applied_to_all_cells() -> None:
+    """Integer capacity is applied uniformly to every cell."""
+    centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
+    grid = VoronoiGrid(centroids, capacity=5, random=random.Random(42))
+    for cell in grid._cells.values():
+        assert cell.capacity == 5
+
+
+def test_voronoi_callable_capacity_derives_from_area() -> None:
+    """A callable capacity is called per-cell with polygon area and must return int."""
+    centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
+    grid = VoronoiGrid(centroids, capacity=round_float, random=random.Random(42))
+    for cell in grid._cells.values():
+        assert cell.capacity is not None
+        assert isinstance(cell.capacity, int)
+        assert cell.capacity >= 0
+
+
+def test_voronoi_callable_capacity_custom_function() -> None:
+    """A custom callable capacity is applied correctly."""
+    centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
+    grid = VoronoiGrid(centroids, capacity=lambda area: 10, random=random.Random(42))
+    for cell in grid._cells.values():
+        assert cell.capacity == 10
+
+
+def test_voronoi_int_capacity_enforced_at_runtime() -> None:
+    """CellFullException fires when integer capacity is exceeded."""
+    centroids = [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [1.5, 1.0], [0.0, 2.0], [1.0, 2.0]]
+    model = Model(rng=42)
+    grid = VoronoiGrid(centroids, capacity=1, random=random.Random(42))
+    cell = next(iter(grid._cells.values()))
+    a1 = CellAgent(model)
+    a2 = CellAgent(model)
+    a1.move_to(cell)
+    with pytest.raises(CellFullException):
+        a2.move_to(cell)

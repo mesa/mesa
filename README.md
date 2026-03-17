@@ -1,4 +1,5 @@
-<p align="center"><em>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide</em></p>
+<p align="center"><em>Mesa 4 is in active development! Checkout our latest <a href="https://github.com/mesa/mesa/releases">pre-releases</a> and <a href="https://github.com/mesa/mesa/issues/3132">issue tracker</a>.
+<br>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide.</em></p>
 
 # Mesa: Agent-based modeling in Python
 
@@ -30,11 +31,14 @@ can be displayed in browser windows or Jupyter. An online demo is [available her
 -   Example model library
 
 ## Using Mesa
+To install our latest stable Mesa 3 release, run:
 
-To install our latest stable release, run:
-
-``` bash
+```bash
 pip install -U mesa
+```
+Development of Mesa 4 has started. To install our latest Mesa 4 pre-release, use:
+```bash
+pip install -U --pre mesa
 ```
 
 Starting with Mesa 3.0, we don't install all our dependencies anymore by default.

@@ -72,7 +72,7 @@ def test_continuous_agent():
     assert space.agent_positions.shape == (10, 2)
     for agent in space.agents:
         a = agent.position
-        b = space._agent_positions[space._agent_to_index[agent]]
+        b = space._agent_positions[agent._mesa_index]
         assert np.all(a == b)
         assert np.all(agent.position == agent.coordinate)
 
@@ -86,7 +86,7 @@ def test_continuous_agent():
     assert space.agent_positions.shape == (110, 2)
     for agent in space.agents:
         a = agent.position
-        b = space._agent_positions[space._agent_to_index[agent]]
+        b = space._agent_positions[agent._mesa_index]
         assert np.all(a == b)
         assert np.all(agent.position == agent.coordinate)
 
@@ -457,10 +457,9 @@ def test_agent_removal_no_ghost_entries():
     space._remove_agent(agents[1])
     assert len(space.active_agents) == 2
     assert len(space._index_to_agent) == 2
-    assert len(space._agent_to_index) == 2
 
     for idx, agent in enumerate(space.active_agents):
-        assert space._agent_to_index[agent] == idx
+        assert agent._mesa_index == idx
         assert space._index_to_agent[idx] == agent
 
     # Test 2: Remove last agent
@@ -488,5 +487,5 @@ def test_agent_removal_no_ghost_entries():
     assert len(space._index_to_agent) == 3
 
     for idx, agent in enumerate(space.active_agents):
-        assert space._agent_to_index[agent] == idx
+        assert agent._mesa_index == idx
         assert space._index_to_agent[idx] == agent
