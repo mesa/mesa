@@ -189,13 +189,15 @@ def create_meta_agent(
                 meta_methods = {}
             for agent_class in agent_classes:
                 for name in agent_class.__dict__:
-                    if callable(getattr(agent_class, name)) and not name.startswith(
-                        "__"
-                    ) and name not in meta_methods:
+                    if (
+                        callable(getattr(agent_class, name))
+                        and not name.startswith("__")
+                        and name not in meta_methods
+                    ):
                         # Only infer a method if it was not explicitly provided.
                         # This ensures user-supplied meta_methods remain authoritative.
-                            original_method = getattr(agent_class, name)
-                            meta_methods[name] = original_method
+                        original_method = getattr(agent_class, name)
+                        meta_methods[name] = original_method
 
         if meta_methods is not None:
             for name, meth in meta_methods.items():
@@ -237,7 +239,7 @@ def create_meta_agent(
                     ):
                         # Only infer an attribute if it was not explicitly provided.
                         # This ensures user-supplied meta_attributes remain authoritative.
-                            meta_attributes[name] = value
+                        meta_attributes[name] = value
 
         if meta_attributes is not None:
             for key, value in meta_attributes.items():
