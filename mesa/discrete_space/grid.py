@@ -338,6 +338,8 @@ class Grid(DiscreteSpace[T]):
         """
         if self.capacity is None:
             return self.all_cells
+        if self.capacity is None:
+            return self.all_cells
         return self.all_cells.select(lambda cell: not cell.is_full)
 
     def select_random_not_full_cell(self) -> Cell:
