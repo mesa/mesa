@@ -1276,8 +1276,6 @@ GRID_FACTORIES = [
     ),
 ]
 
-# Six-point Voronoi test fixture
-
 
 def make_model() -> Model:
     """Return a freshly seeded Model instance."""
