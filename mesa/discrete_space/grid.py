@@ -343,20 +343,6 @@ class Grid(DiscreteSpace[T]):
     def select_random_not_full_cell(self) -> Cell:
         """Select a random cell that has remaining capacity.
 
-        Uses the same two-phase heuristic as :meth:`select_random_empty_cell`:
-
-        1. **Fast path** — attempt up to 50 random samples from the cell list
-           (O(1) average when the grid is not densely occupied).
-        2. **Fallback** — if the fast path fails, build an explicit list of
-           available cells and sample from that (O(n) worst case).
-
-        This mirrors the performance characteristics documented in the
-        ``select_random_empty_cell`` implementation (see Agents.jl discussion
-        at https://github.com/JuliaDynamics/Agents.jl/pull/541).
-
-        Returns:
-            T: A randomly chosen cell where ``not cell.is_full``.
-
         Raises:
             IndexError: If every cell in the grid is at full capacity.
 
@@ -368,6 +354,9 @@ class Grid(DiscreteSpace[T]):
         """
         random = self.random
         cells = self._celllist
+        # Fast path: up to 50 random samples, O(1) average when grid is sparse.
+        # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
+        # heuristic, see https://github.com/JuliaDynamics/Agents.jl/pull/541).
 
         if self._try_random:
             for _ in range(50):
