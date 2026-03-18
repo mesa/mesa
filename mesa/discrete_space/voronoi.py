@@ -12,7 +12,7 @@ Useful for models requiring irregular but mathematically meaningful spatial
 divisions, like territories, service areas, or natural regions.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from itertools import combinations
 from random import Random
 
@@ -185,10 +185,9 @@ class VoronoiGrid(DiscreteSpace):
     def __init__(
         self,
         centroids_coordinates: Sequence[Sequence[float]],
-        capacity: float | None = None,
+        capacity: int | Callable | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        capacity_function: callable = round_float,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
@@ -204,8 +203,19 @@ class VoronoiGrid(DiscreteSpace):
             capacity_function (Callable): function to compute (int) capacity according to (float) area
 
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        # Separate callable capacity from numeric capacity before passing to base class
+        if callable(capacity):
+            capacity_function = capacity
+            numeric_capacity = None
+        else:
+            capacity_function = None
+            numeric_capacity = capacity
+
+        super().__init__(
+            capacity=numeric_capacity, random=random, cell_klass=cell_klass
+        )
         self.centroids_coordinates = centroids_coordinates
+        self.capacity_function = capacity_function
         self._validate_parameters()
 
         # Build KD-tree for fast nearest-centroid lookup
@@ -226,7 +236,6 @@ class VoronoiGrid(DiscreteSpace):
         self.regions = None
         self.triangulation = None
         self.voronoi_coordinates = None
-        self.capacity_function = capacity_function
 
         self._connect_cells()
         self._build_cell_polygons()
@@ -262,6 +271,7 @@ class VoronoiGrid(DiscreteSpace):
     def _validate_parameters(self) -> None:
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise ValueError("Capacity must be a number or None.")
+
         if not isinstance(self.centroids_coordinates, Sequence) or not isinstance(
             self.centroids_coordinates[0], Sequence
         ):
@@ -293,4 +303,10 @@ class VoronoiGrid(DiscreteSpace):
             self._cells[region].properties["polygon"] = polygon
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
-            self._cells[region].capacity = self.capacity_function(polygon_area)
+            if self.capacity is not None:
+                # User provided a fixed capacity — use it directly.
+                self._cells[region].capacity = self.capacity
+            elif self.capacity_function is not None:
+                # No fixed capacity but a function was provided — derive from area.
+                self._cells[region].capacity = self.capacity_function(polygon_area)
+            # else: both are None — cell capacity stays None (no limit).
