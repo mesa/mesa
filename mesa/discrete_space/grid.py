@@ -331,7 +331,7 @@ class Grid(DiscreteSpace[T]):
         Example::
 
             # Place an agent in any non-full cell
-            agent.move_to(grid.select_random_available_cell())
+            agent.move_to(grid.select_random_not_full_cell())
 
             # Count how many cells still have room
             len(list(grid.available_cells))
