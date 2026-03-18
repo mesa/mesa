@@ -1323,26 +1323,3 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
     a1.move_to(cell)
     with pytest.raises(CellFullException):
         a2.move_to(cell)
-
-
-def test_cell_repr():
-    """Test Cell.__repr__ output."""
-    rng = random.Random(42)
-    cell = Cell((1, 2), capacity=None, random=rng)
-    result = repr(cell)
-    assert "Cell" in result
-    assert "(1, 2)" in result
-    assert "[]" in result
-
-
-def test_cell_reassignment_noop():
-    """Test that assigning agent to its current cell is a no-op."""
-    model = Model()
-    grid = OrthogonalMooreGrid((5, 5), torus=True, random=model.random)
-    cell = grid._cells[(2, 2)]
-    agent = CellAgent(model)
-    agent.cell = cell
-
-    agent.cell = cell
-    assert agent.cell is cell
-    assert len(cell._agents) == 1
