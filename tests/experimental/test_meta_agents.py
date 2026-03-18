@@ -184,6 +184,29 @@ def test_evaluate_combination(setup_agents):
     assert result[1] == len(agents)
 
 
+def test_evaluate_combination_raises_on_non_numeric(setup_agents):
+    """evaluate_combination must raise TypeError if evaluation_func returns non-numeric."""
+    model, agents = setup_agents
+
+    def bad_func(group):
+        return "not a number"
+
+    with pytest.raises(TypeError, match="numeric"):
+        evaluate_combination(tuple(agents[:2]), model, bad_func)
+
+
+def test_evaluate_combination_allows_negative_value(setup_agents):
+    """evaluate_combination must accept negative numeric return values."""
+    model, agents = setup_agents
+
+    def negative_func(group):
+        return -10.0
+
+    result = evaluate_combination(tuple(agents[:2]), model, negative_func)
+    assert result is not None
+    assert result[1] == -10.0
+
+
 def test_find_combinations(setup_agents):
     """Test the find_combinations function.
 
