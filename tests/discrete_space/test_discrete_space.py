@@ -1362,7 +1362,7 @@ def test_vacating_agent_frees_capacity(factory) -> None:
 def test_available_cells_full_grid_all_returned(factory) -> None:
     """On a fresh (empty) grid every cell is available."""
     grid = factory(2)
-    assert len(list(grid.not_full_cells)) == len(grid._celllist)
+    assert len(list(grid.cells_with_capacity)) == len(grid._celllist)
 
 
 @pytest.mark.parametrize("factory", GRID_FACTORIES)
@@ -1372,7 +1372,7 @@ def test_available_cells_excludes_full_cell(factory) -> None:
     grid = factory(1)
     cell = grid._celllist[0]
     make_agent(model).move_to(cell)
-    available = list(grid.not_full_cells)
+    available = list(grid.cells_with_capacity)
     assert cell not in available
     assert len(available) == len(grid._celllist) - 1
 
@@ -1385,7 +1385,7 @@ def test_available_cells_includes_partially_filled_cell(factory) -> None:
     cell = grid._celllist[0]
     for _ in range(2):
         make_agent(model).move_to(cell)
-    assert cell in list(grid.not_full_cells)
+    assert cell in list(grid.cells_with_capacity)
 
 
 @pytest.mark.parametrize("factory", GRID_FACTORIES)
@@ -1396,7 +1396,7 @@ def test_available_cells_unlimited_always_includes_cell(factory) -> None:
     cell = grid._celllist[0]
     for _ in range(50):
         make_agent(model).move_to(cell)
-    assert cell in list(grid.not_full_cells)
+    assert cell in list(grid.cells_with_capacity)
 
 
 @pytest.mark.parametrize("factory", GRID_FACTORIES)
@@ -1407,9 +1407,9 @@ def test_available_cells_recovers_after_agent_leaves(factory) -> None:
     cell = grid._celllist[0]
     agent = make_agent(model)
     agent.move_to(cell)
-    assert cell not in list(grid.not_full_cells)
+    assert cell not in list(grid.cells_with_capacity)
     agent.cell = None
-    assert cell in list(grid.not_full_cells)
+    assert cell in list(grid.cells_with_capacity)
 
 
 # ---------------------------------------------------------------------------
@@ -1449,7 +1449,7 @@ def test_select_random_available_cell_consistent_with_available_cells(factory) -
     for cell in grid._celllist[::3]:
         for _ in range(2):
             make_agent(model).move_to(cell)
-    available_set = set(grid.not_full_cells)
+    available_set = set(grid.cells_with_capacity)
     for _ in range(30):
         chosen = grid.select_random_not_full_cell()
         assert chosen in available_set

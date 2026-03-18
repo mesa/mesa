@@ -310,7 +310,7 @@ class Grid(DiscreteSpace[T]):
         return self._cells[tuple(random_coord)]
 
     @property
-    def not_full_cells(self) -> CellCollection[T]:
+    def cells_with_capacity(self) -> CellCollection[T]:
         """Return all cells that have available capacity (i.e. are not full).
 
         A cell is considered *available* if ``not cell.is_full``.
