@@ -63,10 +63,6 @@ def evaluate_combination(
     """
     if evaluation_func:
         value = evaluation_func(candidate_group)
-        try:
-            float(value)
-        except (TypeError, ValueError) as err:
-            raise TypeError("evaluation_func must return a numeric value, ") from err
         return candidate_group, value
     return None
 
