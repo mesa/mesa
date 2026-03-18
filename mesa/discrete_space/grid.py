@@ -336,9 +336,11 @@ class Grid(DiscreteSpace[T]):
             # Count how many cells still have room
             len(list(grid.available_cells))
         """
+        if self.capacity is None:
+            return self.all_cells
         return self.all_cells.select(lambda cell: not cell.is_full)
 
-    def select_random_not_full_cell(self) -> T:
+    def select_random_not_full_cell(self) -> Cell:
         """Select a random cell that has remaining capacity.
 
         Uses the same two-phase heuristic as :meth:`select_random_empty_cell`:
@@ -361,7 +363,7 @@ class Grid(DiscreteSpace[T]):
         Example::
 
             # Safe placement that respects capacity limits
-            free_cell = grid.select_random_available_cell()
+            free_cell = grid.select_random_not_full_cell()
             agent.move_to(free_cell)
         """
         random = self.random
