@@ -338,8 +338,6 @@ class Grid(DiscreteSpace[T]):
         """
         if self.capacity is None:
             return self.all_cells
-        if self.capacity is None:
-            return self.all_cells
         return self.all_cells.select(lambda cell: not cell.is_full)
 
     def select_random_not_full_cell(self) -> Cell:
@@ -366,12 +364,12 @@ class Grid(DiscreteSpace[T]):
                 if not cell.is_full:
                     return cell
 
-        not_full = [cell for cell in cells if not cell.is_full]
-        if not not_full:
+        available = list(self.cells_with_capacity)
+        if not available:
             raise IndexError(
                 "No available cells exist in the grid: all cells are at full capacity."
             )
-        return random.choice(not_full)
+        return random.choice(available)
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
