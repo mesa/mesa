@@ -79,6 +79,7 @@ For resources or help on using Mesa, check out the following:
 ## Running Mesa in Docker
 
 You can run Mesa in a Docker container in a few ways.
+You can run Mesa in a Docker container using different approaches depending on your use case.
 
 If you are a Mesa developer, first [install Docker
 Compose](https://docs.docker.com/compose/install/) and then, in the
