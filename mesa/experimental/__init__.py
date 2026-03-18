@@ -5,7 +5,6 @@ features are provided to allow early access and feedback from the Mesa community
 their APIs may change between releases without following semantic versioning.
 
 Current experimental modules:
-    devs: Discrete event simulation system for scheduling events at arbitrary times
     mesa_signals: Reactive programming capabilities for tracking state changes
 
 Notes:
@@ -14,6 +13,6 @@ Notes:
     - Features graduate from experimental status once their APIs are stabilized
 """
 
-from mesa.experimental import actions, continuous_space, devs, mesa_signals, meta_agents
+from mesa.experimental import actions, continuous_space, mesa_signals, meta_agents
 
-__all__ = ["actions", "continuous_space", "devs", "mesa_signals", "meta_agents"]
+__all__ = ["actions", "continuous_space", "mesa_signals", "meta_agents"]

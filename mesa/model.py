@@ -9,10 +9,12 @@ from __future__ import annotations
 import random
 import warnings
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
+from mesa.agent import Agent
+from mesa.agentset import _HardKeyAgentSet
 from mesa.experimental.data_collection.dataset import DataRegistry
 from mesa.experimental.mesa_signals import (
     HasEmitters,
@@ -20,12 +22,6 @@ from mesa.experimental.mesa_signals import (
     Observable,
     emit,
 )
-
-if TYPE_CHECKING:
-    from mesa.experimental.devs import Simulator
-
-from mesa.agent import Agent
-from mesa.agentset import _HardKeyAgentSet
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 from mesa.time import (
@@ -59,8 +55,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     Attributes:
         running: A boolean indicating if the model should continue running.
         steps: the number of times `model.step()` has been called.
-        time: the current simulation time. Automatically increments by 1.0
-              with each step unless controlled by a discrete event simulator.
+        time: the current simulation time.
         random: a seeded python.random number generator.
         rng: a seeded numpy.random.Generator
         scenario: the scenario instance containing model parameters
@@ -119,9 +114,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self.running: bool = True
         self.time: float = 0.0
         self.agent_id_counter: int = 1
-
-        # Track if a simulator is controlling time
-        self._simulator: Simulator | None = None
 
         # Event list for event-based execution
         self._event_list: EventList = EventList()
