@@ -338,28 +338,36 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     assert result == []  # No combinations when no evaluation function
 
 
-def test_assume_attributes_does_not_overwrite_mesa_internals():
-    """Test that assume_constituting_agent_attributes skips mesa-internal attributes.
+def test_assume_attributes_does_not_overwrite_existing_attributes():
+    """Test that hasattr() prevents overwriting existing meta-agent attributes.
 
-    Constituent agents with attributes named 'cell' or 'current_action' should
-    not silently overwrite those attributes on the meta-agent.
+    When assume_constituting_agent_attributes=True, the function should NOT
+    overwrite attributes that already exist on the meta-agent. It should only
+    fill in missing attributes from constituents.
     """
 
-    class SpatialWorker(Agent):
+    class CustomWorker(Agent):
         def __init__(self, model):
             super().__init__(model)
-            self.cell = "worker_cell"
-            self.current_action = "worker_action"
-            self.wealth = 100  # a normal user attribute
+            self.role = "worker"
+            self.wealth = 100
 
     model = Model()
-    w1 = SpatialWorker(model)
-    w2 = SpatialWorker(model)
+    w1 = CustomWorker(model)
+    w2 = CustomWorker(model)
 
-    # First call creates the meta-agent (Path 3)
-    create_meta_agent(model, "Team", [w1], Agent)
+    # First create a meta-agent and explicitly set 'role'
+    ma = create_meta_agent(
+        model,
+        "Team",
+        [w1],
+        Agent,
+        meta_attributes={"role": "team_lead"},  # Explicit attribute
+    )
 
-    # Second call hits Path 1 with assume_constituting_agent_attributes
+    assert ma.role == "team_lead"  # Verify explicit value is set
+
+    # Second call: add more agents with assume_constituting_agent_attributes=True
     ma = create_meta_agent(
         model,
         "Team",
@@ -368,9 +376,8 @@ def test_assume_attributes_does_not_overwrite_mesa_internals():
         assume_constituting_agent_attributes=True,
     )
 
-    # 'wealth' should be copied (it's a normal user attribute)
-    assert ma.wealth == 100
+    # The explicit 'role' should NOT be overwritten by constituent's 'role'
+    assert ma.role == "team_lead", "Existing attribute should not be overwritten"
 
-    # 'cell' and 'current_action' must NOT be overwritten by constituent values
-    assert getattr(ma, "cell", None) != "worker_cell"
-    assert getattr(ma, "current_action", None) != "worker_action"
+    # But 'wealth' (which didn't exist on meta-agent) should be copied
+    assert ma.wealth == 100, "Missing attributes should be copied from constituents"
