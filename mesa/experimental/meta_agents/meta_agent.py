@@ -250,14 +250,9 @@ def create_meta_agent(
                 ):
                     existing_meta_agents.append(ma)
 
-    if len(existing_meta_agents) > 0:
-        # TODO: Add way for user to specify how agents join meta-agent
-        # instead of random choice if there are multiple meta-agents of the same class
-        meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
-            if len(existing_meta_agents) > 1
-            else existing_meta_agents[0]
-        )
+if len(existing_meta_agents) > 0:
+        # Optimized O(n) selection and string conversion to prevent TypeError
+        meta_agent = min(existing_meta_agents, key=lambda x: str(x.unique_id))
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)
@@ -266,7 +261,6 @@ def create_meta_agent(
     else:
         # Path 2 - Create a new instance of an existing meta-agent class
         agent_class = extract_class(model.agents_by_type, new_agent_class)
-
         if agent_class:
             meta_agent_instance = agent_class(model, agents)
             add_attributes(meta_agent_instance, agents, meta_attributes)
@@ -346,7 +340,8 @@ class MetaAgent(Agent):
             constituting_agents_by_type[agent_type].append(agent)
         return constituting_agents_by_type
 
-    @property
+
+   @property
     def constituting_agent_types(self) -> set[type]:
         """Get the types of all constituting_agents.
 
@@ -355,7 +350,7 @@ class MetaAgent(Agent):
         """
         return {type(agent) for agent in self._constituting_set}
 
-    def get_constituting_agent_instance(self, agent_type) -> set[type]:
+    def get_constituting_agent_instance(self, agent_type: type[Agent]) -> Agent:
         """Get the instance of a constituting_agent of the specified type.
 
         Args:
@@ -367,6 +362,12 @@ class MetaAgent(Agent):
         Raises:
             ValueError: If no constituting_agent of the specified type is found.
         """
+        try:
+            return self.constituting_agents_by_type[agent_type][0]
+        except (KeyError, IndexError):
+            raise ValueError(
+                f"No constituting_agent of type {agent_type} found."
+            ) from None
         try:
             return self.constituting_agents_by_type[agent_type][0]
         except KeyError:
@@ -400,11 +401,10 @@ class MetaAgent(Agent):
             self._constituting_set.discard(agent)
             if hasattr(agent, "meta_agents"):
                 agent.meta_agents.discard(self)
-                # Update backward compatibility attribute deterministically
-                if len(agent.meta_agents) > 0:
-                    agent.meta_agent = sorted(
-                        agent.meta_agents, key=lambda x: x.unique_id or 0
-                    )[0]
+               # Update backward compatibility attribute deterministically
+        if len(agent.meta_agents) > 0:
+            # Optimized O(n) selection for consistency and to prevent TypeError
+            agent.meta_agent = min(agent.meta_agents, key=lambda x: str(x.unique_id))
                 else:
                     agent.meta_agent = None
 
