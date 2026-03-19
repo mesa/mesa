@@ -1,4 +1,3 @@
-import numpy as np
 
 from mesa.discrete_space import CellAgent, FixedAgent
 
@@ -72,32 +71,33 @@ class Sheep(Animal):
 
     def move(self):
         """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
+        # Get all surrounding available cells
         neighbors = self.cell.neighborhood
-        coords = np.array([cell.coordinate for cell in neighbors])
-        xs, ys = coords[:, 0], coords[:, 1]
 
-        has_wolf = self.model.grid.wolves[xs, ys].astype(bool)
-        has_grass = self.model.grid.grass[xs, ys].astype(bool)
+        safe_cells = []
+        safe_grass_cells = []
 
-        safe_cells = ~has_wolf
-        safe_grass_cells = safe_cells & has_grass
+        # Collect all safe cells and safe cells with grass
+        for neighbor in neighbors:
+            if not neighbor.wolves:
+                safe_cells.append(neighbor)
+                if neighbor.grass:
+                    safe_grass_cells.append(neighbor)
 
         # If all surrounding cells have wolves, stay put
-        if not safe_cells.any():
+        if not safe_cells:
             return
 
         # Move to a cell with grass if available, otherwise move to any safe cell
-        target_mask = safe_grass_cells if safe_grass_cells.any() else safe_cells
-        valid_cells = [cell for cell, valid in zip(neighbors, target_mask) if valid]
-        self.cell = self.random.choice(valid_cells)
-
+        target_cells = safe_grass_cells if safe_grass_cells else safe_cells
+        self.cell = self.random.choice(target_cells)
 
 class Wolf(Animal):
     """A wolf that walks around, reproduces (asexually) and eats sheep."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model.grid.wolves.data[self.cell.coordinate] = True
+        self.cell.wolves = True
 
     def feed(self):
         """If possible, eat a sheep at current location."""
@@ -117,15 +117,15 @@ class Wolf(Animal):
         )
 
         # Mark the cell as unoccupied by a wolf
-        self.model.grid.wolves.data[self.cell.coordinate] = False
+        self.cell.wolves = False
 
         self.cell = target_cells.select_random_cell()
 
         # Mark the cell as occupied by a wolf
-        self.model.grid.wolves.data[self.cell.coordinate] = True
+        self.cell.wolves = True
 
     def remove(self):
-        self.model.grid.wolves.data[self.cell.coordinate] = False
+        self.cell.wolves = False
         super().remove()
 
 
@@ -144,21 +144,21 @@ class GrassPatch(FixedAgent):
         super().__init__(model)
         self.grass_regrowth_time = grass_regrowth_time
         self.cell = cell
-        self.model.grid.grass.data[self.cell.coordinate] = countdown == 0
+        self.cell.grass = countdown == 0
 
         # Schedule initial growth if not fully grown
-        if not self.model.grid.grass.data[self.cell.coordinate]:
+        if not self.cell.grass:
             self.model.schedule_event(self.regrow, after=countdown)
 
     def regrow(self):
         """Regrow the grass."""
-        self.model.grid.grass.data[self.cell.coordinate] = True
+        self.cell.grass = True
 
     def get_eaten(self):
         """Mark grass as eaten and schedule regrowth."""
-        self.model.grid.grass.data[self.cell.coordinate] = False
+        self.cell.grass = False
         self.model.schedule_event(self.regrow, after=self.grass_regrowth_time)
 
     def is_fully_grown(self):
         """Return whether the grass patch is fully grown."""
-        return self.model.grid.grass.data[self.cell.coordinate]
+        return self.cell.grass
