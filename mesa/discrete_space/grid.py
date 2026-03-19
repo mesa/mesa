@@ -340,7 +340,7 @@ class Grid(DiscreteSpace[T]):
             return self.all_cells
         return self.all_cells.select(lambda cell: not cell.is_full)
 
-    def select_random_not_full_cell(self) -> Cell:
+    def select_random_cell_with_capacity(self) -> Cell:
         """Select a random cell that has remaining capacity.
 
         Raises:
