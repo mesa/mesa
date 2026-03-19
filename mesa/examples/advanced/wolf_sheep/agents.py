@@ -1,4 +1,3 @@
-
 from mesa.discrete_space import CellAgent, FixedAgent
 
 
@@ -91,6 +90,7 @@ class Sheep(Animal):
         # Move to a cell with grass if available, otherwise move to any safe cell
         target_cells = safe_grass_cells if safe_grass_cells else safe_cells
         self.cell = self.random.choice(target_cells)
+
 
 class Wolf(Animal):
     """A wolf that walks around, reproduces (asexually) and eats sheep."""
