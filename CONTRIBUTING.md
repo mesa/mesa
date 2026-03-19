@@ -309,7 +309,7 @@ To create a new release, follow these steps:
 4. Use the _Generate release notes_ button to automatically create release notes. Review them carefully for accuracy, and update labels and edit PR titles if necessary (step 1).
 5. Write a _Highlights_ section summarizing the most important features or changes in this release.
 6. Copy the release notes and save them by clicking the grey _Save draft_ button.
-7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md).
+7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md). For stable releases, also update [`docs/_static/switcher.json`](https://github.com/mesa/mesa/blob/main/docs/_static/switcher.json): add the new version and remove any older patch releases for the same minor version.
 8. Once this PR is merged, return to the _Releases_ section and publish the draft release.
 9. The [`release.yml`](https://github.com/mesa/mesa/blob/main/.github/workflows/release.yml) CI workflow should automatically create and upload the package to PyPI. Verify this on [PyPI.org](https://pypi.org/project/mesa/).
 10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).

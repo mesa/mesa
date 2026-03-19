@@ -1,0 +1,23 @@
+[
+    {
+    "name": "stable",
+    "version": "stable",
+    "url": "https://mesa.readthedocs.io/en/stable/"
+  },
+  {
+    "name": "latest",
+    "version": "latest",
+    "url": "https://mesa.readthedocs.io/en/latest/"
+  },
+  {
+    "name": "2.4.0",
+    "version": "v2.4.0",
+    "url": "https://mesa.readthedocs.io/en/v2.4.0/"
+  },
+  {
+    "name": "3.5.1",
+    "version": "v3.5.1",
+    "url": "https://mesa.readthedocs.io/en/v3.5.1/"
+  },
+
+]
