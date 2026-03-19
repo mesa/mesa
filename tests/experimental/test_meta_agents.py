@@ -3,6 +3,10 @@
 import pytest
 
 from mesa import Agent, Model
+from mesa.examples.advanced.alliance_formation.model import (
+    AllianceScenario,
+    MultiLevelAllianceModel,
+)
 from mesa.experimental.meta_agents.meta_agent import (
     MetaAgent,
     create_meta_agent,
@@ -240,6 +244,31 @@ def test_evaluate_combination_accepts_zero(setup_agents):
     result = evaluate_combination(tuple(agents[:2]), model, zero_func)
     assert result is not None
     assert result[1] == 0.0
+
+
+def test_alliance_score_returns_neg_inf_for_incompatible_agents():
+    """alliance_score must return -inf when calculate_shapley_value returns None.
+
+    This happens when agents are in different alliances or levels that make
+    a Shapley calculation impossible — the score collapses to -inf so the
+    combination is never selected.
+    """
+    model = MultiLevelAllianceModel(scenario=AllianceScenario(n=10, rng=42))
+    agents = list(model.agents)[:2]
+    # Patch calculate_shapley_value to return None to hit the -inf branch
+    original = model.calculate_shapley_value
+    model.calculate_shapley_value = lambda agents: None
+    score = model.alliance_score(agents)
+    model.calculate_shapley_value = original
+    assert score == -float("inf")
+
+
+def test_alliance_score_returns_neg_inf_when_shapley_is_none():
+    """alliance_score returns -inf when calculate_shapley_value returns None."""
+    model = MultiLevelAllianceModel(scenario=AllianceScenario(n=10, rng=42))
+    agents = list(model.agents)[:2]
+    model.calculate_shapley_value = lambda group: None
+    assert model.alliance_score(agents) == -float("inf")
 
 
 def test_find_combinations(setup_agents):
