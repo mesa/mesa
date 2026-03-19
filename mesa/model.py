@@ -297,8 +297,17 @@ class Model[A: Agent, S: Scenario](HasEmitters):
     def run_model(self) -> None:
         """Run the model until the end condition is reached.
 
+        .. deprecated:: 4.0
+           Use :meth:`run_until` or a custom loop with :meth:`run_for` instead.
+
         Overload as needed.
         """
+        warnings.warn(
+            "model.run_model() is deprecated and will be removed in Mesa 4.0. "
+            "Use model.run_until() or a custom loop with model.run_for() instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
         while self.running:
             self.step()
 
