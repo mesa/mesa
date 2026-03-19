@@ -196,6 +196,52 @@ def test_evaluate_combination_allows_negative_value(setup_agents):
     assert result[1] == -10.0
 
 
+def test_evaluate_combination_raises_on_non_numeric(setup_agents):
+    """evaluate_combination must raise TypeError if evaluation_func returns non-numeric."""
+    model, agents = setup_agents
+
+    def bad_func(group):
+        return "not a number"
+
+    with pytest.raises(TypeError, match="numeric"):
+        evaluate_combination(tuple(agents[:2]), model, bad_func)
+
+
+def test_evaluate_combination_raises_on_dict_return(setup_agents):
+    """evaluate_combination must raise TypeError if evaluation_func returns a dict."""
+    model, agents = setup_agents
+
+    def dict_func(group):
+        return {"score": 10}
+
+    with pytest.raises(TypeError, match="numeric"):
+        evaluate_combination(tuple(agents[:2]), model, dict_func)
+
+
+def test_evaluate_combination_accepts_int(setup_agents):
+    """evaluate_combination must accept int return values."""
+    model, agents = setup_agents
+
+    def int_func(group):
+        return 5
+
+    result = evaluate_combination(tuple(agents[:2]), model, int_func)
+    assert result is not None
+    assert result[1] == 5
+
+
+def test_evaluate_combination_accepts_zero(setup_agents):
+    """evaluate_combination must accept zero as a valid score."""
+    model, agents = setup_agents
+
+    def zero_func(group):
+        return 0.0
+
+    result = evaluate_combination(tuple(agents[:2]), model, zero_func)
+    assert result is not None
+    assert result[1] == 0.0
+
+
 def test_find_combinations(setup_agents):
     """Test the find_combinations function.
 
