@@ -1426,7 +1426,7 @@ def test_select_random_available_cell_not_full(factory) -> None:
     for cell in grid._celllist[:half]:
         for _ in range(2):
             make_agent(model).move_to(cell)
-    chosen = grid.select_random_not_full_cell()
+    chosen = grid.select_random_cell_with_capacity()
     assert not chosen.is_full
 
 
@@ -1438,7 +1438,7 @@ def test_select_random_available_cell_raises_when_all_full(factory) -> None:
     for cell in grid._celllist:
         make_agent(model).move_to(cell)
     with pytest.raises(IndexError, match="No available cells"):
-        grid.select_random_not_full_cell()
+        grid.select_random_cell_with_capacity()
 
 
 @pytest.mark.parametrize("factory", GRID_FACTORIES)
@@ -1451,7 +1451,7 @@ def test_select_random_available_cell_consistent_with_available_cells(factory) -
             make_agent(model).move_to(cell)
     available_set = set(grid.cells_with_capacity)
     for _ in range(30):
-        chosen = grid.select_random_not_full_cell()
+        chosen = grid.select_random_cell_with_capacity()
         assert chosen in available_set
 
 
