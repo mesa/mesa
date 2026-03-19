@@ -164,7 +164,9 @@ def create_meta_agent(
                 meta_methods = {}
             for agent_class in agent_classes:
                 for name in agent_class.__dict__:
-                    if callable(getattr(agent_class, name)) and not name.startswith("__"):
+                    if callable(getattr(agent_class, name)) and not name.startswith(
+                        "__"
+                    ):
                         original_method = getattr(agent_class, name)
                         meta_methods[name] = original_method
 
@@ -240,7 +242,9 @@ def create_meta_agent(
 class MetaAgent(Agent):
     """A MetaAgent is an agent that contains other agents as components."""
 
-    def __init__(self, model, agents: set[Agent] | None = None, name: str = "MetaAgent"):
+    def __init__(
+        self, model, agents: set[Agent] | None = None, name: str = "MetaAgent"
+    ):
         """Create a new MetaAgent."""
         super().__init__(model)
         self._constituting_set = AgentSet(agents or [], random=model.random)
@@ -322,10 +326,11 @@ class MetaAgent(Agent):
                 # Update backward compatibility attribute deterministically
                 if len(agent.meta_agents) > 0:
                     # Optimized O(n) selection for consistency and to prevent TypeError
-                    agent.meta_agent = min(agent.meta_agents, key=lambda x: str(x.unique_id))
+                    agent.meta_agent = min(
+                        agent.meta_agents, key=lambda x: str(x.unique_id)
+                    )
                 else:
                     agent.meta_agent = None
 
     def step(self):
         """Perform the agent's step."""
-        pass
