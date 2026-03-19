@@ -488,6 +488,41 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         self.assertEqual(wealth, 100)
         self.assertEqual(status, "active")
 
+    def test_missing_model_reporters(self):
+        """Test that DataCollector works and records steps when model_reporters is None."""
+        model = Model()
+        agent = Agent(model)
+        agent.wealth = 100
+        agent.status = "active"
+
+        # Create DataCollector with only agent reporters
+        dc = DataCollector(agent_reporters={"wealth": "wealth", "status": "status"})
+
+        # Injecting the _collection_steps attribute(similar to batch_run)
+        dc._collection_steps = []
+
+        # Collect at Step 0
+        model.time = 0
+        dc.collect(model)
+
+        # Collect at Step 1 (update agent to ensure data changes)
+        model.time = 1
+        agent.wealth = 150
+        dc.collect(model)
+
+        self.assertEqual(dc._collection_steps, [0, 1])
+
+        self.assertIn(0, dc._agent_records)
+        self.assertIn(1, dc._agent_records)
+
+        step_0_records = dc._agent_records[0]
+        self.assertEqual(len(step_0_records), 1)
+        self.assertEqual(step_0_records[0][2], 100)  # wealth
+        self.assertEqual(step_0_records[0][3], "active")  # status
+
+        step_1_records = dc._agent_records[1]
+        self.assertEqual(step_1_records[0][2], 150)  # wealth
+
     def test_lambda_reporters_still_work(self):
         """Test that lambda and callable reporters still work correctly."""
         model = Model()

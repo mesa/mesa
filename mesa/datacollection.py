@@ -360,9 +360,10 @@ class DataCollector:
 
     def collect(self, model):
         """Collect all the data for the given model object."""
+        if hasattr(self, "_collection_steps"):
+            self._collection_steps.append(model.time)
+
         if self.model_reporters:
-            if hasattr(self, "_collection_steps"):
-                self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
