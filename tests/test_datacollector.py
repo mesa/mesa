@@ -515,11 +515,106 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
 
     def test_function_error(self):
         """Test error when function list is not callable."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(model_reporters={"bad_function": ["not_callable", [1, 2]]})
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_function_error_missing_params_list(self):
+        """Test error when function list is missing parameter list."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(model_reporters={"bad_function": [lambda m: len(m.agents)]})
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_function_error_invalid_params_type(self):
+        """Test error when function list has non-list/tuple params."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(
+                model_reporters={"bad_function": [lambda m, x: len(m.agents) + x, 1]}
+            )
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("list or tuple of parameters", str(context.exception))
+
+    def test_function_error_after_validation(self):
+        """Test collect defensively rejects invalid reporter after validation."""
         dc_function = DataCollector(
-            model_reporters={"bad_function": ["not_callable", [1, 2]]}
+            model_reporters={"bad_function": lambda m: len(m.agents)}
         )
-        with self.assertRaises(ValueError):
+        dc_function._validated = True
+        dc_function.model_reporters["bad_function"] = [lambda m: len(m.agents)]
+
+        with self.assertRaises(ValueError) as context:
             dc_function.collect(self.model)
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_agent_reporter_error_missing_params_list(self):
+        """Test agent reporters reject malformed list reporters at init time."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(agent_reporters={"bad_agent": [lambda a: a]})
+
+        self.assertIn("bad_agent", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_agenttype_reporter_error_missing_params_list(self):
+        """Test agenttype reporters reject malformed list reporters at init time."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(
+                agenttype_reporters={MockAgent: {"bad_agenttype": [lambda a: a]}}
+            )
+
+        self.assertIn("bad_agenttype", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_valid_model_list_reporter_with_empty_params(self):
+        """Test valid model list reporters still work with empty params."""
+
+        def constant_value():
+            return self.model.num_agents
+
+        dc_function = DataCollector(
+            model_reporters={"agent_count": [constant_value, []]}
+        )
+        dc_function.collect(self.model)
+
+        data = dc_function.get_model_vars_dataframe()
+        self.assertEqual(data["agent_count"][0], self.model.num_agents)
+
+    def test_valid_agent_reporter_with_complex_params(self):
+        """Test agent reporters still accept complex parameter values."""
+
+        def describe_agent(agent, prefix, config):
+            return f"{prefix}:{agent.unique_id}:{config['scale']}"
+
+        model = Model()
+        Agent(model)
+        dc_function = DataCollector(
+            agent_reporters={"descriptor": [describe_agent, ["agent", {"scale": 2}]]}
+        )
+        dc_function.collect(model)
+
+        records = dc_function._agent_records[0]
+        self.assertEqual(records[0][2], "agent:1:2")
+
+    def test_valid_agenttype_reporter_with_tuple_params(self):
+        """Test agenttype reporters still work with tuple params."""
+
+        def scale_value(agent, multiplier):
+            return agent.val * multiplier
+
+        model = MockModelWithAgentTypes()
+        model.datacollector._new_agenttype_reporter(
+            MockAgentA, "scaled_val", [scale_value, (3,)]
+        )
+        model.step()
+
+        agent_a_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentA)
+        self.assertEqual(agent_a_data["scaled_val"].iloc[0], 3)
 
 
 class TestMethodReporterValidation(unittest.TestCase):
