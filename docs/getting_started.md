@@ -6,10 +6,10 @@ Mesa is a Python library for building agent-based models, where independent agen
 
 ### Who is this for?
 
-- Students learning AI/ML  
-- Hackathon participants  
-- Beginners exploring simulations  
-- Developers interested in multi-agent systems  
+- Students learning AI/ML
+- Hackathon participants
+- Beginners exploring simulations
+- Developers interested in multi-agent systems
 
 ### Why should you learn Mesa?
 

@@ -1,6 +1,4 @@
-"""
-A minimal Mesa example for beginners.
-"""
+"""A minimal Mesa example for beginners."""
 
 from mesa import Agent, Model
 
