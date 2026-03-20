@@ -1,5 +1,4 @@
-"""
-Implementation of Mesa's meta agent capability.
+"""Implementation of Mesa's meta agent capability.
 
 Overview:
 Meta-agents allow modeling hierarchical systems where agents are composed of
@@ -116,7 +115,6 @@ def create_meta_agent(
     assume_constituting_agent_attributes: bool = False,
 ) -> Any | None:
     """Create or update a meta-agent instance."""
-
     # Ensure uniqueness while preserving order
     agents = list(dict.fromkeys(agents))
 
@@ -254,7 +252,9 @@ class MetaAgent(Agent):
         try:
             return self.constituting_agents_by_type[agent_type][0]
         except KeyError:
-            raise ValueError(f"No constituting_agent of type {agent_type} found.") from None
+            raise ValueError(
+                f"No constituting_agent of type {agent_type} found."
+            ) from None
 
     def add_constituting_agents(self, new_agents: Iterable[Agent]) -> None:
         for agent in new_agents:
@@ -275,4 +275,3 @@ class MetaAgent(Agent):
 
     def step(self) -> None:
         """Override to define behavior."""
-        pass
