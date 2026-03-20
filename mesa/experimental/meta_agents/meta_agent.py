@@ -207,12 +207,19 @@ def create_meta_agent(
 class MetaAgent(Agent):
     """A MetaAgent contains other agents as components."""
 
-    def __init__(self, model: Any, agents: set[Agent] | None = None, name: str = "MetaAgent"):
+    def __init__(
+        self, model: Any, agents: set[Agent] | None = None, name: str = "MetaAgent"
+    ):
+        """Initialize a MetaAgent with optional constituting agents.
+
+        Args:
+            model: The model instance the agent belongs to.
+            agents: Optional set of agents to include in the MetaAgent.
+            name: Optional name of the MetaAgent.
+        """
         super().__init__(model)
         self._constituting_set = AgentSet(agents or [], random=model.random)
         self.name = name
-
-        # Reference back to meta_agent
         for agent in self._constituting_set:
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
@@ -220,36 +227,48 @@ class MetaAgent(Agent):
             agent.meta_agent = self
 
     def __len__(self) -> int:
+        """Return the number of constituting agents."""
         return len(self._constituting_set)
 
     def __iter__(self):
+        """Iterate over constituting agents."""
         return iter(self._constituting_set)
 
     def __contains__(self, agent: Agent) -> bool:
+        """Check if an agent is part of this MetaAgent."""
         return agent in self._constituting_set
 
     @property
     def agents(self) -> AgentSet:
+        """Return the set of constituting agents."""
         return self._constituting_set
 
     @property
     def constituting_agents_by_type(self) -> dict[type, list[Agent]]:
+        """Return constituting agents grouped by their type."""
         by_type = defaultdict(list)
         for agent in self._constituting_set:
             by_type[type(agent)].append(agent)
-        return dict(by_type)
+        return by_type
 
     @property
     def constituting_agent_types(self) -> set[type]:
+        """Return a set of unique agent types in this MetaAgent."""
         return {type(agent) for agent in self._constituting_set}
 
     def get_constituting_agent_instance(self, agent_type: type) -> Agent:
+        """Return the first constituting agent of a given type.
+
+        Raises:
+            ValueError: If no agent of the given type exists.
+        """
         agents = self.constituting_agents_by_type.get(agent_type)
         if not agents:
-            raise ValueError(f"No constituting agent of type {agent_type} found.")
+            raise ValueError(f"No constituting_agent of type {agent_type} found.")
         return agents[0]
 
     def add_constituting_agents(self, new_agents: set[Agent]) -> None:
+        """Add agents to this MetaAgent."""
         for agent in new_agents:
             self._constituting_set.add(agent)
             if not hasattr(agent, "meta_agents"):
@@ -258,12 +277,12 @@ class MetaAgent(Agent):
             agent.meta_agent = self
 
     def remove_constituting_agents(self, remove_agents: set[Agent]) -> None:
+        """Remove agents from this MetaAgent."""
         for agent in remove_agents:
             self._constituting_set.discard(agent)
             if hasattr(agent, "meta_agents"):
                 agent.meta_agents.discard(self)
-                agent.meta_agent = sorted(agent.meta_agents, key=lambda x: x.unique_id or 0)[0] if agent.meta_agents else None
-
-    def step(self) -> None:
-        """Define MetaAgent behavior here. By default, does nothing."""
-        pass
+                if agent.meta_agents:
+                    agent.meta_agent = sorted(agent.meta_agents, key=lambda x: x.unique_id or 0)[0]
+                else:
+                    agent.meta_agent = None
