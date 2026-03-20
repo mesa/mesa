@@ -38,13 +38,11 @@ as components.
 .
 """
 
-
-
 import itertools
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from types import MethodType
-from typing import Any, Type
+from typing import Any
 
 from mesa.agent import Agent, AgentSet
 
@@ -66,7 +64,10 @@ def find_combinations(
     group: Iterable[Agent],
     size: int | tuple[int, int] = (2, 5),
     evaluation_func: Callable[[tuple[Agent, ...]], float] | None = None,
-    filter_func: Callable[[list[tuple[tuple[Agent, ...], float]]], list[tuple[tuple[Agent, ...], float]]] | None = None,
+    filter_func: Callable[
+        [list[tuple[tuple[Agent, ...], float]]], list[tuple[tuple[Agent, ...], float]]
+    ]
+    | None = None,
 ) -> list[tuple[tuple[Agent, ...], float]]:
     """Find valuable combinations of agents in a group.
 
@@ -86,7 +87,9 @@ def find_combinations(
     for candidate_group in itertools.chain.from_iterable(
         itertools.combinations(group, s) for s in range(*size_range)
     ):
-        evaluation_result = evaluate_combination(candidate_group, model, evaluation_func)
+        evaluation_result = evaluate_combination(
+            candidate_group, model, evaluation_func
+        )
         if evaluation_result is not None:
             evaluated_group, result = evaluation_result
             if result is not None:
@@ -98,7 +101,7 @@ def find_combinations(
     return combinations
 
 
-def extract_class(agents_by_type: dict, new_agent_class: str) -> Type[Agent] | None:
+def extract_class(agents_by_type: dict, new_agent_class: str) -> type[Agent] | None:
     """Extract an existing agent type from a dict of agents by type."""
     agent_type_names = {agent.__name__: agent for agent in agents_by_type}
     if new_agent_class in agent_type_names:
@@ -142,7 +145,11 @@ def _add_attributes_to_meta(
             meta_attributes = {}
         for agent in agents:
             for name, value in agent.__dict__.items():
-                if not callable(value) and name not in reserved and not name.startswith("_"):
+                if (
+                    not callable(value)
+                    and name not in reserved
+                    and not name.startswith("_")
+                ):
                     meta_attributes[name] = value
 
     if meta_attributes:
@@ -154,7 +161,7 @@ def create_meta_agent(
     model: Any,
     new_agent_class: str,
     agents: Iterable[Agent],
-    mesa_agent_type: Type[Agent] | None = None,
+    mesa_agent_type: type[Agent] | None = None,
     meta_attributes: dict[str, Any] | None = None,
     meta_methods: dict[str, Callable] | None = None,
     assume_constituting_agent_methods: bool = False,
@@ -174,13 +181,20 @@ def create_meta_agent(
     for a in agents:
         if hasattr(a, "meta_agents"):
             for ma in a.meta_agents:
-                if ma.__class__.__name__ == new_agent_class and ma not in existing_meta_agents:
+                if (
+                    ma.__class__.__name__ == new_agent_class
+                    and ma not in existing_meta_agents
+                ):
                     existing_meta_agents.append(ma)
 
     if existing_meta_agents:
         meta_agent = sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
-        _add_attributes_to_meta(meta_agent, agents, meta_attributes, assume_constituting_agent_attributes)
-        _add_methods_to_meta(meta_agent, agents, meta_methods, assume_constituting_agent_methods)
+        _add_attributes_to_meta(
+            meta_agent, agents, meta_attributes, assume_constituting_agent_attributes
+        )
+        _add_methods_to_meta(
+            meta_agent, agents, meta_methods, assume_constituting_agent_methods
+        )
         meta_agent.add_constituting_agents(set(agents))
         return meta_agent
 
@@ -188,8 +202,15 @@ def create_meta_agent(
     agent_class = extract_class(model.agents_by_type, new_agent_class)
     if agent_class:
         meta_agent_instance = agent_class(model, agents)
-        _add_attributes_to_meta(meta_agent_instance, agents, meta_attributes, assume_constituting_agent_attributes)
-        _add_methods_to_meta(meta_agent_instance, agents, meta_methods, assume_constituting_agent_methods)
+        _add_attributes_to_meta(
+            meta_agent_instance,
+            agents,
+            meta_attributes,
+            assume_constituting_agent_attributes,
+        )
+        _add_methods_to_meta(
+            meta_agent_instance, agents, meta_methods, assume_constituting_agent_methods
+        )
         return meta_agent_instance
 
     # Path 3: Create new meta-agent class
@@ -199,8 +220,15 @@ def create_meta_agent(
         {"unique_id": None, "_constituting_set": None},
     )
     meta_agent_instance = meta_agent_class(model, agents)
-    _add_attributes_to_meta(meta_agent_instance, agents, meta_attributes, assume_constituting_agent_attributes)
-    _add_methods_to_meta(meta_agent_instance, agents, meta_methods, assume_constituting_agent_methods)
+    _add_attributes_to_meta(
+        meta_agent_instance,
+        agents,
+        meta_attributes,
+        assume_constituting_agent_attributes,
+    )
+    _add_methods_to_meta(
+        meta_agent_instance, agents, meta_methods, assume_constituting_agent_methods
+    )
     return meta_agent_instance
 
 
@@ -283,6 +311,8 @@ class MetaAgent(Agent):
             if hasattr(agent, "meta_agents"):
                 agent.meta_agents.discard(self)
                 if agent.meta_agents:
-                    agent.meta_agent = sorted(agent.meta_agents, key=lambda x: x.unique_id or 0)[0]
+                    agent.meta_agent = sorted(
+                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                    )[0]
                 else:
                     agent.meta_agent = None
