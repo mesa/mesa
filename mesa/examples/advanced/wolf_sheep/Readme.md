@@ -6,7 +6,7 @@ A simple ecological model, consisting of three agent types: wolves, sheep, and g
 
 If wolves and sheep have enough energy, they reproduce, creating a new wolf or sheep (in this simplified model, only one parent is needed for reproduction). The grass on each cell regrows at a constant rate. If any wolves and sheep run out of energy, they die.
 
-The model is tests and demonstrates several Mesa concepts and features:
+The model tests and demonstrates several Mesa concepts and features:
  - MultiGrid
  - Multiple agent types (wolves, sheep, grass)
  - Overlay arbitrary text (wolf's energy) on agent's shapes while drawing on CanvasGrid
@@ -16,15 +16,16 @@ The model is tests and demonstrates several Mesa concepts and features:
 
 ## How to Run
 
-Install Mesa with recommended dependencies:
+1. Navigate to the example directory:
+   cd mesa/examples/wolf_sheep
 
-pip install "mesa[rec]"
+2. Install Mesa with recommended dependencies:
+   pip install "mesa[rec]"
 
-Then run the example:
+3. Run the example:
+   solara run app.py
 
-solara run app.py
-
-Open the displayed local URL in your browser.
+4. Open the displayed local URL in your browser.
 
 ## Files
 
