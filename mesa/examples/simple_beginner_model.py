@@ -1,8 +1,6 @@
 import mesa
+
 # tests/test_simple_beginner_model.py
-
-from mesa.examples.simple_beginner_model import SimpleModel
-
 from mesa.examples.simple_beginner_model import SimpleModel
 
 
@@ -36,16 +34,12 @@ class SimpleModel(mesa.Model):
     def __init__(self, n_agents=5):
         super().__init__()
 
-        # create agents 
+        # create agents
         SimpleAgent.create_agents(self, n_agents)
 
         self.datacollector = mesa.DataCollector(
-            model_reporters={
-                "total_energy": lambda m: m.agents.agg("energy", sum)
-            },
-            agent_reporters={
-                "energy": "energy"
-            }
+            model_reporters={"total_energy": lambda m: m.agents.agg("energy", sum)},
+            agent_reporters={"energy": "energy"},
         )
 
     def step(self):
