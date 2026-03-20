@@ -1,4 +1,28 @@
-# Getting started
+## For Students & Beginners
+
+If you are new to Mesa, you might initially find concepts like agents, models, and schedulers confusing. This is completely normal.
+
+Mesa is a Python library for building agent-based models, where independent agents interact within an environment to produce complex behaviors.
+
+### Who is this for?
+
+- Students learning AI/ML  
+- Hackathon participants  
+- Beginners exploring simulations  
+- Developers interested in multi-agent systems  
+
+### Why should you learn Mesa?
+
+- Build real-world simulations (virus spread, ecosystems, traffic)
+- Understand agent-based thinking
+- Create impressive academic and hackathon projects
+- Learn concepts used in AI and research
+
+### Tip for Beginners
+
+Start small. Build a simple model with one or two agents, observe behavior, and gradually increase complexity.
+
+Mesa becomes much easier once you see agents in action.# Getting started
 Mesa is a modular framework for building, analyzing and visualizing agent-based models.
 
 **Agent-based models** are computer simulations involving multiple entities (the agents) acting and interacting with one another based on their programmed behavior. Agents can be used to represent living cells, animals, individual humans, even entire organizations or abstract entities. Sometimes, we may have an understanding of how the individual components of a system behave, and want to see what system-level behaviors and effects emerge from their interaction. Other times, we may have a good idea of how the system overall behaves, and want to figure out what individual behaviors explain it. Or we may want to see how to get agents to cooperate or compete most effectively. Or we may just want to build a cool toy with colorful little dots moving around.
