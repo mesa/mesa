@@ -1,13 +1,19 @@
-from mesa.model import Model
-from mesa.datacollection import DataCollector
+"""Model definition for the Wild Fire Spread example."""
+
 import random
+
+from mesa.datacollection import DataCollector
+from mesa.model import Model
 from mesa.space import MultiGrid
 
-from examples.basic.Wild_Fire_Spread.agent import FuelAgent,AgentState
+from examples.basic.Wild_Fire_Spread.agent import AgentState, FuelAgent
 
 
 class ForestFireModel(Model):
+    """A grid-based wildfire model driven by local agent interactions."""
+
     def __init__(self, width=50, height=50):
+        """Create the grid, initialize agents, ignite seed fires, and set up metrics."""
         super().__init__()
 
         self.grid = MultiGrid(width, height, torus=False)
@@ -41,5 +47,6 @@ class ForestFireModel(Model):
         self.running = True
 
     def step(self):
+        """Advance the simulation by one step and collect state counts."""
         self.agents.shuffle_do("step")
         self.datacollector.collect(self)

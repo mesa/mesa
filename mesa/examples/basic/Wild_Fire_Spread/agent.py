@@ -1,3 +1,5 @@
+"""Agent definitions for the Wild Fire Spread example."""
+
 import random
 from enum import Enum
 
@@ -5,14 +7,18 @@ from mesa.discrete_space import CellAgent
 
 
 class AgentState(Enum):
+    """Possible fire states for a fuel cell."""
+
     HEALTHY = "HEALTHY"
     BURNING = "BURNING"
     BURNED = "BURNED"
 
 
 class FuelAgent(CellAgent):
+    """A single burnable cell that can ignite, spread fire, and burn out."""
 
     def __init__(self, model):
+        """Initialize fuel, moisture, terrain, and fire-related attributes."""
         super().__init__(model)
 
         # --- State ---
@@ -38,12 +44,12 @@ class FuelAgent(CellAgent):
         self.min_burn_time = 3
         self.max_burn_time = 6
 
-    # 🔥 Intensity
     def calculate_intensity(self):
+        """Return the current fire intensity based on fuel, flammability, and moisture."""
         return self.fuel * self.flammability * (1 - self.moisture)
 
-    # 🔥 Effective wind (ABWiSE)
     def calculate_effective_wind(self):
+        """Estimate local wind effect from global wind and burning neighbors."""
         neighbors = self.model.grid.get_neighbors(
             self.pos, moore=True, include_center=False
         )
@@ -56,8 +62,8 @@ class FuelAgent(CellAgent):
 
         return self.model.wind_speed + 0.2 * ratio
 
-    # 🔥 Spread probability
     def compute_spread(self):
+        """Compute the probability that this agent ignites a neighboring cell."""
         intensity = self.calculate_intensity()
         effective_wind = self.calculate_effective_wind()
 
@@ -72,8 +78,8 @@ class FuelAgent(CellAgent):
 
         return min(P, 1)  # cap probability
 
-    # 🔥 Spread fire
     def spread_fire(self):
+        """Attempt to ignite healthy neighboring agents that are not firebreaks."""
         neighbors = self.model.grid.get_neighbors(
             self.pos, moore=True, include_center=False
         )
@@ -97,8 +103,8 @@ class FuelAgent(CellAgent):
                 # 🔥 Preheating
                 neighbor.flammability += 0.05
 
-    # 🔥 Update state
     def update_state(self):
+        """Reduce fuel and burn time, then mark the agent as burned if exhausted."""
 
         if self.state == AgentState.BURNING:
 
@@ -111,6 +117,7 @@ class FuelAgent(CellAgent):
                 self.state = AgentState.BURNED
 
     def step(self):
+        """Advance the agent by one simulation step."""
 
         if self.state == AgentState.BURNING:
             self.spread_fire()
