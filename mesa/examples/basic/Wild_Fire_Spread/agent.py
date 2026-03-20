@@ -54,9 +54,7 @@ class FuelAgent(CellAgent):
             self.pos, moore=True, include_center=False
         )
 
-        burning_neighbors = sum(
-            1 for n in neighbors if n.state == AgentState.BURNING
-        )
+        burning_neighbors = sum(1 for n in neighbors if n.state == AgentState.BURNING)
 
         ratio = burning_neighbors / max(len(neighbors), 1)
 
@@ -85,7 +83,6 @@ class FuelAgent(CellAgent):
         )
 
         for neighbor in neighbors:
-
             if neighbor.state != AgentState.HEALTHY:
                 continue
 
@@ -107,7 +104,6 @@ class FuelAgent(CellAgent):
         """Reduce fuel and burn time, then mark the agent as burned if exhausted."""
 
         if self.state == AgentState.BURNING:
-
             # fuel consumption
             self.fuel -= 0.1
 

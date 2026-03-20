@@ -2,11 +2,11 @@
 
 import random
 
-from mesa.datacollection import DataCollector
-from mesa.model import Model
+from examples.basic.Wild_Fire_Spread.agent import AgentState, FuelAgent
 from mesa.space import MultiGrid
 
-from examples.basic.Wild_Fire_Spread.agent import AgentState, FuelAgent
+from mesa.datacollection import DataCollector
+from mesa.model import Model
 
 
 class ForestFireModel(Model):
@@ -32,7 +32,6 @@ class ForestFireModel(Model):
             agent.burn_time = random.randint(3, 6)
 
         self.datacollector = DataCollector(
-
             {
                 "Healthy": lambda m: sum(
                     a.state == AgentState.HEALTHY for a in m.agents

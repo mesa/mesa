@@ -1,4 +1,4 @@
-from examples.basic.Wild_Fire_Spread.agent import FuelAgent,AgentState
+from examples.basic.Wild_Fire_Spread.agent import AgentState, FuelAgent
 from examples.basic.Wild_Fire_Spread.model import ForestFireModel
 
 from mesa.visualization import (
@@ -7,12 +7,11 @@ from mesa.visualization import (
     make_space_component,
 )
 
-
 # 🎨 Colors
 fuel_colors = {
-    AgentState.HEALTHY: "#00FF00",   # green
-    AgentState.BURNING: "#FFD700",   # yellow
-    AgentState.BURNED: "#FF0000",    # red
+    AgentState.HEALTHY: "#00FF00",  # green
+    AgentState.BURNING: "#FFD700",  # yellow
+    AgentState.BURNED: "#FF0000",  # red
 }
 
 
