@@ -1,8 +1,9 @@
 import random
 from enum import Enum
+
 from mesa.discrete_space import CellAgent
 
-import mesa
+
 class AgentState(Enum):
     HEALTHY = "HEALTHY"
     BURNING = "BURNING"
