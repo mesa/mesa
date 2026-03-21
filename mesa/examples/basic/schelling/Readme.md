@@ -6,12 +6,58 @@ The Schelling segregation model is a classic agent-based model, demonstrating ho
 
 By default, the number of similar neighbors the agents need to be happy is set to 3. That means the agents would be perfectly happy with a majority of their neighbors being of a different color (e.g. a Blue agent would be happy with five Orange neighbors and three Blue ones). Despite this, the model consistently leads to a high degree of segregation, with most agents ending up with no neighbors of a different color.
 
+
+
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Follow these steps to run the Schelling example locally.
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/projectmesa/mesa.git
+cd mesa
+```
+
+2. Create and activate a virtual environment:
+
+Windows:
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+3. Install Mesa and required dependencies:
+
+```bash
+pip install -e .
+pip install solara networkx
+```
+
+4. Navigate to the example directory:
+
+```bash
+cd mesa/examples/basic/schelling
+```
+
+5. Run the model:
+
+```bash
+python -m solara run app.py
+```
+
+6. Open your browser and go to:
 
 ```
-    $ solara run app.py
+http://localhost:8765
 ```
 
 ## Files
