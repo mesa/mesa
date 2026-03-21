@@ -1,0 +1,91 @@
+# Closes PRs that still carry the `pr-requirements-not-met` label after a
+# 6-hour grace period. This pairs with pr-triage.yml, which adds the label
+# and posts a remediation comment when a PR first fails the checks.
+#
+# Runs every 6 hours so the window between "grace period expires" and
+# "PR gets closed" is at most 6 hours.
+#
+# Draft PRs are always skipped — the author may still be actively working.
+# PRs labelled `review-ready` are always skipped (maintainer override).
+
+name: PR Triage Enforcement
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:         # allow maintainers to trigger manually
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  enforce:
+    name: Close PRs past the grace period
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Close non-compliant PRs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const GRACE_PERIOD_MS = 6 * 60 * 60 * 1000;   // 6 hours
+            const NOT_MET_LABEL = 'pr-requirements-not-met';
+            const SKIP_LABEL      = 'review-ready';
+
+            const pullRequests = await github.paginate(
+              github.rest.pulls.list,
+              { owner, repo, state: 'open', per_page: 100 }
+            );
+
+            console.log(`Found ${pullRequests.length} open PR(s) to evaluate.`);
+
+            for (const pr of pullRequests) {
+              const prNumber = pr.number;
+              const prAuthor = pr.user.login;
+              const labels   = pr.labels.map(l => l.name);
+
+              // Skip drafts and maintainer-overridden PRs
+              if (pr.draft)                      { console.log(`#${prNumber} — draft, skipping`);        continue; }
+              if (labels.includes(SKIP_LABEL))   { console.log(`#${prNumber} — review-ready, skipping`); continue; }
+              if (!labels.includes(WARNING_LABEL)){ console.log(`#${prNumber} — no warning label, skipping`); continue; }
+
+              // Find the timestamp when the warning label was applied
+              // by looking at the timeline of label events.
+              let labeledAt = null;
+              try {
+                const events = await github.paginate(
+                  github.rest.issues.listEvents,
+                  { owner, repo, issue_number: prNumber, per_page: 100 }
+                );
+                // Walk backwards so we get the most recent labeling
+                for (let i = events.length - 1; i >= 0; i--) {
+                  const ev = events[i];
+                  if (ev.event === 'labeled' && ev.label?.name === WARNING_LABEL) {
+                    labeledAt = new Date(ev.created_at);
+                    break;
+                  }
+                }
+              } catch (err) {
+                console.log(`#${prNumber} — could not fetch events: ${err.message}`);
+              }
+
+              // Fall back to PR creation time if the event is unavailable
+              const referenceTime = labeledAt ?? new Date(pr.created_at);
+              const ageMs         = Date.now() - referenceTime.getTime();
+
+              if (ageMs < GRACE_PERIOD_MS) {
+                const hoursLeft = Math.ceil((GRACE_PERIOD_MS - ageMs) / (60 * 60 * 1000));
+                console.log(`#${prNumber} — within grace period (~${hoursLeft}h left), skipping`);
+                continue;
+              }
+
+              // Grace period expired — close the PR
+              console.log(`#${prNumber} — grace period expired, closing`);
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: `<!-- mesa-pr-triage -->

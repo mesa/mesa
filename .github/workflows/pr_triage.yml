@@ -1,0 +1,301 @@
+# Triage incoming PRs to enforce Mesa contribution requirements.
+#
+# Checks (in order):
+#   1. Bug exemption  — PRs labelled 'bug' or with bug/hotfix titles skip
+#                       the issue-linkage and assignment checks, but still
+#                       go through the template check.
+#   2. Linked issue   — PR body/title must reference an issue with one of
+#                       the standard GitHub closing keywords.
+#   3. Author assigned— The PR author must be assigned to at least one of
+#                       the referenced issues.
+#   4. Template check — The description must contain the required section
+#                       headings from the Mesa PR template.
+#
+# On failure the workflow:
+#   • Posts a clear, actionable comment.
+#   • Adds the label  `pr-requirements-not-met`.
+#   • Does NOT close immediately — pr-triage-enforce.yml closes after a
+#     6-hour grace period so contributors have time to fix their PR.
+#
+# Maintainers can skip all checks by adding the label `review-ready`.
+
+name: PR Triage
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, labeled]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: "pr-triage-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    name: Check PR requirements
+    runs-on: ubuntu-latest
+    # Skip if a maintainer has explicitly marked the PR as ready
+    if: >
+      !contains(github.event.pull_request.labels.*.name, 'review-ready')
+
+    steps:
+      - name: Evaluate PR requirements
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr         = context.payload.pull_request;
+            const prNumber   = pr.number;
+            const prAuthor   = pr.user.login;
+            const prTitle    = pr.title  || '';
+            const prBody     = pr.body   || '';
+            const prLabels   = pr.labels.map(l => l.name);
+
+            // ──────────────────────────────────────────────────────────────
+            // Helper: post or update a single bot comment so we don't spam
+            // ──────────────────────────────────────────────────────────────
+            const BOT_MARKER = '<!-- mesa-pr-triage -->';
+
+            async function upsertComment(body) {
+              const comments = await github.paginate(
+                github.rest.issues.listComments,
+                { owner, repo, issue_number: prNumber, per_page: 100 }
+              );
+              const existing = comments.find(c =>
+                c.user.type === 'Bot' && c.body.includes(BOT_MARKER)
+              );
+              const fullBody = `${BOT_MARKER}\n${body}`;
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner, repo, comment_id: existing.id, body: fullBody
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: prNumber, body: fullBody
+                });
+              }
+            }
+
+            async function addLabel(label) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: prNumber, labels: [label]
+                });
+              } catch (_) { /* label may not exist yet — ignore */ }
+            }
+
+            async function removeLabel(label) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: prNumber, name: label
+                });
+              } catch (_) { /* already absent — ignore */ }
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // 1. Bug exemption
+            //    Skip issue-linkage and assignment checks for bug fixes.
+            //    Heuristics: 'bug' label OR title starts with bug/fix/hotfix.
+            // ──────────────────────────────────────────────────────────────
+            const BUG_TITLE_RE = /^(bug|fix|hotfix|revert)\b/i;
+            const isBugFix =
+              prLabels.includes('bug') ||
+              prLabels.includes('hotfix') ||
+              BUG_TITLE_RE.test(prTitle.trim());
+
+            console.log(`PR #${prNumber} — author: ${prAuthor} | bug-exempt: ${isBugFix}`);
+
+            // ──────────────────────────────────────────────────────────────
+            // 2. Linked issue check
+            // ──────────────────────────────────────────────────────────────
+            // Matches "Fixes #123", "Closes #123", "Resolves #123" etc.
+            const ISSUE_RE =
+              /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s*#(\d+)/gi;
+            const allText    = `${prTitle}\n${prBody}`;
+            const rawMatches = [...allText.matchAll(ISSUE_RE)];
+            const issueNums  = [...new Set(rawMatches.map(m => parseInt(m[1], 10)))];
+
+            console.log(`  Linked issues: ${issueNums.length > 0 ? issueNums.join(', ') : 'none'}`);
+
+            if (!isBugFix && issueNums.length === 0) {
+              await upsertComment(`## ⚠️ PR Requirements Not Met
+
+            Thank you for your contribution, @${prAuthor}!
+
+            This PR was **not** linked to an existing issue. Mesa requires all
+            non-bug-fix PRs to be backed by a discussion or issue so that the
+            scope and approach can be agreed on before code is written.
+
+            **What to do:**
+            1. Open a new issue (or find an existing one) that describes the problem this PR solves.
+            2. Assign yourself to that issue.
+            3. Edit this PR description to include \`Fixes #<issue-number>\`.
+
+            This PR will be **automatically closed in 6 hours** if the requirements
+            are not met. You can re-open it once they are.
+
+            > See the [CONTRIBUTING.md](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md) for details.`);
+
+              await addLabel('pr-requirements-not-met');
+              core.setFailed('No linked issue found');
+              return;
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // 3. Author assignment check
+            // ──────────────────────────────────────────────────────────────
+            let assignedIssue      = null;
+            const unassignedIssues = [];
+
+            if (!isBugFix) {
+              for (const num of issueNums) {
+                try {
+                  const { data: issue } = await github.rest.issues.get({
+                    owner, repo, issue_number: num
+                  });
+                  const assignees = (issue.assignees || []).map(a => a.login);
+                  if (assignees.includes(prAuthor)) {
+                    assignedIssue = num;
+                    break;
+                  }
+                  unassignedIssues.push({ number: num, assignees });
+                } catch (_) {
+                  console.log(`  Issue #${num} not found or cross-repo — skipping`);
+                }
+              }
+
+              if (!assignedIssue) {
+                const issueList = unassignedIssues.map(i =>
+                  `#${i.number} (assigned to: ${i.assignees.length ? i.assignees.join(', ') : '_nobody_'})`
+                ).join('\n- ');
+
+                await upsertComment(`## ⚠️ PR Requirements Not Met
+
+            Thank you for your contribution, @${prAuthor}!
+
+            You are **not assigned** to any of the linked issues:
+            - ${issueList}
+
+            Mesa tracks intent via issue assignment to avoid duplicated effort
+            and ensure someone is accountable for the work.
+
+            **What to do:**
+            1. Go to the linked issue and assign yourself.
+            2. If the issue is already assigned to someone else, please
+               coordinate with them or open a new issue.
+
+            This PR will be **automatically closed in 6 hours** if the
+            requirements are not met.
+
+            > See the [contributing guide](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md) for details.`);
+
+                await addLabel('pr-requirements-not-met');
+                core.setFailed(`@${prAuthor} is not assigned to any linked issue`);
+                return;
+              }
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // 4. Description template check
+            //    All PRs (including bug fixes) must fill out the template.
+            //    Required headings come from Mesa's PR template.
+            //    Sections are considered "filled" when they have non-trivial
+            //    content after the heading (not just the placeholder text).
+            // ──────────────────────────────────────────────────────────────
+            const REQUIRED_SECTIONS = [
+              {
+                heading: /##\s+Summary/i,
+                placeholder: /<!--.*?-->/s,
+                label: '**Summary** — describe _what_ this PR changes',
+              },
+              {
+                heading: /##\s+(Motivation|Why|Reason)/i,
+                placeholder: /<!--.*?-->/s,
+                label: '**Motivation / Why** — explain _why_ this change is needed',
+              },
+              {
+                heading: /##\s+(How.*test|Testing)/i,
+                placeholder: /<!--.*?-->/s,
+                label: '**How did you test this?** — describe your testing approach',
+              },
+              {
+                heading: /##\s+(Audience|Use.?case)/i,
+                placeholder: /<!--.*?-->/s,
+                label: '**Audience / Use cases** — who benefits from this change?',
+              },
+            ];
+
+            const missingSections = [];
+
+            for (const section of REQUIRED_SECTIONS) {
+              // Find the heading in the body
+              const headingMatch = section.heading.exec(prBody);
+              if (!headingMatch) {
+                missingSections.push(section.label);
+                continue;
+              }
+
+              // Extract content after the heading until next heading or end
+              const afterHeading = prBody.slice(headingMatch.index + headingMatch[0].length);
+              const nextHeading  = afterHeading.search(/\n##\s/);
+              const sectionBody  = (nextHeading === -1
+                ? afterHeading
+                : afterHeading.slice(0, nextHeading)
+              ).trim();
+
+              // Strip HTML comments (placeholders)
+              const stripped = sectionBody.replace(/<!--[\s\S]*?-->/g, '').trim();
+
+              if (stripped.length < 10) {
+                missingSections.push(section.label);
+              }
+            }
+
+            // AI usage disclosure (from GSoC meeting notes)
+            const hasAIDisclosure = /##\s+(AI|Artificial Intelligence)/i.test(prBody) ||
+                                    /AI.*used|used.*AI|generated.*AI|AI.*generated|Claude|ChatGPT|Copilot/i.test(prBody);
+            // Only flag missing AI disclosure if the PR is large (heuristic: body is long)
+            // or the author hasn't mentioned it at all. We keep this soft — just a reminder.
+            const aiReminderNeeded = !hasAIDisclosure;
+
+            if (missingSections.length > 0) {
+              const sectionList = missingSections.map(s => `- ${s}`).join('\n');
+              const aiNote = aiReminderNeeded
+                ? '\n\n> 💡 **AI usage disclosure:** If you used an AI tool (Claude, Copilot, ChatGPT, etc.) to help write this PR, please briefly mention how in the description.'
+                : '';
+
+              await upsertComment(`## ⚠️ PR Description Incomplete
+
+            Thank you for your contribution, @${prAuthor}!
+
+            The following required sections are **missing or empty** in your PR description:
+
+            ${sectionList}
+
+            Please edit the PR description to include these sections. The Mesa PR template
+            provides placeholder text for each — replace the placeholders with real content.${aiNote}
+
+            This PR will be **automatically closed in 6 hours** if the description
+            is not completed.
+
+            > See the [contributing guide](https://github.com/${owner}/${repo}/blob/main/CONTRIBUTING.md) for details.`);
+
+              await addLabel('pr-requirements-not-met');
+              core.setFailed(`PR description is missing required sections: ${missingSections.join(', ')}`);
+              return;
+            }
+
+            // ──────────────────────────────────────────────────────────────
+            // All checks passed ✅
+            // ──────────────────────────────────────────────────────────────
+            await removeLabel('pr-requirements-not-met');
+
+            const successMsg = isBugFix
+              ? `✅ Bug fix PR — issue linkage and assignment checks skipped.\nDescription template looks good. A maintainer will review shortly.`
+              : `✅ All requirements met! Issue #${assignedIssue} is linked and @${prAuthor} is assigned.\nDescription template looks good. A maintainer will review shortly.`;
+
+            await upsertComment(successMsg);
+            console.log('All PR requirements met.');
