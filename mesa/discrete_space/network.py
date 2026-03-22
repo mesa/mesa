@@ -52,7 +52,7 @@ class Network(DiscreteSpace[Cell]):
         
         if layout is None:
             layout = nx.circular_layout
-            
+
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 
