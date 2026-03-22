@@ -1,8 +1,8 @@
 """mesa.experimental.actions: Timed, interruptible actions for Mesa agents.
 
-An Action represents a discrete task an agent performs over a duration. 
-It manages its own lifecycle (pending -> active -> completed/interrupted), 
-integrates with Mesa's event scheduler for precise timing, and supports 
+An Action represents a discrete task an agent performs over a duration.
+It manages its own lifecycle (pending -> active -> completed/interrupted),
+integrates with Mesa's event scheduler for precise timing, and supports
 interruption with progress tracking and optional resumption.
 
 To use, subclass Action and override on_start(), on_resume(),
