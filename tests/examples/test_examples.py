@@ -2,6 +2,9 @@
 import gc
 import weakref
 
+import matplotlib
+from matplotlib.figure import Figure
+
 from mesa.examples import (
     BoidFlockers,
     BoltzmannWealth,
@@ -14,18 +17,27 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.alliance_formation import app as alliance_app
 from mesa.examples.advanced.alliance_formation.model import AllianceScenario
+from mesa.examples.advanced.epstein_civil_violence import app as epstein_app
+from mesa.examples.advanced.pd_grid import app as pd_grid_app
 from mesa.examples.advanced.pd_grid.model import PrisonersDilemmaScenario
+from mesa.examples.advanced.sugarscape_g1mt import app as sugarscape_app
+from mesa.examples.advanced.sugarscape_g1mt.model import SugarScapeScenario
+from mesa.examples.advanced.wolf_sheep import app as wolf_sheep_app
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers import app as boid_app
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
+from mesa.examples.basic.boltzmann_wealth_model import app as boltzmann_app
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.conways_game_of_life import app as conways_app
+from mesa.examples.basic.schelling import app as schelling_app
 from mesa.examples.basic.schelling.model import SchellingScenario
+from mesa.examples.basic.virus_on_network import app as virus_app
 
 
 def test_boltzmann_model():  # noqa: D103
-    from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    boltzmann_app.page  # noqa: B018
 
     model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
     ref = weakref.ref(model)
@@ -57,9 +69,7 @@ def test_boltzmann_model_init_variants():  # noqa: D103
 
 
 def test_conways_game_model():  # noqa: D103
-    from mesa.examples.basic.conways_game_of_life import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    conways_app.page  # noqa: B018
 
     model = ConwaysGameOfLife(rng=42)
     ref = weakref.ref(model)
@@ -73,9 +83,7 @@ def test_conways_game_model():  # noqa: D103
 
 
 def test_schelling_model():  # noqa: D103
-    from mesa.examples.basic.schelling import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    schelling_app.page  # noqa: B018
 
     _model = Schelling()
     model = Schelling(scenario=SchellingScenario(rng=42))
@@ -90,9 +98,7 @@ def test_schelling_model():  # noqa: D103
 
 
 def test_virus_on_network():  # noqa: D103
-    from mesa.examples.basic.virus_on_network import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    virus_app.page  # noqa: B018
 
     model = VirusOnNetwork(rng=42)
     ref = weakref.ref(model)
@@ -106,9 +112,7 @@ def test_virus_on_network():  # noqa: D103
 
 
 def test_boid_flockers():  # noqa: D103
-    from mesa.examples.basic.boid_flockers import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    boid_app.page  # noqa: B018
 
     _model = BoidFlockers()
 
@@ -124,9 +128,7 @@ def test_boid_flockers():  # noqa: D103
 
 
 def test_epstein():  # noqa: D103
-    from mesa.examples.advanced.epstein_civil_violence import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    epstein_app.page  # noqa: B018
 
     model = EpsteinCivilViolence()
     ref = weakref.ref(model)
@@ -140,9 +142,7 @@ def test_epstein():  # noqa: D103
 
 
 def test_pd_grid():  # noqa: D103
-    from mesa.examples.advanced.pd_grid import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    pd_grid_app.page  # noqa: B018
 
     model = PdGrid(scenario=PrisonersDilemmaScenario(rng=42))
     ref = weakref.ref(model)
@@ -156,12 +156,7 @@ def test_pd_grid():  # noqa: D103
 
 
 def test_sugarscape_g1mt():  # noqa: D103
-    from mesa.examples.advanced.sugarscape_g1mt import app  # noqa: PLC0415
-    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
-        SugarScapeScenario,
-    )
-
-    app.page  # noqa: B018
+    sugarscape_app.page  # noqa: B018
 
     model = SugarscapeG1mt(SugarScapeScenario(rng=42))
     ref = weakref.ref(model)
@@ -175,9 +170,7 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 
 def test_wolf_sheep():  # noqa: D103
-    from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    wolf_sheep_app.page  # noqa: B018
 
     _model = WolfSheep()
 
@@ -193,9 +186,7 @@ def test_wolf_sheep():  # noqa: D103
 
 
 def test_alliance_formation_model():  # noqa: D103
-    from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
-
-    app.page  # noqa: B018
+    alliance_app.page  # noqa: B018
 
     model = MultiLevelAllianceModel(scenario=AllianceScenario(n=50, rng=42))
     ref = weakref.ref(model)
@@ -208,3 +199,30 @@ def test_alliance_formation_model():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
+
+def test_wolf_sheep_grass_disabled():
+    """Regression test for #3597: grass=False must not raise StopIteration."""
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    for _ in range(10):
+        model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+    assert df.shape[0] == 11
+    assert "Grass" not in df.columns
+    assert "Wolves" in df.columns
+    assert "Sheep" in df.columns
+
+
+def test_plot_matplotlib_missing_column_skipped():
+    """Regression test for #3597: PlotMatplotlib skips measures not in dataframe."""
+    matplotlib.use("Agg")
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+
+    fig = Figure()
+    ax = fig.subplots()
+    measure = {"Grass": "green", "Wolves": "blue", "Sheep": "red"}
+    for m, color in measure.items():
+        if m in df.columns:
+            ax.plot(df.loc[:, m], label=m, color=color)
