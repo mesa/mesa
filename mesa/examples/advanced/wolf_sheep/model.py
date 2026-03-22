@@ -81,12 +81,12 @@ class WolfSheep(Model):
 
         # Set up data collection
         model_reporters = {
-            "Wolves": lambda m: len(m.agents_by_type[Wolf]),
-            "Sheep": lambda m: len(m.agents_by_type[Sheep]),
+            "Wolves": lambda m: len(m.agents.select(agent_type=Wolf)),
+            "Sheep": lambda m: len(m.agents.select(agent_type=Sheep)),
         }
         if self.grass:
             model_reporters["Grass"] = lambda m: len(
-                m.agents_by_type[GrassPatch].select(lambda a: a.fully_grown)
+                m.agents.select(agent_type=GrassPatch).select(lambda a: a.fully_grown)
             )
 
         self.datacollector = DataCollector(model_reporters)
