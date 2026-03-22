@@ -229,13 +229,14 @@ class Action:
                 f"Only PENDING or INTERRUPTED actions can be started."
             )
 
-        # Resolve callables on first start only
-        if not resuming:
-            self.duration = (
-                self._duration_spec(self.agent)
-                if callable(self._duration_spec)
-                else self._duration_spec
-            )
+        
+        # Resolve callables unconditionally to prevent stale states on resume
+
+        self.duration = (
+            self._duration_spec(self.agent)
+            if callable(self._duration_spec)
+            else self._duration_spec
+        )
             self.priority = (
                 self._priority_spec(self.agent)
                 if callable(self._priority_spec)
@@ -282,16 +283,7 @@ class Action:
         if not self.interruptible:
             return False
 
-        self._freeze_progress()
-        self._cancel_event()
-
-        self.state = ActionState.INTERRUPTED
-
-        if self.agent.current_action is self:
-            self.agent.current_action = None
-
-        self.on_interrupt(self._progress)
-        return True
+        return self.cancel() #removed redundancies, by calling the cancel function instead of writing the 5 lines of code.
 
     def cancel(self) -> bool:
         """Cancel this action, ignoring the interruptible flag.
