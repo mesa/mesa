@@ -63,6 +63,7 @@ class Agent[M: Model]:
 
         self.model: M = model
         self.unique_id = None
+        self.is_component = False
         self.current_action: Action | None = None
         self.model.register_agent(self)
 

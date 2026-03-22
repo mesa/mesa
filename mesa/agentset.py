@@ -94,8 +94,8 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             for agent in self:
                 if count >= at_most:
                     break
-                if (not filter_func or filter_func(agent)) and (
-                    not agent_type or isinstance(agent, agent_type)
+                if (not agent_type or isinstance(agent, agent_type)) and (
+                    not filter_func or filter_func(agent)
                 ):
                     yield agent
                     count += 1
@@ -750,11 +750,11 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         if isinstance(method, str):
             for agent in agents:
                 # Check if agent is still in the set (wasn't removed by previous steps)
-                if agent in self._agents:
+                if agent in self._agents and not getattr(agent, "is_component", False):
                     getattr(agent, method)(*args, **kwargs)
         else:
             for agent in agents:
-                if agent in self._agents:
+                if agent in self._agents and not getattr(agent, "is_component", False):
                     method(agent, *args, **kwargs)
         return self
 
@@ -767,11 +767,11 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
 
         if isinstance(method, str):
             for agent in agents:
-                if agent in self._agents:
+                if agent in self._agents and not getattr(agent, "is_component", False):
                     getattr(agent, method)(*args, **kwargs)
         else:
             for agent in agents:
-                if agent in self._agents:
+                if agent in self._agents and not getattr(agent, "is_component", False):
                     method(agent, *args, **kwargs)
         return self
 
@@ -783,13 +783,13 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             return [
                 getattr(agent, method)(*args, **kwargs)
                 for agent in agents
-                if agent in self._agents
+                if agent in self._agents and not getattr(agent, "is_component", False)
             ]
         else:
             return [
                 method(agent, *args, **kwargs)
                 for agent in agents
-                if agent in self._agents
+                if agent in self._agents and not getattr(agent, "is_component", False)
             ]
 
     def shuffle(self, inplace: bool = False) -> AbstractAgentSet[A]:

@@ -94,7 +94,7 @@ def find_combinations(
     """
     combinations = []
     # Allow one size or range of sizes to be passed
-    size_range = (size, size + 1) if isinstance(size, int) else size
+    size_range = (size, size + 1) if isinstance(size, int) else (size[0], size[1] + 1)
 
     for candidate_group in itertools.chain.from_iterable(
         itertools.combinations(group, size) for size in range(*size_range)
@@ -310,6 +310,7 @@ class MetaAgent(Agent):
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
+            agent.is_component = True
             # Maintain backward compatibility for code expecting agent.meta_agent
             agent.meta_agent = self
 
@@ -384,6 +385,7 @@ class MetaAgent(Agent):
         """
         for agent in new_agents:
             self._constituting_set.add(agent)
+            agent.is_component = True
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
@@ -402,10 +404,11 @@ class MetaAgent(Agent):
                 # Update backward compatibility attribute deterministically
                 if len(agent.meta_agents) > 0:
                     agent.meta_agent = sorted(
-                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                        agent.meta_agents, key=lambda x: str(x.unique_id or "")
                     )[0]
                 else:
                     agent.meta_agent = None
+                    agent.is_component = False
 
     def step(self):
         """Perform the agent's step.
