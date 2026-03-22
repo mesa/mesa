@@ -60,8 +60,21 @@ class DataRecorder(BaseDataRecorder):
         config = self.configs[dataset_name]
         maxlen = config.window_size if config.window_size else None
 
+        # Pre-initialize metadata (columns and type) from the registry dataset
+        # This ensures that empty DataFrames have a valid schema
+        registry_dataset = self.registry.datasets[dataset_name]
+        metadata = {
+            "initialized": True,
+            "type": type(registry_dataset).__name__,
+        }
+
+        if hasattr(registry_dataset, "_attributes"):
+            metadata["columns"] = list(registry_dataset._attributes)
+        elif hasattr(registry_dataset, "columns"):
+            metadata["columns"] = list(registry_dataset.columns)
+
         self.storage[dataset_name] = DatasetStorage(
-            blocks=deque(maxlen=maxlen), metadata={"initialized": True}
+            blocks=deque(maxlen=maxlen), metadata=metadata
         )
 
     def _store_dataset_snapshot(
@@ -97,11 +110,7 @@ class DataRecorder(BaseDataRecorder):
                     storage.total_rows += len(data_copy)
                     added_bytes = data_copy.nbytes
 
-                    if "type" not in storage.metadata:
-                        storage.metadata["type"] = "numpyagentdataset"
-                        storage.metadata["dtype"] = data.dtype
-                        dataset = self.registry.datasets[dataset_name]
-                        storage.metadata["columns"] = list(dataset._attributes)
+                    # Metadata initialized in _initialize_dataset_storage
 
             case list():
                 if data:
@@ -109,18 +118,14 @@ class DataRecorder(BaseDataRecorder):
                     storage.total_rows += len(data)
                     added_bytes = len(data) * 100
 
-                    if "type" not in storage.metadata:
-                        storage.metadata["type"] = "agentdataset"
-                        storage.metadata["columns"] = list(data[0].keys())
+                    # Metadata initialized in _initialize_dataset_storage
 
             case dict():
                 storage.blocks.append((time, data))
                 storage.total_rows += 1
                 added_bytes = 100
 
-                if "type" not in storage.metadata:
-                    storage.metadata["type"] = "modeldataset"
-                    storage.metadata["columns"] = list(data.keys())
+                # Metadata initialized in _initialize_dataset_storage
 
             case _:
                 storage.blocks.append((time, data))
