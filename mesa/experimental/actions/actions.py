@@ -228,23 +228,21 @@ class Action:
                 f"Cannot start action in {self.state.name} state. "
                 f"Only PENDING or INTERRUPTED actions can be started."
             )
-
-        
-        # Resolve callables unconditionally to prevent stale states on resume
+            # Resolve callables unconditionally to prevent stale states on resume
 
         self.duration = (
             self._duration_spec(self.agent)
             if callable(self._duration_spec)
             else self._duration_spec
         )
-            self.priority = (
-                self._priority_spec(self.agent)
-                if callable(self._priority_spec)
-                else self._priority_spec
-            )
+        self.priority = (
+            self._priority_spec(self.agent)
+            if callable(self._priority_spec)
+            else self._priority_spec
+        )
 
-            if self.duration < 0:
-                raise ValueError(f"Action duration must be >= 0, got {self.duration}")
+        if self.duration < 0:
+            raise ValueError(f"Action duration must be >= 0, got {self.duration}")
 
         self._start_time = self.model.time
         self.state = ActionState.ACTIVE
@@ -283,7 +281,9 @@ class Action:
         if not self.interruptible:
             return False
 
-        return self.cancel() #removed redundancies, by calling the cancel function instead of writing the 5 lines of code.
+        return (
+            self.cancel()
+        )  # removed redundancies, by calling the cancel function instead of writing the 5 lines of code.
 
     def cancel(self) -> bool:
         """Cancel this action, ignoring the interruptible flag.
