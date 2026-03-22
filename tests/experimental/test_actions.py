@@ -609,7 +609,7 @@ class TestCallableDurationPriority:
         agent.cancel_action()
 
         agent.start_action(action)  # Resume
-        assert call_count == 2 #recalculated on resume
+        assert call_count == 2  # recalculated on resume
 
 
 # --- Subclass callbacks ---

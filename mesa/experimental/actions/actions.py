@@ -281,9 +281,7 @@ class Action:
         if not self.interruptible:
             return False
 
-        return (
-            self.cancel()
-        )  # removed redundancies, by calling the cancel function instead of writing the 5 lines of code.
+        return self.cancel()  # removed redundancies, by calling the cancel function instead of writing the 5 lines of code.
 
     def cancel(self) -> bool:
         """Cancel this action, ignoring the interruptible flag.
