@@ -55,6 +55,7 @@ class Cell:
         "coordinate",  # Logical index
         "properties",
         "random",
+        "_neighborhood_cache",
     ]
 
     @property
@@ -98,6 +99,7 @@ class Cell:
 
         """
         super().__init__()
+        self._neighborhood_cache = {}
         self.coordinate = coordinate  # Logical index
         self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
@@ -198,7 +200,6 @@ class Cell:
         return self.get_neighborhood()
 
     # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -215,13 +216,15 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection[Cell](
-            self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
-        )
+        cache_key = (radius, include_center)
+        if cache_key not in self._neighborhood_cache:
+            self._neighborhood_cache[cache_key] = CellCollection[Cell](
+                self._neighborhood(radius=radius, include_center=include_center),
+                random=self.random,
+            )
+        return self._neighborhood_cache[cache_key]
 
     # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -290,5 +293,4 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()
+        self._neighborhood_cache.clear()
