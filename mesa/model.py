@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 
 from mesa.agent import Agent
-from mesa.agentset import _HardKeyAgentSet
+from mesa.agentset import AgentSet, _HardKeyAgentSet
 from mesa.experimental.data_collection.dataset import DataRegistry
 from mesa.experimental.mesa_signals import (
     HasEmitters,
@@ -38,6 +38,27 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 
 
 _mesa_logger = create_module_logger()
+
+
+class _AgentsByTypeDict(dict):
+    """A dict subclass for ``Model._agents_by_type`` that returns an empty
+    ``AgentSet`` instead of raising ``KeyError`` when an unregistered agent
+    type is accessed.
+
+    This prevents crashes in ``DataCollector`` lambdas and model ``step``
+    methods that reference an agent type whose population has reached zero or
+    was never initialised (e.g. ``initial_wolves=0``).
+
+    The empty ``AgentSet`` is returned on-the-fly and is *not* stored in the
+    dict, so no phantom keys are added.
+    """
+
+    def __init__(self, random: random.Random):
+        super().__init__()
+        self._random = random
+
+    def __missing__(self, key: type) -> AgentSet:
+        return AgentSet([], random=self._random)
 
 
 # TODO: We can add `= Scenario` default type when Python 3.13+ is required
@@ -143,7 +164,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # setup agent registration data structures
         self._agents_by_type: dict[
             type[A], _HardKeyAgentSet[A]
-        ] = {}  # a dict with an agentset for each class of agents
+        ] = _AgentsByTypeDict(self.random)  # a dict with an agentset for each class of agents
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents
@@ -265,10 +286,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self.agent_id_counter += 1
 
         # because AgentSet requires model, we cannot use defaultdict
-        # tricks with a function won't work because model then cannot be pickled
-        try:
+        # tricks with a function won't work because model then cannot be pickled.
+        # Use explicit 'in' check rather than try/except KeyError — _agents_by_type
+        # now defines __missing__ (returning an empty AgentSet for unknown types),
+        # which would silently swallow the KeyError and prevent registration.
+        if type(agent) in self._agents_by_type:
             self._agents_by_type[type(agent)].add(agent)
-        except KeyError:
+        else:
             self._agents_by_type[type(agent)] = _HardKeyAgentSet(
                 [agent],
                 random=self.random,
