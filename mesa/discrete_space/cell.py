@@ -109,6 +109,7 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self._neighborhood_cache = {}
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -197,8 +198,6 @@ class Cell:
         """
         return self.get_neighborhood()
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -215,13 +214,14 @@ class Cell:
             a list of all neighboring cells
 
         """
-        return CellCollection[Cell](
-            self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
-        )
+        key = (radius, include_center, "collection")
+        if key not in self._neighborhood_cache:
+            self._neighborhood_cache[key] = CellCollection[Cell](
+                self._neighborhood(radius=radius, include_center=include_center),
+                random=self.random,
+            )
+        return self._neighborhood_cache[key]
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -230,6 +230,10 @@ class Cell:
         Note: This implementation uses iterative breadth-first search instead
         of recursion to avoid RecursionError on large radius values.
         """
+        key = (radius, include_center, "dict")
+        if key in self._neighborhood_cache:
+            return self._neighborhood_cache[key]
+
         if radius < 1:
             raise ValueError("radius must be larger than one")
 
@@ -272,6 +276,7 @@ class Cell:
         else:
             neighborhood.pop(self, None)
 
+        self._neighborhood_cache[key] = neighborhood
         return neighborhood
 
     def __getstate__(self):
@@ -290,5 +295,4 @@ class Cell:
 
     def _clear_cache(self):
         """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()
+        self._neighborhood_cache.clear()
