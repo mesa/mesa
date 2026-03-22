@@ -5,8 +5,8 @@ It manages its own lifecycle (pending -> active -> completed/interrupted),
 integrates with Mesa's event scheduler for precise timing, and supports 
 interruption with progress tracking and optional resumption.
 
-To use, subclass Action and override on_start(), on_complete(), and 
-on_interrupt() to define behavior.
+To use, subclass Action and override on_start(), on_resume(),
+on_complete(), and on_interrupt() to define behavior.
 
 Example::
 
@@ -44,15 +44,17 @@ class ActionState(IntEnum):
 
 
 class Action:
-    """An interruptible task with lifecycle tracking and priority-based preemption.
+    """An interruptible task an agent performs over time.
 
     Actions progress through states (PENDING -> ACTIVE -> COMPLETED/INTERRUPTED),
-    tracking elapsed time as a fraction 0.0-1.0. Higher-priority actions can
-    interrupt lower-priority ones if allowed. Override on_start(), on_complete(),
-    and on_interrupt() to define behavior; all default to no-op.
+    tracking elapsed time as a fraction from 0.0 to 1.0.
 
-    Subclass and override on_start/on_complete/on_interrupt for complex
-    behavior. All hooks default to doing nothing (pass).
+    Subclass and override on_start/on_resume/on_complete/on_interrupt for
+    custom behavior. on_resume() is called when a previously interrupted
+    action starts again; by default it delegates to on_start().
+
+    This class does not enforce interruption ordering by priority.
+    The priority field is available for agent-level policies and custom logic.
 
     Attributes:
         agent: The agent performing this action.
@@ -60,9 +62,9 @@ class Action:
         name: Human-readable identifier. Defaults to the class name.
         duration: Time to complete. May be a callable(agent) -> float
             for state-dependent duration, resolved at start time.
-        priority: Importance level. Higher = more important. May be a
+        priority: Importance level associated with this action. May be a
             callable(agent) -> float, resolved at start time.
-        interruptible: Whether higher-priority actions can preempt this.
+        interruptible: Whether this action can be interrupted while active.
         state: Current lifecycle state (PENDING, ACTIVE, COMPLETED, INTERRUPTED).
         progress: Time fraction completed, 0.0 to 1.0. Computed live
             while the action is active.
@@ -90,7 +92,7 @@ class Action:
                 that receives the agent and returns a float. Resolved
                 when start() is called.
             name: Human-readable name. Defaults to the class name.
-            priority: Importance level for interruption decisions. Either
+            priority: Importance level associated with this action. Either
                 a float or a callable that receives the agent and returns
                 a float. Resolved when start() is called.
             interruptible: If False, interrupt() will fail and return False.
