@@ -94,7 +94,7 @@ def find_combinations(
     """
     combinations = []
     # Allow one size or range of sizes to be passed
-    size_range = (size, size + 1) if isinstance(size, int) else size
+    size_range = (size, size + 1) if isinstance(size, int) else (size[0], size[1] + 1)
 
     for candidate_group in itertools.chain.from_iterable(
         itertools.combinations(group, size) for size in range(*size_range)
