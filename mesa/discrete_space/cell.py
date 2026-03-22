@@ -14,7 +14,6 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
@@ -49,13 +48,13 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_neighborhood_cache",
         "_position",  # physical position
         "capacity",
         "connections",
         "coordinate",  # Logical index
         "properties",
         "random",
-        "_neighborhood_cache",
     ]
 
     @property
