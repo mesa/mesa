@@ -49,10 +49,10 @@ class Network(DiscreteSpace[Cell]):
                 spatial queries without introducing performance bottlenecks on large graphs
         """
         import networkx as nx
-        
+
         if layout is None:
             layout = nx.circular_layout
-            
+
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 
