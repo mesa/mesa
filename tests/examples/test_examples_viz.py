@@ -159,7 +159,9 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         elif isinstance(agent, GrassPatch):
             return AgentPortrayalStyle(
                 size=75,
-                color="tab:green" if agent.fully_grown else "tab:brown",
+                color="tab:green"
+                if agent.model.grid.grass[agent.cell.coordinate]
+                else "tab:brown",
                 marker="s",
             )
 
