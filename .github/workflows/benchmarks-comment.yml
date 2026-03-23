@@ -25,7 +25,17 @@ jobs:
               core.setFailed('No pull request found on workflow_run payload.');
               return;
             }
-            core.setOutput('number', String(prs[0].number));
+            const headSha = context.payload.workflow_run.head_sha;
+            const matching = prs.filter(pr => pr.head && pr.head.sha === headSha);
+            if (matching.length === 0) {
+              core.setFailed(`No pull request with head SHA ${headSha} found on workflow_run payload.`);
+              return;
+            }
+            if (matching.length > 1) {
+              core.setFailed(`Multiple pull requests with head SHA ${headSha} found on workflow_run payload.`);
+              return;
+            }
+            core.setOutput('number', String(matching[0].number));
 
       - name: Download benchmark results
         uses: actions/download-artifact@v8
