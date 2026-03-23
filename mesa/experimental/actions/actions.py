@@ -1,7 +1,8 @@
 """mesa.experimental.actions: Timed, interruptible actions for Mesa agents.
 
 An Action represents a discrete task an agent performs over a duration.
-It manages its own lifecycle (pending -> active -> completed/interrupted -> (only interrupted) active via on_start()/on_resume()),
+It progresses through states: PENDING → ACTIVE → COMPLETED or INTERRUPTED.
+Interrupted actions can resume by calling start(), which invokes on_resume(),
 integrates with Mesa's event scheduler for precise timing, and supports
 interruption with progress tracking and optional resumption.
 
@@ -46,8 +47,9 @@ class ActionState(IntEnum):
 class Action:
     """An interruptible task an agent performs over time.
 
-    Actions progress through states (PENDING -> ACTIVE -> COMPLETED/INTERRUPTED -> (only INTERRUPTED) ACTIVE via on_start()/on_resume()) and manage their own timing and progress,
-    tracking elapsed time as a fraction from 0.0 to 1.0.
+    Actions progress through states: PENDING → ACTIVE → COMPLETED or INTERRUPTED.
+    Interrupted actions can return to ACTIVE by calling start(), which invokes on_resume().
+    They manage their own timing and progress, tracking elapsed time as a fraction from 0.0 to 1.0.
 
     Subclass and override on_start/on_resume/on_complete/on_interrupt for
     custom behavior. on_resume() is called when a previously interrupted
