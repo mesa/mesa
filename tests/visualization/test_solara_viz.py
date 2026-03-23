@@ -5,6 +5,7 @@ import re
 import unittest
 
 import ipyvuetify as vw
+import numpy as np
 import pytest
 import solara
 
@@ -328,6 +329,13 @@ def test_build_viz_dependencies_appends_custom_dependencies():
     deps = _build_viz_dependencies(custom)
     assert deps[0] == update_counter.value
     assert deps[1:] == custom
+
+
+def test_build_viz_dependencies_accepts_numpy_sequence():
+    """Dependency builder should accept sequence-like objects with ambiguous truthiness."""
+    deps = _build_viz_dependencies(np.array([1, 2]))
+    assert deps[0] == update_counter.value
+    assert deps[1:] == [1, 2]
 
 
 def test_model_creator_with_scenario():

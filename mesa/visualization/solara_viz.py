@@ -231,7 +231,7 @@ def _build_viz_dependencies(dependencies: collections.abc.Sequence[Any] | None =
         list[Any]: Combined dependency list.
     """
     viz_dependencies = [update_counter.value]
-    if dependencies:
+    if dependencies is not None:
         viz_dependencies.extend(dependencies)
     return viz_dependencies
 
@@ -256,42 +256,83 @@ def SpaceRendererComponent(
 
     viz_dependencies = _build_viz_dependencies(dependencies)
 
+    def build_matplotlib_figure():
+        if renderer.backend != "matplotlib":
+            return None
+
+        # Clear the previous plotted data and agents
+        all_artists = [
+            renderer.canvas.lines[:],
+            renderer.canvas.collections[:],
+            renderer.canvas.patches[:],
+            renderer.canvas.images[:],
+            renderer.canvas.artists[:],
+        ]
+
+        # Remove duplicate colorbars from the canvas
+        for cbar in renderer.backend_renderer._active_colorbars:
+            cbar.remove()
+        renderer.backend_renderer._active_colorbars.clear()
+
+        # Chain them together into a single iterable
+        for artist in itertools.chain.from_iterable(all_artists):
+            artist.remove()
+
+        if renderer.space_mesh:
+            renderer.draw_structure()
+        if renderer.agent_mesh:
+            renderer.draw_agents()
+        if renderer.property_layer_mesh:
+            renderer.draw_property_layer()
+
+        if renderer.post_process and not renderer._post_process_applied:
+            renderer.post_process(renderer.canvas)
+            renderer._post_process_applied = True
+
+        return renderer.canvas.get_figure()
+
+    def build_altair_chart():
+        if renderer.backend != "altair":
+            return None
+
+        structure = renderer.space_mesh if renderer.space_mesh else None
+        agents = renderer.agent_mesh if renderer.agent_mesh else None
+        props = renderer.property_layer_mesh or None
+
+        if renderer.space_mesh:
+            structure = renderer.draw_structure()
+        if renderer.agent_mesh:
+            agents = renderer.draw_agents()
+        if renderer.property_layer_mesh:
+            props = renderer.draw_property_layer()
+
+        spatial_charts_list = [chart for chart in [structure, props, agents] if chart]
+
+        final_chart = None
+        if spatial_charts_list:
+            final_chart = (
+                spatial_charts_list[0]
+                if len(spatial_charts_list) == 1
+                else alt.layer(*spatial_charts_list).resolve_axis(
+                    x="independent", y="independent"
+                )
+            )
+
+        if final_chart is None:
+            # If no charts are available, return an empty chart
+            final_chart = (
+                alt.Chart(pd.DataFrame()).mark_point().properties(width=450, height=350)
+            )
+
+        if renderer.post_process:
+            final_chart = renderer.post_process(final_chart)
+
+        return final_chart.configure_view(stroke="black", strokeWidth=1.5)
+
+    figure = solara.use_memo(build_matplotlib_figure, dependencies=viz_dependencies)
+    final_chart = solara.use_memo(build_altair_chart, dependencies=viz_dependencies)
+
     if renderer.backend == "matplotlib":
-
-        def build_matplotlib_figure():
-            # Clear the previous plotted data and agents
-            all_artists = [
-                renderer.canvas.lines[:],
-                renderer.canvas.collections[:],
-                renderer.canvas.patches[:],
-                renderer.canvas.images[:],
-                renderer.canvas.artists[:],
-            ]
-
-            # Remove duplicate colorbars from the canvas
-            for cbar in renderer.backend_renderer._active_colorbars:
-                cbar.remove()
-            renderer.backend_renderer._active_colorbars.clear()
-
-            # Chain them together into a single iterable
-            for artist in itertools.chain.from_iterable(all_artists):
-                artist.remove()
-
-            if renderer.space_mesh:
-                renderer.draw_structure()
-            if renderer.agent_mesh:
-                renderer.draw_agents()
-            if renderer.property_layer_mesh:
-                renderer.draw_property_layer()
-
-            if renderer.post_process and not renderer._post_process_applied:
-                renderer.post_process(renderer.canvas)
-                renderer._post_process_applied = True
-
-            return renderer.canvas.get_figure()
-
-        figure = solara.use_memo(build_matplotlib_figure, dependencies=viz_dependencies)
-
         solara.FigureMatplotlib(
             figure,
             format="png",
@@ -300,48 +341,6 @@ def SpaceRendererComponent(
         )
         return None
     else:
-
-        def build_altair_chart():
-            structure = renderer.space_mesh if renderer.space_mesh else None
-            agents = renderer.agent_mesh if renderer.agent_mesh else None
-            props = renderer.property_layer_mesh or None
-
-            if renderer.space_mesh:
-                structure = renderer.draw_structure()
-            if renderer.agent_mesh:
-                agents = renderer.draw_agents()
-            if renderer.property_layer_mesh:
-                props = renderer.draw_property_layer()
-
-            spatial_charts_list = [
-                chart for chart in [structure, props, agents] if chart
-            ]
-
-            final_chart = None
-            if spatial_charts_list:
-                final_chart = (
-                    spatial_charts_list[0]
-                    if len(spatial_charts_list) == 1
-                    else alt.layer(*spatial_charts_list).resolve_axis(
-                        x="independent", y="independent"
-                    )
-                )
-
-            if final_chart is None:
-                # If no charts are available, return an empty chart
-                final_chart = (
-                    alt.Chart(pd.DataFrame())
-                    .mark_point()
-                    .properties(width=450, height=350)
-                )
-
-            if renderer.post_process:
-                final_chart = renderer.post_process(final_chart)
-
-            return final_chart.configure_view(stroke="black", strokeWidth=1.5)
-
-        final_chart = solara.use_memo(build_altair_chart, dependencies=viz_dependencies)
-
         solara.FigureAltair(final_chart, on_click=None, on_hover=None)
         return None
 
