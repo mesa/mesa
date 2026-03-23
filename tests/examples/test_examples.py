@@ -192,7 +192,7 @@ def test_wolf_sheep():  # noqa: D103
     assert ref() is None
 
 
-def test_wolf_sheep_no_grass():  # noqa: D103
+def test_wolf_sheep_no_grass():
     """Test wolf_sheep model with grass=False (regression test for #3597)."""
     from mesa.examples.advanced.wolf_sheep.agents import GrassPatch  # noqa: PLC0415
 
