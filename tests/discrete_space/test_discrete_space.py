@@ -1132,7 +1132,7 @@ def test_select_random_empty_cell_fallback():
                 agent = CellAgent(model)
                 grid._cells[(x, y)].add_agent(agent)
 
-    # Force the code to skip the heuristic loop and hit the 'np.argwhere' fallback
+    # Force the code to skip the heuristic loop and hit the vectorized fallback.
     grid._try_random = False
 
     selected_cell = grid.select_random_empty_cell()
@@ -1179,8 +1179,46 @@ def test_select_random_empty_cell_near_full_skips_excessive_random_sampling(
     selected_cell = grid.select_random_empty_cell()
 
     assert selected_cell.coordinate == target_empty
-    # Old behavior always sampled 50 times before fallback; near-full now skips that.
-    assert sampled_from_cells < 50
+    # Near-full shortcut should avoid spending all random attempts.
+    assert sampled_from_cells <= 10
+
+
+def test_select_random_empty_cell_non_near_full_continues_random_probing(monkeypatch):
+    """When empties are not rare, keep random probing before deterministic fallback."""
+    width = 10
+    height = 10
+    grid = OrthogonalMooreGrid((width, height), torus=False, random=random.Random(42))
+
+    model = Model()
+    target_empty = (9, 9)
+
+    # Keep 20 empties (20%) so we are above near-full cutoff and should continue probing.
+    filled_cells = 0
+    for x in range(width):
+        for y in range(height):
+            if (x, y) != target_empty and filled_cells < 80:
+                agent = CellAgent(model)
+                grid._cells[(x, y)].add_agent(agent)
+                filled_cells += 1
+
+    sampled_from_cells = 0
+    original_choice = grid.random.choice
+
+    def controlled_choice(seq):
+        nonlocal sampled_from_cells
+        if seq is grid._celllist:
+            sampled_from_cells += 1
+            # Force misses for all random probes so deterministic fallback is exercised.
+            return grid._cells[(0, 0)]
+        return original_choice(seq)
+
+    monkeypatch.setattr(grid.random, "choice", controlled_choice)
+
+    selected_cell = grid.select_random_empty_cell()
+
+    assert selected_cell.is_empty
+    # 10 initial probes + 40 extra probes for non-near-full grids.
+    assert sampled_from_cells == 50
 
 
 def test_fixed_agent_removal_state():

@@ -289,17 +289,19 @@ class Grid(DiscreteSpace[T]):
         random = self.random
         cells = self._celllist
         empty_mask = self.property_layers["empty"]
+        max_random_attempts = 50
+        probes_before_scan = 10
 
         if self._try_random:
-            # First do a few cheap random probes.
-            for _ in range(5):
+            # First do cheap random probes to preserve sparse-grid fast path.
+            for _ in range(probes_before_scan):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
-            # If random probing fails repeatedly, estimate emptiness ratio once.
-            # For near-full grids, skip most random retries and go straight to fallback.
-            empty_count = int(np.count_nonzero(empty_mask))
+            # Scan once to reuse both count and deterministic fallback data.
+            empty_flat_indices = np.flatnonzero(empty_mask)
+            empty_count = empty_flat_indices.size
             if empty_count == 0:
                 raise ValueError(
                     "Grid is completely full. No empty cells available. "
@@ -308,10 +310,15 @@ class Grid(DiscreteSpace[T]):
 
             near_full_cutoff = max(1, len(cells) // 20)  # 5% empties
             if empty_count > near_full_cutoff:
-                for _ in range(45):
+                remaining_attempts = max_random_attempts - probes_before_scan
+                for _ in range(remaining_attempts):
                     cell = random.choice(cells)
                     if cell.is_empty:
                         return cell
+
+            random_flat_index = random.choice(empty_flat_indices)
+            random_coord = np.unravel_index(int(random_flat_index), self.dimensions)
+            return self._cells[random_coord]
 
         empty_flat_indices = np.flatnonzero(empty_mask)
         if empty_flat_indices.size == 0:
