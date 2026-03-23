@@ -266,8 +266,11 @@ class Action:
         if hasattr(self.agent, "on_action_start"):
             self.agent.on_action_start(self)
 
-        # Schedule completion event for remaining duration
-        self._event = self.model.schedule_event(self._do_complete, after=remaining)
+        # Only schedule completion if action is still active after hooks
+        # (agent hook might have cancelled/interrupted the action)
+        if self.state is ActionState.ACTIVE:
+            self._event = self.model.schedule_event(self._do_complete, after=remaining)
+
         return self
 
     def interrupt(self) -> bool:

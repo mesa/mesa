@@ -102,6 +102,10 @@ class HasActions:
             progress: Fraction of duration completed (0.0 to 1.0).
 
         Notes:
-            Also fires when cancel() is called. If you need to distinguish
-            interruption from cancellation, check action.interruptible.
+            This hook is invoked both when an interruptible action is
+            interrupted and when an action is cancelled via cancel().
+            For non-interruptible actions, reaching this hook implies
+            the action was cancelled (since interrupt() returns False).
+            For interruptible actions, both interrupt() and cancel()
+            can trigger this hook.
         """

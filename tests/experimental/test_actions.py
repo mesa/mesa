@@ -1194,3 +1194,25 @@ class TestHasActionsMixin:
         model.run_for(2)
 
         assert agent.received_actions == ["first", "second"]
+
+    def test_on_action_start_can_cancel_action(self):
+        """If on_action_start cancels the action, no event is scheduled."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+
+        class CancellingAgent(Agent, HasActions):
+            def on_action_start(self, action):
+                # Immediately cancel the action in the hook
+                self.cancel_action()
+
+        agent = CancellingAgent(model)
+        action = Action(agent, duration=10.0)
+
+        agent.start_action(action)
+
+        # Action should be interrupted, not active
+        assert action.state is ActionState.INTERRUPTED
+        assert agent.current_action is None
+        # No event should be scheduled
+        assert action._event is None
