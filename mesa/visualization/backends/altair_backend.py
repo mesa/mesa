@@ -262,11 +262,14 @@ class AltairBackend(AbstractRenderer):
                 fill_colors.append(main_color)
                 stroke_colors.append(stroke_spec)
             else:
-                # Use a transparent fill so only stroke is visible.
-                fill_colors.append("transparent")
+                # Use null fill so no extra categorical legend entry is created.
+                fill_colors.append(None)
                 stroke_colors.append(main_color)
         df["viz_fill_color"] = fill_colors
         df["viz_stroke_color"] = stroke_colors
+        # Ensure downstream encodings use the effective fill state (after global override).
+        if filled_override is not None:
+            df["is_filled"] = bool(filled_override)
 
         # Extract additional parameters from kwargs
         # FIXME: Add more parameters to kwargs
@@ -325,45 +328,71 @@ class AltairBackend(AbstractRenderer):
         # Determine space dimensions
         xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
 
-        chart = (
-            alt.Chart(df)
-            .mark_point()
-            .encode(
-                x=alt.X(
-                    "x:Q",
-                    title=xlabel,
-                    scale=alt.Scale(type="linear", domain=[xmin, xmax]),
-                    axis=None,
+        chart_base = alt.Chart(df).encode(
+            x=alt.X(
+                "x:Q",
+                title=xlabel,
+                scale=alt.Scale(type="linear", domain=[xmin, xmax]),
+                axis=None,
+            ),
+            y=alt.Y(
+                "y:Q",
+                title=ylabel,
+                scale=alt.Scale(type="linear", domain=[ymin, ymax]),
+                axis=None,
+            ),
+            size=alt.Size("size:Q", legend=None, scale=alt.Scale(domain=[0, 50])),
+            shape=alt.Shape(
+                "shape:N",
+                scale=alt.Scale(
+                    domain=unique_shape_names_in_data,
+                    range=unique_shape_names_in_data,
                 ),
-                y=alt.Y(
-                    "y:Q",
-                    title=ylabel,
-                    scale=alt.Scale(type="linear", domain=[ymin, ymax]),
-                    axis=None,
-                ),
-                size=alt.Size("size:Q", legend=None, scale=alt.Scale(domain=[0, 50])),
-                shape=alt.Shape(
-                    "shape:N",
-                    scale=alt.Scale(
-                        domain=unique_shape_names_in_data,
-                        range=unique_shape_names_in_data,
-                    ),
-                    title="Shape",
-                ),
-                opacity=alt.Opacity(
-                    "opacity:Q",
-                    title="Opacity",
-                    scale=alt.Scale(domain=[0, 1], range=[0, 1]),
-                ),
-                fill=fill_encoding,
-                stroke=alt.Stroke("viz_stroke_color:N", scale=None),
-                strokeWidth=alt.StrokeWidth(
-                    "strokeWidth:Q", scale=alt.Scale(domain=[0, 1])
-                ),
-                tooltip=tooltip_list,
-            )
-            .properties(title=title, width=chart_width, height=chart_height)
+                title="Shape",
+            ),
+            opacity=alt.Opacity(
+                "opacity:Q",
+                title="Opacity",
+                scale=alt.Scale(domain=[0, 1], range=[0, 1]),
+            ),
+            strokeWidth=alt.StrokeWidth(
+                "strokeWidth:Q", scale=alt.Scale(domain=[0, 1])
+            ),
+            tooltip=tooltip_list,
         )
+
+        if color_is_numeric:
+            numeric_color_scale = alt.Scale(scheme=cmap, domain=[color_min, color_max])
+
+            filled_agents = (
+                chart_base.transform_filter("datum.is_filled == true")
+                .mark_point()
+                .encode(
+                    fill=fill_encoding,
+                    stroke=alt.Stroke("viz_stroke_color:N", scale=None),
+                )
+            )
+            unfilled_agents = (
+                chart_base.transform_filter("datum.is_filled == false")
+                .mark_point(filled=False)
+                .encode(
+                    fill=alt.value(None),
+                    stroke=alt.Stroke("original_color:Q", scale=numeric_color_scale),
+                )
+            )
+
+            chart = alt.layer(filled_agents, unfilled_agents).properties(
+                title=title, width=chart_width, height=chart_height
+            )
+        else:
+            chart = (
+                chart_base.mark_point()
+                .encode(
+                    fill=fill_encoding,
+                    stroke=alt.Stroke("viz_stroke_color:N", scale=None),
+                )
+                .properties(title=title, width=chart_width, height=chart_height)
+            )
 
         return chart
 

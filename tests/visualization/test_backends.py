@@ -272,8 +272,56 @@ def test_altair_backend_draw_agents_global_filled_override_false():
 
     chart = ab.draw_agents(arguments, filled=False)
     assert chart is not None
-    assert chart.data["viz_fill_color"].tolist() == ["transparent", "transparent"]
+    assert chart.data["viz_fill_color"].tolist() == [None, None]
     assert chart.data["viz_stroke_color"].tolist() == ["red", "blue"]
+
+
+def test_altair_backend_draw_agents_mixed_filled_per_agent():
+    """Test draw_agents respects per-agent filled values without global override."""
+    arguments = {
+        "loc": np.array([[0, 0], [1, 1]]),
+        "size": np.array([5, 5]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([1.0, 1.0]),
+        "strokeWidth": np.array([1, 1]),
+        "color": np.array(["red", "blue"]),
+        "filled": np.array([True, False]),
+        "stroke": np.array(["black", "black"]),
+        "tooltip": np.array([None, None]),
+    }
+
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    chart = ab.draw_agents(arguments)
+    assert chart is not None
+    assert chart.data["viz_fill_color"].tolist() == ["red", None]
+    assert chart.data["viz_stroke_color"].tolist() == ["black", "blue"]
+
+
+def test_altair_backend_draw_agents_numeric_color_respects_unfilled_override():
+    """Numeric colors should use stroke encoding for unfilled agents."""
+    arguments = {
+        "loc": np.array([[0, 0], [1, 1]]),
+        "size": np.array([5, 5]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([1.0, 1.0]),
+        "strokeWidth": np.array([1, 1]),
+        "color": np.array([0.2, 0.8]),
+        "filled": np.array([True, True]),
+        "stroke": np.array([None, None]),
+        "tooltip": np.array([None, None]),
+    }
+
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    chart = ab.draw_agents(arguments, filled=False)
+    assert chart is not None
+    # Numeric colors render as layered filled/unfilled charts to preserve semantics.
+    assert hasattr(chart, "layer")
+    assert len(chart.layer) == 2
+    assert chart.data["viz_fill_color"].tolist() == [None, None]
 
 
 def test_altair_backend_draw_property_layer():
