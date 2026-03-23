@@ -124,6 +124,36 @@ def test_network_lookups():
     assert net_layout.find_nearest_cell([0, 0]) is not None
 
 
+def test_network_remove_cell_rebuilds_kdtree_once(monkeypatch):
+    """Removing a positioned cell should trigger exactly one KDTree rebuild."""
+    G = nx.Graph()  
+    G.add_nodes_from([0, 1])
+
+    layout_dict = {0: (0, 0), 1: (10, 0)}
+    net = Network(G, layout=layout_dict, random=random.Random(42))
+
+    new_cell = Cell(
+        coordinate=99, position=np.array([100, 100]), random=random.Random(42)
+    )
+    net.add_cell(new_cell)
+
+    calls = 0
+    original_rebuild = net._rebuild_kdtree
+
+    def counted_rebuild():
+        nonlocal calls
+        calls += 1
+        return original_rebuild()
+
+    monkeypatch.setattr(net, "_rebuild_kdtree", counted_rebuild)
+
+    net.remove_cell(new_cell)
+
+    assert calls == 1
+    assert new_cell not in net._kdtree_cells
+    assert 99 not in net.G
+
+
 def test_all_spaces():
     """Test that all spaces adhere to the DiscreteSpace interface."""
     spaces = [
