@@ -19,9 +19,11 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
     UserInputs,
+    _build_viz_dependencies,
     _build_model_init_kwargs,
     _check_model_params,
 )
+from mesa.visualization.utils import update_counter
 from mesa.visualization.space_renderer import SpaceRenderer
 
 
@@ -312,6 +314,20 @@ def test_solara_viz_with_scenario():
 
     # Should render without error
     solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_build_viz_dependencies_defaults_to_update_counter():
+    """Dependency builder always includes update counter as first dependency."""
+    deps = _build_viz_dependencies()
+    assert deps == [update_counter.value]
+
+
+def test_build_viz_dependencies_appends_custom_dependencies():
+    """Dependency builder appends caller-provided dependencies after update counter."""
+    custom = ["a", 2, True]
+    deps = _build_viz_dependencies(custom)
+    assert deps[0] == update_counter.value
+    assert deps[1:] == custom
 
 
 def test_model_creator_with_scenario():
