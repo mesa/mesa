@@ -138,6 +138,37 @@ def test_add_agents_to_existing_meta_agent(setup_agents):
     assert meta_agent1.custom_method() == "custom_method_value"
 
 
+def test_create_meta_agent_custom_join_strategy(setup_agents):
+    """Test selecting an existing meta-agent with a custom join strategy."""
+    model, agents = setup_agents
+
+    meta_agent1 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0]],
+        Agent,
+    )
+    meta_agent2 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[1]],
+        Agent,
+    )
+
+    def pick_highest_unique_id(existing_meta_agents, _agents):
+        return max(existing_meta_agents, key=lambda ma: ma.unique_id)
+
+    meta_agent3 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0], agents[1]],
+        Agent,
+        select_existing_meta_agent=pick_highest_unique_id,
+    )
+
+    assert meta_agent3 is meta_agent2
+
+
 def test_meta_agent_integration(setup_agents):
     """Test the integration of MetaAgent with the model.
 

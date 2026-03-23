@@ -141,6 +141,7 @@ def create_meta_agent(
     mesa_agent_type: type[Agent] | None,
     meta_attributes: dict[str, Any] | None = None,
     meta_methods: dict[str, Callable] | None = None,
+    select_existing_meta_agent: Callable[[list[Any], list[Any]], Any] | None = None,
     assume_constituting_agent_methods: bool = False,
     assume_constituting_agent_attributes: bool = False,
 ) -> Any | None:
@@ -152,6 +153,10 @@ def create_meta_agent(
     agents (Iterable[Any]): The agents to be included in the meta-agent.
     meta_attributes (Dict[str, Any]): Attributes to be added to the meta-agent.
     meta_methods (Dict[str, Callable]): Methods to be added to the meta-agent.
+    select_existing_meta_agent (Callable): Optional selector for choosing which
+        existing meta-agent to join when multiple of the same class exist. The
+        function receives the list of existing meta-agents and the candidate
+        agents list, and must return one of the existing meta-agents.
     assume_constituting_agent_methods (bool): Whether to assume methods from
     constituting_-agents as meta_agent methods.
     assume_constituting_agent_attributes (bool): Whether to retain attributes
@@ -250,13 +255,18 @@ def create_meta_agent(
                     existing_meta_agents.append(ma)
 
     if len(existing_meta_agents) > 0:
-        # TODO: Add way for user to specify how agents join meta-agent
-        # instead of random choice if there are multiple meta-agents of the same class
-        meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
-            if len(existing_meta_agents) > 1
-            else existing_meta_agents[0]
-        )
+        if select_existing_meta_agent is not None:
+            meta_agent = select_existing_meta_agent(existing_meta_agents, agents)
+            if meta_agent not in existing_meta_agents:
+                raise ValueError(
+                    "select_existing_meta_agent must return one of the existing meta-agents."
+                )
+        else:
+            meta_agent = (
+                sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+                if len(existing_meta_agents) > 1
+                else existing_meta_agents[0]
+            )
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)
