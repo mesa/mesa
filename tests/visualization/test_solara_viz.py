@@ -19,12 +19,12 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
     UserInputs,
-    _build_viz_dependencies,
     _build_model_init_kwargs,
+    _build_viz_dependencies,
     _check_model_params,
 )
-from mesa.visualization.utils import update_counter
 from mesa.visualization.space_renderer import SpaceRenderer
+from mesa.visualization.utils import update_counter
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101

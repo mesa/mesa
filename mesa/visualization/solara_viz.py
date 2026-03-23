@@ -257,6 +257,7 @@ def SpaceRendererComponent(
     viz_dependencies = _build_viz_dependencies(dependencies)
 
     if renderer.backend == "matplotlib":
+
         def build_matplotlib_figure():
             # Clear the previous plotted data and agents
             all_artists = [
@@ -299,6 +300,7 @@ def SpaceRendererComponent(
         )
         return None
     else:
+
         def build_altair_chart():
             structure = renderer.space_mesh if renderer.space_mesh else None
             agents = renderer.agent_mesh if renderer.agent_mesh else None
@@ -311,7 +313,9 @@ def SpaceRendererComponent(
             if renderer.property_layer_mesh:
                 props = renderer.draw_property_layer()
 
-            spatial_charts_list = [chart for chart in [structure, props, agents] if chart]
+            spatial_charts_list = [
+                chart for chart in [structure, props, agents] if chart
+            ]
 
             final_chart = None
             if spatial_charts_list:
