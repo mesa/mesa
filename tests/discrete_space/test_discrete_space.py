@@ -1146,7 +1146,9 @@ def test_select_random_empty_cell_fallback():
     assert not grid.property_layers["empty"][0, 0]
 
 
-def test_select_random_empty_cell_near_full_skips_excessive_random_sampling(monkeypatch):
+def test_select_random_empty_cell_near_full_skips_excessive_random_sampling(
+    monkeypatch,
+):
     """Near-full grids should avoid spending all random retries before fallback."""
     width = 10
     height = 10
