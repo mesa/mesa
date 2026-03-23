@@ -281,9 +281,6 @@ class Grid(DiscreteSpace[T]):
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
         # This method is based on Agents.jl's random_empty() implementation. See
         # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
         # https://github.com/mesa/mesa/issues/1052 and
@@ -291,23 +288,41 @@ class Grid(DiscreteSpace[T]):
         # is the break-even comparison with the time taken in the else branching point.
         random = self.random
         cells = self._celllist
+        empty_mask = self.property_layers["empty"]
 
         if self._try_random:
-            # Limit attempts to avoid infinite loops on full grids
-            for _ in range(50):
+            # First do a few cheap random probes.
+            for _ in range(5):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.property_layers["empty"])
-        try:
-            random_coord = self.random.choice(empty_coords)
-        except IndexError as e:
+            # If random probing fails repeatedly, estimate emptiness ratio once.
+            # For near-full grids, skip most random retries and go straight to fallback.
+            empty_count = int(np.count_nonzero(empty_mask))
+            if empty_count == 0:
+                raise ValueError(
+                    "Grid is completely full. No empty cells available. "
+                    "Cannot select a random empty cell."
+                )
+
+            near_full_cutoff = max(1, len(cells) // 20)  # 5% empties
+            if empty_count > near_full_cutoff:
+                for _ in range(45):
+                    cell = random.choice(cells)
+                    if cell.is_empty:
+                        return cell
+
+        empty_flat_indices = np.flatnonzero(empty_mask)
+        if empty_flat_indices.size == 0:
             raise ValueError(
                 "Grid is completely full. No empty cells available. "
                 "Cannot select a random empty cell."
-            ) from e
-        return self._cells[tuple(random_coord)]
+            )
+
+        random_flat_index = random.choice(empty_flat_indices)
+        random_coord = np.unravel_index(int(random_flat_index), self.dimensions)
+        return self._cells[random_coord]
 
     @property
     def cells_with_capacity(self) -> CellCollection[T]:

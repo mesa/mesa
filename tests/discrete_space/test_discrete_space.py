@@ -1146,6 +1146,41 @@ def test_select_random_empty_cell_fallback():
     assert not grid.property_layers["empty"][0, 0]
 
 
+def test_select_random_empty_cell_near_full_skips_excessive_random_sampling(monkeypatch):
+    """Near-full grids should avoid spending all random retries before fallback."""
+    width = 10
+    height = 10
+    grid = OrthogonalMooreGrid((width, height), torus=False, random=random.Random(42))
+
+    model = Model()
+    target_empty = (9, 9)
+
+    for x in range(width):
+        for y in range(height):
+            if (x, y) != target_empty:
+                agent = CellAgent(model)
+                grid._cells[(x, y)].add_agent(agent)
+
+    sampled_from_cells = 0
+    original_choice = grid.random.choice
+
+    def controlled_choice(seq):
+        nonlocal sampled_from_cells
+        # When sampling from the full cell list, force misses to exercise fallback.
+        if seq is grid._celllist:
+            sampled_from_cells += 1
+            return grid._cells[(0, 0)]
+        return original_choice(seq)
+
+    monkeypatch.setattr(grid.random, "choice", controlled_choice)
+
+    selected_cell = grid.select_random_empty_cell()
+
+    assert selected_cell.coordinate == target_empty
+    # Old behavior always sampled 50 times before fallback; near-full now skips that.
+    assert sampled_from_cells < 50
+
+
 def test_fixed_agent_removal_state():
     """Test that a FixedAgent's cell is None after removal."""
     model = Model()
