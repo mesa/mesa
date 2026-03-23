@@ -912,3 +912,285 @@ class TestRealisticScenarios:
             "resume@7.0",
             "done@13.0",
         ]
+
+
+# --- HasActions mixin ---
+
+
+class TestHasActionsMixin:
+    """Tests for agent-level action lifecycle hooks via HasActions mixin."""
+
+    def test_on_action_complete_fires_after_action_hook(self):
+        """Agent hook fires after Action.on_complete."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+        call_order = []
+
+        class TrackingAction(Action):
+            def on_complete(self):
+                call_order.append("action")
+
+        class TrackingAgent(Agent, HasActions):
+            def on_action_complete(self, action):
+                call_order.append("agent")
+
+        agent = TrackingAgent(model)
+        action = TrackingAction(agent, duration=3.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+
+        assert call_order == ["action", "agent"]
+
+    def test_on_action_start_fires_after_action_hook(self):
+        """Agent hook fires after Action.on_start."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+        call_order = []
+
+        class TrackingAction(Action):
+            def on_start(self):
+                call_order.append("action")
+
+        class TrackingAgent(Agent, HasActions):
+            def on_action_start(self, action):
+                call_order.append("agent")
+
+        agent = TrackingAgent(model)
+        action = TrackingAction(agent, duration=3.0)
+
+        agent.start_action(action)
+
+        assert call_order == ["action", "agent"]
+
+    def test_on_action_interrupt_fires_after_action_hook(self):
+        """Agent hook fires after Action.on_interrupt."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+        call_order = []
+
+        class TrackingAction(Action):
+            def on_interrupt(self, progress):
+                call_order.append("action")
+
+        class TrackingAgent(Agent, HasActions):
+            def on_action_interrupt(self, action, progress):
+                call_order.append("agent")
+
+        agent = TrackingAgent(model)
+        action = TrackingAction(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+        agent.cancel_action()
+
+        assert call_order == ["action", "agent"]
+
+    def test_hooks_not_called_without_mixin(self):
+        """Agent without HasActions mixin doesn't receive hooks."""
+        model = Model()
+        call_log = []
+
+        class TrackingAction(Action):
+            def on_start(self):
+                call_log.append("action_start")
+
+            def on_complete(self):
+                call_log.append("action_complete")
+
+        # Regular agent without HasActions
+        agent = Agent(model)
+        action = TrackingAction(agent, duration=3.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+
+        # Only action hooks should fire, no agent hooks
+        assert call_log == ["action_start", "action_complete"]
+
+    def test_instantaneous_action_skips_on_action_start(self):
+        """Zero-duration actions skip on_action_start but fire on_action_complete."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+        call_log = []
+
+        class TrackingAction(Action):
+            def on_start(self):
+                call_log.append("action_start")
+
+            def on_complete(self):
+                call_log.append("action_complete")
+
+        class TrackingAgent(Agent, HasActions):
+            def on_action_start(self, action):
+                call_log.append("agent_start")
+
+            def on_action_complete(self, action):
+                call_log.append("agent_complete")
+
+        agent = TrackingAgent(model)
+        action = TrackingAction(agent, duration=0)  # Instantaneous
+
+        agent.start_action(action)
+
+        # on_action_start should NOT be called for instantaneous actions
+        assert call_log == ["action_start", "action_complete", "agent_complete"]
+
+    def test_interrupt_passes_progress_correctly(self):
+        """Agent's on_action_interrupt receives correct progress value."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+
+        class TrackingAgent(Agent, HasActions):
+            def __init__(self, model):
+                super().__init__(model)
+                self.received_progress = None
+
+            def on_action_interrupt(self, action, progress):
+                self.received_progress = progress
+
+        agent = TrackingAgent(model)
+        action = Action(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(4)  # 40%
+        agent.cancel_action()
+
+        assert agent.received_progress == pytest.approx(0.4)
+
+    def test_on_action_start_fires_on_resume(self):
+        """Agent hook fires after on_resume too."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+        call_log = []
+
+        class TrackingAction(Action):
+            def on_start(self):
+                call_log.append("action_start")
+
+            def on_resume(self):
+                call_log.append("action_resume")
+
+            def on_interrupt(self, progress):
+                pass
+
+        class TrackingAgent(Agent, HasActions):
+            def on_action_start(self, action):
+                call_log.append("agent_start")
+
+        agent = TrackingAgent(model)
+        action = TrackingAction(agent, duration=10.0)
+
+        agent.start_action(action)
+        model.run_for(3)
+        agent.cancel_action()
+
+        # Resume the action
+        agent.start_action(action)
+
+        assert call_log == [
+            "action_start",
+            "agent_start",
+            "action_resume",
+            "agent_start",
+        ]
+
+    def test_cancel_fires_on_action_interrupt(self):
+        """cancel() also fires on_action_interrupt."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+
+        class TrackingAgent(Agent, HasActions):
+            def __init__(self, model):
+                super().__init__(model)
+                self.interrupt_called = False
+
+            def on_action_interrupt(self, action, progress):
+                self.interrupt_called = True
+
+        agent = TrackingAgent(model)
+        action = Action(agent, duration=10.0, interruptible=False)  # Non-interruptible
+
+        agent.start_action(action)
+        model.run_for(5)
+        action.cancel()  # Force cancel
+
+        assert agent.interrupt_called
+
+    def test_sheep_forage_rest_pattern(self):
+        """Demonstrate the Sheep/Forage/Rest pattern from the PR description."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+
+        class Forage(Action):
+            def on_complete(self):
+                self.agent.energy += 30
+
+        class Rest(Action):
+            def on_complete(self):
+                self.agent.energy = min(100, self.agent.energy + 20)
+
+        class Sheep(Agent, HasActions):
+            def __init__(self, model):
+                super().__init__(model)
+                self.energy = 50
+                self.action_log = []
+
+            def on_action_complete(self, action):
+                self.action_log.append(action.__class__.__name__)
+                self.decide_next()
+
+            def decide_next(self):
+                if self.energy < 70:
+                    self.start_action(Rest(self, duration=2.0))
+                else:
+                    self.start_action(Forage(self, duration=3.0))
+
+        sheep = Sheep(model)
+
+        # Start first action manually
+        sheep.start_action(Forage(sheep, duration=3.0))
+
+        # Run for 8 time units - should cycle through actions
+        model.run_for(8)
+
+        # Verify action chaining worked
+        assert len(sheep.action_log) >= 2
+        assert sheep.energy >= 50  # Should have gained energy
+
+    def test_agent_receives_action_reference(self):
+        """Agent hooks receive the action as an argument."""
+        from mesa.experimental.actions import HasActions
+
+        model = Model()
+
+        class NamedAction(Action):
+            def __init__(self, agent, name):
+                super().__init__(agent, duration=2.0)
+                self.action_name = name
+
+        class TrackingAgent(Agent, HasActions):
+            def __init__(self, model):
+                super().__init__(model)
+                self.received_actions = []
+
+            def on_action_complete(self, action):
+                self.received_actions.append(action.action_name)
+
+        agent = TrackingAgent(model)
+
+        agent.start_action(NamedAction(agent, "first"))
+        model.run_for(2)
+
+        agent.start_action(NamedAction(agent, "second"))
+        model.run_for(2)
+
+        assert agent.received_actions == ["first", "second"]

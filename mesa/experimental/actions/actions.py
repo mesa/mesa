@@ -257,9 +257,14 @@ class Action:
         remaining = self.duration * (1.0 - self._progress)
 
         # Instantaneous actions (or fully completed) complete immediately
+        # Note: on_action_start is NOT called for instantaneous actions
         if remaining <= 0:
             self._do_complete()
             return self
+
+        # Fire agent-level hook (after action hook, only for non-instantaneous)
+        if hasattr(self.agent, "on_action_start"):
+            self.agent.on_action_start(self)
 
         # Schedule completion event for remaining duration
         self._event = self.model.schedule_event(self._do_complete, after=remaining)
@@ -291,6 +296,11 @@ class Action:
             self.agent.current_action = None
 
         self.on_interrupt(self._progress)
+
+        # Fire agent-level hook (after action hook)
+        if hasattr(self.agent, "on_action_interrupt"):
+            self.agent.on_action_interrupt(self, self._progress)
+
         return True
 
     def cancel(self) -> bool:
@@ -315,6 +325,11 @@ class Action:
             self.agent.current_action = None
 
         self.on_interrupt(self._progress)
+
+        # Fire agent-level hook (after action hook)
+        if hasattr(self.agent, "on_action_interrupt"):
+            self.agent.on_action_interrupt(self, self._progress)
+
         return True
 
     # --- Internal ---
@@ -349,6 +364,10 @@ class Action:
             self.agent.current_action = None
 
         self.on_complete()
+
+        # Fire agent-level hook (after action hook)
+        if hasattr(self.agent, "on_action_complete"):
+            self.agent.on_action_complete(self)
 
     def __repr__(self) -> str:
         """Return string representation."""
