@@ -8,11 +8,17 @@ The model generates mass uprising as self-reinforcing processes: if enough agent
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Install Mesa with recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+Then run the example:
+
+solara run app.py
+
+Open the displayed local URL in your browser.
+
+
 
 ## Files
 

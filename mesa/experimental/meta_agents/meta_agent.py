@@ -177,7 +177,7 @@ def create_meta_agent(
     def add_methods(
         meta_agent_instance: Any,
         agents: Iterable[Any],
-        meta_methods: dict[str, Callable],
+        meta_methods: dict[str, Callable] | None,
     ) -> None:
         """Add methods to the meta-agent instance.
 
@@ -186,26 +186,25 @@ def create_meta_agent(
         agents (Iterable[Any]): The agents to derive methods from.
         meta_methods (Dict[str, Callable]): methods to be added to the meta-agent.
         """
+        resolved_meta_methods = dict(meta_methods or {})
         if assume_constituting_agent_methods:
-            agent_classes = {type(agent) for agent in agents}
-            if meta_methods is None:
-                # Initialize meta_methods if not provided
-                meta_methods = {}
+            agent_classes = dict.fromkeys(type(agent) for agent in agents)
             for agent_class in agent_classes:
                 for name in agent_class.__dict__:
                     if callable(getattr(agent_class, name)) and not name.startswith(
                         "__"
                     ):
                         original_method = getattr(agent_class, name)
-                        meta_methods[name] = original_method
+                        resolved_meta_methods.setdefault(name, original_method)
 
-        if meta_methods is not None:
-            for name, meth in meta_methods.items():
-                bound_method = MethodType(meth, meta_agent_instance)
-                setattr(meta_agent_instance, name, bound_method)
+        for name, meth in resolved_meta_methods.items():
+            bound_method = MethodType(meth, meta_agent_instance)
+            setattr(meta_agent_instance, name, bound_method)
 
     def add_attributes(
-        meta_agent_instance: Any, agents: Iterable[Any], meta_attributes: dict[str, Any]
+        meta_agent_instance: Any,
+        agents: Iterable[Any],
+        meta_attributes: dict[str, Any],
     ) -> None:
         """Add attributes to the meta-agent instance.
 
