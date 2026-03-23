@@ -145,7 +145,7 @@ class Network(DiscreteSpace[Cell]):
 
         if cell._position is not None and cell in self._kdtree_cells:
             self._kdtree_cells.remove(cell)
-            
+
         self._rebuild_kdtree()
 
     def add_connection(self, cell1: Cell, cell2: Cell):
