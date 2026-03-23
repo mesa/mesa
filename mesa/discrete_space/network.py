@@ -142,11 +142,11 @@ class Network(DiscreteSpace[Cell]):
         """Remove a cell from the space."""
         super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
-        self._rebuild_kdtree()
 
-        if cell._position is not None:
+        if cell._position is not None and cell in self._kdtree_cells:
             self._kdtree_cells.remove(cell)
-            self._rebuild_kdtree()
+            
+        self._rebuild_kdtree()
 
     def add_connection(self, cell1: Cell, cell2: Cell):
         """Add a connection between the two cells."""
