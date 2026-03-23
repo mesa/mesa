@@ -142,7 +142,7 @@ def test_create_meta_agent_custom_join_strategy(setup_agents):
     """Test selecting an existing meta-agent with a custom join strategy."""
     model, agents = setup_agents
 
-    meta_agent1 = create_meta_agent(
+    _meta_agent1 = create_meta_agent(
         model,
         "MetaAgentClass",
         [agents[0]],
@@ -167,6 +167,40 @@ def test_create_meta_agent_custom_join_strategy(setup_agents):
     )
 
     assert meta_agent3 is meta_agent2
+
+
+def test_create_meta_agent_custom_join_strategy_requires_existing(setup_agents):
+    """Test selector validation rejects non-existing meta-agents."""
+    model, agents = setup_agents
+
+    meta_agent1 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0]],
+        Agent,
+    )
+    create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[1]],
+        Agent,
+    )
+
+    def pick_non_existing(_existing_meta_agents, _agents):
+        return MetaAgent(model, set())
+
+    with pytest.raises(
+        ValueError, match="select_existing_meta_agent must return one of the existing meta-agents."
+    ):
+        create_meta_agent(
+            model,
+            "MetaAgentClass",
+            [agents[0], agents[1]],
+            Agent,
+            select_existing_meta_agent=pick_non_existing,
+        )
+
+    assert meta_agent1 in model.agents
 
 
 def test_meta_agent_integration(setup_agents):
