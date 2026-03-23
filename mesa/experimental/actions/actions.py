@@ -49,7 +49,7 @@ class Action:
 
     Actions progress through states: PENDING → ACTIVE → COMPLETED or INTERRUPTED.
     Interrupted actions can return to ACTIVE by calling start(), which invokes on_resume().
-    They manage their own timing and progress, tracking elapsed time as a fraction from 0.0 to 1.0.
+    They manage their own timing and progress, tracking progress as a fraction from 0.0 to 1.0.
 
     Subclass and override on_start/on_resume/on_complete/on_interrupt for
     custom behavior. on_resume() is called when a previously interrupted
