@@ -126,6 +126,7 @@ class AltairBackend(AbstractRenderer):
                     linewidths=dict_data.pop(
                         "linewidths", style_fields.get("linewidths")
                     ),
+                    filled=dict_data.pop("filled", style_fields.get("filled")),
                 )
                 if dict_data:
                     ignored_keys = list(dict_data.keys())
@@ -180,8 +181,10 @@ class AltairBackend(AbstractRenderer):
                 else style_fields.get("linewidths")
             )
 
-            # FIXME: Make filled user-controllable
-            filled_value = True
+            # Use filled from portrayal, default to True if None
+            filled_value = (
+                aps.filled if aps.filled is not None else style_fields.get("filled")
+            )
             arguments["filled"].append(filled_value)
 
         final_data = {}
@@ -209,12 +212,18 @@ class AltairBackend(AbstractRenderer):
             chart_height: Height of the chart.
             **kwargs: Additional keyword arguments for customization.
             Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
+            Supported kwargs:
+                filled: Optional global override for whether markers are filled.
+                    If None (default), per-agent `AgentPortrayalStyle.filled` is used.
 
         Returns:
             alt.Chart: The Altair chart representing the agents, or None if no agents.
         """
         if arguments["loc"].size == 0:
             return None
+
+        # Optional global override for marker fill behavior.
+        filled_override = kwargs.pop("filled", None)
 
         # To get a continuous scale for color the domain should be between [0, 1]
         # that's why changing the the domain of strokeWidth beforehand.
@@ -240,7 +249,7 @@ class AltairBackend(AbstractRenderer):
         fill_colors = []
         stroke_colors = []
         for i in range(len(df)):
-            filled = df["is_filled"][i]
+            filled = filled_override if filled_override is not None else df["is_filled"][i]
             main_color = df["original_color"][i]
             stroke_spec = (
                 df["original_stroke"][i]
@@ -251,7 +260,8 @@ class AltairBackend(AbstractRenderer):
                 fill_colors.append(main_color)
                 stroke_colors.append(stroke_spec)
             else:
-                fill_colors.append(None)
+                # Use a transparent fill so only stroke is visible.
+                fill_colors.append("transparent")
                 stroke_colors.append(main_color)
         df["viz_fill_color"] = fill_colors
         df["viz_stroke_color"] = stroke_colors

@@ -247,7 +247,33 @@ def test_altair_backend_draw_agents():
         "tooltip": np.array([None, None]),
     }
     ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
-    assert ab.draw_agents(arguments) is not None
+    chart = ab.draw_agents(arguments)
+    assert chart is not None
+    assert chart.data["viz_fill_color"].tolist() == ["red", "blue"]
+    assert chart.data["viz_stroke_color"].tolist() == ["black", "black"]
+
+
+def test_altair_backend_draw_agents_global_filled_override_false():
+    """Test draw_agents supports overriding filled behavior globally."""
+    arguments = {
+        "loc": np.array([[0, 0], [1, 1]]),
+        "size": np.array([5, 5]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([1.0, 1.0]),
+        "strokeWidth": np.array([1, 1]),
+        "color": np.array(["red", "blue"]),
+        "filled": np.array([True, True]),
+        "stroke": np.array(["black", "black"]),
+        "tooltip": np.array([None, None]),
+    }
+
+    ab = AltairBackend(space_drawer=MagicMock())
+    ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
+
+    chart = ab.draw_agents(arguments, filled=False)
+    assert chart is not None
+    assert chart.data["viz_fill_color"].tolist() == ["transparent", "transparent"]
+    assert chart.data["viz_stroke_color"].tolist() == ["red", "blue"]
 
 
 def test_altair_backend_draw_property_layer():

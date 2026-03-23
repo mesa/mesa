@@ -38,7 +38,8 @@ class AgentPortrayalStyle:
         >>>         zorder=2,
         >>>         alpha=0.8,
         >>>         edgecolors="black",
-        >>>         linewidths=1.5
+        >>>         linewidths=1.5,
+        >>>         filled=True
         >>>     )
         >>>
         >>> # or for a default agent portrayal
@@ -55,6 +56,7 @@ class AgentPortrayalStyle:
     alpha: float | None = 1.0
     edgecolors: str | tuple | None = None
     linewidths: float | int | None = 1.0
+    filled: bool | None = True
     tooltip: dict | None = None
 
     def update(self, *updates_fields: tuple[str, Any]):
