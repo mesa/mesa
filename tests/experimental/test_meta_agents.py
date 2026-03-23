@@ -191,7 +191,7 @@ def test_create_meta_agent_custom_join_strategy_requires_existing(setup_agents):
 
     with pytest.raises(
         ValueError,
-        match="select_existing_meta_agent must return one of the existing meta-agents.",
+        match=r"select_existing_meta_agent must return one of the existing meta-agents\.",
     ):
         create_meta_agent(
             model,
