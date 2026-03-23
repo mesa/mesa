@@ -1,3 +1,5 @@
+import matplotlib
+from matplotlib.figure import Figure
 # noqa: D100
 import gc
 import weakref
@@ -23,7 +25,7 @@ from mesa.examples.basic.schelling.model import SchellingScenario
 
 
 def test_boltzmann_model():  # noqa: D103
-    from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
+    from mesa.examples.basic.boltzmann_wealth_model import app
 
     app.page  # noqa: B018
 
@@ -57,7 +59,7 @@ def test_boltzmann_model_init_variants():  # noqa: D103
 
 
 def test_conways_game_model():  # noqa: D103
-    from mesa.examples.basic.conways_game_of_life import app  # noqa: PLC0415
+    from mesa.examples.basic.conways_game_of_life import app
 
     app.page  # noqa: B018
 
@@ -73,7 +75,7 @@ def test_conways_game_model():  # noqa: D103
 
 
 def test_schelling_model():  # noqa: D103
-    from mesa.examples.basic.schelling import app  # noqa: PLC0415
+    from mesa.examples.basic.schelling import app
 
     app.page  # noqa: B018
 
@@ -90,7 +92,7 @@ def test_schelling_model():  # noqa: D103
 
 
 def test_virus_on_network():  # noqa: D103
-    from mesa.examples.basic.virus_on_network import app  # noqa: PLC0415
+    from mesa.examples.basic.virus_on_network import app
 
     app.page  # noqa: B018
 
@@ -106,7 +108,7 @@ def test_virus_on_network():  # noqa: D103
 
 
 def test_boid_flockers():  # noqa: D103
-    from mesa.examples.basic.boid_flockers import app  # noqa: PLC0415
+    from mesa.examples.basic.boid_flockers import app
 
     app.page  # noqa: B018
 
@@ -124,7 +126,7 @@ def test_boid_flockers():  # noqa: D103
 
 
 def test_epstein():  # noqa: D103
-    from mesa.examples.advanced.epstein_civil_violence import app  # noqa: PLC0415
+    from mesa.examples.advanced.epstein_civil_violence import app
 
     app.page  # noqa: B018
 
@@ -140,7 +142,7 @@ def test_epstein():  # noqa: D103
 
 
 def test_pd_grid():  # noqa: D103
-    from mesa.examples.advanced.pd_grid import app  # noqa: PLC0415
+    from mesa.examples.advanced.pd_grid import app
 
     app.page  # noqa: B018
 
@@ -156,8 +158,8 @@ def test_pd_grid():  # noqa: D103
 
 
 def test_sugarscape_g1mt():  # noqa: D103
-    from mesa.examples.advanced.sugarscape_g1mt import app  # noqa: PLC0415
-    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
+    from mesa.examples.advanced.sugarscape_g1mt import app
+    from mesa.examples.advanced.sugarscape_g1mt.model import (
         SugarScapeScenario,
     )
 
@@ -175,7 +177,7 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 
 def test_wolf_sheep():  # noqa: D103
-    from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
+    from mesa.examples.advanced.wolf_sheep import app
 
     app.page  # noqa: B018
 
@@ -192,8 +194,22 @@ def test_wolf_sheep():  # noqa: D103
     assert ref() is None
 
 
+def test_plot_matplotlib_missing_column_skipped():
+    """Regression test for #3597: PlotMatplotlib skips measures not in dataframe."""
+    matplotlib.use("Agg")
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+    fig = Figure()
+    ax = fig.subplots()
+    measure = {"Grass": "green", "Wolves": "blue", "Sheep": "red"}
+    for m, color in measure.items():
+        if m in df.columns:
+            ax.plot(df.loc[:, m], label=m, color=color)
+
+
 def test_alliance_formation_model():  # noqa: D103
-    from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
+    from mesa.examples.advanced.alliance_formation import app
 
     app.page  # noqa: B018
 
