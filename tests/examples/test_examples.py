@@ -192,6 +192,24 @@ def test_wolf_sheep():  # noqa: D103
     assert ref() is None
 
 
+def test_wolf_sheep_no_grass():  # noqa: D103
+    """Test wolf_sheep model with grass=False (regression test for #3597)."""
+    from mesa.examples.advanced.wolf_sheep.agents import GrassPatch  # noqa: PLC0415
+
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    ref = weakref.ref(model)
+
+    # Verify no GrassPatch agents exist
+    assert not any(isinstance(a, GrassPatch) for a in model.agents)
+
+    model.run_for(10)
+    model.remove_all_agents()
+
+    del model
+    gc.collect()
+    assert ref() is None
+
+
 def test_alliance_formation_model():  # noqa: D103
     from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
 
