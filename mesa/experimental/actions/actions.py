@@ -2,9 +2,9 @@
 
 An Action represents a discrete task an agent performs over a duration.
 It progresses through states: PENDING → ACTIVE → COMPLETED or INTERRUPTED.
-Interrupted actions can resume by calling start(), which invokes on_resume(),
-integrates with Mesa's event scheduler for precise timing, and supports
-interruption with progress tracking and optional resumption.
+Interrupted actions can resume by calling start(), which invokes on_resume().
+The Action system integrates with Mesa's event scheduler for precise timing
+and supports interruption with progress tracking and optional resumption.
 
 To use, subclass Action and override on_start(), on_resume(),
 on_complete(), and on_interrupt() to define behavior.
