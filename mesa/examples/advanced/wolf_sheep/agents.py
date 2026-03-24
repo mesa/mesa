@@ -59,9 +59,9 @@ class Sheep(Animal):
     def feed(self):
         """If possible, eat grass at current location."""
         grass_patch = next(
-            obj for obj in self.cell.agents if isinstance(obj, GrassPatch)
+            (obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None
         )
-        if grass_patch.fully_grown:
+        if grass_patch is not None and grass_patch.fully_grown:
             self.energy += self.energy_from_food
             grass_patch.get_eaten()
 
