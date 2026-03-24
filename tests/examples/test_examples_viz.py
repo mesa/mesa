@@ -28,25 +28,12 @@ from mesa.visualization.components.matplotlib_components import (
 
 
 def capture_latest_image_src(page_session: playwright.sync_api.Page) -> str:
-    """Capture the latest image src while tolerating Solara rerender races."""
-    attempts = 5
-    last_error = None
-    for _ in range(attempts):
-        locator = page_session.locator("img").last
-        locator.wait_for(state="visible")
-        try:
-            src = locator.get_attribute("src")
-            if src is not None:
-                return src
-        except playwright.sync_api.Error as err:
-            if "Element is not attached to the DOM" not in str(err):
-                raise
-            last_error = err
-            page_session.wait_for_timeout(100)
-
-    if last_error is not None:
-        raise last_error
-    raise RuntimeError("Unable to capture image src.")
+    """Capture the latest rendered image as a stable data URI string."""
+    locator = page_session.locator("img").last
+    locator.wait_for(state="visible")
+    src = locator.get_attribute("src")
+    assert src is not None, "Unable to capture image src."
+    return src
 
 
 def run_model_test(
