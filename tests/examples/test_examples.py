@@ -199,7 +199,6 @@ def test_plot_matplotlib_missing_column_skipped():
     """Regression test for #3597: PlotMatplotlib skips measures not in dataframe."""
     matplotlib.use("Agg")
     model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
-    model.step()
     df = model.datacollector.get_model_vars_dataframe()
     fig = Figure()
     ax = fig.subplots()
