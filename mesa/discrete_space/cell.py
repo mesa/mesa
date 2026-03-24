@@ -105,7 +105,10 @@ class Cell:
         self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
         from mesa.agentset import AgentSet
-        self._agents = AgentSet([])  # Switched from list to AgentSet for better performance and memory
+
+        self._agents = AgentSet(
+            []
+        )  # Switched from list to AgentSet for better performance and memory
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
