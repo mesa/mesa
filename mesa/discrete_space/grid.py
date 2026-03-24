@@ -334,7 +334,7 @@ class Grid(DiscreteSpace[T]):
             agent.move_to(grid.select_random_cell_with_capacity())
 
             # Count how many cells still have room
-            len(list(grid.available_cells))
+            len(list(grid.cells_with_capacity))
         """
         if self.capacity is None:
             return self.all_cells
@@ -349,7 +349,7 @@ class Grid(DiscreteSpace[T]):
         Example::
 
             # Safe placement that respects capacity limits
-            free_cell = grid.select_random_not_full_cell()
+            free_cell = grid.select_random_cell_with_capacity()
             agent.move_to(free_cell)
         """
         random = self.random
