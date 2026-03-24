@@ -130,7 +130,7 @@ def test_network_remove_cell_rebuilds_kdtree_once(monkeypatch):
     g.add_nodes_from([0, 1])
 
     layout_dict = {0: (0, 0), 1: (10, 0)}
-    net = Network(G, layout=layout_dict, random=random.Random(42))
+    net = Network(g, layout=layout_dict, random=random.Random(42))
 
     new_cell = Cell(
         coordinate=99, position=np.array([100, 100]), random=random.Random(42)
