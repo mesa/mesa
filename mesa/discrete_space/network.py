@@ -48,9 +48,8 @@ class Network(DiscreteSpace[Cell]):
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
         """
-        import networkx as nx  # noqa: PLC0415
-
         if layout is None:
+            import networkx as nx  # noqa: PLC0415
             layout = nx.circular_layout
 
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
