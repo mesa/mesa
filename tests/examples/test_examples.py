@@ -1,8 +1,9 @@
-import matplotlib
-from matplotlib.figure import Figure
 # noqa: D100
 import gc
 import weakref
+
+import matplotlib
+from matplotlib.figure import Figure
 
 from mesa.examples import (
     BoidFlockers,
