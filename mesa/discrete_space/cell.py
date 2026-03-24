@@ -1,5 +1,8 @@
 """Cells are positions in space that can have properties and contain agents.
 
+## NOTE: Updated agent storage from list to AgentSet for improved performance and memory management.
+## See GitHub issue #3629.
+
 A cell represents a location that can:
 - Have properties (like temperature or resources)
 - Track and limit the agents it contains
@@ -101,9 +104,8 @@ class Cell:
         self.coordinate = coordinate  # Logical index
         self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
-        self._agents: list[
-            CellAgent
-        ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        from mesa.agentset import AgentSet
+        self._agents = AgentSet([])  # Switched from list to AgentSet for better performance and memory
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
@@ -152,7 +154,7 @@ class Cell:
         if self.capacity is not None and n >= self.capacity:
             raise CellFullException(self.coordinate)
 
-        self._agents.append(agent)
+        self._agents.add(agent)
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -161,11 +163,9 @@ class Cell:
             agent (CellAgent): agent to remove from this cell
 
         """
-        try:
-            self._agents.remove(agent)
-        except ValueError as e:
-            raise AgentMissingException(agent, self.coordinate) from e
-
+        if agent not in self._agents:
+            raise AgentMissingException(agent, self.coordinate)
+        self._agents.remove(agent)
         self.empty = self.is_empty
 
     @property
@@ -183,7 +183,7 @@ class Cell:
     @property
     def agents(self) -> list[CellAgent]:
         """Returns a list of the agents occupying the cell."""
-        return self._agents.copy()
+        return list(self._agents)
 
     def __repr__(self):  # noqa
         return f"Cell({self.coordinate}, {self.agents})"
