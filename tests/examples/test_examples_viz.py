@@ -107,9 +107,9 @@ def run_model_test(
         # Assert that visualizations changed after running steps.
         # Some short runs can leave one view unchanged while the other updates.
         if measure_config and initial_graph is not None and changed_graph is not None:
-            assert (initial_space != changed_space) or (initial_graph != changed_graph), (
-                "Neither space nor graph visualization changed after steps."
-            )
+            assert (initial_space != changed_space) or (
+                initial_graph != changed_graph
+            ), "Neither space nor graph visualization changed after steps."
         else:
             assert initial_space != changed_space, (
                 "The space visualization did not change after steps."
