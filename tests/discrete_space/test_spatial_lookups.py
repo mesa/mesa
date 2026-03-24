@@ -126,8 +126,8 @@ def test_network_lookups():
 
 def test_network_remove_cell_rebuilds_kdtree_once(monkeypatch):
     """Removing a positioned cell should trigger exactly one KDTree rebuild."""
-    G = nx.Graph()
-    G.add_nodes_from([0, 1])
+    g = nx.Graph()
+    g.add_nodes_from([0, 1])
 
     layout_dict = {0: (0, 0), 1: (10, 0)}
     net = Network(G, layout=layout_dict, random=random.Random(42))
