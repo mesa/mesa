@@ -192,6 +192,18 @@ def test_wolf_sheep():  # noqa: D103
     assert ref() is None
 
 
+def test_wolf_sheep_grass_disabled():
+    """Regression test for #3597: grass=False must not raise StopIteration."""
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    for _ in range(10):
+        model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+    assert df.shape[0] == 11
+    assert "Grass" not in df.columns
+    assert "Wolves" in df.columns
+    assert "Sheep" in df.columns
+
+
 def test_alliance_formation_model():  # noqa: D103
     from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
 
