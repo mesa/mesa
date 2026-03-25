@@ -82,7 +82,6 @@ def run_model_test(
             display(graph_viz)
             page_session.wait_for_selector("img")
             changed_graph = page_session.locator("img").last.screenshot()
-        
 
         # Encode space screenshots (AFTER screenshots are captured)
         initial_space_encoding = base64.b64encode(initial_space).decode()
