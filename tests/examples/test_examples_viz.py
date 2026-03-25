@@ -82,17 +82,25 @@ def run_model_test(
             display(graph_viz)
             page_session.wait_for_selector("img")
             changed_graph = page_session.locator("img").last.screenshot()
-
+        # Capture screenshots for initial state
         locator = page_session.locator("img")
         page_session.wait_for_selector("img", state="attached")
         initial_space = locator.screenshot()
-       # ... then for the changed state
+
+        # ... then for the changed state
         locator = page_session.locator("img").first
         page_session.wait_for_selector("img", state="attached")
         changed_space = locator.screenshot()
-        if measure_config and initial_graph is not None and changed_graph is not None:
-            initial_graph_encoding = base64.b64encode(initial_graph).decode()
-            changed_graph_encoding = base64.b64encode(changed_graph).decode()
+
+        # Encode space screenshots (AFTER screenshots are captured)
+        initial_space_encoding = base64.b64encode(initial_space).decode()
+        changed_space_encoding = base64.b64encode(changed_space).decode()
+
+     if measure_config and initial_graph is not None and changed_graph is not None:
+        initial_graph_encoding = base64.b64encode(initial_graph).decode()
+        changed_graph_encoding = base64.b64encode(changed_graph).decode()
+
+        
 
         # Assert that visualizations changed after running steps
         assert initial_space_encoding != changed_space_encoding, (
