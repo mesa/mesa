@@ -96,9 +96,9 @@ def run_model_test(
         initial_space_encoding = base64.b64encode(initial_space).decode()
         changed_space_encoding = base64.b64encode(changed_space).decode()
 
-     if measure_config and initial_graph is not None and changed_graph is not None:
-        initial_graph_encoding = base64.b64encode(initial_graph).decode()
-        changed_graph_encoding = base64.b64encode(changed_graph).decode()
+        if measure_config and initial_graph is not None and changed_graph is not None:
+           initial_graph_encoding = base64.b64encode(initial_graph).decode()
+           changed_graph_encoding = base64.b64encode(changed_graph).decode()
 
         
 
