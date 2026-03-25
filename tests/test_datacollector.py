@@ -897,5 +897,5 @@ def test_summarize():
     assert "x" in summary.columns
 
 
-"""this uses variable so ruff is happy and confirms it works assert not summary.empty"""
+
 
