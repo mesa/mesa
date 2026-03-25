@@ -890,17 +890,14 @@ def test_summarize():
         time = 0
 
     dc.collect(Dummy())
-<<<<<<< HEAD
     summary = dc.summarize()#this uses variable so ruff is happy and confirms it works assert not summary.empty
     assert not summary.empty
     assert "x" in summary.columns
-=======
     summary = dc.summarize()
 
 
 """this uses variable so ruff is happy and confirms it works assert not summary.empty
 assert "x" in summary.columns"""
->>>>>>> 675dd2e59433ec89444c5664e3ef1da5b95b6462
 
 if __name__ == "__main__":
     unittest.main()
