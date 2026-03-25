@@ -510,6 +510,7 @@ class DataCollector:
         if table_name not in self.tables:
             raise TableMissingException(table_name)
         return pd.DataFrame(self.tables[table_name])
+
     def summarize(self):
         """Return summary statistics for model data."""
         df = self.get_model_vars_dataframe()

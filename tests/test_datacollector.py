@@ -880,11 +880,17 @@ def test_get_table_dataframe_nonexistent():
 
     with pytest.raises(TableMissingException, match="does not exist"):
         dc.get_table_dataframe("nonexistent")
+
+
 def test_summarize():
     dc = DataCollector(model_reporters={"x": lambda m: 1})
-    class Dummy: time = 0
+
+    class Dummy:
+        time = 0
+
     dc.collect(Dummy())
     assert dc.summarize() is not None
+
 
 if __name__ == "__main__":
     unittest.main()
