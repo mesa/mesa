@@ -89,10 +89,8 @@ def run_model_test(
         changed_space_encoding = base64.b64encode(changed_space).decode()
 
         if measure_config and initial_graph is not None and changed_graph is not None:
-           initial_graph_encoding = base64.b64encode(initial_graph).decode()
-           changed_graph_encoding = base64.b64encode(changed_graph).decode()
-
-        
+            initial_graph_encoding = base64.b64encode(initial_graph).decode()
+            changed_graph_encoding = base64.b64encode(changed_graph).decode()
 
         # Assert that visualizations changed after running steps
         assert initial_space_encoding != changed_space_encoding, (
