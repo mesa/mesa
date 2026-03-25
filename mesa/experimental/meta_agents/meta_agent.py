@@ -242,7 +242,7 @@ def create_meta_agent(
     existing_meta_agents = []
     for a in agents:
         if hasattr(a, "meta_agents"):
-            for ma in a.meta_agents:
+            for ma in sorted(a.meta_agents, key=lambda x: x.unique_id or 0):
                 if (
                     ma.__class__.__name__ == new_agent_class
                     and ma not in existing_meta_agents
@@ -310,8 +310,10 @@ class MetaAgent(Agent):
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
-            # Maintain backward compatibility for code expecting agent.meta_agent
-            agent.meta_agent = self
+            # Maintain backward compatibility — always pick lowest unique_id
+            agent.meta_agent = sorted(
+                agent.meta_agents, key=lambda x: x.unique_id or 0
+            )[0]
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -387,7 +389,10 @@ class MetaAgent(Agent):
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
-            agent.meta_agent = self
+            # Maintain backward compatibility — always pick lowest unique_id
+            agent.meta_agent = sorted(
+                agent.meta_agents, key=lambda x: x.unique_id or 0
+            )[0]
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
