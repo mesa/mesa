@@ -512,6 +512,6 @@ class DataCollector:
         return pd.DataFrame(self.tables[table_name])
 
     def summarize(self):
-        """Return summary statistics for model data."""
+        """Return summary statistics for model data"""
         df = self.get_model_vars_dataframe()
         return df.describe()
