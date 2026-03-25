@@ -884,7 +884,7 @@ def test_get_table_dataframe_nonexistent():
 
 def test_summarize():
     """Test the summarize method"""
-    dc = 
+    dc =
     DataCollector(model_reporters={"x": lambda m: 1})
 
     class Dummy:
@@ -894,7 +894,7 @@ def test_summarize():
     summary = dc.summarize()  # this uses variable so ruff is happy and confirms it works assert not summary.empty
     assert not summary.empty
     assert "x" in summary.columns
-    
+
 
 
 """this uses variable so ruff is happy and confirms it works assert not summary.empty"""
