@@ -183,8 +183,10 @@ def test_create_meta_agent_custom_join_selector(setup_agents):
         [agents[1]],
         Agent,
     )
+
     def pick_highest_unique_id(existing_meta_agents, _agents):
         return max(existing_meta_agents, key=lambda ma: ma.unique_id)
+
     meta_agent3 = create_meta_agent(
         model,
         "MetaAgentClass",
@@ -210,12 +212,19 @@ def test_create_meta_agent_custom_join_selector_invalid(setup_agents):
         [agents[1]],
         Agent,
     )
+
     class DummyMetaAgent:
         pass
+
     def pick_non_existing(_existing_meta_agents, _agents):
         return DummyMetaAgent()
+
     import pytest
-    with pytest.raises(ValueError, match=r"agent_join_selector must return one of the existing meta-agents."):
+
+    with pytest.raises(
+        ValueError,
+        match=r"agent_join_selector must return one of the existing meta-agents.",
+    ):
         create_meta_agent(
             model,
             "MetaAgentClass",
