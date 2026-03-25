@@ -86,7 +86,7 @@ def run_model_test(
         locator = page_session.locator("img")
         page_session.wait_for_selector("img", state="attached")
         initial_space = locator.screenshot()
-       # ... then for the changed state
+        # ... then for the changed state
         locator = page_session.locator("img").first
         page_session.wait_for_selector("img", state="attached")
         changed_space = locator.screenshot()
