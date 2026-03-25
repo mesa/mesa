@@ -255,7 +255,9 @@ def create_meta_agent(
         if agent_join_selector is not None:
             meta_agent = agent_join_selector(existing_meta_agents, agents)
             if meta_agent not in existing_meta_agents:
-                raise ValueError("agent_join_selector must return one of the existing meta-agents.")
+                raise ValueError(
+                    "agent_join_selector must return one of the existing meta-agents."
+                )
         else:
             meta_agent = (
                 sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
