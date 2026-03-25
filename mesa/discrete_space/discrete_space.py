@@ -105,6 +105,12 @@ class DiscreteSpace[T: Cell](ABC):
             if you rely on getting neighborhoods of cells with a radius higher than 1, these might not be cleared
             correctly if you are adding or removing cells and connections at runtime.
 
+        Warning:
+            Coordinate Collision: If a cell already exists at the specified
+            coordinates (e.g., cell1), it will be overwritten silently by the
+            new cell (cell2).
+
+            Ensure the target coordinates are vacant before calling this method.
         """
         self.__dict__.pop("all_cells", None)
         self._cells[cell.coordinate] = cell

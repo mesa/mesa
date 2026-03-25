@@ -46,12 +46,8 @@ class EpsteinCivilViolence(mesa.Model):
         self,
         width=40,
         height=40,
-        scenario: EpsteinScenario | None = None,
+        scenario: EpsteinScenario = EpsteinScenario,
     ):
-        # Create default scenario if none provided
-        if scenario is None:
-            scenario = EpsteinScenario()
-
         super().__init__(scenario=scenario)
 
         match self.scenario.grid_type:

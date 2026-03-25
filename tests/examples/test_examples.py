@@ -77,7 +77,7 @@ def test_schelling_model():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = Schelling(scenario=None)
+    _model = Schelling()
     model = Schelling(scenario=SchellingScenario(rng=42))
     ref = weakref.ref(model)
 
@@ -110,7 +110,7 @@ def test_boid_flockers():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = BoidFlockers(scenario=None)
+    _model = BoidFlockers()
 
     model = BoidFlockers(scenario=BoidsScenario(rng=42))
     ref = weakref.ref(model)
@@ -179,7 +179,7 @@ def test_wolf_sheep():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = WolfSheep(scenario=None)
+    _model = WolfSheep()
 
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     ref = weakref.ref(model)
@@ -190,6 +190,18 @@ def test_wolf_sheep():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
+
+def test_wolf_sheep_grass_disabled():
+    """Regression test for #3597: grass=False must not raise StopIteration."""
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    for _ in range(10):
+        model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+    assert df.shape[0] == 11
+    assert "Grass" not in df.columns
+    assert "Wolves" in df.columns
+    assert "Sheep" in df.columns
 
 
 def test_alliance_formation_model():  # noqa: D103

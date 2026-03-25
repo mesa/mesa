@@ -58,15 +58,12 @@ class WolfSheep(Model):
         "A model for simulating wolf and sheep (predator-prey) ecosystem modelling."
     )
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: WolfSheepScenario = WolfSheepScenario):
         """Create a new Wolf-Sheep model with the given parameters.
 
         Args:
             scenario: WolfSheepScenario containing model parameters.
         """
-        if scenario is None:
-            scenario = WolfSheepScenario()
-
         super().__init__(scenario=scenario)
 
         # Initialize model parameters
