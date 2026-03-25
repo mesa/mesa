@@ -168,6 +168,63 @@ def test_meta_agent_integration(setup_agents):
     assert meta_agent.custom_method() == "custom_method_value"
 
 
+def test_create_meta_agent_custom_join_selector(setup_agents):
+    """Test selecting an existing meta-agent with a custom join selector."""
+    model, agents = setup_agents
+    meta_agent1 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0]],
+        Agent,
+    )
+    meta_agent2 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[1]],
+        Agent,
+    )
+    def pick_highest_unique_id(existing_meta_agents, _agents):
+        return max(existing_meta_agents, key=lambda ma: ma.unique_id)
+    meta_agent3 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0], agents[1]],
+        Agent,
+        agent_join_selector=pick_highest_unique_id,
+    )
+    assert meta_agent3 is meta_agent2
+
+
+def test_create_meta_agent_custom_join_selector_invalid(setup_agents):
+    """Test selector validation rejects non-existing meta-agents."""
+    model, agents = setup_agents
+    meta_agent1 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0]],
+        Agent,
+    )
+    create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[1]],
+        Agent,
+    )
+    class DummyMetaAgent:
+        pass
+    def pick_non_existing(_existing_meta_agents, _agents):
+        return DummyMetaAgent()
+    import pytest
+    with pytest.raises(ValueError, match=r"agent_join_selector must return one of the existing meta-agents."):
+        create_meta_agent(
+            model,
+            "MetaAgentClass",
+            [agents[0], agents[1]],
+            Agent,
+            agent_join_selector=pick_non_existing,
+        )
+
+
 def test_evaluate_combination(setup_agents):
     """Test the evaluate_combination function.
 
