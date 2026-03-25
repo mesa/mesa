@@ -884,8 +884,7 @@ def test_get_table_dataframe_nonexistent():
 
 def test_summarize():
     """Test the summarize method"""
-    dc =
-    DataCollector(model_reporters={"x": lambda m: 1})
+    dc = DataCollector(model_reporters={"x": lambda m: 1})
 
     class Dummy:
         time = 0
