@@ -890,10 +890,11 @@ def test_summarize():
         time = 0
 
     dc.collect(Dummy())
-    summary = dc.summarize()  # this uses variable so ruff is happy and confirms it works
+    summary = (
+        dc.summarize()
+    )  # this uses variable so ruff is happy and confirms it works
     assert not summary.empty
     assert "x" in summary.columns
-
 
 
 """this uses variable so ruff is happy and confirms it works assert not summary.empty"""
