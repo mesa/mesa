@@ -256,7 +256,9 @@ def create_meta_agent(
 
     if len(existing_meta_agents) > 0:
         if len(existing_meta_agents) > 1 and select_existing_meta_agent is not None:
-            meta_agent = select_existing_meta_agent(existing_meta_agents, agents)
+            # Sort candidates by unique_id to ensure deterministic order
+            sorted_candidates = sorted(existing_meta_agents, key=lambda x: x.unique_id)
+            meta_agent = select_existing_meta_agent(sorted_candidates, agents)
             if meta_agent not in existing_meta_agents:
                 raise ValueError(
                     "select_existing_meta_agent must return one of the existing meta-agents."

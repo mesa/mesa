@@ -418,3 +418,41 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     # This should not cause a TypeError from unpacking
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
+
+
+def test_create_meta_agent_default_join_strategy(setup_agents):
+    """Test default behavior selects lowest unique_id when no selector is provided.
+
+    Regression test for backward compatibility: when multiple existing meta-agents
+    of the same class exist and no select_existing_meta_agent is provided,
+    create_meta_agent should join the one with the lowest unique_id.
+    """
+    model, agents = setup_agents
+
+    meta_agent1 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0]],
+        Agent,
+    )
+    meta_agent2 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[1]],
+        Agent,
+    )
+
+    # Ensure meta_agent1 has lower unique_id
+    assert meta_agent1.unique_id < meta_agent2.unique_id
+
+    # When no selector is provided, should join the one with lowest unique_id
+    meta_agent3 = create_meta_agent(
+        model,
+        "MetaAgentClass",
+        [agents[0], agents[1]],
+        Agent,
+    )
+
+    assert meta_agent3 is meta_agent1
+    assert agents[0] in meta_agent1.agents
+    assert agents[1] in meta_agent1.agents
