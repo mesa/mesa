@@ -354,7 +354,7 @@ class MetaAgent(Agent):
         """
         return {type(agent) for agent in self._constituting_set}
 
-    def get_constituting_agent_instance(self, agent_type) -> set[type]:
+    def get_constituting_agent_instance(self, agent_type) -> Agent:
         """Get the instance of a constituting_agent of the specified type.
 
         Args:
@@ -406,6 +406,15 @@ class MetaAgent(Agent):
                     )[0]
                 else:
                     agent.meta_agent = None
+
+    def remove(self) -> None:
+        """Remove the MetaAgent from the model and clean up constituent references.
+
+        Clears ``meta_agents`` and ``meta_agent`` on every constituent agent
+        before deregistering so no stale references remain.
+        """
+        self.remove_constituting_agents(set(self._constituting_set))
+        super().remove()
 
     def step(self):
         """Perform the agent's step.
