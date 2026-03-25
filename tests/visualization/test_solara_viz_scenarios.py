@@ -1,5 +1,6 @@
 """Test Solara visualizations with Scenarios."""
 
+import numpy as np
 import solara
 
 import mesa
@@ -21,7 +22,7 @@ class MyScenario(Scenario):
 class MyModel(mesa.Model):
     """A mock model for testing."""
 
-    def __init__(self, height=40, width=40, scenario: MyScenario | None = None):
+    def __init__(self, height=40, width=40, scenario: MyScenario = MyScenario):
         """Initialize the mock model."""
         super().__init__(scenario=scenario)
         self.height = height
@@ -148,7 +149,10 @@ def test_reset_with_scenario():
     assert kwargs["scenario"].n == 60
     assert kwargs["scenario"].width == 12
     assert kwargs["scenario"].height == 11
-    assert kwargs["scenario"].rng == 42
+    assert (
+        kwargs["scenario"].initial_rng_state
+        == np.random.default_rng(42).bit_generator.state
+    )
 
 
 def test_boltzmann_scenario_integration():

@@ -24,6 +24,7 @@ import numpy as np
 from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
+from mesa.discrete_space.cell_collection import CellCollection
 
 T = TypeVar("T", bound=Cell)
 
@@ -307,6 +308,68 @@ class Grid(DiscreteSpace[T]):
                 "Cannot select a random empty cell."
             ) from e
         return self._cells[tuple(random_coord)]
+
+    @property
+    def cells_with_capacity(self) -> CellCollection[T]:
+        """Return all cells that have available capacity (i.e. are not full).
+
+        A cell is considered *available* if ``not cell.is_full``.
+
+        This is meaningfully different from :attr:`~DiscreteSpace.empties`:
+        ``empties`` only includes cells with **zero** agents. If a cell has
+        ``capacity=5`` and currently holds 3 agents it is **not** empty, but it
+        **is** still available. ``available_cells`` is therefore the correct
+        API for models where agents share cells up to a finite limit.
+
+        For cells with ``capacity=None`` (unlimited), every cell is always
+        available regardless of how many agents it holds.
+
+        Returns:
+            CellCollection[T]: All cells where ``len(agents) < capacity``
+            (or all cells when capacity is None).
+
+        Example::
+
+            # Place an agent in any non-full cell
+            agent.move_to(grid.select_random_cell_with_capacity())
+
+            # Count how many cells still have room
+            len(list(grid.cells_with_capacity))
+        """
+        if self.capacity is None:
+            return self.all_cells
+        return self.all_cells.select(lambda cell: not cell.is_full)
+
+    def select_random_cell_with_capacity(self) -> Cell:
+        """Select a random cell that has remaining capacity.
+
+        Raises:
+            IndexError: If every cell in the grid is at full capacity.
+
+        Example::
+
+            # Safe placement that respects capacity limits
+            free_cell = grid.select_random_cell_with_capacity()
+            agent.move_to(free_cell)
+        """
+        random = self.random
+        cells = self._celllist
+        # Fast path: up to 50 random samples, O(1) average when grid is sparse.
+        # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
+        # heuristic, see https://github.com/JuliaDynamics/Agents.jl/pull/541).
+
+        if self._try_random:
+            for _ in range(50):
+                cell = random.choice(cells)
+                if not cell.is_full:
+                    return cell
+
+        available = list(self.cells_with_capacity)
+        if not available:
+            raise IndexError(
+                "No available cells exist in the grid: all cells are at full capacity."
+            )
+        return random.choice(available)
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate

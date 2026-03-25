@@ -178,7 +178,7 @@ def create_meta_agent(
     def add_methods(
         meta_agent_instance: Any,
         agents: Iterable[Any],
-        meta_methods: dict[str, Callable],
+        meta_methods: dict[str, Callable] | None,
     ) -> None:
         """Add methods to the meta-agent instance.
 
@@ -187,26 +187,25 @@ def create_meta_agent(
         agents (Iterable[Any]): The agents to derive methods from.
         meta_methods (Dict[str, Callable]): methods to be added to the meta-agent.
         """
+        resolved_meta_methods = dict(meta_methods or {})
         if assume_constituting_agent_methods:
-            agent_classes = {type(agent) for agent in agents}
-            if meta_methods is None:
-                # Initialize meta_methods if not provided
-                meta_methods = {}
+            agent_classes = dict.fromkeys(type(agent) for agent in agents)
             for agent_class in agent_classes:
                 for name in agent_class.__dict__:
                     if callable(getattr(agent_class, name)) and not name.startswith(
                         "__"
                     ):
                         original_method = getattr(agent_class, name)
-                        meta_methods[name] = original_method
+                        resolved_meta_methods.setdefault(name, original_method)
 
-        if meta_methods is not None:
-            for name, meth in meta_methods.items():
-                bound_method = MethodType(meth, meta_agent_instance)
-                setattr(meta_agent_instance, name, bound_method)
+        for name, meth in resolved_meta_methods.items():
+            bound_method = MethodType(meth, meta_agent_instance)
+            setattr(meta_agent_instance, name, bound_method)
 
     def add_attributes(
-        meta_agent_instance: Any, agents: Iterable[Any], meta_attributes: dict[str, Any]
+        meta_agent_instance: Any,
+        agents: Iterable[Any],
+        meta_attributes: dict[str, Any],
     ) -> None:
         """Add attributes to the meta-agent instance.
 
@@ -248,7 +247,7 @@ def create_meta_agent(
     existing_meta_agents = []
     for a in agents:
         if hasattr(a, "meta_agents"):
-            for ma in a.meta_agents:
+            for ma in sorted(a.meta_agents, key=lambda x: x.unique_id or 0):
                 if (
                     ma.__class__.__name__ == new_agent_class
                     and ma not in existing_meta_agents
@@ -316,8 +315,10 @@ class MetaAgent(Agent):
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
-            # Maintain backward compatibility for code expecting agent.meta_agent
-            agent.meta_agent = self
+            # Maintain backward compatibility — always pick lowest unique_id
+            agent.meta_agent = sorted(
+                agent.meta_agents, key=lambda x: x.unique_id or 0
+            )[0]
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -360,7 +361,7 @@ class MetaAgent(Agent):
         """
         return {type(agent) for agent in self._constituting_set}
 
-    def get_constituting_agent_instance(self, agent_type) -> set[type]:
+    def get_constituting_agent_instance(self, agent_type) -> Agent:
         """Get the instance of a constituting_agent of the specified type.
 
         Args:
@@ -393,7 +394,10 @@ class MetaAgent(Agent):
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
-            agent.meta_agent = self
+            # Maintain backward compatibility — always pick lowest unique_id
+            agent.meta_agent = sorted(
+                agent.meta_agents, key=lambda x: x.unique_id or 0
+            )[0]
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
@@ -412,6 +416,15 @@ class MetaAgent(Agent):
                     )[0]
                 else:
                     agent.meta_agent = None
+
+    def remove(self) -> None:
+        """Remove the MetaAgent from the model and clean up constituent references.
+
+        Clears ``meta_agents`` and ``meta_agent`` on every constituent agent
+        before deregistering so no stale references remain.
+        """
+        self.remove_constituting_agents(set(self._constituting_set))
+        super().remove()
 
     def step(self):
         """Perform the agent's step.
