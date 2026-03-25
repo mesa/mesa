@@ -891,6 +891,8 @@ def test_summarize():
 
     dc.collect(Dummy())
     summary = dc.summarize()
+
+
 """this uses variable so ruff is happy and confirms it works assert not summary.empty
 assert "x" in summary.columns"""
 
