@@ -215,13 +215,7 @@ def test_virus_on_network_model(solara_test, page_session: playwright.sync_api.P
     """Test virus on network model behavior and visualization."""
     from mesa.examples.basic.virus_on_network.model import State  # noqa: PLC0415
 
-    model = VirusOnNetwork(
-        rng=42,
-        virus_spread_chance=1.0,
-        virus_check_frequency=1.0,
-        recovery_chance=1.0,
-        gain_resistance_chance=1.0,
-    )
+    model = VirusOnNetwork(rng=42)
 
     def agent_portrayal(agent):
         node_color_dict = {
