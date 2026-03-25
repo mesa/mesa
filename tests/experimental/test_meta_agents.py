@@ -186,8 +186,10 @@ def test_create_meta_agent_custom_join_strategy_requires_existing(setup_agents):
         Agent,
     )
 
+    sentinel = object()
+
     def pick_non_existing(_existing_meta_agents, _agents):
-        return MetaAgent(model, set())
+        return sentinel
 
     with pytest.raises(
         ValueError,
