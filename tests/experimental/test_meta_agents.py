@@ -352,3 +352,50 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     # This should not cause a TypeError from unpacking
     result = find_combinations(model, model.agents, size=2, evaluation_func=None)
     assert result == []  # No combinations when no evaluation function
+
+
+def test_meta_agent_remove_cleans_up_references(setup_agents):
+    """Test that MetaAgent.remove() clears meta_agents and meta_agent on constituents."""
+    model, agents = setup_agents
+    meta_agent = MetaAgent(model, set(agents))
+
+    # Verify references are set
+    for agent in agents:
+        assert meta_agent in agent.meta_agents
+        assert agent.meta_agent is not None
+
+    # Remove the meta-agent from the model
+    meta_agent.remove()
+
+    # All constituent agents should have no stale references
+    for agent in agents:
+        assert meta_agent not in agent.meta_agents
+        assert agent.meta_agent is None
+
+    # MetaAgent should be gone from the model
+    assert meta_agent not in model.agents
+
+
+def test_meta_agent_remove_with_multiple_memberships():
+    """Test remove() when agents belong to multiple meta-agents."""
+    model = Model()
+    a1 = CustomAgent(model)
+    a2 = CustomAgent(model)
+
+    ma1 = MetaAgent(model, {a1, a2}, name="Group1")
+    ma2 = MetaAgent(model, {a1}, name="Group2")
+
+    # a1 belongs to both meta-agents
+    assert ma1 in a1.meta_agents
+    assert ma2 in a1.meta_agents
+
+    # Remove ma1 — a1 should still reference ma2
+    ma1.remove()
+
+    assert ma1 not in a1.meta_agents
+    assert ma2 in a1.meta_agents
+    assert a1.meta_agent is ma2
+
+    # a2 was only in ma1, should be fully cleaned
+    assert a2.meta_agent is None
+    assert len(a2.meta_agents) == 0
