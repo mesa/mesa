@@ -5,8 +5,8 @@ callbacks, progress tracking, and resumable actions—critical for agent
 interaction patterns that depend on interruptible task scheduling.
 """
 
-# ruff: noqa: D101, D102, D103, D107
-import pytest # type: ignore
+# ruff: noqa: D102, D107
+import pytest  # type: ignore
 
 from mesa import Agent, Model
 from mesa.experimental.actions import Action, ActionState
