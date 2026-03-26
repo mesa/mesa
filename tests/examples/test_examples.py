@@ -26,7 +26,7 @@ from mesa.examples.basic.schelling.model import SchellingScenario
 
 
 def test_boltzmann_model():  # noqa: D103
-    from mesa.examples.basic.boltzmann_wealth_model import app
+    from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -60,7 +60,7 @@ def test_boltzmann_model_init_variants():  # noqa: D103
 
 
 def test_conways_game_model():  # noqa: D103
-    from mesa.examples.basic.conways_game_of_life import app
+    from mesa.examples.basic.conways_game_of_life import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -76,7 +76,7 @@ def test_conways_game_model():  # noqa: D103
 
 
 def test_schelling_model():  # noqa: D103
-    from mesa.examples.basic.schelling import app
+    from mesa.examples.basic.schelling import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -93,7 +93,7 @@ def test_schelling_model():  # noqa: D103
 
 
 def test_virus_on_network():  # noqa: D103
-    from mesa.examples.basic.virus_on_network import app
+    from mesa.examples.basic.virus_on_network import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -109,7 +109,7 @@ def test_virus_on_network():  # noqa: D103
 
 
 def test_boid_flockers():  # noqa: D103
-    from mesa.examples.basic.boid_flockers import app
+    from mesa.examples.basic.boid_flockers import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -127,7 +127,7 @@ def test_boid_flockers():  # noqa: D103
 
 
 def test_epstein():  # noqa: D103
-    from mesa.examples.advanced.epstein_civil_violence import app
+    from mesa.examples.advanced.epstein_civil_violence import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -143,7 +143,7 @@ def test_epstein():  # noqa: D103
 
 
 def test_pd_grid():  # noqa: D103
-    from mesa.examples.advanced.pd_grid import app
+    from mesa.examples.advanced.pd_grid import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -159,8 +159,8 @@ def test_pd_grid():  # noqa: D103
 
 
 def test_sugarscape_g1mt():  # noqa: D103
-    from mesa.examples.advanced.sugarscape_g1mt import app
-    from mesa.examples.advanced.sugarscape_g1mt.model import (
+    from mesa.examples.advanced.sugarscape_g1mt import app  # noqa: PLC0415
+    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
         SugarScapeScenario,
     )
 
@@ -178,7 +178,7 @@ def test_sugarscape_g1mt():  # noqa: D103
 
 
 def test_wolf_sheep():  # noqa: D103
-    from mesa.examples.advanced.wolf_sheep import app
+    from mesa.examples.advanced.wolf_sheep import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
@@ -221,7 +221,7 @@ def test_wolf_sheep_grass_disabled():
 
 
 def test_alliance_formation_model():  # noqa: D103
-    from mesa.examples.advanced.alliance_formation import app
+    from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
 
     app.page  # noqa: B018
 
