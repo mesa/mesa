@@ -56,6 +56,14 @@ class Animal(CellAgent):
 class Sheep(Animal):
     """A sheep that walks around, reproduces (asexually) and gets eaten."""
 
+    @staticmethod
+    def _wolf_pressure(cell) -> int:
+        """Count wolves in a cell and its neighborhood."""
+        pressure = sum(1 for obj in cell.agents if isinstance(obj, Wolf))
+        for neighbor in cell.neighborhood:
+            pressure += sum(1 for obj in neighbor.agents if isinstance(obj, Wolf))
+        return pressure
+
     def feed(self):
         """If possible, eat grass at current location."""
         grass_patch = next(
@@ -94,10 +102,28 @@ class Sheep(Animal):
         if len(cells_without_wolves) == 0:
             return
 
-        # Move to a cell with grass if available, otherwise move to any safe cell
-        target_cells = (
-            cells_with_grass if len(cells_with_grass) > 0 else cells_without_wolves
-        )
+        # Optional needs-based behavior: prefer safer cells with lower wolf pressure.
+        if getattr(self.model, "sheep_risk_aware_move", False):
+            pressures = {
+                cell: self._wolf_pressure(cell) for cell in cells_without_wolves
+            }
+            min_pressure = min(pressures.values())
+            lowest_risk_cells = [
+                cell for cell in cells_without_wolves if pressures[cell] == min_pressure
+            ]
+            grass_and_low_risk = [
+                cell for cell in lowest_risk_cells if cell in cells_with_grass
+            ]
+            target_cells = (
+                grass_and_low_risk
+                if len(grass_and_low_risk) > 0
+                else lowest_risk_cells
+            )
+        else:
+            # Backward-compatible behavior: prefer grass among cells without wolves.
+            target_cells = (
+                cells_with_grass if len(cells_with_grass) > 0 else cells_without_wolves
+            )
         self.cell = self.random.choice(target_cells)
 
 
