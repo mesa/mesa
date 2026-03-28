@@ -14,6 +14,7 @@ class RunSpec:
     """
 
     def __init__(self, model_cls: type[Model], steps: int = 100) -> None:
+        """Initialising Runspec class"""
         self.model_cls = model_cls
         self.steps = steps
 
