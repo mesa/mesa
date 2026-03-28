@@ -39,8 +39,30 @@ class AbstractRenderer(ABC):
         """Get agent position based on space type."""
         if isinstance(space, DiscreteSpace):
             return agent.cell.position
+
+        pos = agent.position
+        if len(pos) < 2:
+            raise ValueError(
+                "Continuous space visualization requires at least 2 dimensions"
+            )
+
+        viz_dims = getattr(self.space_drawer, "viz_dims", None)
+        if (
+            isinstance(viz_dims, tuple)
+            and len(viz_dims) == 2
+            and all(isinstance(dim, int) for dim in viz_dims)
+        ):
+            i, j = viz_dims
         else:
-            return agent.position
+            i, j = (0, 1)
+
+        try:
+            return pos[i], pos[j]
+        except IndexError as err:
+            raise ValueError(
+                "Agent position does not have enough dimensions for the selected "
+                "visualization projection"
+            ) from err
 
     @abstractmethod
     def initialize_canvas(self):
