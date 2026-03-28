@@ -1,7 +1,7 @@
-from mesa.model import Model
-from mesa.experimental.scenarios import Scenario
-from mesa.experimental.runspec import RunSpec
 from mesa.experimental.data_collection.dataset import DataRegistry
+from mesa.experimental.runspec import RunSpec
+from mesa.experimental.scenarios import Scenario
+from mesa.model import Model
 
 
 def test_runspec_basic_execution():

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from mesa.model import Model
 from mesa.experimental.scenarios import Scenario
+from mesa.model import Model
 
 
 class RunSpec:
@@ -29,15 +29,11 @@ class RunSpec:
         """Extract results from the model."""
         return model.data_registry
 
-    def format_output(
-        self, scenario: Scenario, result: Any
-    ) -> tuple[Any, Any, Any]:
+    def format_output(self, scenario: Scenario, result: Any) -> tuple[Any, Any, Any]:
         """Format the output of a run."""
         return scenario.scenario_id, scenario.replication_id, result
 
-    def __call__(
-        self, scenario: Scenario
-    ) -> tuple[Any, Any, Any]:
+    def __call__(self, scenario: Scenario) -> tuple[Any, Any, Any]:
         """Execute the full run pipeline for a Scenario."""
         model = self.build_model(scenario)
         self.execute(model)
