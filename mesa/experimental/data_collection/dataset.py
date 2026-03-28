@@ -5,9 +5,10 @@ from __future__ import annotations
 import abc
 import operator
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable, Literal
 
 import numpy as np
+
 
 from mesa.agent import Agent
 from mesa.agentset import AbstractAgentSet
@@ -110,7 +111,9 @@ class AgentDataSet[A: Agent](BaseDataSet):
 
     Args:
         name: the name of the data set
-        agents: the agents to collect data from
+        source: AgentSet or Agent class to collect data from
+        model: required if source is an Agent class
+        agents: optional override AgentSet (takes precedence over source)
         fields: fields to collect
         use_dirty_flag: if True, enables manual dirty-flag caching optimization.
                         Default is False (always recompute snapshot).
@@ -119,21 +122,64 @@ class AgentDataSet[A: Agent](BaseDataSet):
     def __init__(
         self,
         name: str,
-        agents: AbstractAgentSet[A],
-        *,
+        source: AbstractAgentSet[A] | type[A],
+        *args,
+        model: Model | None = None,
+        agents: AbstractAgentSet[A] | None = None,
         use_dirty_flag: bool = False,
         fields: str | list[str] | None = None,
     ):
         """Init. of AgentDataSet."""
+
+        if args:
+            if len(args) > 1:
+                raise TypeError("too many positional arguments")
+            if fields is not None:
+                raise TypeError("fields specified both positionally and as keyword")
+            fields = args[0]
+
         if fields is None:
             raise ValueError("please pass one or more fields to collect")
         elif isinstance(fields, str):
             fields = [fields]
 
+        # Base initialization
         super().__init__(name, fields=["unique_id", *fields])
-        self.agents = agents
 
-        # Dirty-flag behavior (opt-in only)
+        self._mode: Literal["set", "type"]
+        self._agents: AbstractAgentSet[A] | None
+        self._agent_type: type[A] | None
+        self._model: Model | None
+
+        if agents is not None:
+            # Explicit override always wins
+            self._mode = "set"
+            self._agents = agents
+            self._agent_type = None
+            self._model = None
+
+        elif isinstance(source, AbstractAgentSet):
+            self._mode = "set"
+            self._agents = source
+            self._agent_type = None
+            self._model = None
+
+            if model is not None:
+                raise ValueError("model should not be provided when using AgentSet")
+
+        elif isinstance(source, type) and issubclass(source, Agent):
+            if model is None:
+                raise ValueError("model must be provided when using agent class")
+
+            self._mode = "type"
+            self._agent_type = source
+            self._model = model
+            self._agents = None
+
+        else:
+            raise TypeError("source must be an AgentSet or Agent class")
+
+        # Dirty-flag behavior
         self._use_dirty_flag: bool = use_dirty_flag
         self._is_dirty: bool = True
         self._cache: list[dict[str, Any]] | None = None
@@ -146,7 +192,7 @@ class AgentDataSet[A: Agent](BaseDataSet):
         if (not self._use_dirty_flag) or self._is_dirty or self._cache is None:
             snapshot = [
                 dict(zip(self._attributes, self._collector(agent)))
-                for agent in self.agents
+                for agent in self._get_agents()
             ]
 
             if not self._use_dirty_flag:
@@ -156,6 +202,15 @@ class AgentDataSet[A: Agent](BaseDataSet):
             self._is_dirty = False
 
         return self._cache
+    
+    def _get_agents(self):
+        if self._mode == "set":
+            return self._agents or []
+
+        if self._model is None or self._agent_type is None:
+            return []
+
+        return self._model.agents_by_type.get(self._agent_type, [])
 
     def set_dirty_flag(self) -> None:
         """Mark the dataset as dirty.
@@ -171,7 +226,8 @@ class AgentDataSet[A: Agent](BaseDataSet):
     def close(self):
         """Close the data set."""
         super().close()
-        self.agents = None
+        self._agents = None
+        self._model = None
         self._cache = None
 
 
