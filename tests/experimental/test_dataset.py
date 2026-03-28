@@ -622,3 +622,51 @@ def test_agent_dataset_invalid_source_type():
 
     with pytest.raises(TypeError):
         AgentDataSet("invalid", 123, fields="wealth")
+
+
+def test_agent_dataset_class_no_agents():
+    """Agent class with no instances should return empty data."""
+
+    class MyAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    assert dataset.data == []
+
+
+def test_agent_dataset_close_with_class():
+    """After close(), dataset should return empty data."""
+
+    class MyAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+    MyAgent(model)
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    # sanity check
+    assert len(dataset.data) == 1
+
+    dataset.close()
+
+    assert dataset.data == []
+
+
