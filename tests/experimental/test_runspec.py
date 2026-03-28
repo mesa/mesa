@@ -1,3 +1,5 @@
+"""Tests for RunSpec"""
+
 from mesa.experimental.data_collection.dataset import DataRegistry
 from mesa.experimental.runspec import RunSpec
 from mesa.experimental.scenarios import Scenario

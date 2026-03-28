@@ -1,3 +1,5 @@
+"""Execution class for running scenarios."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -14,7 +16,7 @@ class RunSpec:
     """
 
     def __init__(self, model_cls: type[Model], steps: int = 100) -> None:
-        """Initialising Runspec class"""
+        """Initialising Runspec."""
         self.model_cls = model_cls
         self.steps = steps
 
