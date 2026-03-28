@@ -14,6 +14,10 @@ like resource growth, pollution diffusion, or infrastructure networks. The cell
 space system is experimental and under active development.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_agent import (
     CellAgent,
@@ -28,8 +32,29 @@ from mesa.discrete_space.grid import (
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
 )
-from mesa.discrete_space.network import Network
 from mesa.discrete_space.voronoi import VoronoiGrid
+
+_NETWORK_IMPORT_ERROR: ModuleNotFoundError | None = None
+try:
+    from mesa.discrete_space.network import Network
+except ModuleNotFoundError as e:
+    _NETWORK_IMPORT_ERROR = e
+
+
+def __getattr__(name: str) -> Any:
+    if name != "Network":
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    if _NETWORK_IMPORT_ERROR is not None:
+        raise ModuleNotFoundError(
+            "Network space requires the optional dependency 'networkx'. "
+            'Install it via `pip install "mesa[network]"`.'
+        ) from _NETWORK_IMPORT_ERROR
+
+    from mesa.discrete_space.network import Network as Network  # noqa: PLC0415
+
+    return Network
+
 
 __all__ = [
     "Cell",
@@ -40,8 +65,10 @@ __all__ = [
     "Grid",
     "Grid2DMovingAgent",
     "HexGrid",
-    "Network",
     "OrthogonalMooreGrid",
     "OrthogonalVonNeumannGrid",
     "VoronoiGrid",
 ]
+
+if _NETWORK_IMPORT_ERROR is None:
+    __all__.append("Network")

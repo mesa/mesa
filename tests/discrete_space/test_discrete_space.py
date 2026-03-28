@@ -1,6 +1,7 @@
 """Test cell spaces."""
 
 import copy
+import importlib
 import pickle
 import random
 import random as stdlib_random
@@ -1144,6 +1145,38 @@ def test_select_random_empty_cell_fallback():
     # Ensure the property layer data was actually correct (the fallback relies on this)
     assert grid.property_layers["empty"][5, 5]
     assert not grid.property_layers["empty"][0, 0]
+
+
+def test_discrete_space_import_without_networkx(monkeypatch):
+    import builtins
+
+    import mesa.discrete_space as discrete_space
+
+    real_import = builtins.__import__
+
+    def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "networkx" or name.startswith("networkx."):
+            raise ModuleNotFoundError("No module named 'networkx'")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+    removed = {}
+    for mod in list(sys.modules):
+        if (
+            mod == "networkx"
+            or mod.startswith("networkx.")
+            or mod == "mesa.discrete_space.network"
+        ):
+            removed[mod] = sys.modules.pop(mod)
+    try:
+        reloaded = importlib.reload(discrete_space)
+
+        assert "Network" not in getattr(reloaded, "__dict__", {})
+        with pytest.raises(ModuleNotFoundError, match="mesa\\[network\\]"):
+            _ = reloaded.Network
+    finally:
+        sys.modules.update(removed)
+        importlib.reload(discrete_space)
 
 
 def test_fixed_agent_removal_state():
