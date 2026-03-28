@@ -645,7 +645,7 @@ def test_agent_dataset_class_no_agents():
 
 
 def test_agent_dataset_close_with_class():
-    """After close(), dataset should return empty data."""
+    """After close(), accessing data should raise RuntimeError."""
 
     class MyAgent(Agent):
         def __init__(self, model):
@@ -662,11 +662,10 @@ def test_agent_dataset_close_with_class():
         fields="wealth",
     )
 
-    # sanity check
     assert len(dataset.data) == 1
 
     dataset.close()
 
-    assert dataset.data == []
-
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
 
