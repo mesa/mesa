@@ -5,10 +5,9 @@ from __future__ import annotations
 import abc
 import operator
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable, Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 import numpy as np
-
 
 from mesa.agent import Agent
 from mesa.agentset import AbstractAgentSet
@@ -130,7 +129,6 @@ class AgentDataSet[A: Agent](BaseDataSet):
         fields: str | list[str] | None = None,
     ):
         """Init. of AgentDataSet."""
-
         if args:
             if len(args) > 1:
                 raise TypeError("too many positional arguments")
@@ -202,7 +200,7 @@ class AgentDataSet[A: Agent](BaseDataSet):
             self._is_dirty = False
 
         return self._cache
-    
+
     def _get_agents(self):
         if self._mode == "set":
             return self._agents or []

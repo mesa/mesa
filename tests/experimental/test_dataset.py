@@ -499,6 +499,7 @@ def test_agent_dataset_dirty_flag():
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
 
+
 def test_agent_dataset_with_agent_class():
     """Test AgentDataSet with agent class input."""
 
@@ -584,7 +585,6 @@ def test_agent_dataset_agents_override_with_class():
 
 def test_agent_dataset_legacy_positional_fields():
     """Test backward compatibility with positional fields argument."""
-
     model = Model()
 
     dataset = AgentDataSet("x", model.agents, "wealth")
@@ -617,9 +617,9 @@ def test_agent_dataset_dynamic_agents_with_class():
     MyAgent(model)
     assert len(dataset.data) == 2
 
+
 def test_agent_dataset_invalid_source_type():
     """Test that invalid source type raises TypeError."""
-
     with pytest.raises(TypeError):
         AgentDataSet("invalid", 123, fields="wealth")
 
@@ -668,4 +668,3 @@ def test_agent_dataset_close_with_class():
 
     with pytest.raises(RuntimeError):
         _ = dataset.data
-
