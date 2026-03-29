@@ -7,18 +7,18 @@ backends, supporting various space types and visualization components.
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import mesa
 
+from mesa.discrete_space import VoronoiGrid
 from mesa.discrete_space.grid import (
     HexGrid,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
 )
 from mesa.discrete_space.network import Network
-from mesa.discrete_space import VoronoiGrid
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
@@ -35,13 +35,13 @@ Network = Network
 
 
 def _emit_deprecation_warning(
-    message: str, 
-    deprecated_since: str = "4.0", 
+    message: str,
+    deprecated_since: str = "4.0",
     removal_version: str = "4.1",
-    migration_guide_url: str = "https://mesa.readthedocs.io/latest/migration_guide.html"
+    migration_guide_url: str = "https://mesa.readthedocs.io/latest/migration_guide.html",
 ) -> None:
     """Emit a standardized deprecation warning with migration guidance.
-    
+
     Args:
         message: The deprecation message
         deprecated_since: Version when the feature was deprecated
@@ -66,7 +66,7 @@ class SpaceRenderer:
     def __init__(
         self,
         model: mesa.Model,
-        backend: Literal["matplotlib", "altair"] | None = "matplotlib",
+        backend: Literal[matplotlib, altair] | None = "matplotlib",
     ):
         """Initialize the space renderer.
 
