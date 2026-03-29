@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 @dataclass
 class MemoryConfig:
     """Configuration for memory management in data collection."""
-    
+
     max_memory_mb: float = 500.0  # Maximum memory usage before triggering optimization
     compression_threshold_mb: float = 100.0  # Memory threshold for enabling compression
     batch_size: int = 1000  # Number of rows to process in batches
@@ -54,27 +54,27 @@ class DatasetStorage:
     estimated_size_bytes: int = 0
     compressed: bool = False
     compression_ratio: float = 1.0
-    
+
     def estimate_compression_ratio(self) -> float:
         """Estimate potential compression ratio based on data characteristics."""
         if not self.blocks or self.total_rows < 100:
             return 1.0
-        
+
         # Sample a few blocks to estimate compressibility
         sample_size = min(5, len(self.blocks))
         sample_blocks = list(self.blocks)[:sample_size]
-        
+
         try:
             # Estimate compression by serializing sample data
             sample_data = json.dumps(sample_blocks, cls=NumpyJSONEncoder)
-            compressed_size = len(sample_data.encode('utf-8'))
+            compressed_size = len(sample_data.encode("utf-8"))
             original_size = sum(len(str(block)) for block in sample_blocks)
-            
+
             if original_size > 0:
                 return compressed_size / original_size
         except (TypeError, ValueError):
             pass
-        
+
         return 1.0
 
 
@@ -100,32 +100,33 @@ class DataRecorder(BaseDataRecorder):
         maxlen = config.window_size if config.window_size else None
 
         self.storage[dataset_name] = DatasetStorage(
-            blocks=deque(maxlen=maxlen), 
+            blocks=deque(maxlen=maxlen),
             metadata={
                 "initialized": True,
                 "type": type(dataset).__name__,
-                "columns": getattr(dataset, "columns", None) if hasattr(dataset, "columns") else None
-            }
+                "columns": getattr(dataset, "columns", None)
+                if hasattr(dataset, "columns")
+                else None,
+            },
         )
 
     def _should_optimize_memory(self) -> bool:
         """Check if memory optimization should be triggered."""
         current_memory = self.estimate_memory_usage()
         self._peak_memory_mb = max(self._peak_memory_mb, current_memory)
-        
-        return (
-            current_memory > self.memory_config.max_memory_mb or
-            (self.memory_config.auto_compress and 
-             current_memory > self.memory_config.compression_threshold_mb)
+
+        return current_memory > self.memory_config.max_memory_mb or (
+            self.memory_config.auto_compress
+            and current_memory > self.memory_config.compression_threshold_mb
         )
 
     def _optimize_memory_usage(self) -> None:
         """Apply memory optimization strategies."""
         import gc
-        
+
         # Force garbage collection
         gc.collect()
-        
+
         # Compress datasets if beneficial
         if self.memory_config.auto_compress:
             for name, storage in self.storage.items():
@@ -198,15 +199,17 @@ class DataRecorder(BaseDataRecorder):
         if old_data is not None:
             storage.estimated_size_bytes -= len(str(old_data))
         storage.estimated_size_bytes += added_bytes
-        
+
         # Apply compression if enabled
         if storage.compressed:
             storage.estimated_size_bytes *= storage.compression_ratio
 
         # Increment collection counter and check for optimization
         self._collection_counter += 1
-        if (self._collection_counter % self.memory_config.gc_frequency == 0 and 
-            self._should_optimize_memory()):
+        if (
+            self._collection_counter % self.memory_config.gc_frequency == 0
+            and self._should_optimize_memory()
+        ):
             self._optimize_memory_usage()
 
         # Update bookkeeping for evicted data
@@ -321,7 +324,7 @@ class DataRecorder(BaseDataRecorder):
         """Get collection status summary with memory optimization details."""
         current_memory = self.estimate_memory_usage()
         compressed_datasets = sum(1 for s in self.storage.values() if s.compressed)
-        
+
         return {
             "datasets": len(self.storage),
             "total_rows": sum(s.total_rows for s in self.storage.values()),
@@ -355,7 +358,7 @@ class DataRecorder(BaseDataRecorder):
         """String representation with memory optimization status."""
         memory = f"{self.estimate_memory_usage():.1f}MB" if self.storage else "0MB"
         compressed = sum(1 for s in self.storage.values() if s.compressed)
-        
+
         return (
             f"DataRecorder("
             f"datasets={len(self.storage)}, "

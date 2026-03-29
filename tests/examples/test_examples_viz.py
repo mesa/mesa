@@ -62,7 +62,9 @@ def run_model_test(
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+            page_session.wait_for_load_state(
+                "networkidle"
+            )  # Wait for network to settle
             time.sleep(0.5)  # Add buffer to ensure rendering completes
             initial_graph = page_session.locator("img").screenshot()
 
@@ -88,7 +90,9 @@ def run_model_test(
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+            page_session.wait_for_load_state(
+                "networkidle"
+            )  # Wait for network to settle
             time.sleep(0.5)  # Add buffer to ensure rendering completes
             changed_graph = page_session.locator("img").last.screenshot()
 

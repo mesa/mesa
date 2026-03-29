@@ -539,22 +539,23 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
     def batch_filter(self, condition: Callable[[A], bool]) -> AgentSet[A]:
         """Efficiently filter agents using a batch operation for better performance.
-        
+
         This method optimizes filtering by minimizing weak reference lookups
         and provides better performance for large agent sets.
-        
+
         Args:
             condition: A callable that takes an agent and returns True if it should be included
-            
+
         Returns:
             AgentSet: A new AgentSet containing only agents that satisfy the condition
-            
+
         Example:
             # Get all agents with wealth > 100
             wealthy_agents = agents.batch_filter(lambda a: a.wealth > 100)
         """
         filtered_agents = [
-            agent for agentref in self._agents.keyrefs()
+            agent
+            for agentref in self._agents.keyrefs()
             if (agent := agentref()) is not None and condition(agent)
         ]
         return AgentSet(filtered_agents, random=self.random)
