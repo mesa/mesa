@@ -9,6 +9,7 @@ Notes:
     - Output is captured and displayed with appropriate formatting
     - Error messages are displayed in red with distinct styling
     - The console maintains a history of commands and their outputs
+
 """
 
 import code
@@ -32,6 +33,7 @@ class ConsoleEntry:
         output (str): The output of the command
         is_error (bool): Whether the entry represents an error
         is_continuation (bool): Whether the entry is a continuation of previous command
+
     """
 
     command: str
@@ -63,6 +65,7 @@ class CaptureOutput:
 
         Returns:
             self: The context manager instance
+
         """
         self._old_stdout = sys.stdout
         self._old_stderr = sys.stderr
@@ -80,6 +83,7 @@ class CaptureOutput:
 
         Returns:
             tuple: A pair of strings (stdout_output, stderr_output)
+
         """
         output = self.stdout.getvalue()
         error = self.stderr.getvalue()
@@ -98,6 +102,7 @@ class InteractiveConsole(code.InteractiveConsole):
 
     Args:
         locals_dict (dict, optional): Dictionary of local variables. Defaults to None.
+
     """
 
     def __init__(self, locals_dict=None):
@@ -118,6 +123,7 @@ class InteractiveConsole(code.InteractiveConsole):
             tuple: A tuple containing:
                 - more (bool): Flag indicating if more input is needed
                 - str: The captured output from executing the command
+
         """
         with self.capturer:
             more = super().push(line)
@@ -142,6 +148,7 @@ class ConsoleManager:
     Example:
         >>> console = ConsoleManager(model=my_model)
         >>> console.execute_code("print('hello world')", set_input_callback)
+
     """
 
     def __init__(self, model=None, additional_imports=None):
@@ -383,12 +390,15 @@ def ConsoleInput(on_submit, on_up, on_down):
     input_text, set_input_text = solara.use_state("")
 
     def handle_submit(*ignore_args):
+        """Handle submit."""
         on_submit(input_text, set_input_text)
 
     def handle_up(*ignore_args):
+        """Handle up."""
         on_up(input_text, set_input_text)
 
     def handle_down(*ignore_args):
+        """Handle down."""
         on_down(set_input_text)
 
     input_elem = solara.v.TextField(
@@ -435,14 +445,17 @@ def CommandConsole(model=None, additional_imports=None):
     refresh, set_refresh = solara.use_state(0)
 
     def handle_code_execution(code, set_input_text):
+        """Handle code execution."""
         console_ref.current.execute_code(code, set_input_text)
         set_refresh(refresh + 1)
 
     def handle_up(current_text, set_input_text):
+        """Handle up."""
         console_ref.current.prev_command(current_text, set_input_text)
         set_refresh(refresh + 1)
 
     def handle_down(set_input_text):
+        """Handle down."""
         console_ref.current.next_command(set_input_text)
         set_refresh(refresh + 1)
 

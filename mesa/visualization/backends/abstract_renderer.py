@@ -31,6 +31,7 @@ class AbstractRenderer(ABC):
         Args:
             space_drawer: Object responsible for drawing space elements. Checkout `SpaceDrawer`
             for more details on the detailed implementations of the drawing functions.
+
         """
         self.space_drawer = space_drawer
         self._canvas = None
@@ -74,6 +75,7 @@ class AbstractRenderer(ABC):
 
         Args:
             **kwargs: Structure drawing configuration options.
+
         """
 
     @abstractmethod
@@ -87,6 +89,7 @@ class AbstractRenderer(ABC):
 
         Returns:
             dict: Dictionary containing agent plotting data arrays with keys:
+
         """
 
     @abstractmethod
@@ -96,6 +99,7 @@ class AbstractRenderer(ABC):
         Args:
             arguments (dict): Dictionary containing agent data.
             **kwargs: Additional drawing configuration options.
+
         """
 
     @abstractmethod
@@ -106,4 +110,5 @@ class AbstractRenderer(ABC):
             space: The model's space object.
             property_layers (dict): Dictionary of property layers to visualize.
             property_layer_portrayal (Callable): Function that returns PropertyLayerStyle.
+
         """

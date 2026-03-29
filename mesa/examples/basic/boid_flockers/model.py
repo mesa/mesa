@@ -1,15 +1,4 @@
-"""
-Boids Flocking Model
-===================
-A Mesa implementation of Craig Reynolds's Boids flocker model.
-Uses numpy arrays to represent vectors.
-"""
-
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath("../../../.."))
-
+"""Boids flocking model example."""
 
 import numpy as np
 

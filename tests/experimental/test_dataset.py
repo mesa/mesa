@@ -72,6 +72,7 @@ def test_data_registry_track():
     class MyModel(Model):
         @property
         def summed_wealth(self):
+            """Handle summed wealth."""
             return self.agents.agg("wealth", sum)
 
         def __init__(self, rng=42):
@@ -369,11 +370,13 @@ def test_model_dataset():
     class MyModel(Model):
         @property
         def mean_value(self):
+            """Handle mean value."""
             data = self.agents.get("test")
             return np.mean(data)
 
         @property
         def std_value(self):
+            """Handle std value."""
             data = self.agents.get("test")
             return np.std(data)
 

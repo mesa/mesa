@@ -51,13 +51,15 @@ def voronoi_space():  # noqa: D103
 class TestOrthogonalSpaceDrawer:
     """Test cases for OrthogonalSpaceDrawer class."""
 
-    def test_init(self, orthogonal_grid):  # noqa: D102
+    def test_init(self, orthogonal_grid):
+        """Test init."""
         drawer = OrthogonalSpaceDrawer(orthogonal_grid)
         assert drawer.space == orthogonal_grid
         assert hasattr(drawer, "s_default")
 
     @patch("matplotlib.pyplot.subplots")
-    def test_draw_matplotlib(self, mock_subplots, orthogonal_grid):  # noqa: D102
+    def test_draw_matplotlib(self, mock_subplots, orthogonal_grid):
+        """Test draw matplotlib."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
@@ -72,7 +74,8 @@ class TestOrthogonalSpaceDrawer:
         mock_ax.set_xlim.assert_called_with(drawer.viz_xmin, drawer.viz_xmax)
         mock_ax.set_ylim.assert_called_with(drawer.viz_ymin, drawer.viz_ymax)
 
-    def test_draw_altair(self, orthogonal_grid):  # noqa: D102
+    def test_draw_altair(self, orthogonal_grid):
+        """Test draw altair."""
         drawer = OrthogonalSpaceDrawer(orthogonal_grid)
         chart = drawer.draw_altair()
         assert isinstance(chart, alt.Chart)
@@ -80,12 +83,14 @@ class TestOrthogonalSpaceDrawer:
         assert chart.encoding.y.shorthand == "Y:Q"
         assert chart.mark.type == "point"
 
-    def test_get_viz_limits(self, orthogonal_grid):  # noqa: D102
+    def test_get_viz_limits(self, orthogonal_grid):
+        """Test get viz limits."""
         drawer = OrthogonalSpaceDrawer(orthogonal_grid)
         limits = drawer.get_viz_limits()
         assert limits == (-0.5, 4.5, -0.5, 4.5)
 
-    def test_draw_matplotlib_with_custom_ax(self, orthogonal_grid):  # noqa: D102
+    def test_draw_matplotlib_with_custom_ax(self, orthogonal_grid):
+        """Test draw matplotlib with custom ax."""
         mock_ax = MagicMock()
         drawer = OrthogonalSpaceDrawer(orthogonal_grid)
         ax = drawer.draw_matplotlib(ax=mock_ax)
@@ -95,7 +100,8 @@ class TestOrthogonalSpaceDrawer:
 class TestHexSpaceDrawer:
     """Test cases for HexSpaceDrawer class."""
 
-    def test_init(self, hex_grid):  # noqa: D102
+    def test_init(self, hex_grid):
+        """Test init."""
         drawer = HexSpaceDrawer(hex_grid)
         assert drawer.space == hex_grid
         assert len(drawer.hexagons) == hex_grid.width * hex_grid.height
@@ -103,14 +109,16 @@ class TestHexSpaceDrawer:
         assert hasattr(drawer, "y_spacing")
         assert hasattr(drawer, "s_default")
 
-    def test_get_unique_edges(self, hex_grid):  # noqa: D102
+    def test_get_unique_edges(self, hex_grid):
+        """Test get unique edges."""
         drawer = HexSpaceDrawer(hex_grid)
         edges = drawer._get_unique_edges()
         assert isinstance(edges, set)
         assert all(isinstance(e, tuple) for e in edges)
 
     @patch("matplotlib.pyplot.subplots")
-    def test_draw_matplotlib(self, mock_subplots, hex_grid):  # noqa: D102
+    def test_draw_matplotlib(self, mock_subplots, hex_grid):
+        """Test draw matplotlib."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
@@ -123,14 +131,16 @@ class TestHexSpaceDrawer:
         collection = mock_ax.add_collection.call_args[0][0]
         assert isinstance(collection, LineCollection)
 
-    def test_draw_altair(self, hex_grid):  # noqa: D102
+    def test_draw_altair(self, hex_grid):
+        """Test draw altair."""
         drawer = HexSpaceDrawer(hex_grid)
         chart = drawer.draw_altair()
         assert isinstance(chart, alt.Chart)
         assert chart.mark.type == "line"
         assert chart.encoding.detail.shorthand == "edge_id:N"
 
-    def test_get_viz_limits(self, hex_grid):  # noqa: D102
+    def test_get_viz_limits(self, hex_grid):
+        """Test get viz limits."""
         drawer = HexSpaceDrawer(hex_grid)
         limits = drawer.get_viz_limits()
         assert len(limits) == 4
@@ -140,14 +150,16 @@ class TestHexSpaceDrawer:
 class TestNetworkSpaceDrawer:
     """Test cases for NetworkSpaceDrawer class."""
 
-    def test_init(self, network_grid):  # noqa: D102
+    def test_init(self, network_grid):
+        """Test init."""
         drawer = NetworkSpaceDrawer(network_grid)
         assert drawer.space == network_grid
         assert hasattr(drawer, "s_default")
 
     @patch("networkx.draw_networkx_nodes")
     @patch("networkx.draw_networkx_edges")
-    def test_draw_matplotlib(self, mock_edges, mock_nodes, network_grid):  # noqa: D102
+    def test_draw_matplotlib(self, mock_edges, mock_nodes, network_grid):
+        """Test draw matplotlib."""
         mock_ax = MagicMock()
         drawer = NetworkSpaceDrawer(network_grid)
         drawer.draw_matplotlib(ax=mock_ax)
@@ -156,19 +168,22 @@ class TestNetworkSpaceDrawer:
         mock_edges.assert_called_once()
         mock_ax.set_axis_off.assert_called_once()
 
-    def test_draw_altair(self, network_grid):  # noqa: D102
+    def test_draw_altair(self, network_grid):
+        """Test draw altair."""
         drawer = NetworkSpaceDrawer(network_grid)
         chart = drawer.draw_altair()
         assert isinstance(chart, alt.LayerChart)
         assert len(chart.layer) == 2
 
-    def test_get_viz_limits(self, network_grid):  # noqa: D102
+    def test_get_viz_limits(self, network_grid):
+        """Test get viz limits."""
         drawer = NetworkSpaceDrawer(network_grid)
         limits = drawer.get_viz_limits()
         assert len(limits) == 4
         assert all(isinstance(limit, int | float) for limit in limits)
 
-    def test_network_layout(self, network_grid):  # noqa: D102
+    def test_network_layout(self, network_grid):
+        """Test network layout."""
         drawer = NetworkSpaceDrawer(network_grid)
         # Test that positions are calculated for all nodes
         assert len(drawer.pos) == len(network_grid.G.nodes)
@@ -181,13 +196,15 @@ class TestNetworkSpaceDrawer:
 class TestContinuousSpaceDrawer:
     """Test cases for ContinuousSpaceDrawer class."""
 
-    def test_init(self, continuous_space):  # noqa: D102
+    def test_init(self, continuous_space):
+        """Test init."""
         drawer = ContinuousSpaceDrawer(continuous_space)
         assert drawer.space == continuous_space
         assert hasattr(drawer, "s_default")
 
     @patch("matplotlib.pyplot.subplots")
-    def test_draw_matplotlib(self, mock_subplots, continuous_space):  # noqa: D102
+    def test_draw_matplotlib(self, mock_subplots, continuous_space):
+        """Test draw matplotlib."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
@@ -199,20 +216,23 @@ class TestContinuousSpaceDrawer:
         mock_ax.set_xlim.assert_called_with(drawer.viz_xmin, drawer.viz_xmax)
         mock_ax.set_ylim.assert_called_with(drawer.viz_ymin, drawer.viz_ymax)
 
-    def test_draw_altair(self, continuous_space):  # noqa: D102
+    def test_draw_altair(self, continuous_space):
+        """Test draw altair."""
         drawer = ContinuousSpaceDrawer(continuous_space)
         chart = drawer.draw_altair()
         assert isinstance(chart, alt.Chart)
         assert chart.mark.type == "rect"
 
-    def test_get_viz_limits(self, continuous_space):  # noqa: D102
+    def test_get_viz_limits(self, continuous_space):
+        """Test get viz limits."""
         drawer = ContinuousSpaceDrawer(continuous_space)
         limits = drawer.get_viz_limits()
         assert len(limits) == 4
         assert all(isinstance(limit, int | float) for limit in limits)
 
-    def test_continuous_space_with_custom_bounds(self):  # noqa: D102
+    def test_continuous_space_with_custom_bounds(self):
         # Test with custom x_min, y_min
+        """Test continuous space with custom bounds."""
         space = ContinuousSpace(
             ((5, 20), (3, 15)), torus=False, random=random.Random(42)
         )
@@ -228,7 +248,8 @@ class TestContinuousSpaceDrawer:
         assert drawer.viz_ymin == expected_ymin
         assert drawer.viz_ymax == expected_ymax
 
-    def test_viz_dims_projection_updates_bounds(self):  # noqa: D102
+    def test_viz_dims_projection_updates_bounds(self):
+        """Test viz dims projection updates bounds."""
         space = ContinuousSpace(
             ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
         )
@@ -242,7 +263,8 @@ class TestContinuousSpaceDrawer:
         assert drawer.project([1, 2, 3]) == (1, 3)
 
     @patch("matplotlib.pyplot.subplots")
-    def test_draw_matplotlib_accepts_viz_dims_kwarg(self, mock_subplots):  # noqa: D102
+    def test_draw_matplotlib_accepts_viz_dims_kwarg(self, mock_subplots):
+        """Test draw matplotlib accepts viz dims kwarg."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
@@ -259,13 +281,15 @@ class TestContinuousSpaceDrawer:
         mock_ax.set_xlim.assert_called_with(drawer.viz_xmin, drawer.viz_xmax)
         mock_ax.set_ylim.assert_called_with(drawer.viz_ymin, drawer.viz_ymax)
 
-    def test_drawer_rejects_1d_space(self):  # noqa: D102
+    def test_drawer_rejects_1d_space(self):
+        """Test drawer rejects 1d space."""
         space = ContinuousSpace(((0, 1),), torus=False, random=random.Random(42))
         with pytest.raises(ValueError, match="at least 2 dimensions"):
             ContinuousSpaceDrawer(space)
 
     @pytest.mark.parametrize("viz_dims", [(0,), (0, 1, 2), (0, 0)])
-    def test_viz_dims_must_be_two_distinct_indices(self, viz_dims):  # noqa: D102
+    def test_viz_dims_must_be_two_distinct_indices(self, viz_dims):
+        """Test viz dims must be two distinct indices."""
         space = ContinuousSpace(
             ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
         )
@@ -276,7 +300,8 @@ class TestContinuousSpaceDrawer:
             drawer.set_viz_dims(viz_dims)
 
     @pytest.mark.parametrize("viz_dims", [(0, 3), (-1, 1)])
-    def test_viz_dims_must_be_in_range(self, viz_dims):  # noqa: D102
+    def test_viz_dims_must_be_in_range(self, viz_dims):
+        """Test viz dims must be in range."""
         space = ContinuousSpace(
             ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
         )
@@ -288,12 +313,14 @@ class TestContinuousSpaceDrawer:
 class TestVoronoiSpaceDrawer:
     """Test cases for VoronoiSpaceDrawer class."""
 
-    def test_init(self, voronoi_space):  # noqa: D102
+    def test_init(self, voronoi_space):
+        """Test init."""
         drawer = VoronoiSpaceDrawer(voronoi_space)
         assert drawer.space == voronoi_space
         assert hasattr(drawer, "s_default")
 
-    def test_clip_line(self, voronoi_space):  # noqa: D102
+    def test_clip_line(self, voronoi_space):
+        """Test clip line."""
         drawer = VoronoiSpaceDrawer(voronoi_space)
         box = (0, 0, 1, 1)
 
@@ -311,7 +338,8 @@ class TestVoronoiSpaceDrawer:
         assert result is not None
 
     @patch("matplotlib.pyplot.subplots")
-    def test_draw_matplotlib(self, mock_subplots, voronoi_space):  # noqa: D102
+    def test_draw_matplotlib(self, mock_subplots, voronoi_space):
+        """Test draw matplotlib."""
         mock_ax = MagicMock()
         mock_fig = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
@@ -324,20 +352,23 @@ class TestVoronoiSpaceDrawer:
         collection = mock_ax.add_collection.call_args[0][0]
         assert isinstance(collection, LineCollection)
 
-    def test_draw_altair(self, voronoi_space):  # noqa: D102
+    def test_draw_altair(self, voronoi_space):
+        """Test draw altair."""
         drawer = VoronoiSpaceDrawer(voronoi_space)
         chart = drawer.draw_altair()
         assert isinstance(chart, alt.Chart)
         assert chart.mark.type == "line"
         assert "line_id" in chart.encoding.detail.shorthand
 
-    def test_get_viz_limits(self, voronoi_space):  # noqa: D102
+    def test_get_viz_limits(self, voronoi_space):
+        """Test get viz limits."""
         drawer = VoronoiSpaceDrawer(voronoi_space)
         limits = drawer.get_viz_limits()
         assert len(limits) == 4
         assert all(isinstance(limit, int | float) for limit in limits)
 
-    def test_get_clipped_segments(self, voronoi_space):  # noqa: D102
+    def test_get_clipped_segments(self, voronoi_space):
+        """Test get clipped segments."""
         drawer = VoronoiSpaceDrawer(voronoi_space)
         segments, clip_box = drawer._get_clipped_segments()
         assert isinstance(segments, list)
@@ -346,25 +377,29 @@ class TestVoronoiSpaceDrawer:
 
 
 class TestEdgeCases:  # noqa: D101
-    def test_single_point_voronoi_grid(self):  # noqa: D102
+    def test_single_point_voronoi_grid(self):
+        """Test single point voronoi grid."""
         single_point_voronoi = VoronoiGrid([(0.5, 0.5)], random=random.Random(42))
         drawer = VoronoiSpaceDrawer(single_point_voronoi)
         assert drawer.viz_xmin is not None
         assert drawer.viz_xmax is not None
 
-    def test_continuous_space_zero_size(self):  # noqa: D102
+    def test_continuous_space_zero_size(self):
+        """Test continuous space zero size."""
         space = ContinuousSpace(((0, 0), (0, 0)), torus=False, random=random.Random(42))
         drawer = ContinuousSpaceDrawer(space)
         assert drawer.s_default == 1  # Default when width/height is 0
 
-    def test_network_empty_graph(self):  # noqa: D102
+    def test_network_empty_graph(self):
+        """Test network empty graph."""
         empty_graph = nx.Graph()
         network = Network(empty_graph, random=random.Random(42))
         drawer = NetworkSpaceDrawer(network)
         assert len(drawer.pos) == 0
         assert drawer.s_default == 1  # Default when no nodes
 
-    def test_hex_grid_single_cell(self):  # noqa: D102
+    def test_hex_grid_single_cell(self):
+        """Test hex grid single cell."""
         grid = HexGrid([1, 1], random=random.Random(42))
         drawer = HexSpaceDrawer(grid)
         assert len(drawer.hexagons) == 1

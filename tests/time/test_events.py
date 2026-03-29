@@ -1,5 +1,5 @@
 """Tests for Event, EventList, Schedule, and EventGenerator."""
-# ruff: noqa: D101, D102
+# ruff: noqa: D101
 
 import gc
 from collections.abc import Callable
@@ -26,6 +26,7 @@ pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
 # ---------------------------------------------------------------------------
 class TestSchedule:
     def test_defaults(self):
+        """Test defaults."""
         s = Schedule()
         assert s.interval == 1
         assert s.start is None
@@ -33,6 +34,7 @@ class TestSchedule:
         assert s.count is None
 
     def test_custom_values(self):
+        """Test custom values."""
         s = Schedule(start=5, end=10, interval=2)
         assert s.start == 5
         assert s.end == 10
@@ -40,27 +42,32 @@ class TestSchedule:
         assert s.count is None
 
     def test_with_count(self):
+        """Test with count."""
         s = Schedule(start=5, interval=2, count=5)
         assert s.count == 5
         assert s.end is None
 
     def test_callable_interval(self):
+        """Test callable interval."""
         s = Schedule(start=5, interval=lambda m: m.time + 1, count=5)
         assert isinstance(s.interval, Callable)
 
     def test_rejects_nonpositive_interval(self):
+        """Test rejects nonpositive interval."""
         with pytest.raises(ValueError):
             Schedule(interval=0)
         with pytest.raises(ValueError):
             Schedule(interval=-1)
 
     def test_rejects_nonpositive_count(self):
+        """Test rejects nonpositive count."""
         with pytest.raises(ValueError):
             Schedule(interval=1.0, count=0)
         with pytest.raises(ValueError):
             Schedule(interval=1.0, count=-5)
 
     def test_start_after_end_raises(self):
+        """Test start after end raises."""
         with pytest.raises(ValueError):
             Schedule(interval=1.0, start=10, end=5)
 
@@ -70,6 +77,7 @@ class TestSchedule:
 # ---------------------------------------------------------------------------
 class TestEventCreation:
     def test_basic_attributes(self):
+        """Test basic attributes."""
         fn = MagicMock()
         event = Event(10, fn, priority=Priority.DEFAULT)
         assert event.time == 10
@@ -79,6 +87,7 @@ class TestEventCreation:
         assert event.function_kwargs == {}
 
     def test_with_args_and_kwargs(self):
+        """Test with args and kwargs."""
         fn = MagicMock()
         event = Event(
             10,
@@ -91,10 +100,13 @@ class TestEventCreation:
         assert event.function_kwargs == {"x": 2}
 
     def test_rejects_non_callable(self):
+        """Test rejects non callable."""
         with pytest.raises(TypeError, match="function must be a callable"):
             Event(10, None, priority=Priority.DEFAULT)
 
     def test_rejects_non_weakrefable(self):
+        """Test rejects non weakrefable."""
+
         class NoWeakRef:
             __slots__ = ()
 
@@ -105,12 +117,14 @@ class TestEventCreation:
             Event(10, NoWeakRef(), priority=Priority.DEFAULT)
 
     def test_rejects_inline_lambda(self):
+        """Test rejects inline lambda."""
         with pytest.raises(
             ValueError, match="function must be alive at Event creation"
         ):
             Event(10, lambda: None, priority=Priority.DEFAULT)
 
     def test_accepts_partial(self):
+        """Test accepts partial."""
         fn = MagicMock()
         Event(10, partial(fn, "x"), priority=Priority.DEFAULT)
 
@@ -120,12 +134,14 @@ class TestEventCreation:
 # ---------------------------------------------------------------------------
 class TestEventExecution:
     def test_basic_execution(self):
+        """Test basic execution."""
         fn = MagicMock()
         event = Event(10, fn, priority=Priority.DEFAULT)
         event.execute()
         fn.assert_called_once()
 
     def test_execution_with_arguments(self):
+        """Test execution with arguments."""
         fn = MagicMock()
         event = Event(
             10,
@@ -138,13 +154,17 @@ class TestEventExecution:
         fn.assert_called_once_with("1", x=2)
 
     def test_partial_execution(self):
+        """Test partial execution."""
         fn = MagicMock()
         callback = partial(fn, "x")
         Event(10, callback, priority=Priority.DEFAULT).execute()
         fn.assert_called_once_with("x")
 
     def test_silent_noop_when_weakref_dead(self):
+        """Test silent noop when weakref dead."""
+
         def temp_fn(x, y):
+            """Handle temp fn."""
             return x + y
 
         event = Event(10, temp_fn, priority=Priority.DEFAULT)
@@ -152,9 +172,11 @@ class TestEventExecution:
         event.execute()  # should not raise
 
     def test_named_callback_executes(self):
+        """Test named callback executes."""
         called = []
 
         def callback():
+            """Handle the callback."""
             called.append("fired")
 
         Event(10, callback, priority=Priority.DEFAULT).execute()
@@ -166,6 +188,7 @@ class TestEventExecution:
 # ---------------------------------------------------------------------------
 class TestEventCancellation:
     def test_cancel(self):
+        """Test cancel."""
         fn = MagicMock()
         event = Event(
             10,
@@ -181,6 +204,7 @@ class TestEventCancellation:
         assert event.function_kwargs == {}
 
     def test_canceled_event_not_executed(self):
+        """Test canceled event not executed."""
         fn = MagicMock()
         event = Event(10, fn, priority=Priority.DEFAULT)
         event.cancel()
@@ -193,24 +217,28 @@ class TestEventCancellation:
 # ---------------------------------------------------------------------------
 class TestEventOrdering:
     def test_earlier_time_is_less(self):
+        """Test earlier time is less."""
         fn = MagicMock()
         e1 = Event(9, fn, priority=Priority.DEFAULT)
         e2 = Event(10, fn, priority=Priority.DEFAULT)
         assert e1 < e2
 
     def test_later_time_is_greater(self):
+        """Test later time is greater."""
         fn = MagicMock()
         e1 = Event(11, fn, priority=Priority.DEFAULT)
         e2 = Event(10, fn, priority=Priority.DEFAULT)
         assert e1 > e2
 
     def test_higher_priority_is_less_at_same_time(self):
+        """Test higher priority is less at same time."""
         fn = MagicMock()
         e_default = Event(10, fn, priority=Priority.DEFAULT)
         e_high = Event(10, fn, priority=Priority.HIGH)
         assert e_high < e_default
 
     def test_unique_id_tiebreaker(self):
+        """Test unique id tiebreaker."""
         fn = MagicMock()
         e1 = Event(10, fn, priority=Priority.DEFAULT)
         e2 = Event(10, fn, priority=Priority.DEFAULT)
@@ -222,7 +250,10 @@ class TestEventOrdering:
 # ---------------------------------------------------------------------------
 class TestEventPickle:
     def test_getstate_setstate(self):
+        """Test getstate setstate."""
+
         def test_fn():
+            """Test fn."""
             return "test"
 
         event = Event(
@@ -247,7 +278,10 @@ class TestEventPickle:
         assert new_event.fn() is test_fn
 
     def test_canceled_event_pickle(self):
+        """Test canceled event pickle."""
+
         def test_fn():
+            """Test fn."""
             return "test"
 
         event = Event(10.0, test_fn, priority=Priority.HIGH)
@@ -266,11 +300,13 @@ class TestEventPickle:
 # ---------------------------------------------------------------------------
 class TestEventListBasics:
     def test_empty_on_init(self):
+        """Test empty on init."""
         el = EventList()
         assert el.is_empty()
         assert len(el) == 0
 
     def test_add_and_contains(self):
+        """Test add and contains."""
         el = EventList()
         fn = MagicMock()
         event = Event(1, fn, priority=Priority.DEFAULT)
@@ -279,6 +315,7 @@ class TestEventListBasics:
         assert event in el
 
     def test_remove(self):
+        """Test remove."""
         el = EventList()
         fn = MagicMock()
         event = Event(1, fn, priority=Priority.DEFAULT)
@@ -289,6 +326,7 @@ class TestEventListBasics:
         assert event not in el
 
     def test_clear(self):
+        """Test clear."""
         el = EventList()
         fn = MagicMock()
         for i in range(5):
@@ -299,6 +337,7 @@ class TestEventListBasics:
 
 class TestEventListPeekAhead:
     def test_basic_peek(self):
+        """Test basic peek."""
         el = EventList()
         fn = MagicMock()
         for i in range(10):
@@ -310,6 +349,7 @@ class TestEventListPeekAhead:
         assert events[1].time == 1
 
     def test_peek_more_than_available(self):
+        """Test peek more than available."""
         el = EventList()
         fn = MagicMock()
         for i in range(10):
@@ -319,6 +359,7 @@ class TestEventListPeekAhead:
         assert len(events) == 10
 
     def test_peek_skips_canceled(self):
+        """Test peek skips canceled."""
         el = EventList()
         fn = MagicMock()
         for i in range(10):
@@ -329,11 +370,13 @@ class TestEventListPeekAhead:
         assert len(events) == 9
 
     def test_peek_empty_raises(self):
+        """Test peek empty raises."""
         el = EventList()
         with pytest.raises(IndexError):
             el.peek_ahead()
 
     def test_peek_returns_chronological_order(self):
+        """Test peek returns chronological order."""
         el = EventList()
         fn = MagicMock()
         times = [5.0, 15.0, 10.0, 25.0, 20.0, 8.0]
@@ -347,6 +390,7 @@ class TestEventListPeekAhead:
 
 class TestEventListPop:
     def test_pop_returns_earliest(self):
+        """Test pop returns earliest."""
         el = EventList()
         fn = MagicMock()
         for i in range(10):
@@ -356,6 +400,7 @@ class TestEventListPop:
         assert event.time == 0
 
     def test_pop_skips_canceled(self):
+        """Test pop skips canceled."""
         el = EventList()
         fn = MagicMock()
         event = Event(9, fn, priority=Priority.DEFAULT)
@@ -370,7 +415,10 @@ class TestEventListPop:
         execution_order = []
 
         def make_fn(i):
+            """Make fn."""
+
             def fn():
+                """Handle fn."""
                 execution_order.append(i)
 
             return fn
@@ -392,9 +440,11 @@ class TestEventListPop:
         trace = []
 
         def event_b():
+            """Handle event b."""
             trace.append("B")
 
         def event_a():
+            """Handle event a."""
             trace.append("A")
             el.add_event(Event(5, event_b, priority=Priority.DEFAULT))
 
@@ -411,7 +461,10 @@ class TestEventListPop:
         execution = []
 
         def make_fn(i):
+            """Make fn."""
+
             def fn():
+                """Handle fn."""
                 execution.append(i)
 
             return fn
@@ -434,6 +487,7 @@ class TestEventListPop:
 
 class TestEventListCompact:
     def test_compact_removes_canceled(self):
+        """Test compact removes canceled."""
         el = EventList()
         fn = MagicMock()
 
@@ -469,6 +523,7 @@ def setup():
 
 class TestEventGeneratorInit:
     def test_defaults(self, setup):
+        """Test defaults."""
         model, fn = setup
         schedule = Schedule(interval=5.0, start=10, end=100, count=5)
         gen = EventGenerator(model, fn, schedule)
@@ -480,16 +535,19 @@ class TestEventGeneratorInit:
         assert gen.execution_count == 0
 
     def test_custom_priority(self, setup):
+        """Test custom priority."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(), priority=Priority.HIGH)
         assert gen.priority == Priority.HIGH
 
     def test_rejects_non_callable(self):
+        """Test rejects non callable."""
         model = Model()
         with pytest.raises(TypeError):
             EventGenerator(model, 42, Schedule(interval=1.0))
 
     def test_rejects_non_weakrefable(self):
+        """Test rejects non weakrefable."""
         model = Model()
 
         class NoWeakRef:
@@ -502,6 +560,7 @@ class TestEventGeneratorInit:
             EventGenerator(model, NoWeakRef(), Schedule(interval=1.0))
 
     def test_rejects_lambda(self):
+        """Test rejects lambda."""
         model = Model()
         with pytest.raises(ValueError, match="alive"):
             EventGenerator(model, lambda: 10, Schedule(interval=1.0))
@@ -543,6 +602,7 @@ class TestEventGeneratorStartStop:
         assert len(model._event_list) == event_count
 
     def test_stop(self, setup):
+        """Test stop."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start().stop()
@@ -554,6 +614,7 @@ class TestEventGeneratorStartStop:
 
 class TestEventGeneratorExecution:
     def test_recurring_execution(self, setup):
+        """Test recurring execution."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=2.0, start=0.0))
         gen.start()
@@ -629,9 +690,11 @@ class TestEventGeneratorExecution:
         order = []
 
         def func_a():
+            """Handle func a."""
             order.append("L")
 
         def func_b():
+            """Handle func b."""
             order.append("H")
 
         low = EventGenerator(
@@ -649,6 +712,7 @@ class TestEventGeneratorExecution:
 
 class TestEventGeneratorIntrospection:
     def test_next_scheduled_time(self, setup):
+        """Test next scheduled time."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=2.0))
 
@@ -666,6 +730,7 @@ class TestEventGeneratorIntrospection:
 
 class TestEventGeneratorPauseResume:
     def test_full_lifecycle(self, setup):
+        """Test full lifecycle."""
         model, fn = setup
         gen = EventGenerator(model, fn, Schedule(interval=1.0))
         gen.start()
@@ -716,6 +781,7 @@ class TestEventGeneratorPauseResume:
         call_count = {"n": 0}
 
         def fn():
+            """Handle fn."""
             call_count["n"] += 1
             if call_count["n"] == 1:
                 gen.pause()
@@ -786,9 +852,11 @@ class TestEventGeneratorPauseResume:
 
 class TestEventGeneratorPickle:
     def test_getstate_setstate(self):
+        """Test getstate setstate."""
         model = Model()
 
         def test_func():
+            """Test func."""
             return "hello"
 
         gen = EventGenerator(model, test_func, Schedule(interval=1.0))
@@ -804,6 +872,7 @@ class TestEventGeneratorPickle:
         assert new_gen.function()() == "hello"
 
     def test_getstate_setstate_with_none(self):
+        """Test getstate setstate with none."""
         state = {
             "_fn_strong": None,
             "function": None,
@@ -823,10 +892,12 @@ class TestEventGeneratorPickle:
 
 class TestEventGeneratorWeakref:
     def test_stops_silently_when_weakref_dies(self):
+        """Test stops silently when weakref dies."""
         model = Model()
         call_count = [0]
 
         def temp_func():
+            """Handle temp func."""
             call_count[0] += 1
 
         gen = EventGenerator(model, temp_func, Schedule(interval=1.0))

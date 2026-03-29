@@ -5,12 +5,10 @@ from mesa.discrete_space import CellAgent
 
 # Helper function
 def get_distance(cell_1, cell_2):
-    """
-    Calculate the Euclidean distance between two positions
+    """Calculate the Euclidean distance between two positions
 
     used in trade.move()
     """
-
     x1, y1 = cell_1.coordinate
     x2, y2 = cell_2.coordinate
     dx = x1 - x2
@@ -19,8 +17,7 @@ def get_distance(cell_1, cell_2):
 
 
 class Trader(CellAgent):
-    """
-    Trader:
+    """Trader:
     - has a metabolism of sugar and spice
     - harvest and trade sugar and spice to survive
     """
@@ -46,22 +43,17 @@ class Trader(CellAgent):
         self.trade_partners = []
 
     def get_trader(self, cell):
-        """
-        helper function used in self.trade_with_neighbors()
-        """
-
+        """Helper function used in self.trade_with_neighbors()"""
         for agent in cell.agents:
             if isinstance(agent, Trader):
                 return agent
 
     def calculate_welfare(self, sugar, spice):
-        """
-        helper function
+        """Helper function
 
         part 2 self.move()
         self.trade()
         """
-
         # calculate total resources
         m_total = self.metabolism_sugar + self.metabolism_spice
         # Cobb-Douglas functional form; starting on p. 97
@@ -71,29 +63,22 @@ class Trader(CellAgent):
         )
 
     def is_starved(self):
-        """
-        Helper function for self.maybe_die()
-        """
-
+        """Helper function for self.maybe_die()"""
         return (self.sugar <= 0) or (self.spice <= 0)
 
     def calculate_MRS(self, sugar, spice):
-        """
-        Helper function for
+        """Helper function for
           - self.trade()
           - self.maybe_self_spice()
 
         Determines what trader agent needs and can give up
         """
-
         return (spice / self.metabolism_spice) / (sugar / self.metabolism_sugar)
 
     def calculate_sell_spice_amount(self, price):
-        """
-        helper function for self.maybe_sell_spice() which is called from
+        """Helper function for self.maybe_sell_spice() which is called from
         self.trade()
         """
-
         if price >= 1:
             sugar = 1
             spice = int(price)
@@ -103,22 +88,17 @@ class Trader(CellAgent):
         return sugar, spice
 
     def sell_spice(self, other, sugar, spice):
-        """
-        used in self.maybe_sell_spice()
+        """Used in self.maybe_sell_spice()
 
         exchanges sugar and spice between traders
         """
-
         self.sugar += sugar
         other.sugar -= sugar
         self.spice -= spice
         other.spice += spice
 
     def maybe_sell_spice(self, other, price, welfare_self, welfare_other):
-        """
-        helper function for self.trade()
-        """
-
+        """Helper function for self.trade()"""
         sugar_exchanged, spice_exchanged = self.calculate_sell_spice_amount(price)
 
         # Assess new sugar and spice amount - what if change did occur
@@ -156,12 +136,10 @@ class Trader(CellAgent):
         return True
 
     def trade(self, other):
-        """
-        helper function used in trade_with_neighbors()
+        """Helper function used in trade_with_neighbors()
 
         other is a trader agent object
         """
-
         # sanity check to verify code is working as expected
         assert self.sugar > 0
         assert self.spice > 0
@@ -209,14 +187,12 @@ class Trader(CellAgent):
     ######################################################################
 
     def move(self):
-        """
-        Function for trader agent to identify optimal move for each step in 4 parts
+        """Function for trader agent to identify optimal move for each step in 4 parts
         1 - identify all possible moves
         2 - determine which move maximizes welfare
         3 - find closest best option
         4 - move
         """
-
         # 1. identify all possible moves
 
         neighboring_cells = [
@@ -271,10 +247,7 @@ class Trader(CellAgent):
         self.spice -= self.metabolism_spice
 
     def maybe_die(self):
-        """
-        Function to remove Traders who have consumed all their sugar or spice
-        """
-
+        """Function to remove Traders who have consumed all their sugar or spice"""
         if self.is_starved():
             self.remove()
 
@@ -287,8 +260,7 @@ class Trader(CellAgent):
         self.maybe_die()
 
     def trade_with_neighbors(self):
-        """
-        Function for trader agents to decide who to trade with in three parts
+        """Function for trader agents to decide who to trade with in three parts
 
         1- identify neighbors who can trade
         2- trade (2 sessions)

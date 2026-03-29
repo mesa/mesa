@@ -39,26 +39,15 @@ dependencies = [
   "pandas",
   "tqdm",
   "scipy",
-  "pythran>=0.17.0 ; sys_platform == 'darwin'", # required for darwin scipy overrides in nix
-
+  "pythran>=0.17.0 ; sys_platform == 'darwin'",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-# User collections
 rec = ["mesa[network,viz]"]
 all = ["mesa[network,viz,dev,examples,docs]"]
-# Core dependencies
-network = [
-  "networkx",
-]
-viz = [
-  "matplotlib",
-  "solara",
-  "altair",
-  "starlette<1.0",
-]
-# Dev and CI stuff
+network = ["networkx"]
+viz = ["matplotlib", "solara", "altair", "starlette<1.0"]
 dev = [
   "mesa[rec]",
   "ruff",
@@ -72,11 +61,7 @@ dev = [
   "ipython>=9.2.0",
   "pyarrow",
 ]
-examples = [
-  "mesa[rec]",
-  "pytest",
-  "scipy",
-]
+examples = ["mesa[rec]", "pytest", "scipy"]
 docs = [
   "mesa[rec]",
   "sphinx",
@@ -84,8 +69,8 @@ docs = [
   "pydata_sphinx_theme",
   "seaborn",
   "myst-nb",
-  "myst-parser",  # Markdown in Sphinx
-  "sphinx-copybutton", # Add a copy option in docs
+  "myst-parser",
+  "sphinx-copybutton",
 ]
 
 [project.urls]
@@ -93,7 +78,7 @@ homepage = "https://github.com/mesa/mesa"
 repository = "https://github.com/mesa/mesa"
 
 [tool.codespell]
-ignore-words-list = ["ist", "hart", "nD"]
+ignore-words-list = "ist,hart,nD"
 
 [tool.coverage.run]
 source = ["."]
@@ -103,11 +88,11 @@ branch = true
 
 [tool.coverage.paths]
 _site-packages-to-flat-layout-mapping = [
-  'mesa',
-  '*/mesa',
-  '*/lib/pypy*/site-packages/mesa',
-  '*/lib/python*/site-packages/mesa',
-  '*/Lib/site-packages/mesa',
+  "mesa",
+  "*/mesa",
+  "*/lib/pypy*/site-packages/mesa",
+  "*/lib/python*/site-packages/mesa",
+  "*/Lib/site-packages/mesa",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -117,61 +102,49 @@ packages = ["mesa"]
 path = "mesa/__init__.py"
 
 [tool.ruff]
-# See https://github.com/charliermarsh/ruff#rules for error code definitions.
-# Hardcode to Python 3.12.
-# Reminder to update mesa-examples if the value below is changed.
 target-version = "py312"
 extend-exclude = ["build"]
-
-[tool.ruff.lint]
 select = [
-  # "ANN", # annotations TODO
-  "B",   # bugbear
-  "C4",  # comprehensions
-  "DTZ", # naive datetime
-  "E",   # style errors
-  "F",   # flakes
-  "I",   # import sorting
-  "ISC", # string concatenation
-  "N",   # naming
-  "PGH", # pygrep-hooks
-  "PIE", # miscellaneous
-  "PLC", # pylint convention
-  "PLE", # pylint error
-  # "PLR", # pylint refactor TODO
-  "PLW", # pylint warning
-  "Q",   # quotes
-  "RUF", # Ruff
-  "S",   # security
-  "SIM", # simplify
-  "T10", # debugger
-  "UP",  # upgrade
-  "W",   # style warnings
-  "YTT", # sys.version
-  "D",  # docstring
+  "B",
+  "C4",
+  "DTZ",
+  "E",
+  "F",
+  "I",
+  "ISC",
+  "N",
+  "PGH",
+  "PIE",
+  "PLC",
+  "PLE",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "SIM",
+  "T10",
+  "UP",
+  "W",
+  "YTT",
+  "D",
 ]
-# Ignore list taken from https://github.com/psf/black/blob/master/.flake8
-# E203	Whitespace before ':'
-# E266	Too many leading '#' for block comment
-# W503	Line break occurred before a binary operator
-# But we don't specify them because ruff's formatter
-# checks for it.
-# See https://github.com/charliermarsh/ruff/issues/1842#issuecomment-1381210185
 extend-ignore = [
   "E501",
-  "S101",   # Use of `assert` detected
-  "B017",   # `assertRaises(Exception)` should be considered evil TODO
-  "PGH004", # Use specific rule codes when using `noqa` TODO
-  "B905",   # `zip()` without an explicit `strict=` parameter
-  "N802",   # Function name should be lowercase
-  "N999",   # Invalid module name. We should revisit this in the future, TODO
-  "S310",   # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
-  "S603",   # `subprocess` call: check for execution of untrusted input
-  "ISC001", # ruff format asks to disable this feature
-  "S311",   # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "S101",
+  "B017",
+  "PGH004",
+  "B905",
+  "N802",
+  "N999",
+  "S310",
+  "S603",
+  "ISC001",
+  "S311",
+  "PLC"
 ]
-# Ignore all docstring errors in examples and tutorials
-per-file-ignores = {"mesa/examples/*"= ["D"], "docs/tutorials/*" = ["D", "E", "F", "N"], "docs/conf.py"=["C", "D", "DTZ011", "E"]}
+per-file-ignores = { "mesa/examples/*" = ["D"], "docs/tutorials/*" = ["D", "E", "F", "N"], "docs/conf.py" = ["C", "D", "DTZ011", "E"] }
 
-[tool.ruff.lint.pydocstyle]
+[tool.ruff.pydocstyle]
 convention = "google"
+
+

@@ -58,11 +58,13 @@ class Cell:
     ]
 
     @property
-    def empty(self) -> bool:  # noqa: D102
+    def empty(self) -> bool:
+        """Return the empty."""
         return self._empty
 
     @empty.setter
     def empty(self, value: bool) -> None:
+        """Return the empty."""
         self._empty = value
 
     @property
@@ -71,6 +73,7 @@ class Cell:
 
         Returns:
             np.ndarray: Physical position of the cell
+
         """
         if self._position is not None:
             return self._position
@@ -79,6 +82,7 @@ class Cell:
 
     @position.setter
     def position(self, value: np.ndarray | None) -> None:
+        """Return the position."""
         self._position = value
 
     def __init__(

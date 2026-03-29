@@ -114,6 +114,7 @@ class AgentDataSet[A: Agent](BaseDataSet):
         fields: fields to collect
         use_dirty_flag: if True, enables manual dirty-flag caching optimization.
                         Default is False (always recompute snapshot).
+
     """
 
     def __init__(

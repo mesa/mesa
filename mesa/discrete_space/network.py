@@ -47,6 +47,7 @@ class Network(DiscreteSpace[Cell]):
                 It defaults to nx.circular_layout
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
+
         """
         if layout is None:
             import networkx as nx  # noqa: PLC0415
@@ -126,6 +127,7 @@ class Network(DiscreteSpace[Cell]):
 
         Raises:
             ValueError: If network is not spatial
+
         """
         if getattr(self, "_kdtree", None) is None:
             raise ValueError("No nodes with positions found in network")

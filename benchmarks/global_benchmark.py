@@ -1,16 +1,18 @@
 """runner for global performance benchmarks."""
 
 import gc
+import importlib
 import os
 import pickle
 import sys
 import time
+from pathlib import Path
 
 # making sure we use this version of mesa and not one
 # also installed in site_packages or so.
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.fspath(Path(__file__).resolve().parents[1]))
 
-from configurations import configurations
+configurations = importlib.import_module("configurations").configurations
 
 
 # Generic function to initialize and run a model
@@ -24,6 +26,7 @@ def run_model(model_class, steps, scenario):
 
     Returns:
         startup time and run time
+
     """
     # Explicitly collect garbage before the run to ensure a clean memory state
     gc.collect()

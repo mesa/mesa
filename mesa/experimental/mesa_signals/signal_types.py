@@ -27,6 +27,7 @@ class ObservableSignals(SignalType):
     Note:
         String-based signal types are still supported for backward compatibility:
         >>> model.observe("value", "changed", handler)  # Still works
+
     """
 
     CHANGED = "changed"
@@ -66,6 +67,7 @@ class ListSignals(SignalType):
     Note:
         String-based signal types are still supported for backward compatibility:
         >>> model.observe("items", "inserted", handler)  # Still works
+
     """
 
     SET = "set"

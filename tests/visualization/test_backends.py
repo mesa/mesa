@@ -70,6 +70,7 @@ def test_matplotlib_backend_collects_agent_data():
 
     # Test with AgentPortrayalStyle
     def agent_portrayal_style(agent):
+        """Handle agent portrayal style."""
         return AgentPortrayalStyle(
             x=0,
             y=0,
@@ -87,6 +88,7 @@ def test_matplotlib_backend_collects_agent_data():
 
     # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
+        """Handle agent portrayal dict."""
         return {"size": 5, "color": "red", "marker": "o"}
 
     with pytest.warns(FutureWarning):
@@ -199,6 +201,7 @@ def test_altair_backend_collects_agent_data():
 
     # Test with AgentPortrayalStyle
     def agent_portrayal_style(agent):
+        """Handle agent portrayal style."""
         return AgentPortrayalStyle(
             x=0,
             y=0,
@@ -216,6 +219,7 @@ def test_altair_backend_collects_agent_data():
 
     # Test with dict-based portrayal (deprecated, emits FutureWarning)
     def agent_portrayal_dict(agent):
+        """Handle agent portrayal dict."""
         return {"size": 5, "color": "red", "marker": "o"}
 
     with pytest.warns(FutureWarning):
@@ -236,6 +240,7 @@ def test_altair_backend_collects_agent_data_marker_mapping():
         agents: ClassVar[list] = [DummyAgent()]
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(
             x=0, y=0, size=5, color="red", marker="s", zorder=1, alpha=1.0
         )
@@ -363,6 +368,7 @@ def test_backend_collect_agent_data_projects_3d_continuous_positions(backend_cls
     agent_2.position = [0.4, 0.5, 0.6]
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(
             x=None,
             y=None,

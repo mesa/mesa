@@ -20,13 +20,10 @@ class AllianceScenario(Scenario):
 
 
 class MultiLevelAllianceModel(mesa.Model):
-    """
-    Model for simulating multi-level alliances among agents.
-    """
+    """Model for simulating multi-level alliances among agents."""
 
     def __init__(self, scenario: AllianceScenario = AllianceScenario):
-        """
-        Initialize the model.
+        """Initialize the model.
 
         Args:
             n (int): Number of agents.
@@ -50,8 +47,7 @@ class MultiLevelAllianceModel(mesa.Model):
         self.network.add_nodes_from(agent_ids)
 
     def add_link(self, meta_agent, agents):
-        """
-        Add links between a meta agent and its constituent agents in the network.
+        """Add links between a meta agent and its constituent agents in the network.
 
         Args:
             meta_agent (MetaAgent): The meta agent.
@@ -61,8 +57,7 @@ class MultiLevelAllianceModel(mesa.Model):
             self.network.add_edge(meta_agent.unique_id, agent.unique_id)
 
     def calculate_shapley_value(self, agents):
-        """
-        Calculate the Shapley value of the two agents.
+        """Calculate the Shapley value of the two agents.
 
         Args:
             agents: Pair of agents.
@@ -92,8 +87,7 @@ class MultiLevelAllianceModel(mesa.Model):
             return potential_utility, new_position, level
 
     def only_best_combination(self, combinations):
-        """
-        Filter to keep only the best combination for each agent.
+        """Filter to keep only the best combination for each agent.
 
         Args:
             combinations (list): List of combinations.
@@ -134,14 +128,13 @@ class MultiLevelAllianceModel(mesa.Model):
                     best[agent_ids[0]] = [group, value, agent_ids]
                     best[agent_ids[1]] = [group, value, agent_ids]
             elif (
-                agent_ids[1] in best
+                agent_ids[1] in best and value[0] > best[agent_ids[1]][1][0]
             ):  # if only agent_ids[1] in, see if it would be trading up
-                if value[0] > best[agent_ids[1]][1][0]:
-                    # Remove the old alliance for agent_ids[1]
-                    del best[best[agent_ids[1]][2][0]]
-                    # Add the new alliance
-                    best[agent_ids[0]] = [group, value, agent_ids]
-                    best[agent_ids[1]] = [group, value, agent_ids]
+                # Remove the old alliance for agent_ids[1]
+                del best[best[agent_ids[1]][2][0]]
+                # Add the new alliance
+                best[agent_ids[0]] = [group, value, agent_ids]
+                best[agent_ids[1]] = [group, value, agent_ids]
 
         # Create a unique dictionary of the best combinations
         unique_combinations = {}
@@ -151,9 +144,7 @@ class MultiLevelAllianceModel(mesa.Model):
         return unique_combinations.values()
 
     def step(self):
-        """
-        Execute one step of the model.
-        """
+        """Execute one step of the model."""
         # Get all other agents of the same type
         agent_types = list(self.agents_by_type.keys())
 

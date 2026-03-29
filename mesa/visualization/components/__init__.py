@@ -49,6 +49,7 @@ def make_space_component(
 
     Returns:
         function: A function that creates a space component
+
     """
     if backend == "matplotlib":
         return make_mpl_space_component(
@@ -88,6 +89,7 @@ def make_plot_component(
 
     Returns:
         (function, page): A tuple of a function and page number that creates a plot component on that specific page.
+
     """
     if backend == "matplotlib":
         return make_mpl_plot_component(

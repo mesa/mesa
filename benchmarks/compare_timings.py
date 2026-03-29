@@ -25,6 +25,7 @@ def bootstrap_percentage_change_confidence_interval(data1, data2, n=1000):
 
     Returns:
         float, mean, and lower and upper bound of confidence interval.
+
     """
     change_samples = []
     for _ in range(n):

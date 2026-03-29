@@ -57,6 +57,7 @@ class CellCollection[T: Cell]:
         Args:
             cells: cells to add to the collection
             random: a seeded random number generator.
+
         """
         if isinstance(cells, dict):
             self._cells = cells
@@ -114,6 +115,7 @@ class CellCollection[T: Cell]:
 
         Raises:
             LookupError: If collection is empty and no default is provided.
+
         """
         agents = list(self.agents)
 

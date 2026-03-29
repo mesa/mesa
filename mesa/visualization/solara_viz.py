@@ -115,6 +115,7 @@ def SolaraViz(
           value results in faster stepping, while a higher value results in slower stepping.
         - The `render_interval` argument determines how often plots are updated during simulation. Higher values
           reduce update frequency, resulting in faster execution.
+
     """
     if components == "default":
         components = [
@@ -173,6 +174,7 @@ def SolaraViz(
                 solara.Text("Increase play interval to avoid skipping plots")
 
             def set_reactive_use_threads(value):
+                """Set reactive use threads."""
                 reactive_use_threads.set(value)
 
             solara.Checkbox(
@@ -231,6 +233,7 @@ def SpaceRendererComponent(
         model (Model): The model whose space is to be rendered.
         renderer: A SpaceRenderer instance to render the model's space.
         dependencies (list[any], optional): List of dependencies for the component.
+
     """
     update_counter.get()
 
@@ -326,6 +329,7 @@ def _wrap_component(
 
     @solara.component
     def WrappedComponent(model):
+        """Render the wrapped component."""
         update_counter.get()
         return component(model)
 
@@ -343,6 +347,7 @@ def ComponentsView(
     Args:
         components: List of (components, page) to display
         model: Model instance to pass to each component
+
     """
     # State for current tab and layouts
     current_tab_index, set_current_tab_index = solara.use_state(0)
@@ -370,6 +375,7 @@ def ComponentsView(
 
     # Keep layouts in sync with pages
     def sync_layouts():
+        """Handle sync layouts."""
         if not components:  # Handle empty case inside the effect
             return
 
@@ -411,6 +417,7 @@ def ComponentsView(
                     if page_layout:
 
                         def on_layout_change(new_layout, current_page_id=page_id):
+                            """Handle on layout change."""
                             set_layouts(
                                 lambda old: {**old, current_page_id: new_layout}
                             )
@@ -497,6 +504,7 @@ def ModelController(
         play_interval: Interval for playing the model steps in milliseconds.
         render_interval: Controls how often the plots are updated during simulation steps.Higher value reduce update frequency.
         use_threads: Flag for indicating whether to utilize multi-threading for model execution.
+
     """
     playing = solara.use_reactive(False)
     running = solara.use_reactive(True)
@@ -509,6 +517,7 @@ def ModelController(
     error_message = solara.use_reactive(None)
 
     def step():
+        """Run one step."""
         try:
             while running.value and playing.value:
                 time.sleep(play_interval.value / 1000)
@@ -521,6 +530,7 @@ def ModelController(
             return
 
     def visualization_task():
+        """Handle visualization task."""
         if use_threads.value:
             try:
                 while playing.value and running.value:
@@ -614,6 +624,7 @@ def split_model_params(model_params):
 
     Returns:
         tuple: (user_adjustable_params, fixed_params)
+
     """
     model_params_input = {}
     model_params_fixed = {}
@@ -633,6 +644,7 @@ def check_param_is_fixed(param):
 
     Returns:
         bool: True if parameter is fixed, False otherwise
+
     """
     if isinstance(param, Slider):
         return False
@@ -677,6 +689,7 @@ def ModelCreator(
           or are dictionaries containing parameter details such as type, value, min, and max.
         - The `seed` argument ensures reproducibility by setting the initial seed for the model's random number generator.
         - The component provides an interface for adjusting user-defined parameters and reseeding the model.
+
     """
     if model_parameters is None:
         model_parameters = {}
@@ -702,6 +715,7 @@ def ModelCreator(
 
     @function_logger(__name__)
     def on_change(name, value):
+        """Handle on change."""
         model_parameters.value = {**model_parameters.value, name: value}
 
     UserInputs(user_adjust_params, on_change=on_change)
@@ -716,6 +730,7 @@ def _check_model_params(model_or_func, model_params):
 
     Raises:
         ValueError: If a parameter is not valid for the model's initialization function
+
     """
     if inspect.isfunction(model_or_func) or inspect.ismethod(model_or_func):
         init_func = model_or_func
@@ -774,10 +789,12 @@ def UserInputs(user_params, on_change=None):
     Args:
         user_params: Dictionary with options for the input, including label, min and max values, and other fields specific to the input type.
         on_change: Function to be called with (name, value) when the value of an input changes.
+
     """
     for name, options in user_params.items():
 
         def change_handler(value, name=name):
+            """Handle change handler."""
             on_change(name, value)
 
         if isinstance(options, Slider):
@@ -832,6 +849,7 @@ def UserInputs(user_params, on_change=None):
         elif input_type == "InputText":
 
             def input_change_handler(value, name=name):
+                """Handle input change handler."""
                 converted = value
                 with contextlib.suppress(ValueError, TypeError):
                     converted = int(value)
@@ -858,6 +876,7 @@ def make_initial_grid_layout(num_components):
 
     Returns:
         list: Initial grid layout configuration
+
     """
     return [
         {

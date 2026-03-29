@@ -40,6 +40,7 @@ class AltairBackend(AbstractRenderer):
 
         Returns:
             alt.Chart: The Altair chart representing the space structure.
+
         """
         return self.space_drawer.draw_altair(**kwargs)
 
@@ -55,6 +56,7 @@ class AltairBackend(AbstractRenderer):
 
         Returns:
             dict: Dictionary containing agent plotting data arrays.
+
         """
         # Initialize data collection arrays
         arguments = {
@@ -71,7 +73,7 @@ class AltairBackend(AbstractRenderer):
         }
 
         # Import here to avoid circular import issues
-        from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
+        from mesa.visualization.components import AgentPortrayalStyle
 
         style_fields = {f.name: f.default for f in fields(AgentPortrayalStyle)}
         class_default_size = style_fields.get("size")
@@ -212,6 +214,7 @@ class AltairBackend(AbstractRenderer):
 
         Returns:
             alt.Chart: The Altair chart representing the agents, or None if no agents.
+
         """
         if arguments["loc"].size == 0:
             return None
@@ -375,6 +378,7 @@ class AltairBackend(AbstractRenderer):
 
         Returns:
             alt.Chart: A tuple containing the base chart and the color bar chart.
+
         """
         main_charts = []
 

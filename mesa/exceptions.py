@@ -17,6 +17,7 @@ class CellFullException(SpaceException):
 
         Args:
             coordinate: The coordinate tuple of the full cell.
+
         """
         self.coordinate = coordinate
         super().__init__(f"Cell at coordinate {coordinate} is full.")
@@ -31,6 +32,7 @@ class AgentMissingException(MesaException):
         Args:
             agent: The agent instance that was expected.
             coordinate: The coordinate tuple of the cell.
+
         """
         self.agent = agent
         self.coordinate = coordinate
@@ -45,6 +47,7 @@ class CellMissingException(SpaceException):
 
         Args:
             coordinate: The coordinate tuple of the missing cell.
+
         """
         self.coordinate = coordinate
         super().__init__(f"Cell at coordinate {coordinate} does not exist.")
@@ -59,6 +62,7 @@ class ConnectionMissingException(SpaceException):
         Args:
             cell: The source cell instance.
             other: The target cell instance that was not connected.
+
         """
         self.cell = cell
         self.other = other
@@ -75,6 +79,7 @@ class TableMissingException(MesaException, ValueError):  # noqa: N818
 
         Args:
             table_name: The name of the missing table.
+
         """
         self.table_name = table_name
         super().__init__(f"Table '{table_name}' does not exist.")
@@ -88,5 +93,6 @@ class DimensionException(MesaException, ValueError):  # noqa: N818
 
         Args:
             message: The error message describing the dimension mismatch.
+
         """
         super().__init__(message)

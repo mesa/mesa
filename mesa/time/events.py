@@ -89,7 +89,8 @@ class Event:
     _ids = itertools.count()
 
     @property
-    def CANCELED(self) -> bool:  # noqa: D102
+    def CANCELED(self) -> bool:
+        """Return whether the event has been canceled."""
         return self._canceled
 
     def __init__(
@@ -108,6 +109,7 @@ class Event:
             priority: the priority of the event
             function_args: arguments for callable
             function_kwargs: keyword arguments for the callable
+
         """
         super().__init__()
         self.time = time
@@ -173,6 +175,7 @@ class Schedule:
         start: Absolute time to begin (None = use current model time + interval)
         end: Absolute time to stop (None = no end)
         count: Maximum executions (None = unlimited)
+
     """
 
     interval: float | int | Callable[[Model], float | int] = 1.0
@@ -231,6 +234,7 @@ class EventGenerator:
                      Use functools.partial to bind arguments.
             schedule: The Schedule defining timing
             priority: Priority level for generated events
+
         """
         self.model = model
         self.function = _create_callable_reference(function)
@@ -315,6 +319,7 @@ class EventGenerator:
 
         Returns:
             Self for method chaining
+
         """
         if self._active:
             return self

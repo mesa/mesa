@@ -61,6 +61,7 @@ class DiscreteSpace[T: Cell](ABC):
             capacity: capacity of cells
             cell_klass: base class for all cells
             random: random number generator
+
         """
         super().__init__()
         self.capacity = capacity
@@ -111,6 +112,7 @@ class DiscreteSpace[T: Cell](ABC):
             new cell (cell2).
 
             Ensure the target coordinates are vacant before calling this method.
+
         """
         self.__dict__.pop("all_cells", None)
         self._cells[cell.coordinate] = cell

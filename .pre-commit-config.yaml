@@ -2,6 +2,22 @@ ci:
     autoupdate_schedule: 'monthly'
     skip: [vale]
 
+exclude: |
+    (?x)^(
+        \.git/|
+        \.venv/|
+        \.pytest_cache/|
+        \.ruff_cache/|
+        \.mypy_cache/|
+        venv/|
+        env/|
+        node_modules/|
+        dist/|
+        build/|
+        \.eggs/|
+        .*\.egg-info/
+    )
+
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
@@ -58,3 +74,9 @@ repos:
             "--output=line"
       ]
       pass_filenames: true
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.0.285  # or any release tag
+  hooks:
+    - id: ruff
+      args: [--fix]

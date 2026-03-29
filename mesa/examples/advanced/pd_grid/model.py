@@ -40,8 +40,7 @@ class PdGrid(mesa.Model):
         self,
         scenario: PrisonersDilemmaScenario = PrisonersDilemmaScenario,
     ):
-        """
-        Create a new Spatial Prisoners' Dilemma Model.
+        """Create a new Spatial Prisoners' Dilemma Model.
 
         Args:
             width, height: Grid size. There will be one agent per grid cell.

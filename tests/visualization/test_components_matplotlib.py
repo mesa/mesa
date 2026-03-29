@@ -142,6 +142,7 @@ def test_draw_property_layers():
     """Test drawing property layers."""
 
     def property_layer_portrayal(_):
+        """Handle property layer portrayal."""
         return PropertyLayerStyle(colormap="viridis", colorbar=True)
 
     model = Model(rng=42)

@@ -1,5 +1,4 @@
-"""
-Boltzmann Wealth Model
+"""Boltzmann Wealth Model
 =====================
 
 A simple model of wealth distribution based on the Boltzmann-Gibbs distribution.

@@ -42,13 +42,16 @@ def make_mpl_space_component(
 
     Returns:
         function: A function that creates a SpaceMatplotlib component
+
     """
     if agent_portrayal is None:
 
         def agent_portrayal(a):
+            """Handle agent portrayal."""
             return {}
 
     def MakeSpaceMatplotlib(model):
+        """Make space matplotlib."""
         return SpaceMatplotlib(
             model,
             agent_portrayal,
@@ -120,9 +123,11 @@ def make_mpl_plot_component(
 
     Returns:
         (function, page): A tuple of a function that creates a PlotMatplotlib component and a page number.
+
     """
 
     def MakePlotMatplotlib(model):
+        """Make plot matplotlib."""
         return PlotMatplotlib(
             model, measure, post_process=post_process, save_format=save_format
         )
@@ -149,6 +154,7 @@ def PlotMatplotlib(
 
     Returns:
         solara.FigureMatplotlib: A component for rendering the plot.
+
     """
     update_counter.get()
     fig = Figure()

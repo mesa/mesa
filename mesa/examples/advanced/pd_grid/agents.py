@@ -5,8 +5,7 @@ class PDAgent(CellAgent):
     """Agent member of the iterated, spatial prisoner's dilemma model."""
 
     def __init__(self, model, starting_move=None, cell=None):
-        """
-        Create a new Prisoner's Dilemma agent.
+        """Create a new Prisoner's Dilemma agent.
 
         Args:
             model: model instance
@@ -28,8 +27,8 @@ class PDAgent(CellAgent):
 
     def step(self):
         """Get the best neighbor's move, and change own move accordingly
-        if better than own score."""
-
+        if better than own score.
+        """
         # neighbors = self.model.grid.get_neighbors(self.pos, True, include_center=True)
         neighbors = [*list(self.cell.neighborhood.agents), self]
         best_neighbor = max(neighbors, key=lambda a: a.score)

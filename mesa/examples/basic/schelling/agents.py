@@ -8,6 +8,7 @@ class SchellingAgent(CellAgent):
         self, model, cell, agent_type: int, homophily: float = 0.4, radius: int = 1
     ) -> None:
         """Create a new Schelling agent.
+
         Args:
             model: The model instance the agent belongs to
             agent_type: Indicator for the agent's type (minority=1, majority=0)

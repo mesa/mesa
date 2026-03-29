@@ -1,6 +1,4 @@
-"""
-Solara-based visualization for the Spatial Prisoner's Dilemma Model.
-"""
+"""Solara-based visualization for the Spatial Prisoner's Dilemma Model."""
 
 from mesa.examples.advanced.pd_grid.model import PdGrid, PrisonersDilemmaScenario
 from mesa.visualization import (
@@ -13,9 +11,7 @@ from mesa.visualization.components import AgentPortrayalStyle
 
 
 def pd_agent_portrayal(agent):
-    """
-    Portrayal function for rendering PD agents in the visualization.
-    """
+    """Portrayal function for rendering PD agents in the visualization."""
     return AgentPortrayalStyle(
         color="blue" if agent.move == "C" else "red", marker="s", size=25
     )

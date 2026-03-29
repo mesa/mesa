@@ -30,6 +30,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
     Attributes:
         model (Model): The ABM model instance to which this AbstractAgentSet belongs.
+
     """
 
     @abstractmethod
@@ -76,6 +77,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
             - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
+
         """
         inf = float("inf")
         if filter_func is None and agent_type is None and at_most == inf:
@@ -125,6 +127,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
             # Multiple functions
             min_wealth, max_wealth, total_wealth = model.agents.agg("wealth", [min, max, sum])
+
         """
         values = self.get(attribute)
 
@@ -172,6 +175,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Raises:
             AttributeError: If 'handle_missing' is 'error' and the agent does not have the specified attribute(s).
             ValueError: If an unknown 'handle_missing' option is provided.
+
         """
         is_single_attr = isinstance(attr_names, str)
 
@@ -210,6 +214,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Returns:
             AgentSet: The AgentSet instance itself, after setting the attribute.
+
         """
         for agent in self:
             setattr(agent, attr_name, value)
@@ -226,6 +231,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             It is the recommended approach when list operations (indexing, slicing)
             are needed, as direct sequence operations on AgentSet are deprecated
             and will be removed in Mesa 4.0.
+
         """
         return list(self._agents.keys())
 
@@ -238,6 +244,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         ...
 
@@ -252,6 +259,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         ...
 
@@ -267,6 +275,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         ...
 
@@ -292,6 +301,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Notes:
             There might be performance benefits to using `result_type='list'` if you don't need the advanced functionality
             of an AbstractAgentSet.
+
         """
         groups = defaultdict(list)
 
@@ -360,6 +370,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Performance-critical methods are optimized to work directly with weak references,
         avoiding the overhead of creating strong references during iteration.
+
     """
 
     def __init__(
@@ -372,6 +383,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
             random (Random | None): The random number generator for this agent set.
+
         """
         self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
         if (len(self._agents) == 0) and random is None:
@@ -440,6 +452,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Returns:
             AgentSet: A sorted AgentSet. Returns the current AgentSet if inplace is True.
+
         """
         if isinstance(key, str):
             key = operator.attrgetter(key)
@@ -474,6 +487,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Returns:
             AgentSet: The AgentSet instance itself.
+
         """
         # we iterate over the actual weakref keys and check if weakref is alive before calling the method
         if isinstance(method, str):
@@ -520,6 +534,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Returns:
            list[Any]: The results of the callable calls
+
         """
         # we iterate over the actual weakref keys and check if weakref is alive before calling the method
         if isinstance(method, str):
@@ -555,6 +570,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         .. deprecated::
             Sequence behavior (indexing/slicing) is deprecated and will be removed in Mesa 4.0.
             Use :meth:`to_list` instead: ``agentset.to_list()[index]`` or ``agentset.to_list()[start:stop]``.
+
         """
         warnings.warn(
             "AgentSet.__getitem__ is deprecated and will be removed in Mesa 4.0. "
@@ -573,6 +589,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         self._agents[agent] = None
 
@@ -586,6 +603,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         with contextlib.suppress(KeyError):
             del self._agents[agent]
@@ -600,6 +618,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Note:
             This method is an implementation of the abstract method from MutableSet.
+
         """
         del self._agents[agent]
 
@@ -608,6 +627,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Returns:
             dict: A dictionary representing the state of the AgentSet.
+
         """
         return {"agents": list(self._agents.keys()), "random": self.random}
 
@@ -616,6 +636,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         Args:
             state (dict): A dictionary representing the state to restore.
+
         """
         self.random = state["random"]
         self._update(state["agents"])
@@ -644,6 +665,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
             random (Random | None): The random number generator for this agent set.
+
         """
         self._agents: dict[A, None] = dict.fromkeys(agents)
 
@@ -903,6 +925,7 @@ class GroupBy:
 
         Returns:
             dict: A dictionary mapping group names to the number of agents in each group.
+
         """
         return {k: len(v) for k, v in self.groups.items()}
 
@@ -915,6 +938,7 @@ class GroupBy:
 
         Returns:
             dict[Hashable, Any]: A dictionary mapping group names to the result of applying the aggregation function.
+
         """
         return {
             group_name: func([getattr(agent, attr_name) for agent in group])
