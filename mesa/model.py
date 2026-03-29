@@ -123,7 +123,19 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         if isinstance(scenario, Scenario) and rng is not None:
             raise ValueError("Pass either rng or scenario, not both.")
         if not isinstance(scenario, Scenario):
-            scenario = scenario(rng=rng)  # type: ignore[assignment]
+            # Validate scenario class before instantiation
+            if not callable(scenario):
+                raise TypeError(f"Scenario must be callable or Scenario instance, got {type(scenario)}")
+            try:
+                scenario = scenario(rng=rng)  # type: ignore[assignment]
+            except Exception as e:
+                raise ValueError(f"Failed to instantiate scenario: {e}") from e
+
+        # Validate scenario instance
+        if not hasattr(scenario, 'rng'):
+            raise AttributeError("Scenario must have an 'rng' attribute")
+        if not hasattr(scenario.rng, 'random'):
+            raise AttributeError("Scenario.rng must be a random number generator")
 
         self.scenario = scenario
         self.rng: np.random.Generator = scenario.rng
@@ -259,6 +271,14 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
         """
+        # Validate agent before registration
+        if agent is None:
+            raise ValueError("Cannot register None agent")
+        if hasattr(agent, 'unique_id') and agent.unique_id is not None:
+            raise ValueError(f"Agent {agent} already has unique_id {agent.unique_id}")
+        if hasattr(agent, 'model') and agent.model is not None and agent.model != self:
+            raise ValueError(f"Agent {agent} is already registered to another model")
+        
         # Add to main storage
         self._all_agents.add(agent)
         agent.unique_id = self.agent_id_counter

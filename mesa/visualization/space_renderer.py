@@ -37,6 +37,28 @@ HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
 
 
+def _emit_deprecation_warning(
+    message: str, 
+    deprecated_since: str = "4.0", 
+    removal_version: str = "4.1",
+    migration_guide_url: str = "https://mesa.readthedocs.io/latest/migration_guide.html"
+) -> None:
+    """Emit a standardized deprecation warning with migration guidance.
+    
+    Args:
+        message: The deprecation message
+        deprecated_since: Version when the feature was deprecated
+        removal_version: Version when the feature will be removed
+        migration_guide_url: URL to migration documentation
+    """
+    full_message = (
+        f"{message} Deprecated since version {deprecated_since} "
+        f"and will be removed in version {removal_version}. "
+        f"See {migration_guide_url} for migration guidance."
+    )
+    warnings.warn(full_message, DeprecationWarning, stacklevel=3)
+
+
 class SpaceRenderer:
     """Renders Mesa spaces using different visualization backends.
 
@@ -206,11 +228,9 @@ class SpaceRenderer:
             The visual representation of the space structure.
         """
         if kwargs:
-            warnings.warn(
+            _emit_deprecation_warning(
                 "Passing kwargs to draw_structure() is deprecated. "
-                "Use setup_structure(**kwargs) before calling draw_structure().",
-                PendingDeprecationWarning,
-                stacklevel=2,
+                "Use setup_structure(**kwargs) before calling draw_structure()."
             )
             self.draw_space_kwargs.update(kwargs)
 

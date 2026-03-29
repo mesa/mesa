@@ -1,5 +1,6 @@
 # noqa: D100
 import base64
+import time
 
 import playwright.sync_api
 import pytest
@@ -54,11 +55,15 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
+        page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+        time.sleep(0.5)  # Add buffer to ensure rendering completes
         initial_space = page_session.locator("img").screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
+            page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+            time.sleep(0.5)  # Add buffer to ensure rendering completes
             initial_graph = page_session.locator("img").screenshot()
 
         # Run the model for specified number of steps
@@ -76,11 +81,15 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
+        page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+        time.sleep(0.5)  # Add buffer to ensure rendering completes
         changed_space = page_session.locator("img").first.screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
+            page_session.wait_for_load_state("networkidle")  # Wait for network to settle
+            time.sleep(0.5)  # Add buffer to ensure rendering completes
             changed_graph = page_session.locator("img").last.screenshot()
 
         # Convert screenshots to base64 for comparison
