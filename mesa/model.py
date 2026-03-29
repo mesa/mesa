@@ -125,16 +125,18 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         if not isinstance(scenario, Scenario):
             # Validate scenario class before instantiation
             if not callable(scenario):
-                raise TypeError(f"Scenario must be callable or Scenario instance, got {type(scenario)}")
+                raise TypeError(
+                    f"Scenario must be callable or Scenario instance, got {type(scenario)}"
+                )
             try:
                 scenario = scenario(rng=rng)  # type: ignore[assignment]
             except Exception as e:
                 raise ValueError(f"Failed to instantiate scenario: {e}") from e
 
         # Validate scenario instance
-        if not hasattr(scenario, 'rng'):
+        if not hasattr(scenario, "rng"):
             raise AttributeError("Scenario must have an 'rng' attribute")
-        if not hasattr(scenario.rng, 'random'):
+        if not hasattr(scenario.rng, "random"):
             raise AttributeError("Scenario.rng must be a random number generator")
 
         self.scenario = scenario
@@ -274,11 +276,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         # Validate agent before registration
         if agent is None:
             raise ValueError("Cannot register None agent")
-        if hasattr(agent, 'unique_id') and agent.unique_id is not None:
+        if hasattr(agent, "unique_id") and agent.unique_id is not None:
             raise ValueError(f"Agent {agent} already has unique_id {agent.unique_id}")
-        if hasattr(agent, 'model') and agent.model is not None and agent.model != self:
+        if hasattr(agent, "model") and agent.model is not None and agent.model != self:
             raise ValueError(f"Agent {agent} is already registered to another model")
-        
+
         # Add to main storage
         self._all_agents.add(agent)
         agent.unique_id = self.agent_id_counter

@@ -38,13 +38,13 @@ Network = mesa.discrete_space.Network
 
 
 def _emit_deprecation_warning(
-    message: str, 
-    deprecated_since: str = "4.0", 
+    message: str,
+    deprecated_since: str = "4.0",
     removal_version: str = "4.1",
-    migration_guide_url: str = "https://mesa.readthedocs.io/latest/migration_guide.html"
+    migration_guide_url: str = "https://mesa.readthedocs.io/latest/migration_guide.html",
 ) -> None:
     """Emit a standardized deprecation warning with migration guidance.
-    
+
     Args:
         message: The deprecation message
         deprecated_since: Version when the feature was deprecated
