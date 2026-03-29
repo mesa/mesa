@@ -115,9 +115,7 @@ class Sheep(Animal):
                 cell for cell in lowest_risk_cells if cell in cells_with_grass
             ]
             target_cells = (
-                grass_and_low_risk
-                if len(grass_and_low_risk) > 0
-                else lowest_risk_cells
+                grass_and_low_risk if len(grass_and_low_risk) > 0 else lowest_risk_cells
             )
         else:
             # Backward-compatible behavior: prefer grass among cells without wolves.
