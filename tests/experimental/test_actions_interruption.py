@@ -320,7 +320,7 @@ class TestActionEdgeCases:
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=-5.0)
 
-        with pytest.raises(ValueError, match="duration must be >= 0"):
+        with pytest.raises(ValueError, match="Action duration must be >= 0"):
             action.start()
 
     def test_repr_format(self):
