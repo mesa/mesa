@@ -9,9 +9,8 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
-import warnings
 
-warnings.simplefilter('once', FutureWarning)
+warnings.simplefilter("once", FutureWarning)
 
 if TYPE_CHECKING:
     from mesa.visualization.components import PropertyLayerStyle
