@@ -84,7 +84,7 @@ class TestActionInterruption:
         action.interrupt()
 
         assert action.on_interrupt_called == 1
-        assert abs(action.interrupt_progress - 0.5) < 0.01
+        assert action.interrupt_progress == pytest.approx(0.5, abs=0.01)
 
     def test_interrupt_non_interruptible_action_returns_false(self):
         """Interrupting a non-interruptible action should fail."""
