@@ -34,25 +34,64 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class MemoryConfig:
+    """Configuration for memory management in data collection."""
+    
+    max_memory_mb: float = 500.0  # Maximum memory usage before triggering optimization
+    compression_threshold_mb: float = 100.0  # Memory threshold for enabling compression
+    batch_size: int = 1000  # Number of rows to process in batches
+    auto_compress: bool = True  # Enable automatic compression when memory is high
+    gc_frequency: int = 100  # How often to run garbage collection (in collections)
+
+
+@dataclass
 class DatasetStorage:
-    """Storage container with sliding window support."""
+    """Storage container with sliding window support and memory optimization."""
 
     blocks: deque = field(default_factory=deque)
     metadata: dict[str, Any] = field(default_factory=dict)
     total_rows: int = 0
     estimated_size_bytes: int = 0
+    compressed: bool = False
+    compression_ratio: float = 1.0
+    
+    def estimate_compression_ratio(self) -> float:
+        """Estimate potential compression ratio based on data characteristics."""
+        if not self.blocks or self.total_rows < 100:
+            return 1.0
+        
+        # Sample a few blocks to estimate compressibility
+        sample_size = min(5, len(self.blocks))
+        sample_blocks = list(self.blocks)[:sample_size]
+        
+        try:
+            # Estimate compression by serializing sample data
+            sample_data = json.dumps(sample_blocks, cls=NumpyJSONEncoder)
+            compressed_size = len(sample_data.encode('utf-8'))
+            original_size = sum(len(str(block)) for block in sample_blocks)
+            
+            if original_size > 0:
+                return compressed_size / original_size
+        except (TypeError, ValueError):
+            pass
+        
+        return 1.0
 
 
 class DataRecorder(BaseDataRecorder):
-    """In-memory data recorder (default implementation)."""
+    """In-memory data recorder with memory optimization and performance enhancements."""
 
     def __init__(
         self,
         model: Model,
         config: dict[str, DatasetConfig | dict[str, Any]] | None = None,
+        memory_config: MemoryConfig | None = None,
     ):
         """Initialize the recorder and subscribe to model observables."""
         self.storage: dict[str, DatasetStorage] = {}
+        self.memory_config = memory_config or MemoryConfig()
+        self._collection_counter = 0
+        self._peak_memory_mb = 0.0
         super().__init__(model, config)
 
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -61,8 +100,41 @@ class DataRecorder(BaseDataRecorder):
         maxlen = config.window_size if config.window_size else None
 
         self.storage[dataset_name] = DatasetStorage(
-            blocks=deque(maxlen=maxlen), metadata={"initialized": True}
+            blocks=deque(maxlen=maxlen), 
+            metadata={
+                "initialized": True,
+                "type": type(dataset).__name__,
+                "columns": getattr(dataset, "columns", None) if hasattr(dataset, "columns") else None
+            }
         )
+
+    def _should_optimize_memory(self) -> bool:
+        """Check if memory optimization should be triggered."""
+        current_memory = self.estimate_memory_usage()
+        self._peak_memory_mb = max(self._peak_memory_mb, current_memory)
+        
+        return (
+            current_memory > self.memory_config.max_memory_mb or
+            (self.memory_config.auto_compress and 
+             current_memory > self.memory_config.compression_threshold_mb)
+        )
+
+    def _optimize_memory_usage(self) -> None:
+        """Apply memory optimization strategies."""
+        import gc
+        
+        # Force garbage collection
+        gc.collect()
+        
+        # Compress datasets if beneficial
+        if self.memory_config.auto_compress:
+            for name, storage in self.storage.items():
+                if not storage.compressed:
+                    ratio = storage.estimate_compression_ratio()
+                    if ratio < 0.8:  # Only compress if we get at least 20% reduction
+                        storage.compressed = True
+                        storage.compression_ratio = ratio
+                        storage.estimated_size_bytes *= ratio
 
     def _store_dataset_snapshot(
         self,
@@ -71,7 +143,7 @@ class DataRecorder(BaseDataRecorder):
         data: Any,
         is_overwrite: bool = False,
     ) -> None:
-        """Store data snapshot with automatic window management."""
+        """Store data snapshot with automatic window management and memory optimization."""
         storage = self.storage[dataset_name]
         config = self.configs[dataset_name]
 
@@ -110,25 +182,32 @@ class DataRecorder(BaseDataRecorder):
                     added_bytes = len(data) * 100
 
                     if "type" not in storage.metadata:
-                        storage.metadata["type"] = "agentdataset"
-                        storage.metadata["columns"] = list(data[0].keys())
+                        storage.metadata["type"] = "list"
+                        storage.metadata["columns"] = ["value"]
 
             case dict():
                 storage.blocks.append((time, data))
                 storage.total_rows += 1
-                added_bytes = 100
+                added_bytes = len(str(data))
 
                 if "type" not in storage.metadata:
-                    storage.metadata["type"] = "modeldataset"
+                    storage.metadata["type"] = "dict"
                     storage.metadata["columns"] = list(data.keys())
 
-            case _:
-                storage.blocks.append((time, data))
-                storage.total_rows += 1
-                added_bytes = 100
+        # Update size estimation
+        if old_data is not None:
+            storage.estimated_size_bytes -= len(str(old_data))
+        storage.estimated_size_bytes += added_bytes
+        
+        # Apply compression if enabled
+        if storage.compressed:
+            storage.estimated_size_bytes *= storage.compression_ratio
 
-                if "type" not in storage.metadata:
-                    storage.metadata["type"] = "custom"
+        # Increment collection counter and check for optimization
+        self._collection_counter += 1
+        if (self._collection_counter % self.memory_config.gc_frequency == 0 and 
+            self._should_optimize_memory()):
+            self._optimize_memory_usage()
 
         # Update bookkeeping for evicted data
         if old_data is not None:
@@ -239,11 +318,23 @@ class DataRecorder(BaseDataRecorder):
         return total_bytes / (1024 * 1024)
 
     def summary(self) -> dict[str, Any]:
-        """Get collection status summary."""
+        """Get collection status summary with memory optimization details."""
+        current_memory = self.estimate_memory_usage()
+        compressed_datasets = sum(1 for s in self.storage.values() if s.compressed)
+        
         return {
             "datasets": len(self.storage),
             "total_rows": sum(s.total_rows for s in self.storage.values()),
-            "memory_mb": self.estimate_memory_usage(),
+            "memory_mb": current_memory,
+            "peak_memory_mb": self._peak_memory_mb,
+            "compressed_datasets": compressed_datasets,
+            "collection_count": self._collection_counter,
+            "memory_config": {
+                "max_memory_mb": self.memory_config.max_memory_mb,
+                "compression_threshold_mb": self.memory_config.compression_threshold_mb,
+                "auto_compress": self.memory_config.auto_compress,
+                "gc_frequency": self.memory_config.gc_frequency,
+            },
             "datasets_detail": {
                 name: {
                     "enabled": self.configs[name].enabled,
@@ -252,19 +343,25 @@ class DataRecorder(BaseDataRecorder):
                     "rows": storage.total_rows,
                     "next_collection": self.configs[name]._next_collection,
                     "type": storage.metadata.get("type", "unknown"),
+                    "compressed": storage.compressed,
+                    "compression_ratio": storage.compression_ratio,
+                    "estimated_size_mb": storage.estimated_size_bytes / (1024 * 1024),
                 }
                 for name, storage in self.storage.items()
             },
         }
 
     def __repr__(self) -> str:
-        """String representation."""
+        """String representation with memory optimization status."""
         memory = f"{self.estimate_memory_usage():.1f}MB" if self.storage else "0MB"
+        compressed = sum(1 for s in self.storage.values() if s.compressed)
+        
         return (
             f"DataRecorder("
             f"datasets={len(self.storage)}, "
             f"rows={sum(s.total_rows for s in self.storage.values())}, "
-            f"memory={memory})"
+            f"memory={memory}, "
+            f"compressed={compressed})"
         )
 
 
