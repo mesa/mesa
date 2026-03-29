@@ -125,6 +125,10 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         if not isinstance(scenario, Scenario):
             scenario = scenario(rng=rng)  # type: ignore[assignment]
 
+        # Validate scenario has required RNG attribute
+        if not hasattr(scenario, 'rng'):
+            raise AttributeError("Scenario must have an 'rng' attribute")
+        
         self.scenario = scenario
         self.rng: np.random.Generator = scenario.rng
         self.random = random.Random(scenario._stdlib_seed)
