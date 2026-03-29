@@ -9,6 +9,9 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
+import warnings
+
+warnings.simplefilter('once', FutureWarning)
 
 if TYPE_CHECKING:
     from mesa.visualization.components import PropertyLayerStyle
@@ -35,6 +38,15 @@ from mesa.visualization.space_drawers import (
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
+
+
+def process_agent_portrayal(portrayal):
+    """Normalize legacy dict portrayals into AgentPortrayalStyle instances."""
+    from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
+
+    if isinstance(portrayal, dict):
+        return AgentPortrayalStyle(**portrayal)
+    return portrayal
 
 
 class SpaceRenderer:
@@ -259,9 +271,14 @@ class SpaceRenderer:
             )
             self.draw_agent_kwargs.update(kwargs)
 
+        def normalized_agent_portrayal(agent):
+            return process_agent_portrayal(self.agent_portrayal(agent))
+
         # Prepare data for agent plotting
         arguments = self.backend_renderer.collect_agent_data(
-            self.space, self.agent_portrayal, default_size=self.space_drawer.s_default
+            self.space,
+            normalized_agent_portrayal,
+            default_size=self.space_drawer.s_default,
         )
         arguments = self._map_coordinates(arguments)
 
