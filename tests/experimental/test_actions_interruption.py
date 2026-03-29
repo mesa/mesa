@@ -6,7 +6,7 @@ interaction patterns that depend on interruptible task scheduling.
 """
 
 # ruff: noqa: D102, D107
-import pytest  # type: ignore
+import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.actions import Action, ActionState
