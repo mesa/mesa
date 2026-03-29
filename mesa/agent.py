@@ -204,14 +204,11 @@ class Agent[M: Model]:
         ]
 
         return AgentSet(agents, random=model.random)
-    def __str__(self) -> str:
-        """Return a string representation of the agent."""
-        return f"<{self.__class__.__name__} ID:{self.unique_id}>"
 
-    def __repr__(self) -> str:
-        """Return a detailed string representation of the agent."""
-        return f"{self.__class__.__name__}(unique_id={self.unique_id}, model={self.model})"
-    
+    def __str__(self) -> str:
+        """Return a human-readable string representation of the agent."""
+        return f"{self.__class__.__name__}, agent_id = {self.unique_id}"
+
     @property
     def random(self) -> Random:
         """Return a seeded stdlib rng."""
