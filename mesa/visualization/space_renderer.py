@@ -1,23 +1,22 @@
-"""Space rendering module for Mesa visualizations.
+"""space_renderer.py.
 
-This module provides functionality to render Mesa model spaces with different
-backends, supporting various space types and visualization components.
+Handles rendering of Mesa agents and spaces.
+Supports both legacy dict portrayals and AgentPortrayalStyle.
 """
 
-from __future__ import annotations
+from __future__ import (
+    annotations,  # MUST be first executable statement (future imports may follow docstring)
+)
 
+# Standard library
 import warnings
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
-
-warnings.simplefilter("once", FutureWarning)
-
-if TYPE_CHECKING:
-    from mesa.visualization.components import PropertyLayerStyle
+from typing import Literal
 
 import altair as alt
 import pandas as pd
 
+# Mesa imports
 import mesa
 from mesa.discrete_space import (
     OrthogonalMooreGrid,
@@ -26,6 +25,7 @@ from mesa.discrete_space import (
 )
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.components import PropertyLayerStyle
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
     HexSpaceDrawer,
@@ -34,10 +34,8 @@ from mesa.visualization.space_drawers import (
     VoronoiSpaceDrawer,
 )
 
+# Warnings filter
 warnings.simplefilter("once", FutureWarning)
-
-if TYPE_CHECKING:
-    from mesa.visualization.components import PropertyLayerStyle
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
@@ -324,9 +322,6 @@ class SpaceRenderer:
                 stacklevel=2,
             )
             self.property_layer_portrayal = property_layer_portrayal
-
-        # Import here to avoid circular imports
-        from mesa.visualization.components import PropertyLayerStyle
 
         def _dict_to_callable(portrayal_dict):
             """Convert legacy dict portrayal to callable.
