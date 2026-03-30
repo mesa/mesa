@@ -247,7 +247,7 @@ def SpaceRendererComponent(
     Args:
         model (Model): The model whose space is to be rendered.
         renderer: A SpaceRenderer instance to render the model's space.
-        dependencies (list[any], optional): List of dependencies for the component.
+        dependencies: Optional sequence of additional dependencies for the component.
     """
     update_counter.get()
 
@@ -256,10 +256,7 @@ def SpaceRendererComponent(
 
     viz_dependencies = _build_viz_dependencies(dependencies)
 
-    def build_matplotlib_figure():
-        if renderer.backend != "matplotlib":
-            return None
-
+    if renderer.backend == "matplotlib":
         # Clear the previous plotted data and agents
         all_artists = [
             renderer.canvas.lines[:],
@@ -289,12 +286,14 @@ def SpaceRendererComponent(
             renderer.post_process(renderer.canvas)
             renderer._post_process_applied = True
 
-        return renderer.canvas.get_figure()
-
-    def build_altair_chart():
-        if renderer.backend != "altair":
-            return None
-
+        solara.FigureMatplotlib(
+            renderer.canvas.get_figure(),
+            format="png",
+            bbox_inches="tight",
+            dependencies=viz_dependencies,
+        )
+        return None
+    else:
         structure = renderer.space_mesh if renderer.space_mesh else None
         agents = renderer.agent_mesh if renderer.agent_mesh else None
         props = renderer.property_layer_mesh or None
@@ -327,20 +326,8 @@ def SpaceRendererComponent(
         if renderer.post_process:
             final_chart = renderer.post_process(final_chart)
 
-        return final_chart.configure_view(stroke="black", strokeWidth=1.5)
+        final_chart = final_chart.configure_view(stroke="black", strokeWidth=1.5)
 
-    figure = solara.use_memo(build_matplotlib_figure, dependencies=viz_dependencies)
-    final_chart = solara.use_memo(build_altair_chart, dependencies=viz_dependencies)
-
-    if renderer.backend == "matplotlib":
-        solara.FigureMatplotlib(
-            figure,
-            format="png",
-            bbox_inches="tight",
-            dependencies=viz_dependencies,
-        )
-        return None
-    else:
         solara.FigureAltair(final_chart, on_click=None, on_hover=None)
         return None
 
