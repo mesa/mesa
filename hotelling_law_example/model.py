@@ -1,27 +1,26 @@
-"""
-Hotelling's Law Model - Demonstrates spatial competition between firms.
+"""Hotelling's Law Model - Demonstrates spatial competition between firms.
 
 This model simulates Harold Hotelling's 1929 model of spatial competition,
 where firms choose locations on a line to maximize their market share.
 """
 
 import mesa
-from mesa.discrete_space import OrthogonalMooreGrid, CellAgent
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 
 
 class Firm(CellAgent):
     """A firm that chooses a location to maximize profit."""
-    
+
     def __init__(self, model, firm_id):
         super().__init__(model)
         self.firm_id = firm_id
         self.profit = 0
-        
+
     def step(self):
         """Firm decision-making step."""
         # Calculate profit based on current position
         self.calculate_profit()
-    
+
     def calculate_profit(self):
         """Calculate profit based on current position."""
         if self.cell is not None:
@@ -36,12 +35,14 @@ class Firm(CellAgent):
 
 class HotellingModel(mesa.Model):
     """Model representing Hotelling's spatial competition."""
-    
+
     def __init__(self, num_firms=2, grid_width=10):
         super().__init__()
         self.num_firms = num_firms
-        self.grid = OrthogonalMooreGrid((grid_width, 1), random=self.random)  # 1D line represented as thin grid
-        
+        self.grid = OrthogonalMooreGrid(
+            (grid_width, 1), random=self.random
+        )  # 1D line represented as thin grid
+
         # Create firms and place them on the grid
         for i in range(self.num_firms):
             firm = Firm(self, i)
@@ -50,14 +51,14 @@ class HotellingModel(mesa.Model):
             y = 0  # Single row
             # Properly place agent on grid - this sets firm.cell automatically
             firm.cell = self.grid[x, y]
-            
+
         self.datacollector = mesa.DataCollector(
             agent_reporters={
-                "Profit": "profit", 
-                "Position": lambda agent: agent.cell.coordinate if agent.cell else None
+                "Profit": "profit",
+                "Position": lambda agent: agent.cell.coordinate if agent.cell else None,
             }
         )
-        
+
     def step(self):
         """Advance model by one step."""
         self.agents.do("step")
