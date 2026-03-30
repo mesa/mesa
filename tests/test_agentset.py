@@ -884,7 +884,7 @@ def test_hardkeyagentset_add_remove():
 
 
 def test_agentset_multiple_iterations():
-    '''Test that multiple iterations over the same AgentSet yield the same order (unless shuffled).'''
+    """Test that multiple iterations over the same AgentSet yield the same order (unless shuffled)."""
     model = Model()
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
