@@ -123,6 +123,8 @@ class TestActionInterruption:
 
         assert action.state is ActionState.INTERRUPTED
         assert action.on_complete_called == 0
+
+
 class TestActionResumption:
     """Tests for resuming interrupted actions."""
 
