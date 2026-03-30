@@ -205,12 +205,12 @@ class TestActionCancel:
 
     def test_cancel_calls_on_interrupt(self):
         """Canceling should call on_interrupt with progress."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        action._progress = 0.7
-        action._event = None
+        # Advance model time so the action reaches ~70% progress naturally
+        model.run_for(action.duration * 0.7)
 
         action.cancel()
 
