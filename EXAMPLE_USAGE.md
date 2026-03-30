@@ -63,14 +63,14 @@ class SchellingAgent(mesa.discrete_space.CellAgent):
         self.type = agent_type
         self.homophily = homophily
         self.happy = False
-    
+
     def step(self):
         neighbors = list(self.cell.get_neighborhood().agents)
         if neighbors:
             similar = len([n for n in neighbors if n.type == self.type])
             similarity = similar / len(neighbors)
             self.happy = similarity >= self.homophily
-        
+
         if not self.happy:
             empty_cells = [c for c in self.model.grid.all_cells if c.is_empty]
             if empty_cells:
@@ -81,25 +81,25 @@ class SchellingModel(mesa.Model):
     def __init__(self, scenario: SchellingScenario = SchellingScenario):
         super().__init__(scenario=scenario)
         self.grid = OrthogonalMooreGrid(
-            (scenario.width, scenario.height), 
-            capacity=1, 
+            (scenario.width, scenario.height),
+            capacity=1,
             random=self.random
         )
-        
+
         self.datacollector = DataCollector(
             model_reporters={
                 "Happy": lambda m: len([a for a in m.agents if a.happy]),
                 "Unhappy": lambda m: len([a for a in m.agents if not a.happy])
             }
         )
-        
+
         for cell in self.grid.all_cells:
             if self.random.random() < scenario.density:
                 agent_type = 1 if self.random.random() < scenario.minority_pc else 0
                 SchellingAgent(self, cell, agent_type, scenario.homophily)
-        
+
         self.datacollector.collect(self)
-    
+
     def step(self):
         self.agents.shuffle_do("step")
         self.datacollector.collect(self)
@@ -228,15 +228,15 @@ async def generate_and_run():
     result = await generator.generate_simulation(
         "Create a flocking model with boids"
     )
-    
+
     if result["validation"]["is_valid"]:
         # Execute the generated code
         exec(result["code"])
-        
+
         # Run simulation
         model = BoidsModel()  # Generated class
         model.run_for(100)
-        
+
         # Visualize results
         import matplotlib.pyplot as plt
         data = model.datacollector.get_model_vars_dataframe()
@@ -254,18 +254,18 @@ class MesaLearningPlatform:
     def __init__(self):
         self.generator = MesaCodeGenerator()
         self.explainer = MesaExplainer()
-    
+
     async def create_lesson(self, topic, difficulty):
         # Generate example simulation
         prompt = f"Create a {difficulty} level {topic} simulation for education"
         code_result = await self.generator.generate_simulation(prompt)
-        
+
         # Generate explanation
         explanation_result = await self.explainer.explain_simulation(
-            code_result["code"], 
+            code_result["code"],
             audience_level=difficulty
         )
-        
+
         return {
             "code": code_result["code"],
             "explanation": explanation_result["explanation"],
@@ -281,22 +281,22 @@ class ResearchWorkflow:
         self.generator = MesaCodeGenerator()
         self.optimizer = MesaOptimizer()
         self.debugger = MesaDebugger()
-    
+
     async def prototype_model(self, research_question):
         # Generate initial prototype
         code_result = await self.generator.generate_simulation(research_question)
-        
+
         # Optimize for research use
         opt_result = await self.optimizer.optimize_simulation(
             code_result["code"],
             focus_areas=["performance", "scalability"]
         )
-        
+
         # Validate and debug
         debug_result = await self.debugger.debug_code(
             opt_result["optimized_code"]
         )
-        
+
         return {
             "prototype_code": code_result["code"],
             "optimized_code": opt_result["optimized_code"],

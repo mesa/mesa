@@ -37,23 +37,23 @@ class MyScenario(Scenario):
 
 class MyAgent(mesa.discrete_space.CellAgent):
     \"\"\"Agent description.\"\"\"
-    
+
     def __init__(self, model, cell=None):
         super().__init__(model)
         self.cell = cell
         # Initialize agent attributes
-    
+
     def step(self):
         \"\"\"Agent behavior per step.\"\"\"
         # Implement agent logic
 
 class MyModel(mesa.Model):
     \"\"\"Model description.\"\"\"
-    
+
     def __init__(self, scenario: MyScenario = MyScenario):
         super().__init__(scenario=scenario)
         # Initialize model components
-        
+
     def step(self):
         \"\"\"Model step.\"\"\"
         # Activate agents and collect data

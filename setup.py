@@ -1,12 +1,14 @@
 """Setup script for Mesa LLM Assistant."""
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
-with open("mesa_llm/README.md", "r", encoding="utf-8") as fh:
+with open("mesa_llm/README.md", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open("mesa_llm/requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+with open("mesa_llm/requirements.txt", encoding="utf-8") as fh:
+    requirements = [
+        line.strip() for line in fh if line.strip() and not line.startswith("#")
+    ]
 
 setup(
     name="mesa-llm-assistant",
@@ -63,8 +65,16 @@ setup(
         ],
     },
     keywords=[
-        "mesa", "agent-based-modeling", "simulation", "llm", "openai", "gemini",
-        "code-generation", "debugging", "optimization", "explanation"
+        "mesa",
+        "agent-based-modeling",
+        "simulation",
+        "llm",
+        "openai",
+        "gemini",
+        "code-generation",
+        "debugging",
+        "optimization",
+        "explanation",
     ],
     project_urls={
         "Bug Reports": "https://github.com/mesa-llm/mesa-llm-assistant/issues",

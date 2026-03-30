@@ -1,6 +1,6 @@
 """API package for Mesa LLM Assistant."""
 
-from .routes import router
 from .models import *
+from .routes import router
 
 __all__ = ["router"]
