@@ -1,12 +1,12 @@
-"""
-Visualization for Hotelling's Law Model using Solara.
+"""Visualization for Hotelling's Law Model using Solara.
 
 Fixed version that properly handles agent positioning using Mesa 3.2.0+ API.
 """
 
 import solara
+from model import Firm, HotellingModel
+
 import mesa
-from model import HotellingModel, Firm
 
 
 def agent_portrayal(agent):
@@ -15,12 +15,12 @@ def agent_portrayal(agent):
         # FIXED: Properly check if agent has a cell and get position safely
         if agent.cell is None:
             return {}  # Don't render agents without positions
-            
+
         pos = agent.cell.coordinate  # Use coordinate instead of position
-        
+
         # FIXED: Safe access to position coordinates
         rect_x = pos[0] + (agent.firm_id * 0.2)  # Small offset for visibility
-        
+
         portrayal = {
             "Shape": "rect",
             "Color": "blue" if agent.firm_id == 0 else "red",
@@ -44,19 +44,18 @@ def ModelController(model):
         solara.Button("Reset", on_click=lambda: model.reset_randomizer())
 
 
-@solara.component  
+@solara.component
 def Page():
     """Main page component."""
     model = HotellingModel(num_firms=2, grid_width=10)
-    
+
     with solara.Column():
         solara.Markdown("# Hotelling's Law Model")
         ModelController(model)
-        
+
         # This now works properly with the fixed agent_portrayal
         mesa.visualization.SolaraViz(
-            model,
-            components=[mesa.visualization.make_space_component(agent_portrayal)]
+            model, components=[mesa.visualization.make_space_component(agent_portrayal)]
         )
 
 
