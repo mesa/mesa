@@ -143,9 +143,8 @@ def create_meta_agent(
     meta_methods: dict[str, Callable] | None = None,
     assume_constituting_agent_methods: bool = False,
     assume_constituting_agent_attributes: bool = False,
-    joining_func: Callable[
-        [list[Agent], list["MetaAgent"], Any], "MetaAgent"
-    ] | None = None,  
+    joining_func: Callable[[list[Agent], list["MetaAgent"], Any], "MetaAgent"]
+    | None = None,
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 

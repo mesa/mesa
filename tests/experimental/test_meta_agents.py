@@ -400,13 +400,16 @@ def test_meta_agent_remove_with_multiple_memberships():
     assert a2.meta_agent is None
     assert len(a2.meta_agents) == 0
 
+
 def test_joining_func_default_picks_lowest_unique_id(setup_agents):
     """Without joining_func, lowest unique_id meta-agent is chosen (backward compat)."""
     model, agents = setup_agents
     a, b, c, d = agents
 
     ma1 = create_meta_agent(model, "Team", [a, b], Agent)
-    ma2_class = type("Team", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    ma2_class = type(
+        "Team", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None}
+    )
     ma2 = ma2_class(model, [c])
 
     # Give d membership in both to force multi-candidate path
@@ -425,7 +428,9 @@ def test_joining_func_return_value_is_respected(setup_agents):
     a, b, c, d = agents
 
     ma1 = create_meta_agent(model, "Crew", [a, b], Agent)
-    ma2_class = type("Crew", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    ma2_class = type(
+        "Crew", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None}
+    )
     ma2 = ma2_class(model, [c])
 
     d.meta_agents = {ma1, ma2}
@@ -433,7 +438,10 @@ def test_joining_func_return_value_is_respected(setup_agents):
     ma2._constituting_set.add(d)
 
     chosen = create_meta_agent(
-        model, "Crew", [d], Agent,
+        model,
+        "Crew",
+        [d],
+        Agent,
         joining_func=lambda agents, metas, m: ma2,
     )
     assert chosen is ma2
@@ -461,7 +469,9 @@ def test_joining_func_join_largest_strategy(setup_agents):
     a, b, c, d = agents
 
     small = create_meta_agent(model, "Brigade", [a], Agent)
-    large_class = type("Brigade", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    large_class = type(
+        "Brigade", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None}
+    )
     large = large_class(model, [b, c, d])
 
     # Give a membership in both
