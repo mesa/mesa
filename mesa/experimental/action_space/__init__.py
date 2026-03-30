@@ -1,5 +1,5 @@
 from .action import Action
-from .constraint import Constraint
 from .action_space import ActionSpace
+from .constraint import Constraint
 
-__all__ = ["Action", "Constraint", "ActionSpace"]
+__all__ = ["Action", "ActionSpace", "Constraint"]
