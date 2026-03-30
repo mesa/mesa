@@ -110,16 +110,19 @@ class TestActionInterruption:
 
     def test_interrupt_cancels_scheduled_event(self):
         """Interrupting should cancel the scheduled completion event."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        assert action._event is not None
+        # Interrupt before original completion time.
         action.interrupt()
 
-        assert action._event is None
+        # Advance time well past the original completion point; the action
+        # should remain interrupted and never complete.
+        model.run_for(20.0)
 
-
+        assert action.state is ActionState.INTERRUPTED
+        assert action.on_complete_called == 0
 class TestActionResumption:
     """Tests for resuming interrupted actions."""
 
