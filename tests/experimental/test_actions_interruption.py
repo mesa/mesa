@@ -161,13 +161,12 @@ class TestActionResumption:
 
     def test_resume_preserves_progress(self):
         """Resuming should preserve progress from before interruption."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        # Simulate 30% completion
-        action._progress = 0.3
-        action._event = None
+        # Advance the model to reach approximately 30% completion
+        model.run_for(action.duration * 0.3)
 
         action.interrupt()
 
