@@ -399,3 +399,78 @@ def test_meta_agent_remove_with_multiple_memberships():
     # a2 was only in ma1, should be fully cleaned
     assert a2.meta_agent is None
     assert len(a2.meta_agents) == 0
+
+def test_joining_func_default_picks_lowest_unique_id(setup_agents):
+    """Without joining_func, lowest unique_id meta-agent is chosen (backward compat)."""
+    model, agents = setup_agents
+    a, b, c, d = agents
+
+    ma1 = create_meta_agent(model, "Team", [a, b], Agent)
+    ma2_class = type("Team", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    ma2 = ma2_class(model, [c])
+
+    # Give d membership in both to force multi-candidate path
+    d.meta_agents = {ma1, ma2}
+    ma1._constituting_set.add(d)
+    ma2._constituting_set.add(d)
+
+    result = create_meta_agent(model, "Team", [d], Agent)
+    lowest = sorted([ma1, ma2], key=lambda x: x.unique_id)[0]
+    assert result is lowest
+
+
+def test_joining_func_return_value_is_respected(setup_agents):
+    """The meta-agent returned by joining_func is the one agents join."""
+    model, agents = setup_agents
+    a, b, c, d = agents
+
+    ma1 = create_meta_agent(model, "Crew", [a, b], Agent)
+    ma2_class = type("Crew", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    ma2 = ma2_class(model, [c])
+
+    d.meta_agents = {ma1, ma2}
+    ma1._constituting_set.add(d)
+    ma2._constituting_set.add(d)
+
+    chosen = create_meta_agent(
+        model, "Crew", [d], Agent,
+        joining_func=lambda agents, metas, m: ma2,
+    )
+    assert chosen is ma2
+
+
+def test_joining_func_not_called_for_single_candidate(setup_agents):
+    """joining_func must not be called when only one candidate meta-agent exists."""
+    model, agents = setup_agents
+    a, b, c = agents[0], agents[1], agents[2]
+
+    create_meta_agent(model, "Unit", [a, b], Agent)
+    call_count = {"n": 0}
+
+    def should_not_be_called(candidate_agents, existing_meta_agents, mdl):
+        call_count["n"] += 1
+        return existing_meta_agents[0]
+
+    create_meta_agent(model, "Unit", [a], Agent, joining_func=should_not_be_called)
+    assert call_count["n"] == 0
+
+
+def test_joining_func_join_largest_strategy(setup_agents):
+    """Domain strategy: joining_func can select the largest existing meta-agent."""
+    model, agents = setup_agents
+    a, b, c, d = agents
+
+    small = create_meta_agent(model, "Brigade", [a], Agent)
+    large_class = type("Brigade", (MetaAgent, Agent), {"unique_id": None, "_constituting_set": None})
+    large = large_class(model, [b, c, d])
+
+    # Give a membership in both
+    a.meta_agents = {small, large}
+    small._constituting_set.add(a)
+    large._constituting_set.add(a)
+
+    def join_largest(candidate_agents, existing_meta_agents, model):
+        return max(existing_meta_agents, key=lambda ma: len(ma))
+
+    chosen = create_meta_agent(model, "Brigade", [a], Agent, joining_func=join_largest)
+    assert chosen is large
