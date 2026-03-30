@@ -95,7 +95,7 @@ def run_model_test(
         space_changed = initial_space_encoding != changed_space_encoding
 
         if not space_changed:
-        # Acceptable: model may not evolve visually under fixed seed
+            # Acceptable: model may not evolve visually under fixed seed
             pass
         else:
             assert space_changed
