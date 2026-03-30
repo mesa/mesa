@@ -882,6 +882,7 @@ def test_hardkeyagentset_add_remove():
     with pytest.raises(KeyError):
         hard_set.remove(agent)
 
+
 def test_agentset_multiple_iterations():
     model = Model()
     agents = [AgentTest(model) for _ in range(10)]
