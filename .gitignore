@@ -96,3 +96,6 @@ mesa/visualization/templates/js/external/
 
 # Vale styles (downloaded via vale sync)
 .github/styles/Google/
+
+.pre-commit-cache/
+.venv/

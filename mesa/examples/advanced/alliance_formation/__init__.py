@@ -1,0 +1,1 @@
+"""Alliance formation example package."""
