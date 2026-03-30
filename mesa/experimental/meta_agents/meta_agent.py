@@ -225,8 +225,9 @@ def create_meta_agent(
 
         if meta_attributes is not None:
             for key, value in meta_attributes.items():
-                if not hasattr(meta_agent_instance, key):
-                    setattr(meta_agent_instance, key, value)
+                # Always set explicit meta_attributes (user intent takes precedence)
+                # This ensures warehouse model's explicit cell attribute is set
+                setattr(meta_agent_instance, key, value)
 
     # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
     # This preserves the "singleton/unique group per class" behavior while allowing overlap between different classes
