@@ -73,13 +73,12 @@ class TestActionInterruption:
 
     def test_interrupt_calls_on_interrupt_callback(self):
         """Interrupting an action should call on_interrupt with progress."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        # Manually set progress to simulate partial completion
-        action._progress = 0.5
-        action._event = None  # Cancel the scheduled event
+        # Advance model time to simulate partial completion (50% progress).
+        model.run_for(5.0)
 
         action.interrupt()
 
