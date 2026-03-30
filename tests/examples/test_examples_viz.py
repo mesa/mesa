@@ -1,7 +1,6 @@
 # noqa: D100
 import base64
 import os
-import pytest
 
 import playwright.sync_api
 import pytest
@@ -333,6 +332,7 @@ def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Pa
         page_session=page_session,
         steps=50,
     )
+
 
 @pytest.mark.skipif(
     os.getenv("CI") == "true",
