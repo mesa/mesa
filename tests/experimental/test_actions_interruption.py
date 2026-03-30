@@ -73,7 +73,7 @@ class TestActionInterruption:
 
     def test_interrupt_calls_on_interrupt_callback(self):
         """Interrupting an action should call on_interrupt with progress."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
@@ -161,7 +161,7 @@ class TestActionResumption:
 
     def test_resume_preserves_progress(self):
         """Resuming should preserve progress from before interruption."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
@@ -206,7 +206,7 @@ class TestActionCancel:
 
     def test_cancel_calls_on_interrupt(self):
         """Canceling should call on_interrupt with progress."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
@@ -241,7 +241,7 @@ class TestActionProgressTracking:
 
     def test_progress_frozen_on_interrupt(self):
         """Interrupting should freeze progress at that moment."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
@@ -256,7 +256,7 @@ class TestActionProgressTracking:
 
     def test_remaining_time_computed_live(self):
         """Remaining time should be computed based on duration and progress."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
@@ -268,7 +268,7 @@ class TestActionProgressTracking:
 
     def test_elapsed_time_computed_correctly(self):
         """Elapsed time should be progress * duration."""
-        model, agent = make_model_and_agent()
+        _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=20.0)
         action.start()
 

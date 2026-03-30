@@ -28,6 +28,25 @@ from mesa.visualization.components.matplotlib_components import (
 )
 
 
+def take_stable_screenshot(
+    locator: playwright.sync_api.Locator, retries: int = 3
+) -> bytes:
+    """Retry element screenshots when the DOM swaps the target node."""
+    last_error = None
+
+    for _ in range(retries):
+        locator.wait_for(state="visible")
+        try:
+            return locator.screenshot()
+        except playwright.sync_api.Error as error:
+            if "Element is not attached to the DOM" not in str(error):
+                raise
+            last_error = error
+
+    assert last_error is not None
+    raise last_error
+
+
 def run_model_test(
     model,
     agent_portrayal,
@@ -54,12 +73,12 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = take_stable_screenshot(page_session.locator("img"))
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = take_stable_screenshot(page_session.locator("img"))
 
         # Run the model for specified number of steps
         model.run_for(steps)
@@ -76,12 +95,12 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = take_stable_screenshot(page_session.locator("img").first)
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            changed_graph = page_session.locator("img").last.screenshot()
+            changed_graph = take_stable_screenshot(page_session.locator("img").last)
 
         # Convert screenshots to base64 for comparison
         initial_space_encoding = base64.b64encode(initial_space).decode()
