@@ -1,5 +1,7 @@
-from .action import Action
-from .action_space import ActionSpace
-from .constraint import Constraint
+"""Experimental ActionSpace module for agent constraints."""
 
-__all__ = ["Action", "ActionSpace", "Constraint"]
+from .action import Action
+from .constraint import Constraint
+from .action_space import ActionSpace
+
+__all__ = ["Action", "Constraint", "ActionSpace"]
