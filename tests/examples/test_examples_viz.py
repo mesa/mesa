@@ -76,7 +76,7 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = page_session.locator("img").last.screenshot()
 
         if measure_config:
             display(graph_viz)
@@ -90,23 +90,16 @@ def run_model_test(
         if measure_config and initial_graph is not None and changed_graph is not None:
             initial_graph_encoding = base64.b64encode(initial_graph).decode()
             changed_graph_encoding = base64.b64encode(changed_graph).decode()
-        # In deterministic cases, visualization may not change.
-        # Only assert change if there is an actual difference.
-        space_changed = initial_space_encoding != changed_space_encoding
 
-        if not space_changed:
-        # Acceptable: model may not evolve visually under fixed seed
-            pass
-        else:
-            assert space_changed
+        # Assert that visualizations changed after running steps
+        assert initial_space_encoding != changed_space_encoding, (
+            "The space visualization did not change after steps."
+        )
 
         if measure_config and initial_graph is not None and changed_graph is not None:
-            graph_changed = initial_graph_encoding != changed_graph_encoding
-
-        if not graph_changed:
-            pass
-        else:
-            assert graph_changed
+            assert initial_graph_encoding != changed_graph_encoding, (
+                "The graph visualization did not change after steps."
+            )
     except MemoryError:
         pytest.skip("Skipping test due to memory shortage.")
     except Exception:
