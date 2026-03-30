@@ -17,6 +17,17 @@ If you want to learn how to build agent-based models step by step using Mesa, fo
 - [Event Scheduling](tutorials/3_event_scheduling): Learn how to schedule events and manage time in your Mesa model.
 - [Adding Space](tutorials/4_adding_space): Learn how to add space to your Mesa model and understand Mesa's space architecture.
 - [Collecting Data](tutorials/5_collecting_data): Learn how to collect model level and agent level data with Mesa's DataCollector.
+
+## Visualization Setup
+
+Mesa visualization features (including SolaraViz) require additional dependencies.
+
+Install them using:
+
+pip install mesa[viz]
+
+If not installed, you may encounter ImportError when importing SolaraViz.
+
 - [Basic Visualization](tutorials/6_visualization_basic): Learn how to build an interactive dashboard with Mesa's visualization module.
 - [Dynamic Agent Visualization](tutorials/7_visualization_dynamic_agents): Learn how to dynamically represent your agents in your interactive dashboard.
 - [Visualization using SpaceRenderer](tutorials/8_visualization_rendering_with_space_renderer): Learn how to use SpaceRenderer to its full extent to enhance your visualizations.
