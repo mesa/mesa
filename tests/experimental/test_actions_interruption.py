@@ -240,39 +240,38 @@ class TestActionProgressTracking:
 
     def test_progress_frozen_on_interrupt(self):
         """Interrupting should freeze progress at that moment."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        # Simulate 40% elapsed
-        action._progress = 0.4
-        action._event = None
+        # Advance model time to simulate 40% elapsed progress.
+        model.run_for(4.0)
 
         action.interrupt()
 
-        # Progress should stay at 0.4
+        # Progress should stay at approximately 0.4
         assert abs(action.progress - 0.4) < 0.01
 
     def test_remaining_time_computed_live(self):
         """Remaining time should be computed based on duration and progress."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
         action.start()
 
-        action._progress = 0.25
-        action._event = None
+        # Advance model time to reach approximately 25% progress.
+        model.run_for(2.5)
 
         # 10 * (1 - 0.25) = 7.5
         assert abs(action.remaining_time - 7.5) < 0.01
 
     def test_elapsed_time_computed_correctly(self):
         """Elapsed time should be progress * duration."""
-        _model, agent = make_model_and_agent()
+        model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=20.0)
         action.start()
 
-        action._progress = 0.6
-        action._event = None
+        # Advance model time so that elapsed time is 12.0 (60% of 20.0).
+        model.run_for(12.0)
 
         # 20 * 0.6 = 12.0
         assert abs(action.elapsed_time - 12.0) < 0.01
