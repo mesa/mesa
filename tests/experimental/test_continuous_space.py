@@ -5,7 +5,7 @@ from random import Random
 import numpy as np
 import pytest
 
-from mesa import Agent, Model
+from mesa import Model
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
 
@@ -494,14 +494,15 @@ def test_agent_removal_no_ghost_entries():
 
 
 def test_continuous_space_k_larger_than_population():
+    """Test that k larger than population returns all agents."""
     model = Model()
     space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
 
-    a1 = Agent(model)
-    a2 = Agent(model)
+    a1 = ContinuousSpaceAgent(space, model)
+    a1.position = np.array([1.0, 1.0])
 
-    space.place_agent(a1, np.array([1.0, 1.0]))
-    space.place_agent(a2, np.array([9.0, 9.0]))
+    a2 = ContinuousSpaceAgent(space, model)
+    a2.position = np.array([9.0, 9.0])
 
     agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=10)
 
@@ -510,7 +511,7 @@ def test_continuous_space_k_larger_than_population():
 
 
 def test_continuous_space_k_empty_space():
-    model = Model()
+    """Test that empty space returns no agents."""
     space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
 
     agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=1)
@@ -520,11 +521,12 @@ def test_continuous_space_k_empty_space():
 
 
 def test_continuous_space_k_zero():
+    """Test that k=0 returns empty result."""
     model = Model()
     space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
 
-    a = Agent(model)
-    space.place_agent(a, np.array([1.0, 1.0]))
+    a = ContinuousSpaceAgent(space, model)
+    a.position = np.array([1.0, 1.0])
 
     agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=0)
 
@@ -533,14 +535,19 @@ def test_continuous_space_k_zero():
 
 
 def test_continuous_space_k_exact():
+    """Test that exact k nearest agents are returned."""
     model = Model()
     space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
 
-    agents_list = [Agent(model) for _ in range(3)]
-    positions = [np.array([1.0, 1.0]), np.array([2.0, 2.0]), np.array([9.0, 9.0])]
+    agents_list = [ContinuousSpaceAgent(space, model) for _ in range(3)]
+    positions = [
+        np.array([1.0, 1.0]),
+        np.array([2.0, 2.0]),
+        np.array([9.0, 9.0]),
+    ]
 
     for agent, pos in zip(agents_list, positions):
-        space.place_agent(agent, pos)
+        agent.position = pos
 
     agents, dists = space.get_k_nearest_agents(np.array([0.0, 0.0]), k=2)
 
