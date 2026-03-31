@@ -4,8 +4,8 @@ from random import Random
 
 import numpy as np
 import pytest
-from mesa import Agent
-from mesa import Model
+
+from mesa import Agent, Model
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
 
@@ -510,7 +510,7 @@ def test_continuous_space_k_larger_than_population():
 
 
 def test_continuous_space_k_empty_space():
-    model= Model()
+    model = Model()
     space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
 
     agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=1)
@@ -530,6 +530,7 @@ def test_continuous_space_k_zero():
 
     assert agents == []
     assert len(dists) == 0
+
 
 def test_continuous_space_k_exact():
     model = Model()

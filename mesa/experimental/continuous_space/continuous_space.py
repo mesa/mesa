@@ -256,17 +256,16 @@ class ContinuousSpace:
 
         """
         dists, agents = self.calculate_distances(point)
-        n= len(dists)
+        n = len(dists)
         # Handle empty space or invalid k
         if n == 0 or k <= 0:
             return [], np.array([])
-        
+
         # Clamp k to available agents
         k = min(k, n)
 
-
         # np.argpartition expects zero-based index (k-1) and returns the indices of the k smallest distances
-        indices = np.argpartition(dists, k-1)[:k]
+        indices = np.argpartition(dists, k - 1)[:k]
         agents = [agents[i] for i in indices]
         return agents, dists[indices]
 
