@@ -50,7 +50,7 @@ class Network(DiscreteSpace[Cell]):
 
         """
         if layout is None:
-            import networkx as nx  # noqa: PLC0415
+            import networkx as nx
 
             layout = nx.circular_layout
 
