@@ -43,7 +43,7 @@ class Schelling(Model):
 
         # Initialize grid
         self.grid = OrthogonalMooreGrid(
-            (scenario.width, scenario.height), random=self.random, capacity=1
+            (scenario.width, scenario.height), random=self.rng, capacity=1
         )
 
         # Track happiness
@@ -70,8 +70,8 @@ class Schelling(Model):
 
         # Create agents and place them on the grid
         for cell in self.grid.all_cells:
-            if self.random.random() < self.density:
-                agent_type = 1 if self.random.random() < scenario.minority_pc else 0
+            if self.rng.random() < self.density:
+                agent_type = 1 if self.rng.random() < scenario.minority_pc else 0
                 SchellingAgent(
                     self,
                     cell,

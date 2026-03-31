@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import itertools
+import warnings
 from random import Random
 from typing import TYPE_CHECKING, ClassVar
 
@@ -133,7 +134,7 @@ class Agent[M: Model]:
         if not args and not kwargs:
             for _ in range(n):
                 agents.append(cls(model))
-            return AgentSet(agents, random=model.random)
+            return AgentSet(agents, random=model.rng)
 
         # Prepare positional argument iterators
         arg_iters = []
@@ -165,7 +166,7 @@ class Agent[M: Model]:
             for _, p_args in zip(range(n), pos_iter):
                 agents.append(cls(model, *p_args))
 
-        return AgentSet(agents, random=model.random)
+        return AgentSet(agents, random=model.rng)
 
     @classmethod
     def from_dataframe[T: Agent](
@@ -203,11 +204,26 @@ class Agent[M: Model]:
             for record in df.to_dict(orient="records")
         ]
 
-        return AgentSet(agents, random=model.random)
+        return AgentSet(agents, random=model.rng)
 
     @property
     def random(self) -> Random:
-        """Return a seeded stdlib rng."""
+        """Return a seeded stdlib rng (DEPRECATED).
+
+        .. deprecated:: 4.0
+            `agent.random` is deprecated. Use `agent.rng` instead.
+            This is a convenience property for `model.random`.
+
+        Returns:
+            Random: The model's stdlib random number generator.
+        """
+        warnings.warn(
+            "agent.random is deprecated and will be removed in Mesa 5.0. "
+            "Use agent.rng instead for better random number generation. "
+            "See https://github.com/mesa/mesa/issues/2884 for details.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.model.random
 
     @property

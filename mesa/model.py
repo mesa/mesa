@@ -127,7 +127,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         self.scenario = scenario
         self.rng: np.random.Generator = scenario.rng
-        self.random = random.Random(scenario._stdlib_seed)
+        self._random = random.Random(scenario._stdlib_seed)
 
         # Store user's step method and create the default step schedule.
         # Uses EventGenerator to schedule _do_step every 1.0 time units.
@@ -145,7 +145,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             type[A], _HardKeyAgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
-            [], random=self.random
+            [], random=self.rng
         )  # an agenset with all agents
 
         self.data_registry = DataRegistry()
@@ -217,6 +217,33 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             "used by Mesa itself, so you cannot use it directly anymore."
             "Please adjust your code to use a different attribute name for custom agent storage."
         )
+
+    @property
+    def random(self) -> random.Random:
+        """Return the stdlib random number generator (DEPRECATED).
+
+        .. deprecated:: 4.0
+            `model.random` is deprecated. Use `model.rng` instead, which provides
+            better random number generation quality and proper reproducibility with
+            multiple models. See issue #2884 for details.
+
+        Returns:
+            random.Random: The model's stdlib random number generator.
+
+        Notes:
+            This property is maintained for backward compatibility but will be removed
+            in Mesa 5.0. The stdlib random module uses Mersenne Twister and has global
+            state, which causes issues with multiple models and thread safety.
+            Use `model.rng` (numpy.random.Generator) for better quality RNG.
+        """
+        warnings.warn(
+            "model.random is deprecated and will be removed in Mesa 5.0. "
+            "Use model.rng instead for better random number generation. "
+            "See https://github.com/mesa/mesa/issues/2884 for details.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._random
 
     @property
     def agent_types(self) -> list[type]:
