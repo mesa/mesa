@@ -1,8 +1,10 @@
 """Tests for continuous space."""
 
+from random import Random
+
 import numpy as np
 import pytest
-
+from mesa import Agent
 from mesa import Model
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
@@ -489,3 +491,57 @@ def test_agent_removal_no_ghost_entries():
     for idx, agent in enumerate(space.active_agents):
         assert agent._mesa_index == idx
         assert space._index_to_agent[idx] == agent
+
+
+def test_continuous_space_k_larger_than_population():
+    model = Model()
+    space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
+
+    a1 = Agent(model)
+    a2 = Agent(model)
+
+    space.place_agent(a1, np.array([1.0, 1.0]))
+    space.place_agent(a2, np.array([9.0, 9.0]))
+
+    agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=10)
+
+    assert len(agents) == 2
+    assert len(dists) == 2
+
+
+def test_continuous_space_k_empty_space():
+    model= Model()
+    space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
+
+    agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=1)
+
+    assert agents == []
+    assert len(dists) == 0
+
+
+def test_continuous_space_k_zero():
+    model = Model()
+    space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
+
+    a = Agent(model)
+    space.place_agent(a, np.array([1.0, 1.0]))
+
+    agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=0)
+
+    assert agents == []
+    assert len(dists) == 0
+
+def test_continuous_space_k_exact():
+    model = Model()
+    space = ContinuousSpace([[0, 10], [0, 10]], random=Random(42))
+
+    agents_list = [Agent(model) for _ in range(3)]
+    positions = [np.array([1.0, 1.0]), np.array([2.0, 2.0]), np.array([9.0, 9.0])]
+
+    for agent, pos in zip(agents_list, positions):
+        space.place_agent(agent, pos)
+
+    agents, dists = space.get_k_nearest_agents(np.array([0.0, 0.0]), k=2)
+
+    assert len(agents) == 2
+    assert len(dists) == 2
