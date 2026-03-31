@@ -283,7 +283,12 @@ class SpaceRenderer:
 
         def normalized_agent_portrayal(agent):
             """Handle normalized agent portrayal."""
-            return process_agent_portrayal(self.agent_portrayal(agent))
+            try:
+                portrayal = self.agent_portrayal(agent)
+                return process_agent_portrayal(portrayal)
+            except Exception:
+                # Fallback to default portrayal if agent attributes are missing or malformed
+                return process_agent_portrayal({})
 
         # Prepare data for agent plotting
         arguments = self.backend_renderer.collect_agent_data(
