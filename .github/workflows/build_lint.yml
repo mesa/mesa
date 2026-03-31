@@ -71,7 +71,7 @@ jobs:
       - run: uv pip install --system .[dev]
       - run: playwright install chromium-headless-shell
       - run: python -Im pytest -p pytest_cov --cov --cov-report=xml --cov-report=markdown-append:"${GITHUB_STEP_SUMMARY}" --cov-context=test tests/
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
