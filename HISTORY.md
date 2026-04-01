@@ -452,7 +452,7 @@ results = mesa.batch_run(
 The old `iterations` parameter is now deprecated and will be removed in Mesa 4.0. See the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html#batch-run) for details on updating your code.
 
 ### Strengthened deprecation policy
-Mesa now has a formal [deprecation policy](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md#deprecation-policy) that ensures users have adequate time to migrate while allowing Mesa to evolve (#2900). A related change is that all deprecation warnings now use `FutureWarning` instead of `DeprecationWarning` (#2905), making them visible by default since `DeprecationWarning` is hidden for imported modules.
+Mesa now has a formal [deprecation policy](CONTRIBUTING.md#deprecation-policy) that ensures users have adequate time to migrate while allowing Mesa to evolve (#2900). A related change is that all deprecation warnings now use `FutureWarning` instead of `DeprecationWarning` (#2905), making them visible by default since `DeprecationWarning` is hidden for imported modules.
 
 The policy guarantees:
 - New features must be available for at least one minor release before deprecating old ones
@@ -661,7 +661,7 @@ The experimental Cell Space system has been stabilized and is now available as `
 - Full integration with PropertyLayers ([#2440](https://github.com/mesa/mesa/pull/2440)) for representing environmental variables
 - Compatible with all examples and existing visualizations
 
-The PropertyLayer itself has also been stabilized, allowing for efficient management of spatial environmental properties like terrain, resources, or any grid-based variables. Core examples including [Schelling](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/schelling), [Game of Life](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/conways_game_of_life), [Boltzmann Wealth](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/boltzmann_wealth_model), and [Virus on Network](https://github.com/mesa/mesa/tree/main/mesa/examples/basic/virus_on_network) have been updated to use the new discrete space system.
+The PropertyLayer itself has also been stabilized, allowing for efficient management of spatial environmental properties like terrain, resources, or any grid-based variables. Core examples including [Schelling](mesa/examples/basic/schelling), [Game of Life](mesa/examples/basic/conways_game_of_life), [Boltzmann Wealth](mesa/examples/basic/boltzmann_wealth_model), and [Virus on Network](mesa/examples/basic/virus_on_network) have been updated to use the new discrete space system.
 
 ### Enhanced Visualization Experience
 The SolaraViz visualization system has received substantial upgrades:
@@ -1238,7 +1238,7 @@ from examples.basic import BoidFlockers, BoltzmannWealthModel, ConwaysGameOfLife
 ```
 The 5 basic examples will always use stable Mesa features, we are also working on 4 more advanced example which can also include experimental features.
 
-All our core examples can now be viewed in the [`examples`](https://github.com/mesa/mesa/tree/main/examples) folder. [mesa-examples](https://github.com/mesa/mesa-examples) will continue to exists for user showcases. We're also working on making the examples visible in the ReadtheDocs ([#2382](https://github.com/mesa/mesa/pull/2382)) and on an website ([mesa-examples#139](https://github.com/mesa/mesa-examples/issues/139)). Follow all our work on the examples in this tracking issue [#2364](https://github.com/mesa/mesa/issues/2364).
+All our core examples can now be viewed in the [`examples`](mesa/examples) folder. [mesa-examples](https://github.com/mesa/mesa-examples) will continue to exists for user showcases. We're also working on making the examples visible in the ReadtheDocs ([#2382](https://github.com/mesa/mesa/pull/2382)) and on an website ([mesa-examples#139](https://github.com/mesa/mesa-examples/issues/139)). Follow all our work on the examples in this tracking issue [#2364](https://github.com/mesa/mesa/issues/2364).
 
 Furthermore, the visualizations are improved by making visualization elements scalable and more clearly labeling the plots, and the Model now has an `rng` argument for an [SPEC 7](https://scientific-python.org/specs/spec-0007/) compliant NumPy random number generator ([#2352](https://github.com/mesa/mesa/pull/2352)). Following SPEC 7, you have to pass either `seed` or `rng`. Whichever one you pass will be used to seed both `random.Random`, and `numpy.random.Generator.`
 
@@ -1439,7 +1439,7 @@ Our example models also got more love: We removed the `RandomActivation` schedul
 
 Finally, we have two brand new examples: An Ant Colony Optimization model using an Ant System approach to the Traveling Salesman problem, a Mesa NetworkGrid, and a custom visualisation with SolaraViz ([examples#157](https://github.com/mesa/mesa-examples/pull/157) by @zjost). The first example using the `PropertyLayer` was added, a very fast implementation of Conway's Game of Life ([examples#182](https://github.com/mesa/mesa-examples/pull/182)).
 
-To help the transition to Mesa 3.0, we started writing a [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html). Progress is tracked in #2233, feedback and help is appreciated! Finally, we also added a new section to our [contributor guide](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md#i-have-no-idea-where-to-start) to get new contributors up to speed.
+To help the transition to Mesa 3.0, we started writing a [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html). Progress is tracked in #2233, feedback and help is appreciated! Finally, we also added a new section to our [contributor guide](CONTRIBUTING.md#i-have-no-idea-where-to-start) to get new contributors up to speed.
 
 This pre-release can be installed as always with `pip install --pre mesa`
 

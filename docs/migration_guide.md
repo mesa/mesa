@@ -75,7 +75,7 @@ model.run_for(50)
 
 Mesa 3.5 doesn't introduce any breaking changes. Mesa 4 will clean up many deprecated components and thus will break unmodified models.
 
-* Ref: [Discussion #2921](https://github.com/mesa/mesa/discussions/2921), [PR #3266](https://github.com/projectmesa/mesa/pull/3266)
+* Ref: [Discussion #2921](https://github.com/mesa/mesa/discussions/2921), [PR #3266](https://github.com/mesa/mesa/pull/3266)
 
 ### AgentSet sequence behavior
 The Sequence behavior (indexing and slicing) on `AgentSet` is deprecated and will be removed in Mesa 4.0. Use the new `to_list()` method instead.
