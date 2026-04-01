@@ -59,7 +59,7 @@ In that case, change the command to `pip install -U "mesa[rec]"`.
 Furthermore, if you are using `nix`, Mesa comes with a flake with devShells and a runnable app:
 
 ```bash
-nix run github:project-mesa/mesa # for default Python shell
+nix run github:mesa/mesa # for default Python shell
 ```
 
 For development shell, clone the repository and run the following command from
@@ -95,7 +95,7 @@ Mesa is an open source project and welcomes contributions:
 To cite Mesa in your publication, you can refer to our peer-reviewed article in the Journal of Open Source Software (JOSS):
 - ter Hoeven, E., Kwakkel, J., Hess, V., Pike, T., Wang, B., rht, & Kazil, J. (2025). Mesa 3: Agent-based modeling with Python in 2025. Journal of Open Source Software, 10(107), 7668. https://doi.org/10.21105/joss.07668
 
-Our [CITATION.cff](https://github.com/mesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
+Our [CITATION.cff](../CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
 
 The original Mesa conference paper from 2015 is [available here](http://conference.scipy.org.s3-website-us-east-1.amazonaws.com/proceedings/scipy2015/jacqueline_kazil.html).
 
@@ -117,7 +117,7 @@ API Documentation <apis/api_main>
 - {ref}`modindex`
 - {ref}`search`
 
-[contributors guide]: https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md
+[contributors guide]: ../CONTRIBUTING.md
 [GSoC at Mesa — Candidates Guide]: GSoC.md
 [github repository]: https://github.com/mesa/mesa/
 [github discussions]: https://github.com/mesa/mesa/discussions

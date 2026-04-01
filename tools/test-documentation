@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+import os
+import re
+import sys
+import argparse
+from typing import List, Tuple
+
+# Configuration for Mesa
+MAIN_BRANCH = "main"
+REPO_ORG = "mesa"
+REPO_NAME = "mesa"
+GITHUB_PREFIX = f"https://github.com/{REPO_ORG}/{REPO_NAME}/"
+GITHUB_BLOB_PREFIX = f"{GITHUB_PREFIX}blob/{MAIN_BRANCH}/"
+
+# Regex for Markdown links, reference links, and HTML links
+MARKDOWN_LINK_RE = re.compile(r'\[.*?\]\((?P<url>.*?)\)')
+MARKDOWN_REF_RE = re.compile(r'^\[.*?\]:\s*(?P<url>(?P<scheme>https?://|/).*?)(?:\s+.*)?$', re.MULTILINE)
+HTML_LINK_RE = re.compile(r'(?:href|src)=["\'](?P<url>.*?)["\']')
+
+def check_file(filepath: str) -> List[str]:
+    errors = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+        lines = content.splitlines()
+
+    # Base directory of the file for relative link checking
+    base_dir = os.path.dirname(filepath)
+
+    # All URLs to check
+    urls = []
+    for match in MARKDOWN_LINK_RE.finditer(content):
+        urls.append((match.group('url'), match.start()))
+    for match in MARKDOWN_REF_RE.finditer(content):
+        urls.append((match.group('url'), match.start()))
+    for match in HTML_LINK_RE.finditer(content):
+        urls.append((match.group('url'), match.start()))
+
+    for url, pos in urls:
+        # 1. Check for absolute links to the same repo files (blob or tree)
+        if url.startswith(GITHUB_PREFIX) and ("/blob/" in url or "/tree/" in url):
+            errors.append(f"Absolute link to same repo file: {url} (Use relative paths instead)")
+
+        # 2. Check for old organization name
+        if "projectmesa" in url.lower() or "project-mesa" in url.lower():
+            if "matrix.to" not in url:
+                errors.append(f"Use of old organization name (project-mesa/projectmesa): {url}")
+
+        # 3. Check for 'master' branch references for MESA
+        if ("github.com/mesa/mesa" in url or "github.com/projectmesa/mesa" in url) and "/master" in url:
+            errors.append(f"Reference to 'master' branch: {url} (Should be '{MAIN_BRANCH}')")
+
+        # 4. Check for internal relative links (simple check)
+        if not url.startswith(("http://", "https://", "mailto:", "#", "ftp://")):
+            # It's a relative path or an anchor
+            clean_url = url.split('#')[0] # remove anchor
+            if clean_url:
+                target_path = os.path.join(base_dir, clean_url)
+                if not os.path.exists(target_path):
+                    # Try with .md, .rst, or .ipynb if no extension
+                    matched = False
+                    for ext in [".md", ".rst", ".ipynb"]:
+                        if os.path.exists(target_path + ext):
+                            matched = True
+                            break
+                    if not matched:
+                        errors.append(f"Broken relative link: {url} (File {target_path} not found)")
+
+    return errors
+
+def main():
+    parser = argparse.ArgumentParser(description="Check documentation for broken links and best practices.")
+    parser.add_argument("paths", nargs="*", default=["docs", "README.md", "CONTRIBUTING.md", "HISTORY.md"],
+                        help="Files or directories to check.")
+    args = parser.parse_args()
+
+    files_to_check = []
+    for path in args.paths:
+        if os.path.isfile(path):
+            files_to_check.append(path)
+        elif os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for file in files:
+                    if file.endswith((".md", ".rst")):
+                        files_to_check.append(os.path.join(root, file))
+
+    total_errors = 0
+    for filepath in files_to_check:
+        errors = check_file(filepath)
+        if errors:
+            print(f"Errors in {filepath}:")
+            for err in errors:
+                print(f"  - {err}")
+            total_errors += len(errors)
+
+    if total_errors > 0:
+        print(f"\nFound {total_errors} errors in documentation.")
+        sys.exit(1)
+    else:
+        print("Documentation check passed!")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()

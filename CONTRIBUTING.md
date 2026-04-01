@@ -1,6 +1,6 @@
 # Contributing
 
-_For candidates interested in participating in the Google Summer of Code (GSoC), checkout Mesa’s [GSoC guide](https://github.com/mesa/mesa/blob/main/docs/GSoC.md)._
+_For candidates interested in participating in the Google Summer of Code (GSoC), checkout Mesa’s [GSoC guide](docs/GSoC.md)._
 
 As an open source project, Mesa welcomes contributions of many forms, and from beginners to experts. If you are
 curious or just want to see what is happening, we post our development session agendas
@@ -302,17 +302,17 @@ Some notes useful for Mesa maintainers.
 ### Releases
 To create a new release, follow these steps:
 
-1. Ensure all pull requests (PRs) have a clear title and are labeled with at least one label. Check [this link](https://github.com/mesa/mesa/pulls?q=is%3Apr+is%3Amerged+no%3Alabel+merged%3A%3E%3D2024-03-01+) to see if all PRs are labeled. These labels will be used when drafting the changelog using the [`.github/release.yml`](https://github.com/mesa/mesa/blob/main/.github/release.yml) configuration.
+1. Ensure all pull requests (PRs) have a clear title and are labeled with at least one label. Check [this link](https://github.com/mesa/mesa/pulls?q=is%3Apr+is%3Amerged+no%3Alabel+merged%3A%3E%3D2024-03-01+) to see if all PRs are labeled. These labels will be used when drafting the changelog using the [`.github/release.yml`](.github/release.yml) configuration.
 2. Navigate to the [Releases](https://github.com/mesa/mesa/releases) section in the GitHub UI and click the _Draft a new release_ button.
 3. Specify the upcoming tag in the _Choose a tag_ and _Release title_ fields (e.g., `v3.0.0`).
    - For pre-releases, add a `a`, `b` or `rc` and a number behind the version tag (see [Versioning](https://packaging.python.org/en/latest/discussions/versioning/)), and check the box _Set as a pre-release_.
 4. Use the _Generate release notes_ button to automatically create release notes. Review them carefully for accuracy, and update labels and edit PR titles if necessary (step 1).
 5. Write a _Highlights_ section summarizing the most important features or changes in this release.
 6. Copy the release notes and save them by clicking the grey _Save draft_ button.
-7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md). For stable releases, also update [`docs/_static/switcher.json`](https://github.com/mesa/mesa/blob/main/docs/_static/switcher.json): add the new version and remove any older patch releases for the same minor version.
+7. Open a new PR to update the version number in [`mesa/__init__.py`](mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](HISTORY.md). For stable releases, also update [`docs/_static/switcher.json`](docs/_static/switcher.json): add the new version and remove any older patch releases for the same minor version.
 8. Once this PR is merged, return to the _Releases_ section and publish the draft release.
-9. The [`release.yml`](https://github.com/mesa/mesa/blob/main/.github/workflows/release.yml) CI workflow should automatically create and upload the package to PyPI. Verify this on [PyPI.org](https://pypi.org/project/mesa/).
-10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).
+9. The [`release.yml`](.github/workflows/release.yml) CI workflow should automatically create and upload the package to PyPI. Verify this on [PyPI.org](https://pypi.org/project/mesa/).
+10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).
 
 A recorded video of this process is [available here](https://youtu.be/JE44jkegmns).
 
@@ -339,7 +339,7 @@ warnings.warn(
 Before active deprecation, all of the following must be complete:
 
 1. **Documentation updated**: All relevant docs and tutorials reflect the new approach
-2. **Migration guide entry added**: Clear entry in the [Migration Guide](https://github.com/mesa/mesa/blob/main/docs/migration_guide.md) explaining what changed and how to update code
+2. **Migration guide entry added**: Clear entry in the [Migration Guide](docs/migration_guide.md) explaining what changed and how to update code
 3. **Examples updated**: All example models use the new API
 
 ##### Step 3: Active deprecation
@@ -395,7 +395,7 @@ old_method()
 new_method()
 ```
 
-- Ref: [PR #1234](https://github.com/mesa/mesa/pull/1234), [Documentation](link)
+- Ref: [PR #1234](https://github.com/mesa/mesa/pull/1234)
 ````
 
 ## Special Thanks
@@ -415,7 +415,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [django]: https://github.com/django/django/blob/master/CONTRIBUTING.rst
 [gh actions build]: https://github.com/mesa/mesa/actions/workflows/build_lint.yml
 [google style guide]: https://google.github.io/styleguide/pyguide.html
-[license]: https://github.com/mesa/mesa/blob/main/LICENSE
+[license]: LICENSE
 [matrix]: https://matrix.to/#/#project-mesa:matrix.org`
 [mesa discussions]: https://github.com/mesa/mesa/discussions
 [pep8]: https://www.python.org/dev/peps/pep-0008

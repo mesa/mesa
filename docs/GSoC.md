@@ -41,7 +41,7 @@ The best way to show that you can do things is to do things. It is very helpful 
 
 Also, as generative AI becomes more capable of writing convincing text, it has become increasingly difficult to differentiate a genuine proposal from an AI-generated one. Thus, **a large part of evaluation will also be based on your contributions to Mesa**.
 
-[Contributing to Mesa](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md) shows that you genuinely understand the project, how it works, and that you won’t spend the first month of GSoC figuring out the basics : you’ll be ready to code for your own project! Plus, digging into Mesa allows you to refine your proposal and make it more relevant and interesting for the dev team to read. The candidates who contribute meaningfully have by far the best chances of being selected.
+[Contributing to Mesa](../CONTRIBUTING.md) shows that you genuinely understand the project, how it works, and that you won’t spend the first month of GSoC figuring out the basics : you’ll be ready to code for your own project! Plus, digging into Mesa allows you to refine your proposal and make it more relevant and interesting for the dev team to read. The candidates who contribute meaningfully have by far the best chances of being selected.
 
 ---
 

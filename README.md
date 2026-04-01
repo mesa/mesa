@@ -1,5 +1,5 @@
 <p align="center"><em>Mesa 4 is in active development! Checkout our latest <a href="https://github.com/mesa/mesa/releases">pre-releases</a> and <a href="https://github.com/mesa/mesa/issues/3132">issue tracker</a>.
-<br>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide.</em></p>
+<br>For GSoC, checkout our <a href="https://github.com/mesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide.</em></p>
 
 # Mesa: Agent-based modeling in Python
 
@@ -69,7 +69,7 @@ pip install -U -e git+https://github.com/YOUR_FORK/mesa@YOUR_BRANCH#egg=mesa
 For resources or help on using Mesa, check out the following:
 
 -   [Getting Started](https://mesa.readthedocs.io/stable/getting_started.html) (A collection of tutorials that will walk you through a basic model.)
--   [GSoC at Mesa — Candidates Guide](https://github.com/mesa/mesa/blob/main/docs/GSoC.md) (For candidates interested in participating in the Google Summer of Code at Mesa)
+-   [GSoC at Mesa — Candidates Guide](docs/GSoC.md) (For candidates interested in participating in the Google Summer of Code at Mesa)
 -   [Mesa Examples](https://mesa.readthedocs.io/stable/examples.html) (A repository of seminal ABMs that are part of the Mesa[rec] install and use the most current Mesa release)
 -   [Docs](http://mesa.readthedocs.org/) (Mesa's documentation, API and useful snippets)
     -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
@@ -132,11 +132,11 @@ If you would like to add a feature, please reach out via [ticket](https://github
 join a dev session (see [Mesa discussions](https://github.com/mesa/mesa/discussions)). A feature is most likely
 to be added if you build it!
 
-Don't forget to checkout the [Contributors guide](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md).
+- Don't forget to checkout the [Contributors guide](CONTRIBUTING.md).
 
 ## Citing Mesa
 
 To cite Mesa in your publication, you can refer to our peer-reviewed article in the Journal of Open Source Software (JOSS):
 - ter Hoeven, E., Kwakkel, J., Hess, V., Pike, T., Wang, B., rht, & Kazil, J. (2025). Mesa 3: Agent-based modeling with Python in 2025. Journal of Open Source Software, 10(107), 7668. https://doi.org/10.21105/joss.07668
 
-Our [CITATION.cff](https://github.com/mesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
+Our [CITATION.cff](CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
