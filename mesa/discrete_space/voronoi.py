@@ -15,6 +15,7 @@ divisions, like territories, service areas, or natural regions.
 from collections.abc import Callable, Sequence
 from itertools import combinations
 from random import Random
+from typing import Any
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -186,6 +187,7 @@ class VoronoiGrid(DiscreteSpace):
         self,
         centroids_coordinates: Sequence[Sequence[float]],
         capacity: int | Callable | None = None,
+        shared_dims: Any | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
     ) -> None:
@@ -212,7 +214,10 @@ class VoronoiGrid(DiscreteSpace):
             numeric_capacity = capacity
 
         super().__init__(
-            capacity=numeric_capacity, random=random, cell_klass=cell_klass
+            capacity=numeric_capacity,
+            shared_dims=shared_dims,
+            random=random,
+            cell_klass=cell_klass,
         )
         self.centroids_coordinates = centroids_coordinates
         self.capacity_function = capacity_function
