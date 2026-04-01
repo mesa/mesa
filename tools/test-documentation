@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Check documentation for broken links and best practices."""
+
 import argparse
 import os
 import re
@@ -9,7 +11,7 @@ MAIN_BRANCH = "main"
 REPO_ORG = "mesa"
 REPO_NAME = "mesa"
 GITHUB_PREFIX = f"https://github.com/{REPO_ORG}/{REPO_NAME}/"
-GITHUB_BLOB_PREFIX = f"{GITHUB_PREFIX}blob/{MAIN_BRANCH}/"
+
 
 # Regex for Markdown links, reference links, and HTML links
 MARKDOWN_LINK_RE = re.compile(r"\[.*?\]\((?P<url>.*?)\)")
@@ -20,10 +22,10 @@ HTML_LINK_RE = re.compile(r'(?:href|src)=["\'](?P<url>.*?)["\']')
 
 
 def check_file(filepath: str) -> list[str]:
+    """Check a single file for link errors."""
     errors = []
     with open(filepath, encoding="utf-8") as f:
         content = f.read()
-        lines = content.splitlines()
 
     # Base directory of the file for relative link checking
     base_dir = os.path.dirname(filepath)
@@ -37,7 +39,7 @@ def check_file(filepath: str) -> list[str]:
     for match in HTML_LINK_RE.finditer(content):
         urls.append((match.group("url"), match.start()))
 
-    for url, pos in urls:
+    for url, _pos in urls:
         # 1. Check for absolute links to the same repo files (blob or tree)
         if url.startswith(GITHUB_PREFIX) and ("/blob/" in url or "/tree/" in url):
             errors.append(
@@ -45,19 +47,18 @@ def check_file(filepath: str) -> list[str]:
             )
 
         # 2. Check for old organization name
-        if "projectmesa" in url.lower() or "project-mesa" in url.lower():
-            if "matrix.to" not in url:
-                errors.append(
-                    f"Use of old organization name (project-mesa/projectmesa): {url}"
-                )
+        if ("projectmesa" in url.lower() or "project-mesa" in url.lower()) and (
+            "matrix.to" not in url
+        ):
+            errors.append(
+                f"Use of old organization name (project-mesa/projectmesa): {url}"
+            )
 
         # 3. Check for 'master' branch references for MESA
         if (
             "github.com/mesa/mesa" in url or "github.com/projectmesa/mesa" in url
         ) and "/master" in url:
-            errors.append(
-                f"Reference to 'master' branch: {url} (Should be '{MAIN_BRANCH}')"
-            )
+            errors.append(f"Reference to 'master' branch: {url} (Should be '{MAIN_BRANCH}')")
 
         # 4. Check for internal relative links (simple check)
         if not url.startswith(("http://", "https://", "mailto:", "#", "ftp://")):
@@ -81,6 +82,7 @@ def check_file(filepath: str) -> list[str]:
 
 
 def main():
+    """Run the documentation check tool."""
     parser = argparse.ArgumentParser(
         description="Check documentation for broken links and best practices."
     )
@@ -97,7 +99,7 @@ def main():
         if os.path.isfile(path):
             files_to_check.append(path)
         elif os.path.isdir(path):
-            for root, _, files in os.walk(path):
+            for root, _dirs, files in os.walk(path):
                 for file in files:
                     if file.endswith((".md", ".rst")):
                         files_to_check.append(os.path.join(root, file))
