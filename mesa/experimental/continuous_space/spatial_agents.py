@@ -1,4 +1,5 @@
 from collections.abc import MutableMapping
+
 import numpy as np
 
 from .continuous_space_agents import ContinuousSpaceAgent
@@ -28,7 +29,9 @@ class AgentLocations(MutableMapping):
             raise KeyError(f"Agent {self.agent.unique_id} is not in this space.")
 
     def __delitem__(self, space):
-        raise NotImplementedError("Use space.remove_agent() to remove an agent from a space.")
+        raise NotImplementedError(
+            "Use space.remove_agent() to remove an agent from a space."
+        )
 
     def __iter__(self):
         yield self.agent.space
@@ -41,13 +44,15 @@ class AgentLocations(MutableMapping):
 class SpatialAgent(ContinuousSpaceAgent):
     """An agent designed for the Stacked Spaces architecture."""
 
-    __slots__ = ["_spaces", "_mesa_locations", "_agent_locations"]
+    __slots__ = ["_agent_locations", "_mesa_locations", "_spaces"]
 
     def __init__(self, space, model):
         super().__init__(space, model)
         self._spaces = set()
         self._mesa_locations = {}
-        self._agent_locations = AgentLocations(self)    # proxy to handle _mesa_locations and routing
+        self._agent_locations = AgentLocations(
+            self
+        )  # proxy to handle _mesa_locations and routing
 
     @property
     def position(self) -> np.ndarray:
@@ -56,7 +61,7 @@ class SpatialAgent(ContinuousSpaceAgent):
     @position.setter
     def position(self, value: np.ndarray) -> None:
         ContinuousSpaceAgent.position.fset(self, value)
-        
+
         for space in self._spaces:
             space.move_agent(self, value)
 
@@ -67,7 +72,7 @@ class SpatialAgent(ContinuousSpaceAgent):
     def add_to_space(self, spaces):
         if not isinstance(spaces, (list, tuple, set)):
             spaces = [spaces]
-            
+
         for space in spaces:
             self._spaces.add(space)
             space.add_agent(self)
@@ -75,8 +80,8 @@ class SpatialAgent(ContinuousSpaceAgent):
     def remove(self) -> None:
         for space in list(self._spaces):
             space.remove_agent(self)
-                
+
         self._spaces.clear()
         self._mesa_locations.clear()
-        
+
         super().remove()
