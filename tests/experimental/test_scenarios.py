@@ -323,6 +323,7 @@ def test_rescale_inplace():
 
 def test_from_ndarray_returns_subclass():
     """from_ndarray called on a subclass should return instances of that subclass."""
+
     class MyScenario(Scenario):
         x: float = 0.5
 
