@@ -445,7 +445,7 @@ def test_table_dataset():
         dataset.add_row({})
 
 def test_add_row_does_not_mutate_input():
-    """add_row should not mutate the user's input"""
+    """add_row should not mutate the user's input."""
     dataset = TableDataSet("test", fields=["a", "b", "c"])
     row = {"a": 1, "b": 2, "c": 3}
     original = row.copy()
@@ -454,7 +454,7 @@ def test_add_row_does_not_mutate_input():
 
 
 def test_add_row_reuse_same_dict():
-    """tests for resuablity of add_row"""
+    """tests for resuablity of add_row."""
     dataset = TableDataSet("t", fields=["a", "b"])
     
     row = {"a": 1, "b": 2}
