@@ -157,7 +157,7 @@ def _draw_grid(space, agent_portrayal, property_layer_portrayal):
             )
     # Handle empty agent data WITHOUT breaking flow
     has_agents = bool(all_agent_data)
-        
+
     invalid_tooltips = ["color", "size", "x", "y"]
 
     x_y_type = "ordinal" if not isinstance(space, ContinuousSpace) else "nominal"
@@ -187,9 +187,7 @@ def _draw_grid(space, agent_portrayal, property_layer_portrayal):
         encoding_dict["size"] = alt.Size("size", type="quantitative")
 
     agent_chart = (
-        alt.Chart(
-            alt.Data(values=all_agent_data if has_agents else [])
-        )
+        alt.Chart(alt.Data(values=all_agent_data if has_agents else []))
         .mark_point(filled=True)
         .properties(width=300, height=300)
     )
