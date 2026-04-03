@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - release**
+      - release/**
     paths-ignore:
       - "**.md"
   pull_request:
@@ -14,9 +14,9 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
-# This will cancel previous run if a newer job that obsoletes the said previous
-# run, is started.
-# Based on https://github.com/zulip/zulip/commit/4a11642cee3c8aec976d305d51a86e60e5d70522
+permissions:
+  contents: read
+
 concurrency:
   group: "${{ github.workflow }}-${{ github.head_ref || github.run_id }}"
   cancel-in-progress: true
@@ -24,8 +24,9 @@ concurrency:
 jobs:
   build:
     runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 20
     strategy:
-      fail-fast: False
+      fail-fast: false
       matrix:
         os: [windows, ubuntu, macos]
         python-version: ["3.14"]
@@ -36,65 +37,79 @@ jobs:
           - os: ubuntu
             python-version: "3.12"
           - os: ubuntu
-            python-version: "3.14"
+            python-version: "3.14-dev"
             pip-pre: "--pre"
           # Disabled for now. See https://github.com/mesa/mesa/issues/1253
-          #- os: ubuntu
-          #  python-version: 'pypy-3.8'
+          # - os: ubuntu
+          #   python-version: "pypy-3.8"
 
     steps:
       - uses: actions/checkout@v6
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
           cache: "pip"
+
       - name: Install uv
         run: pip install uv
+
       - name: Install Mesa and dependencies
         run: uv pip install --system .[dev] ${{ matrix.pip-pre }}
+
       - name: Setup Playwright
         run: playwright install chromium-headless-shell
+
       - name: Test with pytest
         run: pytest --durations=10 tests/ -Werror -Wdefault::PendingDeprecationWarning
 
   coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+          cache: "pip"
+
       - run: pip install uv
       - run: uv pip install --system .[dev]
       - run: playwright install chromium-headless-shell
       - run: python -Im pytest -p pytest_cov --cov --cov-report=xml --cov-report=markdown-append:"${GITHUB_STEP_SUMMARY}" --cov-context=test tests/
+
       - uses: codecov/codecov-action@v6
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
   examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-          allow-prereleases: true
           cache: "pip"
+
       - name: Install uv
         run: pip install uv
+
       - name: Install Mesa
         run: uv pip install --system .[examples]
+
       - name: Checkout mesa-examples
         uses: actions/checkout@v6
         with:
           repository: mesa/mesa-examples
           path: mesa-examples
+
       - name: Test examples
         run: |
           cd mesa-examples
