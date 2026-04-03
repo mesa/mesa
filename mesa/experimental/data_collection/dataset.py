@@ -244,22 +244,22 @@ class TableDataSet:
         """
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
-        
-        #Value error if the row provided by the user is empty
+
+        # Value error if the row provided by the user is empty
         if not row:
             raise ValueError("row is empty")
-        
-        #If the row user passed miss the value for required field 
-        missing=[k for k in self.fields if k not in row]
+
+        # If the row user passed miss the value for required field
+        missing = [k for k in self.fields if k not in row]
         if missing:
             raise ValueError("row is missing fields")
-        
-       #If the row user passed includes  the unexpected fields
+
+        # If the row user passed includes  the unexpected fields
         unexpected = [k for k in row if k not in self.fields]
         if unexpected:
             raise ValueError(f"Row contains unexpected fields: {unexpected}")
-        
-        #Adding the row to rows
+
+        # Adding the row to rows
         row_to_add = {k: row[k] for k in self.fields}
         self.rows.append(row_to_add)
 
