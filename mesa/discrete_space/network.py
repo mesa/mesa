@@ -16,7 +16,6 @@ from collections.abc import Callable, Mapping
 from random import Random
 from typing import Any
 
-import networkx as nx
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -34,7 +33,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        layout: Mapping | Callable | None = nx.circular_layout,
+        layout: Mapping | Callable | None = None,
     ) -> None:
         """A Networked grid.
 
@@ -49,6 +48,11 @@ class Network(DiscreteSpace[Cell]):
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
         """
+        if layout is None:
+            import networkx as nx  # noqa: PLC0415
+
+            layout = nx.circular_layout
+
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 

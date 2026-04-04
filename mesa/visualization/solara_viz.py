@@ -44,13 +44,25 @@ from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, function_logger
 from mesa.visualization.command_console import CommandConsole
 from mesa.visualization.space_renderer import SpaceRenderer
-from mesa.visualization.user_param import Slider
+from mesa.visualization.user_param import Slider, UserParam
 from mesa.visualization.utils import force_update, update_counter
 
 if TYPE_CHECKING:
     from mesa.model import Model
 
 _mesa_logger = create_module_logger()
+
+_SUPPORTED_MODEL_PARAM_TYPES = (UserParam, dict, int, float, bool, str)
+
+
+def _validate_model_params(model_params: dict) -> None:
+    for key, val in model_params.items():
+        if not isinstance(val, _SUPPORTED_MODEL_PARAM_TYPES):
+            raise TypeError(
+                f"model_params['{key}'] has unsupported type '{type(val).__name__}'. "
+                "Use Mesa's Slider wrapper or a primitive (int, float, bool, str) "
+                "from mesa.visualization instead of raw Solara components."
+            )
 
 
 @solara.component
@@ -129,6 +141,8 @@ def SolaraViz(
         ]
     if model_params is None:
         model_params = {}
+
+    _validate_model_params(model_params)
 
     # Convert model to reactive
     if not isinstance(model, solara.Reactive):
