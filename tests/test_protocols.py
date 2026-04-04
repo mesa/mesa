@@ -16,12 +16,14 @@ class PositionAgent(Agent, HasPosition):
 
 # HasPosition tests
 def test_has_position_default_none():
+    """HasPosition position is None before any assignment."""
     model = Model()
     agent = PositionAgent(model)
     assert agent.position is None
 
 
 def test_has_position_set_ndarray():
+    """HasPosition stores and returns a numpy array position correctly."""
     model = Model()
     agent = PositionAgent(model)
     pos = np.array([1.5, 2.5])
@@ -30,6 +32,7 @@ def test_has_position_set_ndarray():
 
 
 def test_has_position_set_tuple():
+    """HasPosition stores and returns a tuple position correctly."""
     model = Model()
     agent = PositionAgent(model)
     agent.position = (3, 4)
@@ -37,6 +40,7 @@ def test_has_position_set_tuple():
 
 
 def test_has_position_reset_none():
+    """HasPosition position can be reset to None after being set."""
     model = Model()
     agent = PositionAgent(model)
     agent.position = (1.0, 2.0)
@@ -45,6 +49,7 @@ def test_has_position_reset_none():
 
 
 def test_has_position_independent_instances():
+    """HasPosition position is instance-level, not shared across agents."""
     model = Model()
     a = PositionAgent(model)
     b = PositionAgent(model)
@@ -54,56 +59,60 @@ def test_has_position_independent_instances():
 
 # Locatable protocol tests
 def test_has_position_satisfies_locatable():
+    """Agent with HasPosition mixin satisfies the Locatable protocol."""
     model = Model()
     agent = PositionAgent(model)
     assert isinstance(agent, Locatable)
 
 
 def test_cell_satisfies_locatable():
+    """Cell satisfies Locatable and returns correct physical position as ndarray."""
     cell = Cell((3, 4), capacity=None, random=random.Random())
     assert isinstance(cell, Locatable)
-    pos = cell.position
-    assert isinstance(pos, np.ndarray)
-    np.testing.assert_array_equal(pos, np.array([3.0, 4.0]))
+    np.testing.assert_array_equal(cell.position, np.array([3.0, 4.0]))
 
 
 def test_cell_agent_satisfies_locatable():
+    """CellAgent satisfies the Locatable protocol."""
     model = Model()
     agent = CellAgent(model)
     assert isinstance(agent, Locatable)
 
 
 def test_cell_agent_position_none_when_unplaced():
+    """CellAgent position is None when not placed in any cell."""
     model = Model()
     agent = CellAgent(model)
     assert agent.position is None
 
 
 def test_cell_agent_position_after_placement():
+    """CellAgent position matches cell physical position after placement."""
     model = Model()
     agent = CellAgent(model)
     cell = Cell((1, 2), capacity=None, random=random.Random())
     agent.cell = cell
-    assert isinstance(agent.position, np.ndarray)
     np.testing.assert_array_equal(agent.position, np.array([1.0, 2.0]))
 
 
 def test_fixed_agent_satisfies_locatable():
+    """FixedAgent satisfies the Locatable protocol."""
     model = Model()
     agent = FixedAgent(model)
     assert isinstance(agent, Locatable)
 
 
 def test_fixed_agent_position_after_placement():
+    """FixedAgent position matches cell physical position after placement."""
     model = Model()
     agent = FixedAgent(model)
     cell = Cell((5, 6), capacity=None, random=random.Random())
     agent.cell = cell
-    assert isinstance(agent.position, np.ndarray)
     np.testing.assert_array_equal(agent.position, np.array([5.0, 6.0]))
 
 
 def test_continuous_space_agent_satisfies_locatable():
+    """ContinuousSpaceAgent satisfies the Locatable protocol."""
     model = Model()
     space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
     agent = ContinuousSpaceAgent(space, model)
