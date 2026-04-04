@@ -242,10 +242,9 @@ class TableDataSet:
             ValueError: if the row contains unexpected fields
 
         """
-
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
-        
+
         row_keys = set(row)
         fields_set = set(self.fields)
 

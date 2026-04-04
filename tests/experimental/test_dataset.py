@@ -455,7 +455,7 @@ def test_add_row_does_not_mutate_input():
 
 
 def test_add_row_reuse_same_dict():
-    """tests for resuablity of add_row."""
+    """Tests for resuablity of add_row."""
     dataset = TableDataSet("t", fields=["a", "b"])
 
     row = {"a": 1, "b": 2}
