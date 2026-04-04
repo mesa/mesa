@@ -177,23 +177,36 @@ def _draw_grid(space, agent_portrayal, property_layer_portrayal):
         "y": alt.Y("y", axis=None, type=x_y_type),
         "tooltip": tooltip,
     }
+    
     has_color = False
-    if has_agents:
-        has_color = "color" in all_agent_data[0]
     has_size = False
+
     if has_agents:
-        has_size = "size" in all_agent_data[0]
+        first_agent = all_agent_data[0]
+        has_color = "color" in first_agent
+        has_size = "size" in first_agent
+
+    if has_color:
+        unique_colors = list({agent_data["color"] for agent_data in all_agent_data})
+        encoding_dict["color"] = alt.Color(
+            "color:N",
+            scale=alt.Scale(domain=unique_colors, range=unique_colors),
+        )
+
     if has_size:
         encoding_dict["size"] = alt.Size("size", type="quantitative")
 
     agent_chart = (
-        alt.Chart(alt.Data(values=all_agent_data if has_agents else []))
+        alt.Chart(
+            alt.Data(values=all_agent_data if has_agents else []),
+            encoding=alt.Encoding(**encoding_dict)
+        )
         .mark_point(filled=True)
         .properties(width=300, height=300)
     )
-    base_chart = None
-    cbar_chart = None
 
+    cbar_chart = None
+    
     # This is the default value for the marker size, which auto-scales according to the grid area.
     if not has_size:
         length = min(space.width, space.height)
