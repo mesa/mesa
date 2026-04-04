@@ -242,20 +242,24 @@ class TableDataSet:
             ValueError: if the row contains unexpected fields
 
         """
+
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
+        
+        row_keys = set(row)
+        fields_set = set(self.fields)
 
         # Value error if the row provided by the user is empty
         if not row:
             raise ValueError("row is empty")
 
         # If the row user passed miss the value for required field
-        missing = [k for k in self.fields if k not in row]
+        missing = fields_set - row_keys
         if missing:
             raise ValueError("row is missing fields")
 
         # If the row user passed includes  the unexpected fields
-        unexpected = [k for k in row if k not in self.fields]
+        unexpected = row_keys - fields_set
         if unexpected:
             raise ValueError(f"Row contains unexpected fields: {unexpected}")
 
