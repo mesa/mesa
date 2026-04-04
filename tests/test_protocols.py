@@ -1,4 +1,5 @@
 """Tests for mesa.protocols (Locatable, HasPosition, PositionLike)."""
+
 import random
 
 import numpy as np
