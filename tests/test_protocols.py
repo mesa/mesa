@@ -116,6 +116,7 @@ def test_continuous_space_agent_satisfies_locatable():
     agent = ContinuousSpaceAgent(space, model)
     assert isinstance(agent, Locatable)
 
+
 def test_continuous_space_agent_position_returns_ndarray():
     """ContinuousSpaceAgent position returns a numpy array."""
     model = Model()

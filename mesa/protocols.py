@@ -18,7 +18,7 @@ class Locatable(Protocol):
     """
 
     @property
-    def position(self) -> PositionLike | None: 
+    def position(self) -> PositionLike | None:
         """The position of this object in its space."""
         ...
 
