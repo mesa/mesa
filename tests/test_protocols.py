@@ -14,7 +14,6 @@ class PositionAgent(Agent, HasPosition):
     """Test agent using the HasPosition mixin."""
 
 
-# HasPosition tests
 def test_has_position_default_none():
     """HasPosition position is None before any assignment."""
     model = Model()
@@ -57,7 +56,6 @@ def test_has_position_independent_instances():
     assert b.position is None
 
 
-# Locatable protocol tests
 def test_has_position_satisfies_locatable():
     """Agent with HasPosition mixin satisfies the Locatable protocol."""
     model = Model()
@@ -117,3 +115,39 @@ def test_continuous_space_agent_satisfies_locatable():
     space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
     agent = ContinuousSpaceAgent(space, model)
     assert isinstance(agent, Locatable)
+
+def test_continuous_space_agent_position_returns_ndarray():
+    """ContinuousSpaceAgent position returns a numpy array."""
+    model = Model()
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = np.array([5.0, 5.0])
+    assert isinstance(agent.position, np.ndarray)
+    np.testing.assert_array_equal(agent.position, np.array([5.0, 5.0]))
+
+
+def test_cell_agent_position_updates_on_move():
+    """CellAgent position updates correctly when agent moves to a new cell."""
+    model = Model()
+    agent = CellAgent(model)
+    cell1 = Cell((1, 2), capacity=None, random=random.Random())
+    cell2 = Cell((3, 4), capacity=None, random=random.Random())
+    agent.cell = cell1
+    np.testing.assert_array_equal(agent.position, np.array([1.0, 2.0]))
+    agent.cell = cell2
+    np.testing.assert_array_equal(agent.position, np.array([3.0, 4.0]))
+
+
+def test_has_position_read_before_write():
+    model = Model()
+    a = PositionAgent(model)
+    b = PositionAgent(model)
+    assert a.position is None
+    assert b.position is None
+
+
+def test_locatable_position_access():
+    model = Model()
+    agent = PositionAgent(model)
+    pos = agent.position
+    assert pos is None

@@ -18,7 +18,9 @@ class Locatable(Protocol):
     """
 
     @property
-    def position(self) -> PositionLike | None: ...
+    def position(self) -> PositionLike | None: 
+        """The position of this object in its space."""
+        ...
 
 
 class HasPosition:
@@ -37,6 +39,7 @@ class HasPosition:
 
     @property
     def position(self) -> PositionLike | None:
+        """The position of this object in its space."""
         return self._position
 
     @position.setter
