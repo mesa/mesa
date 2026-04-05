@@ -140,6 +140,7 @@ def test_cell_agent_position_updates_on_move():
 
 
 def test_has_position_read_before_write():
+    """Two fresh agents both start with None position, confirming no shared state."""
     model = Model()
     a = PositionAgent(model)
     b = PositionAgent(model)
@@ -148,6 +149,7 @@ def test_has_position_read_before_write():
 
 
 def test_locatable_position_access():
+    """Accessing position on an unplaced agent returns None without errors."""
     model = Model()
     agent = PositionAgent(model)
     pos = agent.position
