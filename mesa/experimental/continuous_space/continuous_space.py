@@ -88,6 +88,9 @@ class ContinuousSpace:
         self._agent_positions: np.array = np.empty(
             (n_agents, self.dimensions.shape[0]), dtype=float
         )
+        # Initialize agent_positions as an empty view (zero rows) into _agent_positions.
+        # This avoids copying data and ensures agent_positions always reflects the current
+        # active slice of _agent_positions as agents are added or removed.
         self.agent_positions = self._agent_positions[0:0]
 
         # the list of agents in the space
@@ -252,6 +255,11 @@ class ContinuousSpace:
             This method returns exactly k agents, ignoring ties. In case of ties, the
             earlier an agent is inserted the higher it will rank.
 
+            If fewer than k agents are present in the space, all agents are returned
+            and a UserWarning is emitted to indicate that the requested k could not be
+            satisfied. If the space is empty or k <= 0, an empty result is returned
+            without a warning.
+
         """
         dists, agents = self.calculate_distances(point)
         n = len(dists)
@@ -259,8 +267,15 @@ class ContinuousSpace:
         if n == 0 or k <= 0:
             return [], np.array([])
 
-        # Clamp k to available agents
-        k = min(k, n)
+        # If fewer agents exist than requested, warn and return all available agents
+        if k > n:
+            warnings.warn(
+                f"Requested k={k} nearest agents but only {n} agent(s) are present in the space. "
+                f"Returning all {n} agent(s).",
+                UserWarning,
+                stacklevel=2,
+            )
+            k = n
 
         # np.argpartition expects zero-based index (k-1) and returns the indices of the k smallest distances
         indices = np.argpartition(dists, k - 1)[:k]
