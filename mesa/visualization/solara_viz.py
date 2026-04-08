@@ -144,6 +144,18 @@ def SolaraViz(
 
     _validate_model_params(model_params)
 
+    # Validate that model is an instance, not a class
+    if isinstance(model, type):
+        raise TypeError(
+            f"SolaraViz requires an initialized model instance, not a model class. "
+            f"Did you mean: SolaraViz({model.__name__}(), ...) instead of SolaraViz({model.__name__}, ...)?"
+        )
+    if isinstance(model, solara.Reactive) and isinstance(model.value, type):
+        raise TypeError(
+            f"SolaraViz requires an initialized model instance, not a model class. "
+            f"Did you mean: SolaraViz({model.value.__name__}(), ...) instead of SolaraViz({model.value.__name__}, ...)?"
+        )
+
     # Convert model to reactive
     if not isinstance(model, solara.Reactive):
         model = solara.use_reactive(model)  # noqa: RUF100  # noqa: SH102
