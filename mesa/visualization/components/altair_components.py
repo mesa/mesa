@@ -155,44 +155,56 @@ def _draw_grid(space, agent_portrayal, property_layer_portrayal):
             raise NotImplementedError(
                 f"visualizing {type(space)} is currently not supported through altair"
             )
+    # Handle empty agent data WITHOUT breaking flow
+    has_agents = bool(all_agent_data)
 
     invalid_tooltips = ["color", "size", "x", "y"]
 
     x_y_type = "ordinal" if not isinstance(space, ContinuousSpace) else "nominal"
 
-    encoding_dict = {
-        # no x-axis label
-        "x": alt.X("x", axis=None, type=x_y_type),
-        # no y-axis label
-        "y": alt.Y("y", axis=None, type=x_y_type),
-        "tooltip": [
+    tooltip = []
+    if has_agents:
+        tooltip = [
             alt.Tooltip(
                 key,
                 type="quantitative" if isinstance(value, (int, float)) else "nominal",
             )
             for key, value in all_agent_data[0].items()
             if key not in invalid_tooltips
-        ],
+        ]
+    encoding_dict = {
+        "x": alt.X("x", axis=None, type=x_y_type),
+        "y": alt.Y("y", axis=None, type=x_y_type),
+        "tooltip": tooltip,
     }
-    has_color = "color" in all_agent_data[0]
+
+    has_color = False
+    has_size = False
+
+    if has_agents:
+        first_agent = all_agent_data[0]
+        has_color = "color" in first_agent
+        has_size = "size" in first_agent
+
     if has_color:
-        unique_colors = list({agent["color"] for agent in all_agent_data})
+        unique_colors = list({agent_data["color"] for agent_data in all_agent_data})
         encoding_dict["color"] = alt.Color(
             "color:N",
             scale=alt.Scale(domain=unique_colors, range=unique_colors),
         )
-    has_size = "size" in all_agent_data[0]
+
     if has_size:
         encoding_dict["size"] = alt.Size("size", type="quantitative")
 
     agent_chart = (
         alt.Chart(
-            alt.Data(values=all_agent_data), encoding=alt.Encoding(**encoding_dict)
+            alt.Data(values=all_agent_data if has_agents else []),
+            encoding=alt.Encoding(**encoding_dict),
         )
         .mark_point(filled=True)
         .properties(width=300, height=300)
     )
-    base_chart = None
+
     cbar_chart = None
 
     # This is the default value for the marker size, which auto-scales according to the grid area.
