@@ -105,7 +105,7 @@ class Network(DiscreteSpace[Cell]):
             self._kdtree = KDTree(positions)
         else:
             self._kdtree = None
-        self._kdtree_dirty = False  #set to false after rebuilding  everytime
+        self._kdtree_dirty = False  #set to false after rebuilding  every time
 
     def _connect_cells(self) -> None:
         for cell in self.all_cells:
