@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
+import numpy as np
+
 from mesa.agent import Agent
 
 if TYPE_CHECKING:
@@ -102,6 +104,11 @@ class CellAgent(Agent, HasCell, BasicMovement):
         cell (Cell): The cell the agent is currently in.
     """
 
+    @property
+    def position(self) -> np.ndarray | None:
+        """Physical position of this agent, derived from its cell."""
+        return self.cell.position if self.cell is not None else None
+
     def remove(self):
         """Remove the agent from the model."""
         super().remove()
@@ -110,6 +117,11 @@ class CellAgent(Agent, HasCell, BasicMovement):
 
 class FixedAgent(Agent, FixedCell):
     """A patch in a 2D grid."""
+
+    @property
+    def position(self) -> np.ndarray | None:
+        """Physical position of this agent, derived from its cell."""
+        return self.cell.position if self.cell is not None else None
 
     def remove(self):
         """Remove the agent from the model."""
