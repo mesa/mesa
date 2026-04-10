@@ -86,6 +86,7 @@ class Grid(DiscreteSpace[T]):
         dimensions: Sequence[int],
         torus: bool = False,
         capacity: float | None = None,
+        shared_dims: Any | None = None,
         random: Random | None = None,
         cell_klass: type[T] = Cell,
     ) -> None:
@@ -98,11 +99,19 @@ class Grid(DiscreteSpace[T]):
             random: a random number generator
             cell_klass: the base class to use for the cells
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        super().__init__(
+            capacity=capacity,
+            shared_dims=shared_dims,
+            random=random,
+            cell_klass=cell_klass,
+        )
         self.torus = torus
         self.dimensions = dimensions
         self._try_random = True
         self._ndims = len(dimensions)
+        if self.shared_dims is not None:
+            self._adjust_scale()
+
         self._validate_parameters()
         self.cell_klass = type(
             "GridCell",
@@ -123,6 +132,15 @@ class Grid(DiscreteSpace[T]):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def _adjust_scale(self) -> None:
+
+        phys_x, phys_y = self.shared_dims.dimensions
+        self.x_min, self.x_max = phys_x[0], phys_x[1]
+        self.y_min, self.y_max = phys_y[0], phys_y[1]
+
+        self.dx = (self.x_max - self.x_min) / self.dimensions[0]
+        self.dy = (self.y_max - self.y_min) / self.dimensions[1]
 
     def create_property_layer(
         self,
@@ -239,8 +257,18 @@ class Grid(DiscreteSpace[T]):
         Raises:
             ValueError: If position is outside grid bounds and not a torus
         """
-        # Floor to get cell coordinate
-        coord = tuple(np.floor(position).astype(int))
+        if self.shared_dims is not None:
+            i = min(
+                int(np.floor((position[0] - self.x_min) / self.dx)),
+                self.dimensions[0] - 1,
+            )
+            j = min(
+                int(np.floor((position[1] - self.y_min) / self.dy)),
+                self.dimensions[1] - 1,
+            )
+            coord = (i, j)
+        else:
+            coord = tuple(np.floor(position).astype(int))
 
         # Handle torus wrapping
         if self.torus:
