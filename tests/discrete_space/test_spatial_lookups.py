@@ -126,9 +126,7 @@ def test_network_lookups():
 
 
 def test_network_lazy_rebuild_deferred_until_query():
-    
     """KDTree rebuild should be deferred until nearest-cell query."""
-
     G = nx.Graph()  # noqa: N806
     G.add_nodes_from([0, 1])
     net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
@@ -149,9 +147,7 @@ def test_network_lazy_rebuild_deferred_until_query():
 
 
 def test_network_lazy_rebuild_batches_mutations_to_single_rebuild():
-
     """Multiple mutations should trigger a single rebuild at first query."""
-
     G = nx.Graph()  # noqa: N806
     G.add_nodes_from([0, 1])
     net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
@@ -177,9 +173,7 @@ def test_network_lazy_rebuild_batches_mutations_to_single_rebuild():
 
 
 def test_network_non_spatial_cell_mutation_does_not_dirty_kdtree():
-
     """Mutating non-spatial cells should not mark KDTree dirty."""
-
     G = nx.Graph()  # noqa: N806
     G.add_nodes_from([0, 1])
     net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
