@@ -143,6 +143,8 @@ def create_meta_agent(
     meta_methods: dict[str, Callable] | None = None,
     assume_constituting_agent_methods: bool = False,
     assume_constituting_agent_attributes: bool = False,
+    joining_func: Callable[[list[Agent], list["MetaAgent"], Any], "MetaAgent"]
+    | None = None,
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
@@ -156,6 +158,11 @@ def create_meta_agent(
     constituting_-agents as meta_agent methods.
     assume_constituting_agent_attributes (bool): Whether to retain attributes
     from constituting_-agents.
+    joining_func (Callable | None): Optional function to select which existing
+    meta-agent agents should join when multiple candidates of the same class
+    exist. Signature: ``joining_func(candidate_agents, existing_meta_agents,
+    model) -> MetaAgent``. If None, the meta-agent with the lowest unique_id
+    is chosen (original behaviour).
 
     Returns:
         - MetaAgent Instance
@@ -238,7 +245,6 @@ def create_meta_agent(
                 setattr(meta_agent_instance, key, value)
 
     # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
-    # This preserves the "singleton/unique group per class" behavior while allowing overlap between different classes
     existing_meta_agents = []
     for a in agents:
         if hasattr(a, "meta_agents"):
@@ -250,13 +256,13 @@ def create_meta_agent(
                     existing_meta_agents.append(ma)
 
     if len(existing_meta_agents) > 0:
-        # TODO: Add way for user to specify how agents join meta-agent
-        # instead of random choice if there are multiple meta-agents of the same class
-        meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
-            if len(existing_meta_agents) > 1
-            else existing_meta_agents[0]
-        )
+        if len(existing_meta_agents) > 1:
+            if joining_func is not None:
+                meta_agent = joining_func(agents, existing_meta_agents, model)
+            else:
+                meta_agent = sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+        else:
+            meta_agent = existing_meta_agents[0]
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)
@@ -275,7 +281,7 @@ def create_meta_agent(
             # Path 3 - Create a new meta-agent class
             meta_agent_class = type(
                 new_agent_class,
-                (MetaAgent, *mesa_agent_type),  # Inherit Mesa Agent Classes
+                (MetaAgent, *mesa_agent_type),
                 {
                     "unique_id": None,
                     "_constituting_set": None,
