@@ -33,6 +33,8 @@ class WolfSheepScenario(Scenario):
         grass_regrowth_time: How long it takes for a grass patch to regrow
                             once it is eaten
         sheep_gain_from_food: Energy sheep gain from grass, if enabled
+        sheep_risk_aware_move: If true, sheep prefer safer cells with fewer
+            nearby wolves before applying grass preference.
         rng: Random rng
     """
 
@@ -46,6 +48,7 @@ class WolfSheepScenario(Scenario):
     grass: bool = True
     grass_regrowth_time: int = 30
     sheep_gain_from_food: float = 4.0
+    sheep_risk_aware_move: bool = False
 
 
 class WolfSheep(Model):
@@ -70,6 +73,7 @@ class WolfSheep(Model):
         self.height = scenario.height
         self.width = scenario.width
         self.grass = scenario.grass
+        self.sheep_risk_aware_move = scenario.sheep_risk_aware_move
 
         # Create grid using experimental cell space
         self.grid = OrthogonalVonNeumannGrid(

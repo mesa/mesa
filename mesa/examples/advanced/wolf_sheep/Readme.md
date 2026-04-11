@@ -26,6 +26,17 @@ solara run app.py
 
 Open the displayed local URL in your browser.
 
+## Behavioral Variant: Risk-Aware Sheep
+
+The scenario supports an optional behavioral setting:
+
+- `sheep_risk_aware_move` (default `False`): sheep still avoid cells containing
+  wolves, but when enabled they also prefer safe cells with fewer nearby wolves
+  before applying grass preference.
+
+This provides a simple needs-based behavior extension (fear/risk avoidance)
+while keeping the original model behavior as the default.
+
 ## Files
 
 * ``wolf_sheep/random_walk.py``: This defines the ``RandomWalker`` agent, which implements the behavior of moving randomly across a grid, one cell at a time. Both the Wolf and Sheep agents will inherit from it.
