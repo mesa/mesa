@@ -143,6 +143,7 @@ def create_meta_agent(
     meta_methods: dict[str, Callable] | None = None,
     assume_constituting_agent_methods: bool = False,
     assume_constituting_agent_attributes: bool = False,
+    join_existing_meta_agent_func: Callable[[list[Any]], Any] | None = None,
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
@@ -156,6 +157,10 @@ def create_meta_agent(
     constituting_-agents as meta_agent methods.
     assume_constituting_agent_attributes (bool): Whether to retain attributes
     from constituting_-agents.
+    join_existing_meta_agent_func (Callable[[list[Any]], Any] | None): Optional
+    strategy function used when multiple existing meta-agents of the same class
+    are available. The function receives a list of candidate meta-agents and
+    must return one of them.
 
     Returns:
         - MetaAgent Instance
@@ -250,13 +255,20 @@ def create_meta_agent(
                     existing_meta_agents.append(ma)
 
     if len(existing_meta_agents) > 0:
-        # TODO: Add way for user to specify how agents join meta-agent
-        # instead of random choice if there are multiple meta-agents of the same class
-        meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
-            if len(existing_meta_agents) > 1
-            else existing_meta_agents[0]
-        )
+        if len(existing_meta_agents) > 1 and join_existing_meta_agent_func:
+            meta_agent = join_existing_meta_agent_func(existing_meta_agents)
+            if meta_agent not in existing_meta_agents:
+                raise ValueError(
+                    "join_existing_meta_agent_func must return one of the "
+                    "provided existing meta-agents."
+                )
+        else:
+            # Backward-compatible default: always pick the lowest unique_id.
+            meta_agent = (
+                sorted(existing_meta_agents, key=lambda x: x.unique_id or 0)[0]
+                if len(existing_meta_agents) > 1
+                else existing_meta_agents[0]
+            )
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)

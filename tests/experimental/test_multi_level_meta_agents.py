@@ -1,5 +1,7 @@
 """Tests for multi-level and overlapping meta-agents."""
 
+import pytest
+
 from mesa import Agent, Model
 from mesa.experimental.meta_agents.meta_agent import MetaAgent, create_meta_agent
 
@@ -87,3 +89,51 @@ def test_create_meta_agent_independent_groups_with_overlap():
 
     assert len(agent2.meta_agents) == 1
     assert any(ma.__class__.__name__ == "GroupB" for ma in agent2.meta_agents)
+
+
+def test_create_meta_agent_supports_custom_join_strategy():
+    """Test that users can choose which existing same-class group gets expanded."""
+    model = Model()
+    a1 = Agent(model)
+    a2 = Agent(model)
+    a3 = Agent(model)
+
+    group1 = create_meta_agent(model, "StrategyGroup", [a1], Agent)
+    group2 = create_meta_agent(model, "StrategyGroupAlt", [a2], Agent)
+    group2 = create_meta_agent(model, "StrategyGroup", [a2], Agent)
+
+    assert group1 != group2
+
+    chosen = create_meta_agent(
+        model,
+        "StrategyGroup",
+        [a1, a2, a3],
+        Agent,
+        join_existing_meta_agent_func=lambda candidates: max(
+            candidates, key=lambda x: x.unique_id
+        ),
+    )
+
+    assert chosen == max([group1, group2], key=lambda x: x.unique_id)
+    assert a3 in chosen.agents
+
+
+def test_create_meta_agent_rejects_invalid_join_strategy_result():
+    """Test that join strategy must return one of the candidate meta-agents."""
+    model = Model()
+    a1 = Agent(model)
+    a2 = Agent(model)
+    a3 = Agent(model)
+
+    create_meta_agent(model, "StrictGroup", [a1], Agent)
+    create_meta_agent(model, "OtherGroup", [a2], Agent)
+    create_meta_agent(model, "StrictGroup", [a2], Agent)
+
+    with pytest.raises(ValueError, match="must return one of the provided"):
+        create_meta_agent(
+            model,
+            "StrictGroup",
+            [a1, a2, a3],
+            Agent,
+            join_existing_meta_agent_func=lambda _candidates: object(),
+        )
