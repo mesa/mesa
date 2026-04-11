@@ -489,3 +489,67 @@ def test_agent_removal_no_ghost_entries():
     for idx, agent in enumerate(space.active_agents):
         assert agent._mesa_index == idx
         assert space._index_to_agent[idx] == agent
+
+
+def test_continuous_space_k_larger_than_population():
+    """Test that k larger than population returns all agents with a warning."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    a1 = ContinuousSpaceAgent(space, model)
+    a1.position = np.array([1.0, 1.0])
+
+    a2 = ContinuousSpaceAgent(space, model)
+    a2.position = np.array([9.0, 9.0])
+
+    with pytest.warns(UserWarning, match="only 2 agent"):
+        agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=10)
+
+    assert len(agents) == 2
+    assert len(dists) == 2
+
+
+def test_continuous_space_k_empty_space():
+    """Test that empty space returns no agents."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=1)
+
+    assert agents == []
+    assert len(dists) == 0
+
+
+def test_continuous_space_k_zero():
+    """Test that k=0 returns empty result."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    a = ContinuousSpaceAgent(space, model)
+    a.position = np.array([1.0, 1.0])
+
+    agents, dists = space.get_k_nearest_agents(np.array([5.0, 5.0]), k=0)
+
+    assert agents == []
+    assert len(dists) == 0
+
+
+def test_continuous_space_k_exact():
+    """Test that exact k nearest agents are returned."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    agents_list = [ContinuousSpaceAgent(space, model) for _ in range(3)]
+    positions = [
+        np.array([1.0, 1.0]),
+        np.array([2.0, 2.0]),
+        np.array([9.0, 9.0]),
+    ]
+
+    for agent, pos in zip(agents_list, positions):
+        agent.position = pos
+
+    agents, dists = space.get_k_nearest_agents(np.array([0.0, 0.0]), k=2)
+
+    assert len(agents) == 2
+    assert len(dists) == 2
