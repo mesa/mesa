@@ -232,28 +232,43 @@ def create_space_component(renderer: SpaceRenderer):
     return SpaceVisualizationComponent
 
 
+def _build_viz_dependencies(dependencies: collections.abc.Sequence[Any] | None = None):
+    """Build dependency list used for visualization updates.
+
+    Always includes the global update counter to force refreshes when the model steps.
+    Additional dependencies can be supplied by callers for custom refresh triggers.
+
+    Args:
+        dependencies: Optional sequence of additional dependency values.
+
+    Returns:
+        list[Any]: Combined dependency list.
+    """
+    viz_dependencies = [update_counter.value]
+    if dependencies is not None:
+        viz_dependencies.extend(dependencies)
+    return viz_dependencies
+
+
 @solara.component
 def SpaceRendererComponent(
     model: Model,
     renderer: SpaceRenderer,
-    # FIXME: Manage dependencies properly
-    dependencies: list[Any] | None = None,
+    dependencies: collections.abc.Sequence[Any] | None = None,
 ):
     """Render the space of a model using a SpaceRenderer.
 
     Args:
         model (Model): The model whose space is to be rendered.
         renderer: A SpaceRenderer instance to render the model's space.
-        dependencies (list[any], optional): List of dependencies for the component.
+        dependencies: Optional sequence of additional dependencies for the component.
     """
     update_counter.get()
 
     # update renderer's space according to the model's space/grid
     renderer.space = getattr(model, "grid", getattr(model, "space", None))
 
-    viz_dependencies = [update_counter.value]
-    if dependencies:
-        viz_dependencies.extend(dependencies)
+    viz_dependencies = _build_viz_dependencies(dependencies)
 
     if renderer.backend == "matplotlib":
         # Clear the previous plotted data and agents
