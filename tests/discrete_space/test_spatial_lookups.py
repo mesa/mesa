@@ -2,6 +2,7 @@
 
 import math
 import random
+from unittest.mock import patch
 
 import networkx as nx
 import numpy as np
@@ -122,6 +123,72 @@ def test_network_lookups():
     )
     assert net_layout._cells[0].position is not None
     assert net_layout.find_nearest_cell([0, 0]) is not None
+
+
+def test_network_lazy_rebuild_deferred_until_query():
+    """KDTree rebuild should be deferred until nearest-cell query."""
+    G = nx.Graph()  # noqa: N806
+    G.add_nodes_from([0, 1])
+    net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
+
+    with patch.object(net, "_rebuild_kdtree", wraps=net._rebuild_kdtree) as rebuild_spy:
+        new_cell = Cell(
+            coordinate=99, position=np.array([100, 100]), random=random.Random(42)
+        )
+        net.add_cell(new_cell)
+
+        assert net._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = net.find_nearest_cell([101, 101])
+        assert found.coordinate == 99
+        assert rebuild_spy.call_count == 1
+        assert net._kdtree_dirty is False
+
+
+def test_network_lazy_rebuild_batches_mutations_to_single_rebuild():
+    """Multiple mutations should trigger a single rebuild at first query."""
+    G = nx.Graph()  # noqa: N806
+    G.add_nodes_from([0, 1])
+    net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
+
+    with patch.object(net, "_rebuild_kdtree", wraps=net._rebuild_kdtree) as rebuild_spy:
+        cell_a = Cell(
+            coordinate=99, position=np.array([100, 100]), random=random.Random(42)
+        )
+        cell_b = Cell(
+            coordinate=100, position=np.array([200, 200]), random=random.Random(42)
+        )
+        net.add_cell(cell_a)
+        net.add_cell(cell_b)
+        net.remove_cell(cell_a)
+
+        assert net._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = net.find_nearest_cell([201, 201])
+        assert found.coordinate == 100
+        assert rebuild_spy.call_count == 1
+        assert net._kdtree_dirty is False
+
+
+def test_network_non_spatial_cell_mutation_does_not_dirty_kdtree():
+    """Mutating non-spatial cells should not mark KDTree dirty."""
+    G = nx.Graph()  # noqa: N806
+    G.add_nodes_from([0, 1])
+    net = Network(G, layout={0: (0, 0), 1: (10, 0)}, random=random.Random(42))
+
+    with patch.object(net, "_rebuild_kdtree", wraps=net._rebuild_kdtree) as rebuild_spy:
+        non_spatial = Cell(coordinate=999, position=None, random=random.Random(42))
+        net.add_cell(non_spatial)
+        net.remove_cell(non_spatial)
+
+        assert net._kdtree_dirty is False
+        assert rebuild_spy.call_count == 0
+
+        # Query should not trigger rebuild because no spatial mutation happened.
+        _ = net.find_nearest_cell([1, 0])
+        assert rebuild_spy.call_count == 0
 
 
 def test_all_spaces():
