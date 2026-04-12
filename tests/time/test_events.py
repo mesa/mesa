@@ -613,6 +613,23 @@ class TestEventGeneratorExecution:
         with pytest.raises(ValueError):
             model.run_for(3)
 
+    def test_callable_interval_zero_raises_in_get_interval(self, setup):
+        """Test if callable interval raises ValueError immediately in _get_interval."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: 0))
+
+        with pytest.raises(ValueError):
+            gen._get_interval()
+
+    def test_callable_interval_zero_raises(self, setup):
+        """Test if callable interval raises exception if return is zero."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: 0))
+        gen.start()
+
+        with pytest.raises(ValueError):
+            model.run_for(3)
+
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""
         model, fn = setup

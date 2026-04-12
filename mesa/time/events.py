@@ -260,11 +260,16 @@ class EventGenerator:
         return self._current_event.time
 
     def _get_interval(self) -> float | int:
-        """Get the next interval value."""
+        """Return the next interval value from the schedule.
+
+        Raises:
+            ValueError: If a callable interval returns a negative value or zero.
+            
+        """
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
-            if interval < 0:
-                raise ValueError(f"Interval must be > 0, got {interval}")
+            if interval <= 0:
+                raise ValueError(f"Interval must be strictly > 0, got {interval}")
             return interval
         return self.schedule.interval
 
