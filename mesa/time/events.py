@@ -264,7 +264,7 @@ class EventGenerator:
 
         Raises:
             ValueError: If a callable interval returns a negative value or zero.
-            
+
         """
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
