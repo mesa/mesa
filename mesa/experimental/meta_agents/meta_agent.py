@@ -63,6 +63,11 @@ def evaluate_combination(
     """
     if evaluation_func:
         value = evaluation_func(candidate_group)
+        if not isinstance(value, int | float) and not hasattr(value, "__float__"):
+            raise TypeError(
+                f"evaluation_func must return a numeric value, "
+                f"got {type(value).__name__!r}"
+            )
         return candidate_group, value
     return None
 
@@ -104,8 +109,7 @@ def find_combinations(
         )
         if evaluation_result is not None:
             evaluated_group, result = evaluation_result
-            if result is not None:
-                combinations.append((evaluated_group, result))
+            combinations.append((evaluated_group, result))
 
     if len(combinations) > 0 and filter_func:
         filtered_combinations = filter_func(combinations)

@@ -114,10 +114,7 @@ class MultiLevelAllianceModel(mesa.Model):
             elif (
                 agent_ids[0] in best and agent_ids[1] in best
             ):  # if both in, see if both would be trading up
-                if (
-                    value[0] > best[agent_ids[0]][1][0]
-                    and value[0] > best[agent_ids[1]][1][0]
-                ):
+                if value > best[agent_ids[0]][1] and value > best[agent_ids[1]][1]:
                     # Remove the old alliances
                     del best[best[agent_ids[0]][2][1]]
                     del best[best[agent_ids[1]][2][0]]
@@ -127,7 +124,7 @@ class MultiLevelAllianceModel(mesa.Model):
             elif (
                 agent_ids[0] in best
             ):  # if only agent_ids[0] in, see if it would be trading up
-                if value[0] > best[agent_ids[0]][1][0]:
+                if value > best[agent_ids[0]][1]:
                     # Remove the old alliance for agent_ids[0]
                     del best[best[agent_ids[0]][2][1]]
                     # Add the new alliance
@@ -136,7 +133,7 @@ class MultiLevelAllianceModel(mesa.Model):
             elif (
                 agent_ids[1] in best
             ):  # if only agent_ids[1] in, see if it would be trading up
-                if value[0] > best[agent_ids[1]][1][0]:
+                if value > best[agent_ids[1]][1]:
                     # Remove the old alliance for agent_ids[1]
                     del best[best[agent_ids[1]][2][0]]
                     # Add the new alliance
@@ -149,6 +146,14 @@ class MultiLevelAllianceModel(mesa.Model):
             unique_combinations[tuple(agents_nums)] = [group, value]
 
         return unique_combinations.values()
+
+    def alliance_score(self, agents):
+        """Return numeric score for find_combinations (potential_utility only)."""
+        result = self.calculate_shapley_value(agents)
+        if result is None:
+            return -float("inf")
+        potential_utility, _new_position, _level = result
+        return potential_utility
 
     def step(self):
         """
@@ -168,21 +173,25 @@ class MultiLevelAllianceModel(mesa.Model):
                     self,
                     similar_agents,
                     size=2,
-                    evaluation_func=self.calculate_shapley_value,
+                    evaluation_func=self.alliance_score,
                     filter_func=self.only_best_combination,
                 )
 
-                for alliance, attributes in combinations:
-                    class_name = f"MetaAgentLevel{attributes[2]}"
+                for alliance, _score in combinations:
+                    attributes = self.calculate_shapley_value(alliance)
+                    if attributes is None:
+                        continue
+                    potential_utility, new_position, level = attributes
+                    class_name = f"MetaAgentLevel{level}"
                     meta = create_meta_agent(
                         self,
                         class_name,
                         alliance,
                         Agent,
                         meta_attributes={
-                            "level": attributes[2],
-                            "power": attributes[0],
-                            "position": attributes[1],
+                            "level": level,
+                            "power": potential_utility,
+                            "position": new_position,
                         },
                     )
 
