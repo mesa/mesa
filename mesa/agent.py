@@ -303,3 +303,13 @@ class Agent[M: Model]:
     def is_busy(self) -> bool:
         """Whether the agent is currently performing an action."""
         return self.current_action is not None
+
+    # --- Action lifecycle hooks (override in subclasses) ---
+    def on_action_start(self, action: Action) -> None:
+        """Called after Action.on_start/on_resume. Override for agent-level responses."""
+
+    def on_action_complete(self, action: Action) -> None:
+        """Called after Action.on_complete. Override to decide the agent's next action."""
+
+    def on_action_interrupt(self, action: Action, progress: float) -> None:
+        """Called after Action.on_interrupt. Override to handle interruption at agent level."""
