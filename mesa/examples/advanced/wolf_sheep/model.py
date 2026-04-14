@@ -1,5 +1,4 @@
-"""
-Wolf-Sheep Predation Model
+"""Wolf-Sheep Predation Model
 ================================
 
 Replication of the model found in NetLogo:

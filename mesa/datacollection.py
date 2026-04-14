@@ -115,6 +115,7 @@ class DataCollector:
             - If you want to pickle your model you must not use lambda functions.
             - If your model includes a large number of agents, it is recommended to
               use attribute names for the agent reporter, as it will be faster.
+
         """
         self.model_reporters = {}
         self.agent_reporters = {}
@@ -154,7 +155,7 @@ class DataCollector:
                 f"Reporter '{name}' must use the format [function, [param1, param2]]. "
                 f"Got: {reporter!r}"
             )
-        if not isinstance(reporter[1], (list, tuple)):
+        if not isinstance(reporter[1], list | tuple):
             raise ValueError(
                 f"Reporter '{name}' must use the format [function, [param1, param2]]. "
                 f"The second element must be a list or tuple of parameters, got: {reporter[1]!r}"
@@ -173,10 +174,11 @@ class DataCollector:
             AttributeError: If model attribute doesn't exist
             TypeError: If reporter type is not supported
             RuntimeError: If reporter execution fails
+
         """
         self._validated = True
 
-        if isinstance(reporter, (types.LambdaType, partial)):
+        if isinstance(reporter, types.LambdaType | partial):
             try:
                 reporter(model)
             except Exception as e:
@@ -185,7 +187,7 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
+        if callable(reporter) and not isinstance(reporter, types.LambdaType | partial):
             try:
                 reporter()
             except Exception as e:
@@ -218,6 +220,7 @@ class DataCollector:
                 2. Lambda function: lambda m: len(m.agents)
                 3. Method: model.get_count or Model.get_count
                 4. List of [function, [parameters]]
+
         """
         if isinstance(reporter, list):
             self._check_list_reporter(name, reporter)
@@ -232,12 +235,14 @@ class DataCollector:
             reporter: Attribute string, function object, method of a class/instance, or
                       function with parameters placed in a list that returns the
                       variable when given an agent instance.
+
         """
         # Check if the reporter is an attribute string
         if isinstance(reporter, str):
             attribute_name = reporter
 
             def attr_reporter(agent):
+                """Get the named attribute from the agent."""
                 try:
                     return getattr(agent, attribute_name)
                 except AttributeError as e:
@@ -253,6 +258,7 @@ class DataCollector:
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
+                """Call the reporter function with its configured parameters."""
                 return func(agent, *params)
 
             reporter = func_with_params
@@ -271,6 +277,7 @@ class DataCollector:
             reporter: Attribute string, function object, method of a class/instance, or
                       function with parameters placed in a list that returns the
                       variable when given an agent instance.
+
         """
         if agent_type not in self.agenttype_reporters:
             self.agenttype_reporters[agent_type] = {}
@@ -280,6 +287,7 @@ class DataCollector:
             attribute_name = reporter
 
             def attr_reporter(agent):
+                """Get the named attribute from the agent."""
                 try:
                     return getattr(agent, attribute_name)
                 except AttributeError as e:
@@ -295,6 +303,7 @@ class DataCollector:
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
+                """Call the reporter function with its configured parameters."""
                 return func(agent, *params)
 
             reporter = func_with_params
@@ -307,6 +316,7 @@ class DataCollector:
         Args:
             table_name: Name of the new table.
             table_columns: List of columns to add to the table.
+
         """
         new_table = {column: [] for column in table_columns}
         self.tables[table_name] = new_table
@@ -318,6 +328,7 @@ class DataCollector:
         python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
+            """Collect report values for a single agent."""
             _prefix = (agent.model.time, agent.unique_id)
             reports = []
             for rep in rep_funcs:
@@ -339,6 +350,7 @@ class DataCollector:
         python_immutable_types = (str, int, bool, float, tuple)
 
         def get_reports(agent):
+            """Collect report values for a single agent."""
             _prefix = (agent.model.time, agent.unique_id)
             reports = []
             for rep in rep_funcs:
@@ -415,6 +427,7 @@ class DataCollector:
             row: A dictionary of the form {column_name: value...}
             ignore_missing: If True, fill any missing columns with Nones;
                             if False, throw an error if any columns are missing
+
         """
         if table_name not in self.tables:
             raise TableMissingException(table_name)
@@ -477,6 +490,7 @@ class DataCollector:
 
         Args:
             agent_type: The type of agent to get the data for.
+
         """
         # Check if self.agenttype_reporters dictionary is empty for this agent type, if so return empty DataFrame
         if agent_type not in self.agenttype_reporters:
@@ -506,6 +520,7 @@ class DataCollector:
 
         Args:
             table_name: The name of the table to convert.
+
         """
         if table_name not in self.tables:
             raise TableMissingException(table_name)

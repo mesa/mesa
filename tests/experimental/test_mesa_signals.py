@@ -278,6 +278,7 @@ def test_Message():
             self.some_attribute = value
 
     def on_change(signal: Message):
+        """Handle on change."""
         assert signal.name == "some_attribute"
         assert signal.signal_type == ObservableSignals.CHANGED
         assert signal.additional_kwargs["old"] == 10
@@ -310,6 +311,7 @@ def test_computed_property():
 
         @computed_property
         def some_attribute(self):
+            """Return the test attribute."""
             return self.some_other_attribute * 2
 
     model = Model(rng=42)
@@ -355,6 +357,7 @@ def test_computed_property():
             # c1 depends on o1 (read) but also tries to write to it.
             # Writing to o1 triggers notify -> sets c1 dirty -> checks cycles.
             # But here we are *inside* c1 evaluation.
+            """Handle c1."""
             self.o1 = self.o1 - 1
             return self.o1
 
@@ -385,6 +388,7 @@ def test_computed_dynamic_dependencies():
 
         @computed_property
         def result(self):
+            """Handle result."""
             if self.use_a:
                 return self.val_a
             else:
@@ -428,12 +432,14 @@ def test_chained_computations():
         @computed_property
         def intermediate(self):
             # When this runs, CURRENT_COMPUTED should be 'final'
+            """Handle intermediate."""
             return self.base * 2
 
         @computed_property
         def final(self):
             # This sets CURRENT_COMPUTED = final_state
             # Then it accesses self.intermediate
+            """Handle final."""
             return self.intermediate + 1
 
     model = Model(rng=42)
@@ -456,6 +462,7 @@ def test_dead_parent_fallback():
     class SimpleAgent(Agent, HasEmitters):
         @computed_property
         def prop(self):
+            """Handle prop."""
             return 1
 
     model = Model(rng=42)
@@ -536,11 +543,11 @@ def test_emit():
 
         @emit("test", TestSignals.BEFORE, when="before")
         def test_before(self, value):
-            pass
+            """Test before."""
 
         @emit("test", TestSignals.AFTER, when="after")
         def test_after(self, some_value=None):
-            pass
+            """Test after."""
 
     model = MyModel()
 
@@ -584,19 +591,23 @@ def test_computed_property_dependencies():
 
         @emit("test", "test_signal")
         def fire_event(self, payload):
+            """Handle fire event."""
             self.payload = payload
 
         @emit("test", "other_signal")
         def fire_other_event(self, payload):
+            """Handle fire other event."""
             self.payload = payload
 
         @computed_property(dependencies=[("test", "test_signal")])
         def reactive_state(self):
+            """Handle reactive state."""
             self.count += 1
             return f"Processed: {self.payload}"
 
         @computed_property(dependencies=[("test",)])
         def reactive_state_all(self):
+            """Handle reactive state all."""
             self.count_all += 1
             return f"Processed ALL: {self.payload}"
 
@@ -903,6 +914,7 @@ def test_observable_list_mutation():
 
         @computed_property
         def inventory_size(self):
+            """Handle inventory size."""
             return len(self.inventory)
 
     model = Model(rng=42)
@@ -927,7 +939,7 @@ def test_observable_list_mutation():
 
 def test_all_sentinel():
     """Test the ALL sentinel."""
-    import pickle  # noqa: PLC0415
+    import pickle
 
     sentinel = _AllSentinel()
 
@@ -950,6 +962,7 @@ def test_class_level_subscribe():
     handler_calls = []
 
     def my_handler(msg):
+        """Handle my handler."""
         old_val = msg.additional_kwargs.get("old")
         new_val = msg.additional_kwargs.get("new")
         handler_calls.append((old_val, new_val))
@@ -981,6 +994,7 @@ def test_unobserve_class():
     handler_calls = []
 
     def my_handler(msg):
+        """Handle my handler."""
         handler_calls.append(msg.additional_kwargs.get("new"))
 
     DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)
@@ -1002,6 +1016,7 @@ def test_clear_all_class_subscriptions():
     handler_calls = []
 
     def my_handler(msg):
+        """Handle my handler."""
         handler_calls.append(msg.additional_kwargs.get("new"))
 
     DummyAgent.observe_class("state", ObservableSignals.CHANGED, my_handler)

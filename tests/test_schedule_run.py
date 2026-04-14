@@ -1,5 +1,5 @@
 """Tests for Model public event scheduling and time advancement API."""
-# ruff: noqa: D101 D102 D107
+# ruff: noqa: D101, D107
 
 import gc
 from functools import partial
@@ -16,6 +16,7 @@ class StepAgent(Agent):
         self.steps_taken = 0
 
     def step(self):
+        """Run one step."""
         self.steps_taken += 1
 
 
@@ -25,22 +26,26 @@ class SimpleModel(Model):
         StepAgent.create_agents(self, n)
 
     def step(self):
+        """Run one step."""
         self.agents.shuffle_do("step")
 
 
 # --- run_for / run_until ---
 class TestRunFor:
     def test_single_unit(self):
+        """Test single unit."""
         model = SimpleModel()
         model.run_for(1)
         assert model.time == 1.0
 
     def test_multiple_units(self):
+        """Test multiple units."""
         model = SimpleModel()
         model.run_for(10)
         assert model.time == 10.0
 
     def test_agents_activated(self):
+        """Test agents activated."""
         model = SimpleModel(n=5)
         model.run_for(3)
         for agent in model.agents:
@@ -55,6 +60,7 @@ class TestRunFor:
         assert m1.time == m2.time == 5.0
 
     def test_sequential_calls(self):
+        """Test sequential calls."""
         model = SimpleModel()
         model.run_for(5)
         model.run_for(5)
@@ -63,11 +69,13 @@ class TestRunFor:
 
 class TestRunUntil:
     def test_basic(self):
+        """Test basic."""
         model = SimpleModel()
         model.run_until(5.0)
         assert model.time == 5.0
 
     def test_already_past(self):
+        """Test already past."""
         model = SimpleModel()
         model.run_for(10)
         with pytest.warns(RuntimeWarning):
@@ -75,6 +83,7 @@ class TestRunUntil:
             assert model.time == 10
 
     def test_sequential(self):
+        """Test sequential."""
         model = SimpleModel()
         model.run_until(3.0)
         model.run_until(7.0)
@@ -84,10 +93,12 @@ class TestRunUntil:
 # --- schedule_event ---
 class TestScheduleEvent:
     def test_at(self):
+        """Test at."""
         model = SimpleModel()
         log = []
 
         def fire():
+            """Record that the event fired."""
             log.append("fired")
 
         model.schedule_event(fire, at=2.5)
@@ -95,10 +106,12 @@ class TestScheduleEvent:
         assert "fired" in log
 
     def test_after(self):
+        """Test after."""
         model = SimpleModel()
         log = []
 
         def fire():
+            """Record that the event fired."""
             log.append("fired")
 
         model.run_for(5)
@@ -108,10 +121,12 @@ class TestScheduleEvent:
         assert model.time == 8.0
 
     def test_not_yet_reached(self):
+        """Test not yet reached."""
         model = SimpleModel()
         log = []
 
         def fire():
+            """Record that the event fired."""
             log.append("fired")
 
         model.schedule_event(fire, at=10.0)
@@ -119,10 +134,12 @@ class TestScheduleEvent:
         assert log == []
 
     def test_cancel(self):
+        """Test cancel."""
         model = SimpleModel()
         log = []
 
         def fire():
+            """Record that the event fired."""
             log.append("fired")
 
         event = model.schedule_event(fire, at=2.0)
@@ -131,10 +148,11 @@ class TestScheduleEvent:
         assert log == []
 
     def test_at_and_after_exclusive(self):
+        """Test at and after exclusive."""
         model = SimpleModel()
 
         def noop():
-            pass
+            """Do nothing."""
 
         with pytest.raises(ValueError):
             model.schedule_event(noop, at=1.0, after=1.0)
@@ -142,10 +160,12 @@ class TestScheduleEvent:
             model.schedule_event(noop)
 
     def test_inline_lambda_with_strong_reference(self):
+        """Test inline lambda with strong reference."""
         model = SimpleModel()
         log = []
 
         def callback():
+            """Handle the callback."""
             log.append("fired")
 
         model.schedule_event(callback, at=1.0)
@@ -153,10 +173,12 @@ class TestScheduleEvent:
         assert log == ["fired"]
 
     def test_partial_callback_with_strong_reference(self):
+        """Test partial callback with strong reference."""
         model = SimpleModel()
         log = []
 
         def fire(label):
+            """Record that the event fired."""
             log.append(label)
 
         callback = partial(fire, "x")
@@ -170,7 +192,7 @@ class TestScheduleEvent:
         model.run_until(10)
 
         def noop():
-            pass
+            """Do nothing."""
 
         with pytest.raises(ValueError, match="Cannot schedule event in the past"):
             model.schedule_event(noop, at=5)
@@ -179,10 +201,12 @@ class TestScheduleEvent:
 # --- schedule_recurring ---
 class TestScheduleRecurring:
     def test_fixed_interval(self):
+        """Test fixed interval."""
         model = SimpleModel()
         log = []
 
         def record():
+            """Record the current time."""
             log.append(model.time)
 
         model.schedule_recurring(record, Schedule(interval=2.0, start=2.0))
@@ -195,6 +219,7 @@ class TestScheduleRecurring:
         log = []
 
         def record():
+            """Record the current time."""
             log.append(model.time)
 
         model.schedule_recurring(record, Schedule(interval=2.0, start=2.0))
@@ -203,10 +228,12 @@ class TestScheduleRecurring:
         assert log == [2.0, 4.0, 6.0, 8.0, 10.0]
 
     def test_stop_generator(self):
+        """Test stop generator."""
         model = SimpleModel()
         log = []
 
         def record():
+            """Record the current time."""
             log.append(model.time)
 
         gen = model.schedule_recurring(record, Schedule(interval=1.0, start=1.0))
@@ -216,10 +243,12 @@ class TestScheduleRecurring:
         assert len(log) == 3
 
     def test_with_count(self):
+        """Test with count."""
         model = SimpleModel()
         log = []
 
         def record():
+            """Record the current time."""
             log.append(model.time)
 
         model.schedule_recurring(record, Schedule(interval=1.0, start=1.0, count=3))
@@ -232,7 +261,7 @@ class TestScheduleRecurring:
         model.run_until(10)
 
         def noop():
-            pass
+            """Do nothing."""
 
         with pytest.raises(
             ValueError, match="Cannot start recurring schedule in the past"
@@ -247,6 +276,7 @@ class TestEdgeCases:
         log = []
 
         def fire():
+            """Record that the event fired."""
             log.append("fired")
 
         model.schedule_event(fire, at=0.0)
@@ -259,9 +289,11 @@ class TestEdgeCases:
         log = []
 
         def one_off():
+            """Record the one-off event."""
             log.append(("once", model.time))
 
         def recurring():
+            """Record the recurring event."""
             log.append(("repeat", model.time))
 
         model.schedule_event(one_off, at=2.5)

@@ -143,6 +143,7 @@ class SignalingList(MutableSequence[Any]):
 
         Returns:
             the item at index
+
         """
         return self.data[index]
 

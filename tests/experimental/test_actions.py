@@ -1,6 +1,6 @@
 """Tests for mesa.experimental.actions."""
 
-# ruff: noqa: D101, D102, D103, D107
+# ruff: noqa: D101, D107
 import pytest
 
 from mesa import Agent, Model
@@ -21,20 +21,25 @@ class TrackedAction(Action):
         self.interrupt_progress = None
 
     def on_start(self):
+        """Handle on start."""
         self.start_count += 1
 
     def on_resume(self):
+        """Handle on resume."""
         self.resume_count += 1
 
     def on_complete(self):
+        """Handle on complete."""
         self.completed = True
 
     def on_interrupt(self, progress):
+        """Handle on interrupt."""
         self.interrupted = True
         self.interrupt_progress = progress
 
 
 def make_model_and_agent():
+    """Make model and agent."""
     model = Model()
     agent = Agent(model)
     return model, agent
@@ -45,16 +50,19 @@ def make_model_and_agent():
 
 class TestName:
     def test_subclass_name(self):
+        """Test subclass name."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent)
         assert action.name == "TrackedAction"
 
     def test_base_class_name(self):
+        """Test base class name."""
         _model, agent = make_model_and_agent()
         action = Action(agent)
         assert action.name == "Action"
 
     def test_name_in_repr(self):
+        """Test name in repr."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent)
         assert "TrackedAction" in repr(action)
@@ -78,12 +86,14 @@ class TestName:
 
 class TestActionLifecycle:
     def test_action_starts_pending(self):
+        """Test action starts pending."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent)
         assert action.state is ActionState.PENDING
         assert action.progress == 0.0
 
     def test_start_action(self):
+        """Test start action."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -96,6 +106,7 @@ class TestActionLifecycle:
         assert agent.is_busy
 
     def test_action_completes(self):
+        """Test action completes."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -109,6 +120,7 @@ class TestActionLifecycle:
         assert not agent.is_busy
 
     def test_instantaneous_action(self):
+        """Test instantaneous action."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=0)
 
@@ -119,6 +131,7 @@ class TestActionLifecycle:
         assert agent.current_action is None
 
     def test_on_start_fires_once(self):
+        """Test on start fires once."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=3.0)
 
@@ -126,6 +139,7 @@ class TestActionLifecycle:
         assert action.start_count == 1
 
     def test_on_complete_fires(self):
+        """Test on complete fires."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=3.0)
 
@@ -141,6 +155,7 @@ class TestActionLifecycle:
 
 class TestInterruption:
     def test_interrupt_updates_progress(self):
+        """Test interrupt updates progress."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -153,6 +168,7 @@ class TestInterruption:
         assert action.interrupt_progress == pytest.approx(0.3)
 
     def test_interrupt_for_replaces_action(self):
+        """Test interrupt for replaces action."""
         model, agent = make_model_and_agent()
         first = TrackedAction(agent, duration=10.0)
         second = TrackedAction(agent, duration=5.0)
@@ -168,6 +184,7 @@ class TestInterruption:
         assert agent.current_action is second
 
     def test_non_interruptible_blocks_interrupt(self):
+        """Test non interruptible blocks interrupt."""
         model, agent = make_model_and_agent()
         first = TrackedAction(agent, duration=10.0, interruptible=False)
         second = TrackedAction(agent, duration=5.0)
@@ -182,6 +199,7 @@ class TestInterruption:
         assert second.start_count == 0
 
     def test_cancel_ignores_interruptible_flag(self):
+        """Test cancel ignores interruptible flag."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0, interruptible=False)
 
@@ -194,6 +212,7 @@ class TestInterruption:
         assert action.interrupt_progress == pytest.approx(0.5)
 
     def test_interrupt_idle_agent_just_starts(self):
+        """Test interrupt idle agent just starts."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -204,6 +223,7 @@ class TestInterruption:
         assert agent.current_action is action
 
     def test_interrupt_callback_receives_progress(self):
+        """Test interrupt callback receives progress."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=4.0)
 
@@ -219,6 +239,7 @@ class TestInterruption:
 
 class TestStartResume:
     def test_first_start_calls_on_start(self):
+        """Test first start calls on start."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -228,6 +249,7 @@ class TestStartResume:
         assert action.resume_count == 0
 
     def test_resume_calls_on_resume_not_on_start(self):
+        """Test resume calls on resume not on start."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -250,10 +272,11 @@ class TestStartResume:
                 self.started = []
 
             def on_start(self):
+                """Handle on start."""
                 self.started.append("start")
 
             def on_interrupt(self, progress):
-                pass
+                """Handle on interrupt."""
 
         action = StartTracker(agent)
 
@@ -277,13 +300,15 @@ class TestStartResume:
                 self.log = []
 
             def on_start(self):
+                """Handle on start."""
                 self.log.append("start")
 
             def on_resume(self):
+                """Handle on resume."""
                 self.log.append("resume")
 
             def on_interrupt(self, progress):
-                pass
+                """Handle on interrupt."""
 
         action = ResumeTracker(agent)
 
@@ -296,6 +321,7 @@ class TestStartResume:
         assert action.log == ["start", "resume"]
 
     def test_multiple_resume_cycles(self):
+        """Test multiple resume cycles."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -320,6 +346,7 @@ class TestStartResume:
 
 class TestLiveProgress:
     def test_progress_live_during_active(self):
+        """Test progress live during active."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -332,6 +359,7 @@ class TestLiveProgress:
         assert action.progress == pytest.approx(0.5)
 
     def test_remaining_time_live(self):
+        """Test remaining time live."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -341,6 +369,7 @@ class TestLiveProgress:
         assert action.remaining_time == pytest.approx(6.0)
 
     def test_elapsed_time_live(self):
+        """Test elapsed time live."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -350,6 +379,7 @@ class TestLiveProgress:
         assert action.elapsed_time == pytest.approx(4.0)
 
     def test_progress_frozen_after_interrupt(self):
+        """Test progress frozen after interrupt."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -364,6 +394,7 @@ class TestLiveProgress:
         assert action.progress == pytest.approx(0.3)
 
     def test_progress_live_after_resume(self):
+        """Test progress live after resume."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -382,6 +413,7 @@ class TestLiveProgress:
 
 class TestPauseResume:
     def test_resume_continues_from_progress(self):
+        """Test resume continues from progress."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -402,6 +434,7 @@ class TestPauseResume:
         assert action.progress == 1.0
 
     def test_multiple_interrupt_resume_cycles(self):
+        """Test multiple interrupt resume cycles."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -424,6 +457,7 @@ class TestPauseResume:
         assert action.progress == 1.0
 
     def test_completed_action_not_resumable(self):
+        """Test completed action not resumable."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=3.0)
 
@@ -435,6 +469,7 @@ class TestPauseResume:
             action.start()
 
     def test_is_resumable_property(self):
+        """Test is resumable property."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -448,6 +483,7 @@ class TestPauseResume:
         assert action.is_resumable  # INTERRUPTED with progress < 1
 
     def test_resume_respects_remaining_duration_only(self):
+        """Test resume respects remaining duration only."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -469,6 +505,7 @@ class TestActionClearsAgentReference:
     """Verify the Action itself clears agent.current_action."""
 
     def test_complete_clears_current_action(self):
+        """Test complete clears current action."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=3.0)
 
@@ -478,6 +515,7 @@ class TestActionClearsAgentReference:
         assert agent.current_action is None
 
     def test_interrupt_clears_current_action(self):
+        """Test interrupt clears current action."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -488,6 +526,7 @@ class TestActionClearsAgentReference:
         assert agent.current_action is None
 
     def test_cancel_clears_current_action(self):
+        """Test cancel clears current action."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0, interruptible=False)
 
@@ -498,12 +537,14 @@ class TestActionClearsAgentReference:
         assert agent.current_action is None
 
     def test_interrupt_pending_returns_false(self):
+        """Test interrupt pending returns false."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
         assert action.interrupt() is False
 
     def test_interrupt_completed_returns_false(self):
+        """Test interrupt completed returns false."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=0)
 
@@ -511,6 +552,7 @@ class TestActionClearsAgentReference:
         assert action.interrupt() is False
 
     def test_interrupt_already_interrupted_returns_false(self):
+        """Test interrupt already interrupted returns false."""
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -521,6 +563,7 @@ class TestActionClearsAgentReference:
         assert action.interrupt() is False
 
     def test_cancel_non_active_returns_false(self):
+        """Test cancel non active returns false."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -529,6 +572,7 @@ class TestActionClearsAgentReference:
 
 class TestErrorHandling:
     def test_start_while_busy_raises(self):
+        """Test start while busy raises."""
         _model, agent = make_model_and_agent()
         first = TrackedAction(agent, duration=10.0)
         second = TrackedAction(agent, duration=5.0)
@@ -539,6 +583,7 @@ class TestErrorHandling:
             agent.start_action(second)
 
     def test_start_wrong_agent_raises(self):
+        """Test start wrong agent raises."""
         model, agent1 = make_model_and_agent()
         agent2 = Agent(model)
         action = TrackedAction(agent1, duration=5.0)
@@ -547,6 +592,7 @@ class TestErrorHandling:
             agent2.start_action(action)
 
     def test_start_completed_action_raises(self):
+        """Test start completed action raises."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=0)
 
@@ -556,6 +602,7 @@ class TestErrorHandling:
             action.start()
 
     def test_negative_duration_raises(self):
+        """Test negative duration raises."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=-1.0)
 
@@ -563,6 +610,7 @@ class TestErrorHandling:
             agent.start_action(action)
 
     def test_cancel_idle_returns_false(self):
+        """Test cancel idle returns false."""
         _model, agent = make_model_and_agent()
         assert agent.cancel_action() is False
 
@@ -572,6 +620,7 @@ class TestErrorHandling:
 
 class TestCallableDurationPriority:
     def test_callable_duration(self):
+        """Test callable duration."""
         model, agent = make_model_and_agent()
         agent.speed = 2.0
         action = TrackedAction(agent, duration=lambda a: 10.0 / a.speed)
@@ -583,6 +632,7 @@ class TestCallableDurationPriority:
         assert action.state is ActionState.COMPLETED
 
     def test_callable_priority(self):
+        """Test callable priority."""
         _model, agent = make_model_and_agent()
         agent.threat_level = 8.0
         action = TrackedAction(agent, duration=3.0, priority=lambda a: a.threat_level)
@@ -596,6 +646,7 @@ class TestCallableDurationPriority:
         call_count = 0
 
         def get_duration(a):
+            """Get duration."""
             nonlocal call_count
             call_count += 1
             return 10.0
@@ -617,11 +668,13 @@ class TestCallableDurationPriority:
 
 class TestSubclassCallbacks:
     def test_subclass_on_complete(self):
+        """Test subclass on complete."""
         model, agent = make_model_and_agent()
         agent.energy = 50
 
         class GainEnergy(Action):
             def on_complete(self):
+                """Handle on complete."""
                 self.agent.energy += 30
 
         action = GainEnergy(agent, duration=3.0)
@@ -632,6 +685,7 @@ class TestSubclassCallbacks:
         assert agent.energy == 80
 
     def test_subclass_on_interrupt(self):
+        """Test subclass on interrupt."""
         model, agent = make_model_and_agent()
 
         class ProgressTracker(Action):
@@ -640,6 +694,7 @@ class TestSubclassCallbacks:
                 self.received_progress = []
 
             def on_interrupt(self, progress):
+                """Handle on interrupt."""
                 self.received_progress.append(progress)
 
         action = ProgressTracker(agent)
@@ -651,6 +706,7 @@ class TestSubclassCallbacks:
         assert action.received_progress == [pytest.approx(0.2)]
 
     def test_subclass_on_start(self):
+        """Test subclass on start."""
         _model, agent = make_model_and_agent()
 
         class StartTracker(Action):
@@ -659,6 +715,7 @@ class TestSubclassCallbacks:
                 self.started = False
 
             def on_start(self):
+                """Handle on start."""
                 self.started = True
 
         action = StartTracker(agent)
@@ -702,6 +759,7 @@ class TestResumeDetection:
     """Verify on_start can distinguish first start from resume."""
 
     def test_on_start_can_detect_resume(self):
+        """Test on start can detect resume."""
         model, agent = make_model_and_agent()
 
         class DetectResumeAction(Action):
@@ -710,10 +768,11 @@ class TestResumeDetection:
                 self.start_types = []
 
             def on_start(self):
+                """Handle on start."""
                 self.start_types.append("resume" if self.progress > 0 else "first")
 
             def on_interrupt(self, progress):
-                pass
+                """Handle on interrupt."""
 
         action = DetectResumeAction(agent)
 
@@ -738,6 +797,7 @@ class TestEdgeCases:
                 self.complete_count = 0
 
             def on_complete(self):
+                """Handle on complete."""
                 self.complete_count += 1
 
         action = CompletionCounter(agent)
@@ -751,6 +811,7 @@ class TestEdgeCases:
         assert action.complete_count == 1
 
     def test_remaining_time_before_start(self):
+        """Test remaining time before start."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
@@ -758,12 +819,14 @@ class TestEdgeCases:
         assert action.remaining_time == 0.0
 
     def test_elapsed_time_before_start(self):
+        """Test elapsed time before start."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0)
 
         assert action.elapsed_time == 0.0
 
     def test_repr(self):
+        """Test repr."""
         _model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=5.0)
 
@@ -790,9 +853,11 @@ class TestRealisticScenarios:
                 super().__init__(sheep, duration=5.0)
 
             def on_complete(self):
+                """Handle on complete."""
                 self.agent.energy += 30
 
             def on_interrupt(self, progress):
+                """Handle on interrupt."""
                 self.agent.energy += 30 * progress
 
         class Flee(Action):
@@ -800,9 +865,11 @@ class TestRealisticScenarios:
                 super().__init__(sheep, duration=2.0, interruptible=False)
 
             def on_complete(self):
-                pass  # survived
+                """Handle on complete."""
+                # survived
 
             def on_interrupt(self, progress):
+                """Handle on interrupt."""
                 self.agent.alive = False
 
         # Start foraging
@@ -843,6 +910,7 @@ class TestRealisticScenarios:
                 self.label = label
 
             def on_complete(self):
+                """Handle on complete."""
                 self.agent.log.append(f"done_{self.label}")
 
         for i in range(3):
@@ -877,15 +945,19 @@ class TestRealisticScenarios:
 
         class Task(Action):
             def on_start(self):
+                """Handle on start."""
                 self.agent.log.append(f"start@{self.agent.model.time}")
 
             def on_resume(self):
+                """Handle on resume."""
                 self.agent.log.append(f"resume@{self.agent.model.time}")
 
             def on_complete(self):
+                """Handle on complete."""
                 self.agent.log.append(f"done@{self.agent.model.time}")
 
             def on_interrupt(self, progress):
+                """Handle on interrupt."""
                 self.agent.log.append(
                     f"interrupted@{self.agent.model.time}({progress:.0%})"
                 )

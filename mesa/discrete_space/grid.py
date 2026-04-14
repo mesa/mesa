@@ -97,6 +97,7 @@ class Grid(DiscreteSpace[T]):
             capacity: capacity of the grid cell
             random: a random number generator
             cell_klass: the base class to use for the cells
+
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.torus = torus
@@ -139,6 +140,7 @@ class Grid(DiscreteSpace[T]):
 
             grid.sugar[:] = 0    # correct
             grid.sugar = array   # wrong — breaks cell access
+
         """
         array = np.full(self.dimensions, default_value, dtype=dtype)
         self._attach_property_layer(name, array, read_only=read_only)
@@ -155,6 +157,7 @@ class Grid(DiscreteSpace[T]):
 
             grid.sugar[:] = 0    # correct
             grid.sugar = array   # wrong — breaks cell access
+
         """
         if tuple(array.shape) != tuple(self.dimensions):
             raise ValueError(
@@ -167,6 +170,7 @@ class Grid(DiscreteSpace[T]):
 
         Args:
             name: property_layer name.
+
         """
         if name not in self.property_layers:
             raise KeyError(f"No property_layer named '{name}'.")
@@ -200,9 +204,11 @@ class Grid(DiscreteSpace[T]):
         setattr(self, name, array)
 
         def getter(self_cell):
+            """Handle getter."""
             return array[self_cell.coordinate]
 
         def setter(self_cell, value):
+            """Handle setter."""
             array[self_cell.coordinate] = value
 
         accessor = (
@@ -238,6 +244,7 @@ class Grid(DiscreteSpace[T]):
 
         Raises:
             ValueError: If position is outside grid bounds and not a torus
+
         """
         # Floor to get cell coordinate
         coord = tuple(np.floor(position).astype(int))
@@ -279,7 +286,7 @@ class Grid(DiscreteSpace[T]):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise TypeError("Capacity must be a number or None.")
 
-    def select_random_empty_cell(self) -> T:  # noqa
+    def select_random_empty_cell(self) -> T:
         # Use a heuristic: try random sampling first for performance (O(1))
         # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
         # FIXME:: note however that the old results don't apply because in this implementation
@@ -289,6 +296,7 @@ class Grid(DiscreteSpace[T]):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+        """Handle select random empty cell."""
         random = self.random
         cells = self._celllist
 
@@ -335,6 +343,7 @@ class Grid(DiscreteSpace[T]):
 
             # Count how many cells still have room
             len(list(grid.cells_with_capacity))
+
         """
         if self.capacity is None:
             return self.all_cells
@@ -351,6 +360,7 @@ class Grid(DiscreteSpace[T]):
             # Safe placement that respects capacity limits
             free_cell = grid.select_random_cell_with_capacity()
             agent.move_to(free_cell)
+
         """
         random = self.random
         cells = self._celllist
@@ -493,6 +503,7 @@ class HexGrid(Grid[T]):
 
     Raises:
         ValueError: If torus=True and either width or height is odd.
+
     """
 
     def __init__(
@@ -511,6 +522,7 @@ class HexGrid(Grid[T]):
             capacity: capacity of the grid cell
             random: a random number generator
             cell_klass: the base class to use for the cells
+
         """
         super().__init__(
             dimensions=dimensions,

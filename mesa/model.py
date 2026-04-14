@@ -207,6 +207,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         Notes:
             This is Mesa's core agent registration system. All agents created via ``Agent.__init__``
             are automatically registered here.
+
         """
         return self._all_agents
 
@@ -244,6 +245,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         Notes:
             This is part of Mesa's core agent registration system. All agents are automatically
             registered in the appropriate type-specific AgentSet when created via ``Agent.__init__``.
+
         """
         return self._agents_by_type
 
@@ -258,6 +260,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             This method is called automatically by ``Agent.__init__``, so there
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
+
         """
         # Add to main storage
         self._all_agents.add(agent)
@@ -343,6 +346,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         Raises:
             ValueError: If both or neither of at/after are specified
             ValueError: If both or neither of at/after are specified, or if the scheduled time is in the past.
+
         """
         if (at is None) == (after is None):
             raise ValueError("Specify exactly one of 'at' or 'after'")
@@ -383,6 +387,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Raises:
             ValueError: If the schedule start time is in the past.
+
         """
         if schedule.start is not None and schedule.start < self.time:
             raise ValueError(
@@ -399,6 +404,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
             duration: Time units to advance
+
         """
         self._advance_time(self.time + duration)
 

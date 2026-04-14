@@ -136,6 +136,7 @@ def test_post_process():
     sr = SpaceRenderer(model)
 
     def post_process_ax(ax):
+        """Handle post process ax."""
         ax.set_xlim(0, 400)
         ax.set_ylim(0, 400)
         return ax
@@ -150,6 +151,7 @@ def test_post_process():
     assert processed == ax
 
     def post_process_chart(chart):
+        """Handle post process chart."""
         chart = chart.properties(width=400, height=400)
         return chart
 

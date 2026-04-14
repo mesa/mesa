@@ -35,6 +35,7 @@ class ContinuousSpaceAgent(Agent):
 
     @position.setter
     def position(self, value: np.ndarray) -> None:
+        """Return the position."""
         if not self.space.in_bounds(value):
             if self.space.torus:
                 value = self.space.torus_correct(value)

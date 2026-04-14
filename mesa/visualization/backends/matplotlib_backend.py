@@ -39,6 +39,7 @@ class MatplotlibBackend(AbstractRenderer):
         Args:
             space_drawer: An instance of a SpaceDrawer class that handles
                 the drawing of the space structure.
+
         """
         super().__init__(space_drawer)
 
@@ -50,6 +51,7 @@ class MatplotlibBackend(AbstractRenderer):
         Args:
             ax (matplotlib.axes.Axes, optional): Existing axes to use.
                 If None, creates new figure and axes.
+
         """
         if ax is None:
             fig = Figure(constrained_layout=True)
@@ -66,6 +68,7 @@ class MatplotlibBackend(AbstractRenderer):
 
         Returns:
             The matplotlib axes with the drawn structure.
+
         """
         return self.space_drawer.draw_matplotlib(self.ax, **kwargs)
 
@@ -79,6 +82,7 @@ class MatplotlibBackend(AbstractRenderer):
 
         Returns:
             dict: Dictionary containing agent plotting data arrays.
+
         """
         # Initialize data collection arrays
         arguments = {
@@ -92,7 +96,7 @@ class MatplotlibBackend(AbstractRenderer):
             "linewidths": [],
         }
         # Import here to prevent circular imports
-        from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
+        from mesa.visualization.components import AgentPortrayalStyle
 
         # Get default values from AgentPortrayalStyle
         style_fields = {f.name: f.default for f in fields(AgentPortrayalStyle)}
@@ -213,6 +217,7 @@ class MatplotlibBackend(AbstractRenderer):
 
         Returns:
             matplotlib.axes.Axes: The Matplotlib Axes with the agents drawn upon it.
+
         """
         if arguments["loc"].size == 0:
             return None
@@ -330,6 +335,7 @@ class MatplotlibBackend(AbstractRenderer):
 
         Returns:
             tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
+
         """
         # Draw each layer
         for layer_name, layer in property_layers.items():

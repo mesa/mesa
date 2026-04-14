@@ -57,6 +57,7 @@ def collect_agent_data(
 
     agent_portrayal should return a AgentPortrayalStyle, limited to size (size of marker), color (color of marker), zorder (z-order),
     marker (marker style), alpha, linewidths, and edgecolors.
+
     """
 
     def get_agent_pos(agent, space):
@@ -79,7 +80,7 @@ def collect_agent_data(
     }
 
     # Importing AgentPortrayalStyle inside the function to prevent circular imports
-    from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
+    from mesa.visualization.components import AgentPortrayalStyle
 
     # Get AgentPortrayalStyle defaults
     style_fields = {f.name: f.default for f in fields(AgentPortrayalStyle)}
@@ -270,7 +271,7 @@ def draw_property_layers(
 
     """
     # Importing here to avoid circular import issues
-    from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
+    from mesa.visualization.components import PropertyLayerStyle
 
     def _property_layer_portryal_dict_to_callable(
         property_layer_portrayal: dict[str, dict[str, Any]],
@@ -278,6 +279,7 @@ def draw_property_layers(
         """Helper function to convert a property_layer_portrayal dict to a callable that return a PropertyLayerStyle."""
 
         def style_callable(layer_object: Any):
+            """Handle style callable."""
             layer_name = layer_object
             params = property_layer_portrayal.get(layer_name)
 
@@ -471,6 +473,7 @@ def draw_hex_grid(
 
     ``agent_portrayal`` is called with an agent and should return a AgentPortrayalStyle. Valid fields in this object are "color",
     "size", "marker", "zorder", alpha, linewidths, and edgecolors. Other field are ignored and will result in a user warning.
+
     """
     if ax is None:
         _, ax = plt.subplots()
@@ -695,6 +698,7 @@ def draw_voronoi_grid(
     _scatter(ax, arguments, **kwargs)
 
     def setup_voroinoimesh(cells):
+        """Set up voroinoimesh."""
         patches = []
         for cell in cells:
             patch = Polygon(cell.properties["polygon"])

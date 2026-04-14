@@ -43,13 +43,16 @@ def make_altair_space(
 
     Returns:
         function: A function that creates a SpaceMatplotlib component
+
     """
     if agent_portrayal is None:
 
         def agent_portrayal(a):
+            """Handle agent portrayal."""
             return {"id": a.unique_id}
 
     def MakeSpaceAltair(model):
+        """Make space altair."""
         return SpaceAltair(
             model,
             agent_portrayal,
@@ -72,6 +75,7 @@ def SpaceAltair(
 
     Returns:
         a solara FigureAltair instance
+
     """
     update_counter.get()
     space = getattr(model, "grid", None)
@@ -89,7 +93,7 @@ def SpaceAltair(
 
 def _portrayal_to_dict(portrayal_result, agent):
     """Convert AgentPortrayalStyle to dict or return dict as-is."""
-    from mesa.visualization.components import AgentPortrayalStyle  # noqa
+    from mesa.visualization.components import AgentPortrayalStyle
 
     if isinstance(portrayal_result, AgentPortrayalStyle):
         # Convert AgentPortrayalStyle to dict for Altair
@@ -135,6 +139,7 @@ def _get_agent_data_continuous_space(space: ContinuousSpace, agent_portrayal):
 
     Returns:
         list of dicts
+
     """
     all_agent_data = []
     for agent in space._agent_to_index:
@@ -167,7 +172,7 @@ def _draw_grid(space, agent_portrayal, property_layer_portrayal):
         tooltip = [
             alt.Tooltip(
                 key,
-                type="quantitative" if isinstance(value, (int, float)) else "nominal",
+                type="quantitative" if isinstance(value, int | float) else "nominal",
             )
             for key, value in all_agent_data[0].items()
             if key not in invalid_tooltips
@@ -240,6 +245,7 @@ def chart_property_layers(space, property_layer_portrayal, chart_width, chart_he
         chart_height: height of the agent chart to maintain consistency with the property_layer charts
     Returns:
         Altair Chart
+
     """
     property_layers = space.property_layers
     base = None
@@ -285,6 +291,7 @@ def chart_property_layers(space, property_layer_portrayal, chart_width, chart_he
 
                 Returns:
                     String representation of RGBA color
+
                 """
                 # Normalize value to range [0,1] and clamp
                 normalized = max(0, min((val - vmin) / (vmax - vmin), 1))
@@ -460,9 +467,11 @@ def make_altair_plot_component(
 
     Returns:
         (function, page): A tuple of a function that creates a PlotAltair component and a page number.
+
     """
 
     def MakePlotAltair(model):
+        """Make plot altair."""
         return PlotAltair(model, measure, post_process=post_process, grid=grid)
 
     return (MakePlotAltair, page)
@@ -482,6 +491,7 @@ def PlotAltair(model, measure, post_process: Callable | None = None, grid=False)
 
     Returns:
         solara.FigureAltair: A component for rendering the plot.
+
     """
     update_counter.get()
     df = model.datacollector.get_model_vars_dataframe().reset_index()

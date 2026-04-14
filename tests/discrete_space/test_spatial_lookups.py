@@ -203,7 +203,7 @@ def test_all_spaces():
     for space in spaces:
         cell = space.select_random_empty_cell()
         pos = cell.position
-        assert isinstance(pos, (np.ndarray, list, tuple))
+        assert isinstance(pos, np.ndarray | list | tuple)
 
         found_cell = space.find_nearest_cell(pos)
         assert cell == found_cell

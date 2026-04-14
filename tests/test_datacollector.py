@@ -25,7 +25,8 @@ class MockAgent(Agent):
         self.val += 1
         self.val2 += 1
 
-    def double_val(self):  # noqa: D102
+    def double_val(self):
+        """Double val."""
         return self.val * 2
 
     def write_final_values(self):  # D103
@@ -41,7 +42,8 @@ class MockAgentA(MockAgent):
         super().__init__(model, val)
         self.type_a_val = val * 2
 
-    def step(self):  # noqa: D102
+    def step(self):
+        """Run one step."""
         super().step()
         self.type_a_val = self.val * 2
 
@@ -53,7 +55,8 @@ class MockAgentB(MockAgent):
         super().__init__(model, val)
         self.type_b_val = val * 3
 
-    def step(self):  # noqa: D102
+    def step(self):
+        """Run one step."""
         super().step()
         self.type_b_val = self.val * 3
 
@@ -88,14 +91,16 @@ class MockModel(Model):
             tables={"Final_Values": ["agent_id", "final_value"]},
         )
 
-    def test_model_calc_comp(self, input1, input2):  # noqa: D102
+    def test_model_calc_comp(self, input1, input2):
+        """Test model calc comp."""
         if input2 > 0:
             return (self.model_val * input1) / input2
         else:
             # Return None for invalid input (input2 must be positive for division)
             return None
 
-    def step(self):  # noqa: D102
+    def step(self):
+        """Run one step."""
         self.agents.do("step")
         self.datacollector.collect(self)
 
@@ -122,7 +127,8 @@ class MockModelWithAgentTypes(Model):
             },
         )
 
-    def step(self):  # noqa: D102
+    def step(self):
+        """Run one step."""
         self.agents.do("step")
         self.datacollector.collect(self)
 
@@ -143,7 +149,8 @@ class TestDataCollector(unittest.TestCase):
         for agent in self.model.agents:
             agent.write_final_values()
 
-    def step_assertion(self, model_var):  # noqa: D102
+    def step_assertion(self, model_var):
+        """Run one step."""
         for element in model_var:
             if model_var.index(element) < 4:
                 assert element == 10
@@ -336,6 +343,7 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         """Test agent-type-specific reporter with function and parameters."""
 
         def test_func(agent, multiplier):
+            """Test func."""
             return agent.val * multiplier
 
         model = MockModelWithAgentTypes()
@@ -424,6 +432,7 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         """Test error when accessing non-existent method."""
 
         def bad_method(model):
+            """Handle bad method."""
             raise RuntimeError("This method is not valid.")
 
         dc_method = DataCollector(model_reporters={"test": bad_method})
@@ -575,6 +584,7 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         """Test valid model list reporters still work with empty params."""
 
         def constant_value():
+            """Handle constant value."""
             return self.model.num_agents
 
         dc_function = DataCollector(
@@ -589,6 +599,7 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         """Test agent reporters still accept complex parameter values."""
 
         def describe_agent(agent, prefix, config):
+            """Handle describe agent."""
             return f"{prefix}:{agent.unique_id}:{config['scale']}"
 
         model = Model()
@@ -605,6 +616,7 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
         """Test agenttype reporters still work with tuple params."""
 
         def scale_value(agent, multiplier):
+            """Scale value."""
             return agent.val * multiplier
 
         model = MockModelWithAgentTypes()
@@ -653,6 +665,7 @@ class TestMethodReporterValidation(unittest.TestCase):
 
             def broken_method(self):
                 # This method has a bug - references non-existent attribute
+                """Handle broken method."""
                 return self.nonexistent_attr
 
         model = BrokenModel()
@@ -681,6 +694,7 @@ class TestMethodReporterValidation(unittest.TestCase):
                 )
 
             def get_value(self):
+                """Get value."""
                 return self.value
 
         model = WorkingModel()
@@ -703,6 +717,7 @@ class TestMethodReporterValidation(unittest.TestCase):
                 )
 
             def raising_method(self):
+                """Handle raising method."""
                 raise ValueError("Something went wrong in the reporter")
 
         model = ExceptionModel()
@@ -733,6 +748,7 @@ class TestMethodReporterValidation(unittest.TestCase):
                 )
 
             def double_value(self):
+                """Double value."""
                 return self.value * 2
 
         model = MixedModel()
@@ -762,6 +778,7 @@ class TestMethodReporterValidation(unittest.TestCase):
 
             def count_calls(self):
                 # This method takes no args besides self (which is already bound)
+                """Count calls."""
                 self.call_count += 1
                 return self.call_count
 
@@ -779,6 +796,7 @@ class TestPartialReporterValidation(unittest.TestCase):
         """Test that partial model reporters receive the model argument."""
 
         def count_agents(model, multiplier):
+            """Count agents."""
             return len(model.agents) * multiplier
 
         model = Model()
@@ -813,6 +831,7 @@ def test_mutable_data_independence():
             self.datacollector = DataCollector(agent_reporters={"Data": "data"})
 
         def step(self):
+            """Run one step."""
             self.datacollector.collect(self)
             self.agent.data.append(self.time)  # Modify after collection
 

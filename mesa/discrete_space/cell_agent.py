@@ -33,11 +33,13 @@ class HasCell:
     _mesa_cell: Cell | None = None
 
     @property
-    def cell(self) -> Cell | None:  # noqa: D102
+    def cell(self) -> Cell | None:
+        """Return the cell."""
         return self._mesa_cell
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
+        """Return the cell."""
         old_cell = self._mesa_cell
 
         # No-op if assigning to same cell
@@ -66,6 +68,7 @@ class BasicMovement:
 
         Args:
             direction: The direction to move in.
+
         """
         new_cell = self.cell.connections.get(direction)
         if new_cell is not None:
@@ -89,6 +92,7 @@ class FixedCell(HasCell):
 
     @cell.setter
     def cell(self, cell: Cell | None) -> None:
+        """Return the cell."""
         if self._mesa_cell is not None:
             raise ValueError("Cannot move agent in FixedCell")
         cell.add_agent(self)
@@ -100,6 +104,7 @@ class CellAgent(Agent, HasCell, BasicMovement):
 
     Attributes:
         cell (Cell): The cell the agent is currently in.
+
     """
 
     def remove(self):
@@ -141,6 +146,7 @@ class Grid2DMovingAgent(CellAgent):
         Args:
             direction: The cardinal direction to move in.
             distance: The distance to move.
+
         """
         direction = direction.lower()  # Convert direction to lowercase
 

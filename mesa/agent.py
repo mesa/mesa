@@ -58,6 +58,7 @@ class Agent[M: Model]:
         Notes:
             to make proper use of python's super, in each class remove the arguments and
             keyword arguments you need and pass on the rest to super
+
         """
         super().__init__(*args, **kwargs)
 
@@ -92,6 +93,7 @@ class Agent[M: Model]:
             cleanup is safe and avoids callbacks touching agent state
             during teardown. Models that need cleanup should opt in
             explicitly.
+
         """
         if self.current_action is not None:
             self.current_action._cancel_event()  # Silent cleanup, no callback
@@ -138,7 +140,7 @@ class Agent[M: Model]:
         # Prepare positional argument iterators
         arg_iters = []
         for arg in args:
-            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
+            if isinstance(arg, list | np.ndarray | tuple | pd.Series) and len(arg) == n:
                 arg_iters.append(arg)
             else:
                 arg_iters.append(itertools.repeat(arg, n))
@@ -147,7 +149,7 @@ class Agent[M: Model]:
         kw_keys = list(kwargs.keys())
         kw_val_iters = []
         for v in kwargs.values():
-            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
+            if isinstance(v, list | np.ndarray | tuple | pd.Series) and len(v) == n:
                 kw_val_iters.append(v)
             else:
                 kw_val_iters.append(itertools.repeat(v, n))
@@ -190,9 +192,10 @@ class Agent[M: Model]:
         Note:
             If you need to pass variable data or sequences, add them as columns
             to the DataFrame before calling this method.
+
         """
         for key, value in kwargs.items():
-            if isinstance(value, (list, np.ndarray, tuple, pd.Series)):
+            if isinstance(value, list | np.ndarray | tuple | pd.Series):
                 raise TypeError(
                     f"from_dataframe does not support sequence data in kwargs ('{key}'). "
                     "Please add this data to the DataFrame before calling from_dataframe."
@@ -241,6 +244,7 @@ class Agent[M: Model]:
         Raises:
             ValueError: If the agent is already performing an action,
                 or if the action doesn't belong to this agent.
+
         """
         if self.current_action is not None:
             raise ValueError(
@@ -275,6 +279,7 @@ class Agent[M: Model]:
             True if the new action was started (either no current action,
             or the current one was successfully interrupted). False if the
             current action is non-interruptible.
+
         """
         if self.current_action is not None and not self.current_action.interrupt():
             return False
@@ -291,6 +296,7 @@ class Agent[M: Model]:
 
         Returns:
             True if an action was cancelled, False if idle.
+
         """
         if self.current_action is None:
             return False

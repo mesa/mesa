@@ -60,6 +60,7 @@ def evaluate_combination(
 
     Returns:
         Optional: The evaluated group and its value, or None.
+
     """
     if evaluation_func:
         value = evaluation_func(candidate_group)
@@ -91,6 +92,7 @@ def find_combinations(
     Returns:
         List: The list of valuable combinations, in a tuple first agentset of valuable combination  and then the value of
         the combination.
+
     """
     combinations = []
     # Allow one size or range of sizes to be passed
@@ -124,6 +126,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
     Returns:
         type(Agent) if agent type exists
         None otherwise
+
     """
     agent_type_names = {}
     for agent in agents_by_type:
@@ -146,7 +149,8 @@ def create_meta_agent(
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
-    Parameters:
+    Parameters
+    ----------
     model (Any): The model instance.
     new_agent_class (str): The name of the new meta-agent class.
     agents (Iterable[Any]): The agents to be included in the meta-agent.
@@ -158,7 +162,9 @@ def create_meta_agent(
     from constituting_-agents.
 
     Returns:
+    -------
         - MetaAgent Instance
+
     """
     # Convert agents to dict, to ensure uniqueness,
     # we need a dict, not a set to keep stuff deterministic
@@ -177,10 +183,12 @@ def create_meta_agent(
     ) -> None:
         """Add methods to the meta-agent instance.
 
-        Parameters:
+        Parameters
+        ----------
         meta_agent_instance (Any): The meta-agent instance.
         agents (Iterable[Any]): The agents to derive methods from.
         meta_methods (Dict[str, Callable]): methods to be added to the meta-agent.
+
         """
         resolved_meta_methods = dict(meta_methods or {})
         if assume_constituting_agent_methods:
@@ -204,11 +212,13 @@ def create_meta_agent(
     ) -> None:
         """Add attributes to the meta-agent instance.
 
-        Parameters:
+        Parameters
+        ----------
         meta_agent_instance (Any): The meta-agent instance.
         agents (Iterable[Any]): The agents to derive attributes from.
         meta_attributes (Dict[str, Any]): Attributes to be added to the
         meta-agent.
+
         """
         # Prevent collision of attributes with meta-agent instantiation
         mesa_primitives = [
@@ -300,6 +310,7 @@ class MetaAgent(Agent):
             agents (Optional[set[Agent]], optional): The set of agents to
             include in the MetaAgent. Defaults to None.
             name (str, optional): The name of the MetaAgent. Defaults to "MetaAgent".
+
         """
         super().__init__(model)
         self._constituting_set = AgentSet(agents or [], random=model.random)
@@ -338,6 +349,7 @@ class MetaAgent(Agent):
 
         Returns:
             dict[type, list[Agent]]: A dictionary of constituting_agents grouped by type.
+
         """
         constituting_agents_by_type = {}
         for agent in self._constituting_set:
@@ -353,6 +365,7 @@ class MetaAgent(Agent):
 
         Returns:
             set[type]: A set of unique types of the constituting_agents.
+
         """
         return {type(agent) for agent in self._constituting_set}
 
@@ -367,6 +380,7 @@ class MetaAgent(Agent):
 
         Raises:
             ValueError: If no constituting_agent of the specified type is found.
+
         """
         try:
             return self.constituting_agents_by_type[agent_type][0]
@@ -383,6 +397,7 @@ class MetaAgent(Agent):
 
         Args:
             new_agents (set[Agent]): The agents to add to MetaAgent constituting_set.
+
         """
         for agent in new_agents:
             self._constituting_set.add(agent)
@@ -399,6 +414,7 @@ class MetaAgent(Agent):
 
         Args:
             remove_agents (set[Agent]): The agents to remove.
+
         """
         for agent in remove_agents:
             self._constituting_set.discard(agent)

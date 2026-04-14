@@ -69,6 +69,7 @@ class Action:
         Actions hold a reference to their agent, mirroring how agents
         reference their model. This allows actions to query and modify
         agent state directly in their hooks.
+
     """
 
     def __init__(
@@ -92,6 +93,7 @@ class Action:
                 a float or a callable that receives the agent and returns
                 a float. Resolved when start() is called.
             interruptible: If False, interrupt() will fail and return False.
+
         """
         self.agent = agent
         self.model = agent.model
@@ -125,6 +127,7 @@ class Action:
 
     @name.setter
     def name(self, value: str) -> None:
+        """Return the name."""
         self._name = value
 
     @property
@@ -204,6 +207,7 @@ class Action:
             interruption from cancellation, check self.interruptible:
             a non-interruptible action that receives on_interrupt was
             necessarily cancelled, not interrupted.
+
         """
 
     # --- Execution (called by Agent, not typically by users) ---
@@ -220,6 +224,7 @@ class Action:
 
         Raises:
             ValueError: If the action is not in PENDING or INTERRUPTED state.
+
         """
         resuming = self.state is ActionState.INTERRUPTED
 
@@ -275,6 +280,7 @@ class Action:
         Returns:
             True if the action was interrupted, False if it could not
             be interrupted (non-interruptible or not active).
+
         """
         if self.state is not ActionState.ACTIVE:
             return False
@@ -302,6 +308,7 @@ class Action:
 
         Returns:
             True if the action was cancelled, False if not active.
+
         """
         if self.state is not ActionState.ACTIVE:
             return False

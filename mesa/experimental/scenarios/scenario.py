@@ -43,6 +43,7 @@ def rescale_samples(
     -----
     The rescaling is performed using NumPy broadcasting. If ``inplace=True``,
     the original ``samples`` array is overwritten.
+
     """
     samples = np.asarray(samples)
     ranges = np.asarray(ranges)
@@ -85,6 +86,7 @@ class Scenario:
         Class-level attributes in subclasses serve as default values.
         Scenario instances are frozen after initialisation; parameters cannot be modified.
         To create replications with derived seeds, use replicate().
+
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
@@ -135,6 +137,7 @@ class Scenario:
             scenario_id: Index of the design point in the experiment matrix.
             replication_id: Index of the stochastic replication for this design point.
             **kwargs: All other scenario parameters (override class-level defaults).
+
         """
         self._frozen = False
         self.scenario_id = (
@@ -222,6 +225,7 @@ class Scenario:
 
         Returns:
             A list of n Scenario instances with replication_id 0..n-1.
+
         """
         inner = self.initial_rng_state["state"]["state"]
         entropy = inner.tolist() if hasattr(inner, "tolist") else inner

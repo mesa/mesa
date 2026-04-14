@@ -35,6 +35,7 @@ class Delaunay:
         Args:
             center: Optional position for the center of the frame. Default (0,0)
             radius: Optional distance from corners to the center.
+
         """
         center = np.asarray(center)
         # Create coordinates for the corners of the frame
@@ -171,7 +172,8 @@ class Delaunay:
         return vor_coors, regions
 
 
-def round_float(x: float) -> int:  # noqa
+def round_float(x: float) -> int:
+    """Handle round float."""
     return int(x * 500)
 
 
@@ -248,6 +250,7 @@ class VoronoiGrid(DiscreteSpace):
 
         Returns:
             Cell: The Voronoi cell whose centroid is nearest to position
+
         """
         position = np.asarray(position)
 

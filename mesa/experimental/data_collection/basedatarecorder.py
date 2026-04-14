@@ -60,6 +60,7 @@ class DatasetConfig:
 
         # Warmup phase: skip first 100 steps, collect 100-200
         DatasetConfig(interval=1, start_time=100, end_time=200)
+
     """
 
     interval: int | float = 1
@@ -93,6 +94,7 @@ class DatasetConfig:
 
         Returns:
             True if collection should happen, False otherwise
+
         """
         if not self.enabled:
             return False
@@ -113,6 +115,7 @@ class DatasetConfig:
 
         Args:
             current_time: The current simulation time
+
         """
         self._next_collection = current_time + self.interval
 
@@ -135,6 +138,7 @@ class BaseDataRecorder(ABC):
             model: The model to observe.
             config: Config mapping dataset names to configuration.
                     Values can be dicts or DatasetConfig objects.
+
         """
         self.model = model
         self.registry: DataRegistry = getattr(model, "data_registry", None)

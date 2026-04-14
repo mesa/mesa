@@ -27,9 +27,12 @@ from mesa.visualization.space_renderer import SpaceRenderer
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
-    def test_unsupported_type(self):  # noqa: D102
+    def test_unsupported_type(self):
+        """Test unsupported type."""
+
         @solara.component
         def Test(user_params):
+            """Render the test component."""
             UserInputs(user_params)
 
         """unsupported input type should raise ValueError"""
@@ -46,6 +49,7 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
 
         @solara.component
         def Test(user_params):
+            """Render the test component."""
             UserInputs(user_params)
 
         options = {"type": "InputText", "value": "JohnDoe", "label": "Agent Name"}
@@ -54,9 +58,12 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert textfield.v_model == "JohnDoe"
         assert textfield.label == "Agent Name"
 
-    def test_slider_int(self):  # noqa: D102
+    def test_slider_int(self):
+        """Test slider int."""
+
         @solara.component
         def Test(user_params):
+            """Render the test component."""
             UserInputs(user_params)
 
         options = {
@@ -77,9 +84,12 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
         assert slider_int.max == options["max"]
         assert slider_int.step == options["step"]
 
-    def test_checkbox(self):  # noqa: D102
+    def test_checkbox(self):
+        """Test checkbox."""
+
         @solara.component
         def Test(user_params):
+            """Render the test component."""
             UserInputs(user_params)
 
         options = {"type": "Checkbox", "value": True, "label": "On"}
@@ -95,6 +105,7 @@ class TestMakeUserInput(unittest.TestCase):  # noqa: D101
 
         @solara.component
         def Test(user_params):
+            """Render the test component."""
             UserInputs(user_params)
 
         options = {"type": "SliderInt", "value": 10}
@@ -135,9 +146,11 @@ def test_solara_viz_backends(mocker, backend):
     model = MockModel()
 
     def agent_portrayal(_):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(marker="o", color="gray")
 
     def property_layer_portrayal(_):
+        """Handle property layer portrayal."""
         return PropertyLayerStyle(colormap="viridis")
 
     renderer = (

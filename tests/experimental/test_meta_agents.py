@@ -30,6 +30,7 @@ def setup_agents():
 
     Returns:
         tuple: A tuple containing the model and a list of agents.
+
     """
     model = Model()
     agent1 = CustomAgent(model)
@@ -46,6 +47,7 @@ def test_create_meta_agent_new_class(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = create_meta_agent(
@@ -70,6 +72,7 @@ def test_create_meta_agent_existing_class(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
 
@@ -108,6 +111,7 @@ def test_add_agents_to_existing_meta_agent(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
 
@@ -143,6 +147,7 @@ def test_meta_agent_integration(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
 
@@ -173,10 +178,12 @@ def test_evaluate_combination(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
 
     def evaluation_func(agent_set):
+        """Handle evaluation func."""
         return len(agent_set)
 
     result = evaluate_combination(tuple(agents), model, evaluation_func)
@@ -189,14 +196,17 @@ def test_find_combinations(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     agent_set = set(agents)
 
     def evaluation_func(agent_set):
+        """Handle evaluation func."""
         return len(agent_set)
 
     def filter_func(combinations):
+        """Handle filter func."""
         return [combo for combo in combinations if combo[1] > 2]
 
     combinations = find_combinations(
@@ -216,6 +226,7 @@ def test_find_combinations_allows_zero_value(setup_agents):
     model, agents = setup_agents
 
     def evaluation_func(agent_group):
+        """Handle evaluation func."""
         return 0.0
 
     combinations = find_combinations(
@@ -234,6 +245,7 @@ def test_meta_agent_len(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = MetaAgent(model, set(agents))
@@ -245,6 +257,7 @@ def test_meta_agent_iter(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = MetaAgent(model, set(agents))
@@ -256,6 +269,7 @@ def test_meta_agent_contains(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = MetaAgent(model, set(agents))
@@ -268,6 +282,7 @@ def test_meta_agent_add_constituting_agents(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = MetaAgent(model, {agents[0], agents[1]})
@@ -280,6 +295,7 @@ def test_meta_agent_remove_constituting_agents(setup_agents):
 
     Args:
         setup_agents (tuple): The model and agents fixture.
+
     """
     model, agents = setup_agents
     meta_agent = MetaAgent(model, set(agents))

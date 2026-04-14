@@ -42,7 +42,8 @@ class LifeTimeModel(Model):
             for _ in range(self.n_agents - len(self.agents)):
                 FiniteLifeAgent(self.agent_lifetime, self)
 
-    def run_model(self, step_count=100):  # noqa: D102
+    def run_model(self, step_count=100):
+        """Run model."""
         for _ in range(step_count):
             self.step()
 
@@ -59,14 +60,16 @@ class FiniteLifeAgent(Agent):
         self.steps = 0
         self.model = model
 
-    def step(self):  # noqa: D102
+    def step(self):
+        """Run one step."""
         deactivated = self.deactivate()
         if not deactivated:
             self.steps += 1  # keep track of how many ticks are seen
             if np.random.binomial(1, 0.1) != 0:  # 10% chance of dying
                 self.remove()
 
-    def deactivate(self):  # noqa: D102
+    def deactivate(self):
+        """Handle deactivate."""
         self.remaining_life -= 1
         if self.remaining_life < 0:
             self.remove()
@@ -75,7 +78,8 @@ class FiniteLifeAgent(Agent):
 
 
 class TestAgentLifespan(unittest.TestCase):  # noqa: D101
-    def setUp(self):  # noqa: D102
+    def setUp(self):
+        """Set up."""
         self.model = LifeTimeModel()
         self.model.run_model()
         self.df = self.model.datacollector.get_agent_vars_dataframe()
@@ -85,7 +89,8 @@ class TestAgentLifespan(unittest.TestCase):  # noqa: D101
         """Each agent should be activated no more than one time."""
         assert self.df.steps.max() == 1
 
-    def test_agent_lifetime(self):  # noqa: D102
+    def test_agent_lifetime(self):
+        """Test agent lifetime."""
         lifetimes = self.df.groupby(["AgentID"]).agg({"Step": len})
         assert lifetimes.Step.max() == 2
 

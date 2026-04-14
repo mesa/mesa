@@ -175,6 +175,7 @@ class ComputedState:
             name: the name of the computed property
             func: the computation function
             dependencies: optional iterable of explicit dependencies to track
+
         """
         self.owner = owner
         self.name = name
@@ -247,13 +248,16 @@ def computed_property(
     Args:
         func: The function to be decorated.
         dependencies: Optional iterable of (observable_name, signal_type) tuples to explicitly track.
+
     """
 
     def decorator(computation_func):
+        """Decorate the target function."""
         key = f"_computed_{computation_func.__name__}"
 
         @functools.wraps(computation_func)
         def wrapper(self: HasEmitters):
+            """Wrap the decorated function."""
             global CURRENT_COMPUTED  # noqa: PLW0603
 
             if not hasattr(self, key):
@@ -407,9 +411,8 @@ class HasEmitters:
                 if key in subs_dict:
                     remaining = []
                     for ref in subs_dict[key]:
-                        if subscriber := ref():  # noqa: SIM102
-                            if subscriber != handler:
-                                remaining.append(ref)
+                        if (subscriber := ref()) and subscriber != handler:
+                            remaining.append(ref)
 
                     if remaining:
                         subs_dict[key] = remaining
@@ -447,6 +450,7 @@ class HasEmitters:
             observable_name: name of the Observable to unsubscribe from
             signal_type: the type of signal on the Observable to unsubscribe to
             handler: the handler that is unsubscribing
+
         """
         cls._unregister_observer(
             cls._class_subscribers, observable_name, signal_type, handler
@@ -486,6 +490,7 @@ class HasEmitters:
 
         Args:
             name: name of the Observable to unsubscribe for all signal types
+
         """
         cls._clear_all_subscriptions(cls._class_subscribers, name)
 
@@ -573,7 +578,7 @@ class HasEmitters:
             They will be updated when aggregated signals are dispatched on exit.
 
         """
-        from .batching import _BatchContext  # noqa: PLC0415
+        from .batching import _BatchContext
 
         return _BatchContext(self)
 
@@ -587,7 +592,7 @@ class HasEmitters:
             triggering signals are dropped entirely.
 
         """
-        from .batching import _SuppressContext  # noqa: PLC0415
+        from .batching import _SuppressContext
 
         return _SuppressContext(self)
 
@@ -608,7 +613,7 @@ class HasEmitters:
         """Convert signal_type to an iterable of signal types."""
         if signal_type is ALL:
             return None  # None is used to indicate all signal types
-        if isinstance(signal_type, (str, SignalType)):
+        if isinstance(signal_type, str | SignalType):
             return [signal_type]
         else:
             return signal_type
@@ -629,6 +634,7 @@ class HasEmitters:
             observable_name: name of the Observable to subscribe to
             signal_type: the type of signal on the Observable to subscribe to
             handler: the handler to call
+
         """
         cls._register_observer(
             cls._class_subscribers, observable_name, signal_type, handler
@@ -707,12 +713,14 @@ def emit(observable_name, signal_to_emit, when: Literal["before", "after"] = "af
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
+                """Wrap the decorated function."""
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return method(self, *args, **kwargs)
         else:
 
             @functools.wraps(method)
             def wrapper(self, *args, **kwargs):
+                """Wrap the decorated function."""
                 ret = method(self, *args, **kwargs)
                 self.notify(observable_name, signal_to_emit, args=args, **kwargs)
                 return ret

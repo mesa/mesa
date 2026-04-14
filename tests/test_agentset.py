@@ -35,14 +35,17 @@ class AgentDoTest(Agent):
         super().__init__(model)
         self.agent_set = None
 
-    def get_unique_identifier(self):  # noqa: D102
+    def get_unique_identifier(self):
+        """Get unique identifier."""
         return self.unique_id
 
-    def do_add(self):  # noqa: D102
+    def do_add(self):
+        """Handle do add."""
         agent = AgentDoTest(self.model)
         self.agent_set.add(agent)
 
-    def do_remove(self):  # noqa: D102
+    def do_remove(self):
+        """Handle do remove."""
         self.agent_set.remove(self)
 
 
@@ -70,6 +73,7 @@ def test_agentset():
         assert a1 == a2
 
     def test_function(agent):
+        """Test function."""
         return agent.unique_id > 5
 
     assert len(agentset.select(at_most=0.2)) == 2  # Select 20% of agents
@@ -90,6 +94,7 @@ def test_agentset():
     assert len(agentset.shuffle(inplace=False).select(at_most=5)) == 5
 
     def test_function(agent):
+        """Test function."""
         return agent.unique_id
 
     assert all(
@@ -318,9 +323,11 @@ def test_agentset_do_callable():
 
     # setup for actual function tests
     def add_function(agent):
+        """Handle add function."""
         agent.do_add()
 
     def remove_function(agent):
+        """Handle remove function."""
         agent.do_remove()
 
     # setup again for actual function tests
@@ -422,6 +429,7 @@ def test_agentset_agg():
 
     # Test aggregation with a custom function
     def custom_func(values):
+        """Handle custom func."""
         return sum(values) / len(values)
 
     custom_avg_energy = agentset.agg("energy", custom_func)
@@ -507,6 +515,7 @@ def test_agentset_shuffle_do():
             self.called = False
 
         def test_method(self):
+            """Test method."""
             self.called = True
 
     agents = [TestAgentShuffleDo(model) for _ in range(100)]
@@ -538,10 +547,12 @@ def test_agentset_shuffle_do():
             self.is_alive = True
 
         def remove(self):
+            """Handle remove."""
             super().remove()
             self.is_alive = False
 
         def step(self):
+            """Run one step."""
             if not self.is_alive:
                 raise Exception
 
@@ -638,6 +649,7 @@ def test_agentset_groupby():
             self.value = self.unique_id * 10
 
         def get_unique_identifier(self):
+            """Get unique identifier."""
             return self.unique_id
 
     model = Model()
@@ -693,6 +705,7 @@ def test_agentset_groupby():
 
     # Test with a custom aggregation function
     def custom_agg(values):
+        """Handle custom agg."""
         return sum(values) / len(values) if values else 0
 
     custom_result = groups.agg("value", custom_agg)
@@ -810,6 +823,7 @@ def test_hardkeyagentset_str():
 
         def run(self):
             # If "Killer" runs, they remove "Victim" from the set
+            """Run the task."""
             if self.name == "Killer":  # pragma: no cover
                 victim = next(a for a in self.model.hard_set if a.name == "Victim")
                 self.model.hard_set.remove(victim)

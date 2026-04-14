@@ -35,6 +35,7 @@ class BaseSpaceDrawer:
 
         Args:
             space: Grid/Space type to draw.
+
         """
         self.space = space
         self.viz_xmin = None
@@ -47,6 +48,7 @@ class BaseSpaceDrawer:
 
         Returns:
             A tuple of (xmin, xmax, ymin, ymax) for visualization limits.
+
         """
         return (
             self.viz_xmin,
@@ -64,6 +66,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
 
         Args:
             space: The orthogonal grid space to draw
+
         """
         super().__init__(space)
         self.s_default = (180 / max(self.space.width, self.space.height)) ** 2
@@ -86,6 +89,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             The modified axes object
+
         """
         fig_kwargs = {
             "figsize": draw_space_kwargs.pop("figsize", (8, 8)),
@@ -128,6 +132,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             Altair chart object
+
         """
         # for axis and grid styling
         axis_kwargs = {
@@ -188,6 +193,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
 
         Args:
             space: The hexagonal grid space to draw
+
         """
         super().__init__(space)
         self.s_default = (180 / max(self.space.width, self.space.height)) ** 2
@@ -261,6 +267,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             The modified axes object
+
         """
         fig_kwargs = {
             "figsize": draw_space_kwargs.pop("figsize", (8, 8)),
@@ -300,6 +307,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             Altair chart object representing the hexagonal grid.
+
         """
         mark_kwargs = {
             "color": draw_chart_kwargs.pop("color", "black"),
@@ -361,6 +369,7 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
             space: The network space to draw
             layout_alg: NetworkX layout algorithm to use
             layout_kwargs: Keyword arguments for the layout algorithm
+
         """
         super().__init__(space)
         self.layout_alg = layout_alg
@@ -403,6 +412,7 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             The modified axes object.
+
         """
         if ax is None:
             _, ax = plt.subplots()
@@ -447,6 +457,7 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             Altair chart object representing the network.
+
         """
         nodes_df = pd.DataFrame(self.pos).T.reset_index()
         nodes_df.columns = ["node", "x", "y"]
@@ -520,6 +531,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
         Raises:
             ValueError: If the space has fewer than two dimensions.
             ValueError: If viz_dims does not contain exactly two distinct valid indices.
+
         """
         super().__init__(space)
         # Default is the classic 2D XY plane.
@@ -534,6 +546,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
 
         Raises:
             ValueError: If viz_dims is invalid for the underlying space.
+
         """
         self._validate_viz_dims(viz_dims)
         # Normalize to a plain tuple[int, int]
@@ -548,7 +561,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
                 "Continuous space visualization requires at least 2 dimensions"
             )
 
-        if not isinstance(viz_dims, (tuple, list)) or len(viz_dims) != 2:
+        if not isinstance(viz_dims, tuple | list) or len(viz_dims) != 2:
             raise ValueError("viz_dims must contain exactly two distinct dimensions")
 
         i, j = viz_dims
@@ -598,6 +611,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             The modified axes object.
+
         """
         viz_dims = draw_space_kwargs.pop("viz_dims", None)
         if viz_dims is not None:
@@ -630,6 +644,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             An Altair Chart object representing the space.
+
         """
         viz_dims = draw_chart_kwargs.pop("viz_dims", None)
         if viz_dims is not None:
@@ -659,6 +674,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
 
         Args:
             space: The Voronoi grid space to draw
+
         """
         super().__init__(space)
         # Use the Cell.position property for calculations
@@ -694,6 +710,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
         INSIDE, LEFT, RIGHT, BOTTOM, TOP = 0, 1, 2, 4, 8  # noqa: N806
 
         def compute_outcode(x, y):
+            """Compute outcode."""
             code = INSIDE
             if x < min_x:
                 code |= LEFT
@@ -779,6 +796,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             The modified axes object
+
         """
         if ax is None:
             _, ax = plt.subplots()
@@ -813,6 +831,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
 
         Returns:
             An Altair Chart object representing the Voronoi diagram.
+
         """
         final_segments, clip_box = self._get_clipped_segments()
 

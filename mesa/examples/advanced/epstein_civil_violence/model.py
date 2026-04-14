@@ -30,8 +30,7 @@ class EpsteinScenario(Scenario):
 
 
 class EpsteinCivilViolence(mesa.Model):
-    """
-    Model 1 from "Modeling civil violence: An agent-based computational
+    """Model 1 from "Modeling civil violence: An agent-based computational
     approach," by Joshua Epstein.
     http://www.pnas.org/content/99/suppl_3/7243.full
 
@@ -98,9 +97,7 @@ class EpsteinCivilViolence(mesa.Model):
         self.datacollector.collect(self)
 
     def step(self):
-        """
-        Advance the model by one step and collect data.
-        """
+        """Advance the model by one step and collect data."""
         match self.scenario.activation_order:
             case "Random":
                 self.agents.shuffle_do("step")

@@ -2,10 +2,7 @@ import mesa
 
 
 class AllianceAgent(mesa.Agent):
-    """
-    Agent has three attributes power (float), position (float) and level (int)
-
-    """
+    """Agent has three attributes power (float), position (float) and level (int)"""
 
     def __init__(self, model, power, position, level=0):
         super().__init__(model)

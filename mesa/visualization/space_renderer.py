@@ -1,21 +1,22 @@
-"""Space rendering module for Mesa visualizations.
+"""space_renderer.py.
 
-This module provides functionality to render Mesa model spaces with different
-backends, supporting various space types and visualization components.
+Handles rendering of Mesa agents and spaces.
+Supports both legacy dict portrayals and AgentPortrayalStyle.
 """
 
-from __future__ import annotations
+from __future__ import (
+    annotations,  # MUST be first executable statement (future imports may follow docstring)
+)
 
+# Standard library
 import warnings
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Literal
-
-if TYPE_CHECKING:
-    from mesa.visualization.components import PropertyLayerStyle
+from typing import Literal
 
 import altair as alt
 import pandas as pd
 
+# Mesa imports
 import mesa
 from mesa.discrete_space import (
     OrthogonalMooreGrid,
@@ -24,6 +25,7 @@ from mesa.discrete_space import (
 )
 from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.components import PropertyLayerStyle
 from mesa.visualization.space_drawers import (
     ContinuousSpaceDrawer,
     HexSpaceDrawer,
@@ -32,9 +34,21 @@ from mesa.visualization.space_drawers import (
     VoronoiSpaceDrawer,
 )
 
+# Warnings filter
+warnings.simplefilter("once", FutureWarning)
+
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
+
+
+def process_agent_portrayal(portrayal):
+    """Normalize legacy dict portrayals into AgentPortrayalStyle instances."""
+    from mesa.visualization.components import AgentPortrayalStyle
+
+    if isinstance(portrayal, dict):
+        return AgentPortrayalStyle(**portrayal)
+    return portrayal
 
 
 class SpaceRenderer:
@@ -54,6 +68,7 @@ class SpaceRenderer:
         Args:
             model (mesa.Model): The Mesa model to render.
             backend (Literal["matplotlib", "altair"] | None): The visualization backend to use.
+
         """
         self.space = getattr(model, "grid", getattr(model, "space", None))
 
@@ -97,6 +112,7 @@ class SpaceRenderer:
 
         Raises:
             ValueError: If the space type is not supported.
+
         """
         if isinstance(self.space, HexGrid):
             return HexSpaceDrawer(self.space)
@@ -124,6 +140,7 @@ class SpaceRenderer:
 
         Returns:
             dict: Dictionary with mapped coordinates appropriate for the space type.
+
         """
         mapped_arguments = arguments.copy()
 
@@ -157,6 +174,7 @@ class SpaceRenderer:
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
+
         """
         self.draw_space_kwargs = kwargs
         self.space_mesh = None
@@ -173,6 +191,7 @@ class SpaceRenderer:
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
+
         """
         self.agent_portrayal = agent_portrayal
         self.draw_agent_kwargs = kwargs
@@ -191,6 +210,7 @@ class SpaceRenderer:
 
         Returns:
             SpaceRenderer: The current instance for method chaining.
+
         """
         self.property_layer_portrayal = property_layer_portrayal
         self.property_layer_mesh = None
@@ -206,6 +226,7 @@ class SpaceRenderer:
 
         Returns:
             The visual representation of the space structure.
+
         """
         if kwargs:
             warnings.warn(
@@ -240,6 +261,7 @@ class SpaceRenderer:
 
         Returns:
             The visual representation of the agents.
+
         """
         if agent_portrayal is not None:
             warnings.warn(
@@ -259,9 +281,20 @@ class SpaceRenderer:
             )
             self.draw_agent_kwargs.update(kwargs)
 
+        def normalized_agent_portrayal(agent):
+            """Handle normalized agent portrayal."""
+            try:
+                portrayal = self.agent_portrayal(agent)
+                return process_agent_portrayal(portrayal)
+            except Exception:
+                # Fallback to default portrayal if agent attributes are missing or malformed
+                return process_agent_portrayal({})
+
         # Prepare data for agent plotting
         arguments = self.backend_renderer.collect_agent_data(
-            self.space, self.agent_portrayal, default_size=self.space_drawer.s_default
+            self.space,
+            normalized_agent_portrayal,
+            default_size=self.space_drawer.s_default,
         )
         arguments = self._map_coordinates(arguments)
 
@@ -283,6 +316,7 @@ class SpaceRenderer:
 
         Raises:
             Exception: If no property layers are found on the space.
+
         """
         if property_layer_portrayal is not None:
             warnings.warn(
@@ -294,9 +328,6 @@ class SpaceRenderer:
             )
             self.property_layer_portrayal = property_layer_portrayal
 
-        # Import here to avoid circular imports
-        from mesa.visualization.components import PropertyLayerStyle  # noqa: PLC0415
-
         def _dict_to_callable(portrayal_dict):
             """Convert legacy dict portrayal to callable.
 
@@ -305,9 +336,11 @@ class SpaceRenderer:
 
             Returns:
                 Callable: Function that returns PropertyLayerStyle.
+
             """
 
             def style_callable(layer_object):
+                """Handle style callable."""
                 layer_name = layer_object
                 params = portrayal_dict.get(layer_name)
 
@@ -365,6 +398,7 @@ class SpaceRenderer:
             agent_portrayal: (Deprecated) Function for agent portrayal. Use setup_agents() instead.
             property_layer_portrayal: (Deprecated) Function for property layer portrayal. Use setup_property_layer() instead.
             **kwargs: (Deprecated) Additional keyword arguments.
+
         """
         if (
             agent_portrayal is not None
@@ -413,6 +447,7 @@ class SpaceRenderer:
 
         Returns:
             The backend-specific canvas object.
+
         """
         if self.backend == "matplotlib":
             ax = self.backend_renderer.ax
@@ -474,6 +509,7 @@ class SpaceRenderer:
 
         Returns:
             Callable | None: The post-processing function, or None if not set.
+
         """
         return self.post_process_func
 
@@ -484,5 +520,6 @@ class SpaceRenderer:
         Args:
             func (Callable | None): Function to apply post-processing to the canvas.
                 Should accept the canvas object as its first argument.
+
         """
         self.post_process_func = func

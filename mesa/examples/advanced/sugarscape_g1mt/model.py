@@ -10,17 +10,14 @@ from mesa.experimental.scenarios import Scenario
 
 # Helper Functions
 def flatten(list_of_lists):
-    """
-    helper function for model datacollector for trade price
+    """Helper function for model datacollector for trade price
     collapses agent price list into one list
     """
     return [item for sublist in list_of_lists for item in sublist]
 
 
 def geometric_mean(list_of_prices):
-    """
-    find the geometric mean of a list of prices
-    """
+    """Find the geometric mean of a list of prices"""
     # protects against an invalid value if no prices
     if len(list_of_prices) == 0:
         return -1
@@ -41,9 +38,7 @@ class SugarScapeScenario(Scenario):
 
 
 class SugarscapeG1mt(mesa.Model):
-    """
-    Manager class to run Sugarscape with Traders
-    """
+    """Manager class to run Sugarscape with Traders"""
 
     def __init__(self, scenario: SugarScapeScenario = SugarScapeScenario):
         super().__init__(scenario=scenario)
@@ -116,8 +111,7 @@ class SugarscapeG1mt(mesa.Model):
         )
 
     def step(self):
-        """
-        Unique step function that does staged activation of sugar and spice
+        """Unique step function that does staged activation of sugar and spice
         and then randomly activates traders
         """
         self.grid.sugar[:] = np.minimum(self.grid.sugar + 1, self.sugar_distribution)

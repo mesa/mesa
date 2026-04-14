@@ -44,6 +44,7 @@ class AgentPortrayalStyle:
         >>> # or for a default agent portrayal
         >>> def agent_portrayal(agent):
         >>>     return AgentPortrayalStyle()
+
     """
 
     x: float | None = None
@@ -66,6 +67,7 @@ class AgentPortrayalStyle:
             >>>     if agent.type == 1:
             >>>         primary_style.update(("color", "red"), ("size", 30))
             >>>     return primary_style
+
         """
         for field_to_change, field_to_change_to in updates_fields:
             if hasattr(self, field_to_change):
@@ -104,6 +106,7 @@ class PropertyLayerStyle:
         >>> # or for a uniform color layer
         >>> def property_layer_portrayal(layer):
         >>>     return PropertyLayerStyle(color="lightblue", alpha=0.8, colorbar=False)
+
     """
 
     colormap: str | None = None

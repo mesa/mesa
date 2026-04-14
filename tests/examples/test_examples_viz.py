@@ -112,6 +112,7 @@ def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
     model = Schelling(scenario=SchellingScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(
             color="tab:orange" if agent.type == 0 else "tab:blue"
         )
@@ -130,7 +131,7 @@ def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
     """Test wolf-sheep model behavior and visualization."""
-    from mesa.examples.advanced.wolf_sheep.agents import (  # noqa: PLC0415
+    from mesa.examples.advanced.wolf_sheep.agents import (
         GrassPatch,
         Sheep,
         Wolf,
@@ -139,6 +140,7 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         if agent is None:
             return
 
@@ -180,6 +182,7 @@ def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page
     model = BoidFlockers(scenario=BoidsScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(color="tab:blue")
 
     run_model_test(
@@ -197,6 +200,7 @@ def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.P
     model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(color=agent.wealth)
 
     measure_config = "Gini"
@@ -213,11 +217,12 @@ def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.P
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_virus_on_network_model(solara_test, page_session: playwright.sync_api.Page):
     """Test virus on network model behavior and visualization."""
-    from mesa.examples.basic.virus_on_network.model import State  # noqa: PLC0415
+    from mesa.examples.basic.virus_on_network.model import State
 
     model = VirusOnNetwork(rng=42)
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         node_color_dict = {
             State.INFECTED: "tab:red",
             State.SUSCEPTIBLE: "tab:green",
@@ -249,6 +254,7 @@ def test_conways_game_of_life_model(
     model = ConwaysGameOfLife(rng=42)
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(
             color="white" if agent.state == 0 else "black",
             marker="s",
@@ -271,12 +277,12 @@ def test_epstein_civil_violence_model(
     solara_test, page_session: playwright.sync_api.Page
 ):
     """Test Epstein civil violence model behavior and visualization."""
-    from mesa.examples.advanced.epstein_civil_violence.agents import (  # noqa: PLC0415
+    from mesa.examples.advanced.epstein_civil_violence.agents import (
         Citizen,
         CitizenState,
         Cop,
     )
-    from mesa.examples.advanced.epstein_civil_violence.app import (  # noqa: PLC0415
+    from mesa.examples.advanced.epstein_civil_violence.app import (
         COP_COLOR,
         agent_colors,
     )
@@ -284,6 +290,7 @@ def test_epstein_civil_violence_model(
     model = EpsteinCivilViolence()
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         if agent is None:
             return
 
@@ -312,13 +319,14 @@ def test_epstein_civil_violence_model(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Sugarscape G1mt model behavior and visualization."""
-    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
+    from mesa.examples.advanced.sugarscape_g1mt.model import (
         SugarScapeScenario,
     )
 
     model = SugarscapeG1mt(SugarScapeScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(marker="o", color="red", size=10)
 
     measure_config = "Price"
@@ -339,6 +347,7 @@ def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
     model = PdGrid(scenario=PrisonersDilemmaScenario(rng=42))
 
     def agent_portrayal(agent):
+        """Handle agent portrayal."""
         return AgentPortrayalStyle(
             color="blue" if agent.move == "C" else "red",
             marker="s",  # square marker
