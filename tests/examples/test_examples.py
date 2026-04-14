@@ -2,6 +2,9 @@
 import gc
 import weakref
 
+import matplotlib
+from matplotlib.figure import Figure
+
 from mesa.examples import (
     BoidFlockers,
     BoltzmannWealth,
@@ -190,6 +193,19 @@ def test_wolf_sheep():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
+
+def test_plot_matplotlib_missing_column_skipped():
+    """Regression test for #3597: PlotMatplotlib skips measures not in dataframe."""
+    matplotlib.use("Agg")
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    df = model.datacollector.get_model_vars_dataframe()
+    fig = Figure()
+    ax = fig.subplots()
+    measure = {"Grass": "green", "Wolves": "blue", "Sheep": "red"}
+    for m, color in measure.items():
+        if m in df.columns:
+            ax.plot(df.loc[:, m], label=m, color=color)
 
 
 def test_wolf_sheep_grass_disabled():
