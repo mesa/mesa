@@ -354,6 +354,51 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     assert result == []  # No combinations when no evaluation function
 
 
+def test_assume_attributes_does_not_overwrite_existing_attributes():
+    """Test that hasattr() prevents overwriting existing meta-agent attributes.
+
+    When assume_constituting_agent_attributes=True, the function should NOT
+    overwrite attributes that already exist on the meta-agent. It should only
+    fill in missing attributes from constituents.
+    """
+
+    class CustomWorker(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.role = "worker"
+            self.wealth = 100
+
+    model = Model()
+    w1 = CustomWorker(model)
+    w2 = CustomWorker(model)
+
+    # First create a meta-agent and explicitly set 'role'
+    ma = create_meta_agent(
+        model,
+        "Team",
+        [w1],
+        Agent,
+        meta_attributes={"role": "team_lead"},  # Explicit attribute
+    )
+
+    assert ma.role == "team_lead"  # Verify explicit value is set
+
+    # Second call: add more agents with assume_constituting_agent_attributes=True
+    ma = create_meta_agent(
+        model,
+        "Team",
+        [w1, w2],
+        Agent,
+        assume_constituting_agent_attributes=True,
+    )
+
+    # The explicit 'role' should NOT be overwritten by constituent's 'role'
+    assert ma.role == "team_lead", "Existing attribute should not be overwritten"
+
+    # But 'wealth' (which didn't exist on meta-agent) should be copied
+    assert ma.wealth == 100, "Missing attributes should be copied from constituents"
+
+
 def test_meta_agent_remove_cleans_up_references(setup_agents):
     """Test that MetaAgent.remove() clears meta_agents and meta_agent on constituents."""
     model, agents = setup_agents

@@ -210,16 +210,6 @@ def create_meta_agent(
         meta_attributes (Dict[str, Any]): Attributes to be added to the
         meta-agent.
         """
-        # Prevent collision of attributes with meta-agent instantiation
-        mesa_primitives = [
-            "unique_id",
-            "model",
-            "pos",
-            "name",
-            "random",
-            "rng",
-        ]
-
         if assume_constituting_agent_attributes:
             if meta_attributes is None:
                 # Initialize meta_attributes if not provided
@@ -228,13 +218,15 @@ def create_meta_agent(
                 for name, value in agent.__dict__.items():
                     if (
                         not callable(value)
-                        and name not in mesa_primitives
                         and not name.startswith("_")
+                        and not hasattr(meta_agent_instance, name)
                     ):
                         meta_attributes[name] = value
 
         if meta_attributes is not None:
             for key, value in meta_attributes.items():
+                # Always set explicit meta_attributes (user intent takes precedence)
+                # This ensures warehouse model's explicit cell attribute is set
                 setattr(meta_agent_instance, key, value)
 
     # Path 1 - Add agents to existing meta-agent of the SAME CLASS if any exist
