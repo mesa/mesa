@@ -80,7 +80,7 @@ renderer = SpaceRenderer(epstein_model, backend="matplotlib").setup_agents(
     citizen_cop_portrayal
 )
 # Specifically, avoid drawing the grid to hide the grid lines.
-renderer.draw_agents()
+renderer.render()
 renderer.post_process = post_process
 
 page = SolaraViz(
