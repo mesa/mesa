@@ -54,7 +54,7 @@ Mesa Examples provide a collection of models and use cases demonstrating the fea
 ---
 
 **For More Information:**
-For more Detail, Visit the [Mesa Examples Repository](https://github.com/mesa/mesa/tree/main/mesa/examples).
+For more Detail, Visit the [Mesa Examples Repository](../mesa/examples).
 
 ---
 

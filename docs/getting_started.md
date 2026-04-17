@@ -24,7 +24,7 @@ If you want to learn how to build agent-based models step by step using Mesa, fo
 - [Custom Visualization Components](tutorials/10_visualization_custom): Learn how to add custom visual components to your interactive dashboard.
 
 ## Examples
-Mesa ships with a collection of example models. These are classic ABMs, so if you are familiar with ABMs and want to get a quick sense of how MESA works, these examples are great place to start. You can find them [here](examples).
+Mesa ships with a collection of example models. These are classic ABMs, so if you are familiar with ABMs and want to get a quick sense of how MESA works, these examples are great place to start. You can find them [here](../mesa/examples).
 
 ## Further resources
 To further explore Mesa and its features, we have the following resources available:

@@ -18,7 +18,7 @@ You can add more files as needed, for example:
 
 Input data can be stored in a `data` directory, output data in an `output`, processed results in a `results` directory, images in an `images` directory, etc.
 
-All our [examples](examples) follow this layout.
+All our [examples](../mesa/examples) follow this layout.
 
 ## Randomization
 

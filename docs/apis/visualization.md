@@ -29,9 +29,9 @@ class MyModel(Model):
 
 For detailed tutorials, please refer to:
 
-- [Basic Visualization](../tutorials/4_visualization_basic)
-- [Dynamic Agent Visualization](../tutorials/5_visualization_dynamic_agents)
-- [Custom Agent Visualization](../tutorials/6_visualization_custom)
+- [Basic Visualization](../tutorials/6_visualization_basic)
+- [Dynamic Agent Visualization](../tutorials/7_visualization_dynamic_agents)
+- [Custom Agent Visualization](../tutorials/10_visualization_custom)
 
 
 ## Jupyter Visualization
