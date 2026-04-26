@@ -57,47 +57,42 @@ class Sheep(Animal):
     """A sheep that walks around, reproduces (asexually) and gets eaten."""
 
     def feed(self):
-        """If possible, eat grass at current location."""
-        grass_patch = next(
-            (obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None
-        )
-        if grass_patch is not None and grass_patch.fully_grown:
+        """If possible, eat grass at current location (using property layer)."""
+        # x, y is the current cell corrdiante
+
+        x, y = self.cell.coordinate
+
+        # if the current cell has grass eat
+
+        if self.model.grid.grass[x, y]:
             self.energy += self.energy_from_food
-            grass_patch.get_eaten()
+            self.model.grid.grass[x, y] = False
+
+            # Schedule regrowth via the GrassPatch agent
+
+            grass_patch = next(
+                (obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None
+            )
+            if grass_patch is not None:
+                grass_patch.get_eaten()
 
     def move(self):
-        """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
+        """Move towards a cell where there isn't a wolf, and preferably with grown grass (using property layers)."""
+
+        # lists to store the cell without wolves and cell with grass
         cells_without_wolves = []
         cells_with_grass = []
 
         for cell in self.cell.neighborhood:
-            has_wolf = False
-            has_grass = False
-
-            for obj in cell.agents:
-                # If there's a wolf, we can early exit
-                if isinstance(obj, Wolf):
-                    has_wolf = True
-                    break
-                elif isinstance(obj, GrassPatch) and obj.fully_grown:
-                    has_grass = True
-
-            # Prefer cells without wolves
-            if not has_wolf:
-                cells_without_wolves.append(cell)
-
-                # Among safe cells, pick those with grown grass
-                if has_grass:
-                    cells_with_grass.append(cell)
-
-        # If all surrounding cells have wolves, stay put
-        if len(cells_without_wolves) == 0:
+            x, y = cell.coordinate
+            if self.model.grid.wolves[x, y] > 0:
+                continue
+            cells_without_wolves.append(cell)
+            if self.model.grid.grass[x, y]:
+                cells_with_grass.append(cell)
+        if not cells_without_wolves:
             return
-
-        # Move to a cell with grass if available, otherwise move to any safe cell
-        target_cells = (
-            cells_with_grass if len(cells_with_grass) > 0 else cells_without_wolves
-        )
+        target_cells = cells_with_grass if cells_with_grass else cells_without_wolves
         self.cell = self.random.choice(target_cells)
 
 
@@ -107,48 +102,65 @@ class Wolf(Animal):
     def feed(self):
         """If possible, eat a sheep at current location."""
         sheep = [obj for obj in self.cell.agents if isinstance(obj, Sheep)]
-        if sheep:  # If there are any sheep present
+        if sheep:
             sheep_to_eat = self.random.choice(sheep)
             self.energy += self.energy_from_food
             sheep_to_eat.remove()
 
     def move(self):
         """Move to a neighboring cell, preferably one with sheep."""
-        cells_with_sheep = self.cell.neighborhood.select(
-            lambda cell: any(isinstance(obj, Sheep) for obj in cell.agents)
-        )
+        # Decrement wolf count at old cell
+        x0, y0 = self.cell.coordinate
+        self.model.grid.wolves[x0, y0] -= 1
+        cells_with_sheep = [
+            cell
+            for cell in self.cell.neighborhood
+            if any(isinstance(obj, Sheep) for obj in cell.agents)
+        ]
         target_cells = (
-            cells_with_sheep if len(cells_with_sheep) > 0 else self.cell.neighborhood
+            cells_with_sheep if cells_with_sheep else list(self.cell.neighborhood)
         )
-        self.cell = target_cells.select_random_cell()
+        new_cell = self.random.choice(target_cells)
+        self.cell = new_cell
+        # Increment wolf count at new cell
+        x1, y1 = new_cell.coordinate
+        self.model.grid.wolves[x1, y1] += 1
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Increment wolf count at initial cell
+        x, y = self.cell.coordinate
+        self.model.grid.wolves[x, y] += 1
+
+    def remove(self):
+        # Decrement wolf count at current cell
+        x, y = self.cell.coordinate
+        self.model.grid.wolves[x, y] -= 1
+        super().remove()
 
 
 class GrassPatch(FixedAgent):
     """A patch of grass that grows at a fixed rate and can be eaten by sheep."""
 
     def __init__(self, model, countdown, grass_regrowth_time, cell):
-        """Create a new patch of grass.
-
-        Args:
-            model: Model instance
-            countdown: Time until grass is fully grown again
-            grass_regrowth_time: Time needed to regrow after being eaten
-            cell: Cell to which this grass patch belongs
-        """
+        """Create a new patch of grass using property layer."""
         super().__init__(model)
-        self.fully_grown = countdown == 0
         self.grass_regrowth_time = grass_regrowth_time
         self.cell = cell
-
+        x, y = cell.coordinate
+        # Set initial grass state in property layer
+        self.model.grid.grass[x, y] = countdown == 0
         # Schedule initial growth if not fully grown
-        if not self.fully_grown:
+        if countdown != 0:
             self.model.schedule_event(self.regrow, after=countdown)
 
     def regrow(self):
-        """Regrow the grass."""
-        self.fully_grown = True
+        """Regrow the grass (set property layer)."""
+        x, y = self.cell.coordinate
+        self.model.grid.grass[x, y] = True
 
     def get_eaten(self):
-        """Mark grass as eaten and schedule regrowth."""
-        self.fully_grown = False
+        """Mark grass as eaten in property layer and schedule regrowth."""
+        x, y = self.cell.coordinate
+        self.model.grid.grass[x, y] = False
         self.model.schedule_event(self.regrow, after=self.grass_regrowth_time)
