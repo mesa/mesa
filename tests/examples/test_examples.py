@@ -1,7 +1,7 @@
 # noqa: D100
 import gc
 import weakref
-from mesa.examples.advanced.wolf_sheep.model import WolfSheep, WolfSheepScenario
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 
 from mesa.examples import (
     BoidFlockers,
