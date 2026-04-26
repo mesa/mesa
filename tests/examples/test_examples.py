@@ -20,7 +20,7 @@ from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.examples.basic.schelling.model import SchellingScenario
-
+from mesa.examples.advanced.wolf_sheep.agents import Wolf
 
 def test_boltzmann_model():  # noqa: D103
     from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
@@ -202,6 +202,37 @@ def test_wolf_sheep_grass_disabled():
     assert "Grass" not in df.columns
     assert "Wolves" in df.columns
     assert "Sheep" in df.columns
+
+
+def test_wolf_sheep_property_layers():
+    """Test that property layers for wolves and grass are updated correctly."""
+
+    from mesa.examples.advanced.wolf_sheep.model import WolfSheep, WolfSheepScenario
+
+    model = WolfSheep(scenario=WolfSheepScenario(rng=42))
+    # Step the model once
+    model.step()
+    # Check that the property layers exist and have correct shape
+    assert hasattr(model.grid, "wolves")
+    assert hasattr(model.grid, "grass")
+    assert model.grid.wolves.shape == (model.height, model.width)
+    assert model.grid.grass.shape == (model.height, model.width)
+    # Check that wolf counts are non-negative
+    assert (model.grid.wolves >= 0).all()
+    # Check that grass is boolean
+    assert model.grid.grass.dtype == bool
+    # Move all wolves to a single cell and check the count
+    wolf_agents = list(model.agents_by_type[Wolf])
+    if wolf_agents:
+        x, y = 0, 0
+        for wolf in wolf_agents:
+            wolf.cell = model.grid[x, y]
+        model.grid.wolves[:, :] = 0
+        model.grid.wolves[x, y] = len(wolf_agents)
+        assert model.grid.wolves[x, y] == len(wolf_agents)
+    # Eat all grass in the first row and check
+    model.grid.grass[0, :] = False
+    assert not model.grid.grass[0, :].any()
 
 
 def test_alliance_formation_model():  # noqa: D103
