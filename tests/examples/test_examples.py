@@ -1,6 +1,7 @@
 # noqa: D100
 import gc
 import weakref
+from mesa.examples.advanced.wolf_sheep.model import WolfSheep, WolfSheepScenario
 
 from mesa.examples import (
     BoidFlockers,
@@ -207,7 +208,6 @@ def test_wolf_sheep_grass_disabled():
 def test_wolf_sheep_property_layers():
     """Test that property layers for wolves and grass are updated correctly."""
 
-    from mesa.examples.advanced.wolf_sheep.model import WolfSheep, WolfSheepScenario
 
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     # Step the model once
