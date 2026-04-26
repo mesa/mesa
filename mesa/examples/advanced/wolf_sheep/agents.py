@@ -58,27 +58,28 @@ class Sheep(Animal):
 
     def feed(self):
         """If possible, eat grass at current location (using property layer)."""
-        #x, y is the current cell corrdiante 
-         
+        # x, y is the current cell corrdiante
+
         x, y = self.cell.coordinate
 
-        #if the current cell has grass eat
-         
+        # if the current cell has grass eat
+
         if self.model.grid.grass[x, y]:
             self.energy += self.energy_from_food
             self.model.grid.grass[x, y] = False
 
             # Schedule regrowth via the GrassPatch agent
 
-            grass_patch = next((obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None)
+            grass_patch = next(
+                (obj for obj in self.cell.agents if isinstance(obj, GrassPatch)), None
+            )
             if grass_patch is not None:
                 grass_patch.get_eaten()
 
     def move(self):
-
         """Move towards a cell where there isn't a wolf, and preferably with grown grass (using property layers)."""
-        
-        #lists to store the cell without wolves and cell with grass
+
+        # lists to store the cell without wolves and cell with grass
         cells_without_wolves = []
         cells_with_grass = []
 
@@ -111,8 +112,14 @@ class Wolf(Animal):
         # Decrement wolf count at old cell
         x0, y0 = self.cell.coordinate
         self.model.grid.wolves[x0, y0] -= 1
-        cells_with_sheep = [cell for cell in self.cell.neighborhood if any(isinstance(obj, Sheep) for obj in cell.agents)]
-        target_cells = cells_with_sheep if cells_with_sheep else list(self.cell.neighborhood)
+        cells_with_sheep = [
+            cell
+            for cell in self.cell.neighborhood
+            if any(isinstance(obj, Sheep) for obj in cell.agents)
+        ]
+        target_cells = (
+            cells_with_sheep if cells_with_sheep else list(self.cell.neighborhood)
+        )
         new_cell = self.random.choice(target_cells)
         self.cell = new_cell
         # Increment wolf count at new cell
@@ -142,7 +149,7 @@ class GrassPatch(FixedAgent):
         self.cell = cell
         x, y = cell.coordinate
         # Set initial grass state in property layer
-        self.model.grid.grass[x, y] = (countdown == 0)
+        self.model.grid.grass[x, y] = countdown == 0
         # Schedule initial growth if not fully grown
         if countdown != 0:
             self.model.schedule_event(self.regrow, after=countdown)

@@ -1,7 +1,6 @@
 # noqa: D100
 import gc
 import weakref
-from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 
 from mesa.examples import (
     BoidFlockers,
@@ -17,11 +16,12 @@ from mesa.examples import (
 )
 from mesa.examples.advanced.alliance_formation.model import AllianceScenario
 from mesa.examples.advanced.pd_grid.model import PrisonersDilemmaScenario
+from mesa.examples.advanced.wolf_sheep.agents import Wolf
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.examples.basic.schelling.model import SchellingScenario
-from mesa.examples.advanced.wolf_sheep.agents import Wolf
+
 
 def test_boltzmann_model():  # noqa: D103
     from mesa.examples.basic.boltzmann_wealth_model import app  # noqa: PLC0415
@@ -207,8 +207,6 @@ def test_wolf_sheep_grass_disabled():
 
 def test_wolf_sheep_property_layers():
     """Test that property layers for wolves and grass are updated correctly."""
-
-
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     # Step the model once
     model.step()
