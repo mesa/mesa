@@ -250,6 +250,84 @@ SolaraViz(
 * Ref: [PR #2827](https://github.com/mesa/mesa/pull/2827)
 
 
+## Mesa 3.1
+
+### Discrete cell spaces
+
+Mesa 3.1 includes the cell-space API under `mesa.experimental.cell_space`.
+Mesa 3.2 stabilizes that API as `mesa.discrete_space`. The older `mesa.space`
+grids, such as `SingleGrid`, `MultiGrid`, `HexSingleGrid`, and `HexMultiGrid`,
+remain available in
+Mesa 3.x, but are in maintenance-only mode. For new models on Mesa 3.2 or
+newer, prefer `mesa.discrete_space`; for existing models, migrate when you are
+ready to adopt the cell-based API.
+
+In the current stable namespace, the closest replacements are:
+
+- `mesa.space.SingleGrid` with Moore neighborhoods: `mesa.discrete_space.OrthogonalMooreGrid(..., capacity=1)`
+- `mesa.space.MultiGrid` with Moore neighborhoods: `mesa.discrete_space.OrthogonalMooreGrid`
+- `mesa.space.SingleGrid` with Von Neumann neighborhoods: `mesa.discrete_space.OrthogonalVonNeumannGrid(..., capacity=1)`
+- `mesa.space.MultiGrid` with Von Neumann neighborhoods: `mesa.discrete_space.OrthogonalVonNeumannGrid`
+- `mesa.space.HexSingleGrid`: `mesa.discrete_space.HexGrid(..., capacity=1)`
+- `mesa.space.HexMultiGrid`: `mesa.discrete_space.HexGrid`
+- `mesa.space.NetworkGrid`: `mesa.discrete_space.Network`
+
+If you are still on Mesa 3.1.x, use the same class names from
+`mesa.experimental.cell_space` instead.
+
+The new spaces are not drop-in replacements. Instead of storing only positions
+in the grid, the cell-space API exposes `Cell` objects. Agents that move
+through these spaces can subclass `CellAgent` and use the `cell` attribute to
+move between cells.
+
+The examples below use the Mesa 3.2+ stable namespace.
+
+```python
+# Old
+from mesa.space import MultiGrid
+
+self.grid = MultiGrid(width, height, torus=True)
+self.grid.place_agent(agent, (x, y))
+
+# New
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
+
+
+class MyAgent(CellAgent):
+    pass
+
+
+self.grid = OrthogonalMooreGrid((width, height), torus=True, random=self.random)
+agent = MyAgent(self)
+agent.cell = self.grid[(x, y)]
+```
+
+For random placement, use the grid's cell collections:
+
+```python
+agent.cell = self.grid.all_cells.select_random_cell()
+```
+
+Cell spaces also support property layers for cell-level state:
+
+```python
+# Mesa 3.1 through 3.5
+elevation = self.grid.create_property_layer("elevation", default_value=0)
+elevation.data[:] = 1
+```
+
+In Mesa 4.0 and newer, `create_property_layer()` returns the attached NumPy
+array directly:
+
+```python
+# Mesa 4.0+
+elevation = self.grid.create_property_layer("elevation", default_value=0)
+elevation[:] = 1
+```
+
+- Ref: [Issue #2391](https://github.com/mesa/mesa/issues/2391)
+
+
 ## Mesa 3.0
 Mesa 3.0 introduces significant changes to core functionalities, including agent and model initialization, scheduling, and visualization. The guide below outlines these changes and provides instructions for migrating your existing Mesa projects to version 3.0.
 
