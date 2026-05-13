@@ -3,6 +3,8 @@
 import pytest
 
 from mesa import Agent, Model
+from mesa.discrete_space.cell_agent import CellAgent
+from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.meta_agents.meta_agent import (
     MetaAgent,
     create_meta_agent,
@@ -399,3 +401,54 @@ def test_meta_agent_remove_with_multiple_memberships():
     # a2 was only in ma1, should be fully cleaned
     assert a2.meta_agent is None
     assert len(a2.meta_agents) == 0
+
+
+def test_create_meta_agent_repeated_instances_with_descriptor_parent():
+    """Test creating multiple instances of same meta-agent class with descriptor-based parent.
+
+    This tests Path 2 (existing meta-agent class instantiation) with a descriptor-based parent.
+    Verifies that initial_attributes are applied correctly for the second and subsequent
+    instances of the same meta-agent class.
+    """
+    model = Model()
+    grid = OrthogonalMooreGrid((10, 10), random=model.random)
+
+    class Robot(CellAgent):
+        """Simple Robot agent for testing."""
+
+    # Create first meta-agent instance (Path 3: new class creation)
+    agent1 = Robot(model)
+
+    swarm1 = create_meta_agent(
+        model,
+        "Swarm",
+        [agent1],
+        CellAgent,
+        meta_attributes={"cell": grid[2, 2]},
+    )
+
+    assert isinstance(swarm1, MetaAgent)
+    assert isinstance(swarm1, CellAgent)
+    assert swarm1.cell == grid[2, 2]
+
+    # Create second meta-agent instance of SAME class (Path 2: existing class instantiation)
+    agent3 = Robot(model)
+    agent4 = Robot(model)
+
+    swarm2 = create_meta_agent(
+        model,
+        "Swarm",  # Same class name - triggers Path 2
+        [agent3, agent4],
+        CellAgent,
+        meta_attributes={"cell": grid[5, 5]},
+    )
+
+    # Second instance should also have correct spatial attributes (Path 2 fix)
+    assert isinstance(swarm2, MetaAgent)
+    assert isinstance(swarm2, CellAgent)
+    assert swarm2.cell == grid[5, 5], (
+        "Path 2: Cell should be set correctly on second instance"
+    )
+
+    # First instance should be unaffected
+    assert swarm1.cell == grid[2, 2]
