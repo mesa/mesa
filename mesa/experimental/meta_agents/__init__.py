@@ -20,6 +20,7 @@ Goal is to assess usage and expand functionality.
 
 """
 
+from .backend import MembershipBackend
 from .meta_agent import MetaAgent
 
-__all__ = ["MetaAgent"]
+__all__ = ["MembershipBackend", "MetaAgent"]
