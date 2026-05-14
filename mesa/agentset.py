@@ -21,6 +21,9 @@ if TYPE_CHECKING:
     from mesa.agent import Agent
 
 
+_MISSING = object()
+
+
 class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
     """An abstract base collection class that represents an ordered set of agents within an agent-based model (ABM).
 
@@ -839,6 +842,25 @@ class GroupBy:
 
         """
         self.groups: dict[Any, list | AbstractAgentSet] = groups
+
+    def get_group(
+        self, name: Hashable, default: Any = _MISSING
+    ) -> list | AbstractAgentSet | Any:
+        """Return the group for the given name.
+
+        Args:
+            name (Hashable): The group name to retrieve.
+            default (Any, optional): Value to return when the group is missing.
+
+        Raises:
+            KeyError: If the group does not exist and no default is provided.
+        """
+        if name in self.groups:
+            return self.groups[name]
+
+        if default is not _MISSING:
+            return default
+        raise KeyError(f"No group found with name: {name}")
 
     def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
         """Apply the specified callable to each group and return the results.
