@@ -855,12 +855,12 @@ class GroupBy:
         Raises:
             KeyError: If the group does not exist and no default is provided.
         """
-        if name in self.groups:
-            return self.groups[name]
-
-        if default is not _MISSING:
-            return default
-        raise KeyError(f"No group found with name: {name}")
+		try:
+		    return self.groups[name]
+		except KeyError as e:
+		    if default is not _MISSING:
+		        return default
+		    raise KeyError(f"No group found with name: {name}") from e
 
     def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
         """Apply the specified callable to each group and return the results.
