@@ -841,7 +841,7 @@ class GroupBy:
             groups (dict): A dictionary with the group_name as key and group as values
 
         """
-        self.groups: dict[Any, list | AbstractAgentSet] = groups
+        self.groups: dict[Any, list | AbstractAgentSet] = dict(groups)
 
     def get_group(
         self, name: Hashable, default: Any = _MISSING
@@ -855,12 +855,12 @@ class GroupBy:
         Raises:
             KeyError: If the group does not exist and no default is provided.
         """
-		try:
-		    return self.groups[name]
-		except KeyError as e:
-		    if default is not _MISSING:
-		        return default
-		    raise KeyError(f"No group found with name: {name}") from e
+        try:
+            return self.groups[name]
+        except KeyError as err:
+            if default is not _MISSING:
+                return default
+            raise KeyError(f"No group found with name: {name}") from err
 
     def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
         """Apply the specified callable to each group and return the results.
