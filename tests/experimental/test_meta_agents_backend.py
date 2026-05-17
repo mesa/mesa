@@ -54,7 +54,7 @@ def test_replace_relation():
 
 
 def test_remove_agent_cascades_edges():
-    """Removing an agent should clear all its incident adges."""
+    """Removing an agent should clear all its incident edges."""
     backend = MembershipBackend()
     backend.bulk_add(
         [("a1", "g1", "member"), ("a1", "g2", "leader"), ("a2", "g1", "member")]
@@ -80,4 +80,14 @@ def test_remove_group_cascades_edges():
     assert backend.agents_of("g1") == set()
     assert backend.groups_of("a1") == {"g2"}
     assert backend.groups_of("a2") == set()
+    backend.assert_invariants()
+
+
+def test_non_string_relation_key():
+    """Allow non-string hashable relation keys."""
+    backend = MembershipBackend()
+    rel = ("role", 1)
+    backend.add_membership("a1", "g1", rel)
+
+    assert backend.relations_between("a1", "g1") == {rel}
     backend.assert_invariants()
