@@ -88,9 +88,7 @@ class ContinuousSpace:
         self._agent_positions: np.array = np.empty(
             (n_agents, self.dimensions.shape[0]), dtype=float
         )
-        self.agent_positions: (
-            np.array
-        )  # a view on _agent_positions containing all active positions
+        self.agent_positions: np.array = self._agent_positions[0:0]  # empty view until agents are added
 
         # the list of agents in the space
         self.active_agents = []
@@ -253,13 +251,20 @@ class ContinuousSpace:
         Notes:
             This method returns exactly k agents, ignoring ties. In case of ties, the
             earlier an agent is inserted the higher it will rank.
+            If k exceeds the total number of agents, all agents are returned.
 
         """
         dists, agents = self.calculate_distances(point)
+        n = len(dists)
+
+        if n == 0:
+            return [], np.array([])
+
+        if k >= n:
+            return list(agents), dists
 
         indices = np.argpartition(dists, k)[:k]
-        agents = [agents[i] for i in indices]
-        return agents, dists[indices]
+        return [agents[i] for i in indices], dists[indices]
 
     def in_bounds(self, point: ArrayLike) -> bool:
         """Check if point is inside the bounds of the space."""

@@ -98,8 +98,23 @@ class CellCollection[T: Cell]:
     def agents(self) -> Iterable[CellAgent]:  # noqa
         return itertools.chain.from_iterable(self._cells.values())
 
-    def select_random_cell(self) -> T:
-        """Select a random cell."""
+    def select_random_cell(self, default=RAISES) -> T | None:
+        """Select a random cell from the collection.
+
+        Args:
+            default: Value to return if the collection is empty.
+                     If not provided, raises LookupError.
+
+        Returns:
+            T: A random cell, or the default value if provided and collection is empty.
+
+        Raises:
+            LookupError: If collection is empty and no default is provided.
+        """
+        if not self._cells:
+            if default is RAISES:
+                raise LookupError("Cannot select random cell from empty collection")
+            return default
         return self.random.choice(self.cells)
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
