@@ -320,6 +320,31 @@ def test_continuous_space_get_k_nearest_agents():  # noqa: D103
     assert np.allclose(distances, [0.1, 0.1])
 
 
+def test_get_k_nearest_agents_k_exceeds_count():  # noqa: D103
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 1], [0, 1]])
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+
+    for pos in [[0.1, 0.1], [0.9, 0.9], [0.5, 0.5]]:
+        agent = ContinuousSpaceAgent(space, model)
+        agent.position = pos
+
+    # k equals agent count — should return all agents
+    agents, distances = space.get_k_nearest_agents([0.5, 0.5], k=3)
+    assert len(agents) == 3
+
+    # k greater than agent count — should return all agents
+    agents, distances = space.get_k_nearest_agents([0.5, 0.5], k=10)
+    assert len(agents) == 3
+    assert len(distances) == 3
+
+    # empty space — should return empty lists without raising
+    empty_space = ContinuousSpace(dimensions, torus=False, random=model.random)
+    agents, distances = empty_space.get_k_nearest_agents([0.5, 0.5], k=1)
+    assert agents == []
+    assert len(distances) == 0
+
+
 def test_continuous_space_get_agents_in_radius():  # noqa: D103
     # non torus
     model = Model(rng=42)
