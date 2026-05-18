@@ -88,7 +88,9 @@ class ContinuousSpace:
         self._agent_positions: np.array = np.empty(
             (n_agents, self.dimensions.shape[0]), dtype=float
         )
-        self.agent_positions: np.array = self._agent_positions[0:0]  # empty view, updated in _add_agent
+        self.agent_positions: np.array = self._agent_positions[
+            0:0
+        ]  # empty view, updated in _add_agent
 
         # the list of agents in the space
         self.active_agents = []
