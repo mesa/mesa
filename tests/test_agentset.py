@@ -653,12 +653,33 @@ def test_agentset_groupby():
     assert len(groups.groups[False]) == 5
     assert len(groups) == 2
 
+    even_group = groups.get_group(True)
+    assert len(even_group) == 5
+    assert all(agent.unique_id % 2 == 0 for agent in even_group)
+
+    assert groups.get_group("missing", default=None) is None
+
+    fallback_group = AgentSet([], random=model.random)
+    assert groups.get_group("missing", default=fallback_group) is fallback_group
+
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        groups.get_group("missing")
+
     for group_name, group in groups:
         assert len(group) == 5
         assert group_name in {True, False}
 
     sizes = agentset.groupby("even", result_type="list").map(len)
     assert sizes == {True: 5, False: 5}
+
+    list_groups = agentset.groupby("even", result_type="list")
+    assert "missing" not in list_groups.groups
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        list_groups.get_group("missing")
+    assert "missing" not in list_groups.groups
+
+    assert list_groups.get_group("missing", default=None) is None
+    assert "missing" not in list_groups.groups
 
     attributes = agentset.groupby("even", result_type="agentset").map("get", "even")
     for group_name, group in attributes.items():

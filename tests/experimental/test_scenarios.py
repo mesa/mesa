@@ -319,3 +319,15 @@ def test_rescale_inplace():
     rescale_samples(samples, ranges, inplace=True)
 
     assert np.allclose(samples, np.array([[0, 10]]))
+
+
+def test_from_ndarray_returns_subclass():
+    """from_ndarray called on a subclass should return instances of that subclass."""
+
+    class MyScenario(Scenario):
+        x: float = 0.5
+
+    samples = np.array([[0.1], [0.2]])
+    scenarios = MyScenario.from_ndarray(samples, ["x"], rng=42)
+
+    assert isinstance(scenarios[0], MyScenario)

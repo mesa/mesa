@@ -161,3 +161,10 @@ def test_agent_from_dataframe():
     df_with_index.index = range(100, 100 + n)
     agents = TestAgent.from_dataframe(model, df_with_index, extra_attr=5)
     assert [a.value for a in agents] == list(range(n))
+
+
+def test_agent_str():
+    """Test __str__ returns human-readable string."""
+    model = Model()
+    agent = AgentTest(model)
+    assert str(agent) == f"AgentTest, agent_id = {agent.unique_id}"
