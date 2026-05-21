@@ -94,10 +94,15 @@ def find_combinations(
     """
     combinations = []
     # Allow one size or range of sizes to be passed
-    size_range = (size, size + 1) if isinstance(size, int) else size
+    if isinstance(size, int):
+        size_range = range(size, size + 1)
+    else:
+        min_size, max_size = size
+        size_range = range(min_size, max_size + 1)
 
     for candidate_group in itertools.chain.from_iterable(
-        itertools.combinations(group, size) for size in range(*size_range)
+        itertools.combinations(group, combination_size)
+        for combination_size in size_range
     ):
         evaluation_result = evaluate_combination(
             candidate_group, model, evaluation_func
@@ -267,7 +272,12 @@ def create_meta_agent(
         agent_class = extract_class(model.agents_by_type, new_agent_class)
 
         if agent_class:
-            meta_agent_instance = agent_class(model, agents)
+            # Pass initial_attributes to __init__ to handle CellAgent and other
+            # descriptor-based parent classes correctly (initialize before super().__init__())
+            meta_agent_instance = agent_class(
+                model, agents, initial_attributes=meta_attributes
+            )
+            # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
             return meta_agent_instance
@@ -281,7 +291,12 @@ def create_meta_agent(
                     "_constituting_set": None,
                 },
             )
-            meta_agent_instance = meta_agent_class(model, agents)
+            # Pass initial_attributes to __init__ to handle CellAgent and other
+            # descriptor-based parent classes correctly (initialize before super().__init__())
+            meta_agent_instance = meta_agent_class(
+                model, agents, initial_attributes=meta_attributes
+            )
+            # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
             return meta_agent_instance
@@ -291,7 +306,11 @@ class MetaAgent(Agent):
     """A MetaAgent is an agent that contains other agents as components."""
 
     def __init__(
-        self, model, agents: set[Agent] | None = None, name: str = "MetaAgent"
+        self,
+        model,
+        agents: set[Agent] | None = None,
+        name: str = "MetaAgent",
+        initial_attributes: dict[str, Any] | None = None,
     ):
         """Create a new MetaAgent.
 
@@ -300,7 +319,16 @@ class MetaAgent(Agent):
             agents (Optional[set[Agent]], optional): The set of agents to
             include in the MetaAgent. Defaults to None.
             name (str, optional): The name of the MetaAgent. Defaults to "MetaAgent".
+            initial_attributes (Optional[dict], optional): Attributes to set before
+            calling super().__init__(). This is important for CellAgent and other
+            descriptor-based parent classes. Defaults to None.
         """
+        # Apply initial attributes BEFORE calling super().__init__()
+        # This is important for CellAgent and other descriptors
+        if initial_attributes:
+            for key, value in initial_attributes.items():
+                object.__setattr__(self, key, value)
+
         super().__init__(model)
         self._constituting_set = AgentSet(agents or [], random=model.random)
         self.name = name
