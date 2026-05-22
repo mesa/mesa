@@ -130,7 +130,7 @@ html_theme = "pydata_sphinx_theme"
 html_theme_options = {
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
-        "json_url": "https://mesa.readthedocs.io/en/stable/_static/switcher.json",
+        "json_url": "_static/switcher.json",
         "version_match": os.environ.get("READTHEDOCS_VERSION", release),
     },
 }
