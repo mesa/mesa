@@ -46,6 +46,17 @@ from typing import Any
 from mesa.agent import Agent, AgentSet
 
 
+def _unique_id_sort_key(agent: Agent) -> tuple[bool, Any]:
+    """Return a deterministic, type-stable key for ordering agents by ``unique_id``.
+
+    Agents are ordered by ``unique_id``, with a ``None`` id sorting first so the key
+    never compares ``None`` against a real id. Unlike ``unique_id or 0``, this does not
+    inject an ``int`` into the key, so it also works for non-integer ids such as ``str``
+    or ``UUID`` without raising ``TypeError``.
+    """
+    return (agent.unique_id is not None, agent.unique_id)
+
+
 def evaluate_combination(
     candidate_group: tuple[Agent, ...],
     model,
@@ -247,7 +258,7 @@ def create_meta_agent(
     existing_meta_agents = []
     for a in agents:
         if hasattr(a, "meta_agents"):
-            for ma in sorted(a.meta_agents, key=lambda x: x.unique_id or 0):
+            for ma in sorted(a.meta_agents, key=_unique_id_sort_key):
                 if (
                     ma.__class__.__name__ == new_agent_class
                     and ma not in existing_meta_agents
@@ -258,7 +269,7 @@ def create_meta_agent(
         # TODO: Add way for user to specify how agents join meta-agent
         # instead of random choice if there are multiple meta-agents of the same class
         meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+            sorted(existing_meta_agents, key=_unique_id_sort_key)[0]
             if len(existing_meta_agents) > 1
             else existing_meta_agents[0]
         )
@@ -340,7 +351,7 @@ class MetaAgent(Agent):
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
             agent.meta_agent = sorted(
-                agent.meta_agents, key=lambda x: x.unique_id or 0
+                agent.meta_agents, key=_unique_id_sort_key
             )[0]
 
     def __len__(self) -> int:
@@ -419,7 +430,7 @@ class MetaAgent(Agent):
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
             agent.meta_agent = sorted(
-                agent.meta_agents, key=lambda x: x.unique_id or 0
+                agent.meta_agents, key=_unique_id_sort_key
             )[0]
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
@@ -435,7 +446,7 @@ class MetaAgent(Agent):
                 # Update backward compatibility attribute deterministically
                 if len(agent.meta_agents) > 0:
                     agent.meta_agent = sorted(
-                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                        agent.meta_agents, key=_unique_id_sort_key
                     )[0]
                 else:
                     agent.meta_agent = None

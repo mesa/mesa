@@ -1,5 +1,7 @@
 """Tests for the meta_agents module."""
 
+import uuid
+
 import pytest
 
 from mesa import Agent, Model
@@ -419,6 +421,61 @@ def test_meta_agent_remove_with_multiple_memberships():
     # a2 was only in ma1, should be fully cleaned
     assert a2.meta_agent is None
     assert len(a2.meta_agents) == 0
+
+
+def test_meta_agent_sorting_with_string_unique_ids():
+    """Meta-agent membership sorting must not assume integer unique_ids.
+
+    The backward-compatibility ``meta_agent`` attribute is kept up to date by
+    sorting an agent's meta-agents by ``unique_id``. The previous
+    ``key=lambda x: x.unique_id or 0`` injected an ``int`` into the key, which
+    raised ``TypeError`` as soon as a ``unique_id`` was non-integer (e.g. a
+    string) or ``None``. Regression test for #3563.
+    """
+    model = Model()
+    agent = CustomAgent(model)
+
+    # Two meta-agents that both contain `agent`, with string unique_ids.
+    ma1 = MetaAgent(model, {agent}, name="Group1")
+    ma2 = MetaAgent(model, {agent}, name="Group2")
+    ma1.unique_id = "alpha"
+    ma2.unique_id = "beta"
+
+    # Re-trigger the membership sort via both add and remove paths.
+    ma1.add_constituting_agents({agent})  # would previously raise TypeError
+    assert agent.meta_agent is ma1  # "alpha" sorts before "beta"
+
+    ma1.remove_constituting_agents({agent})
+    assert agent.meta_agent is ma2  # only ma2 remains
+
+
+def test_meta_agent_sorting_with_uuid_unique_ids():
+    """Membership sorting works for UUID unique_ids. Regression test for #3563."""
+    model = Model()
+    agent = CustomAgent(model)
+
+    ma1 = MetaAgent(model, {agent}, name="Group1")
+    ma2 = MetaAgent(model, {agent}, name="Group2")
+    ma1.unique_id = uuid.UUID(int=1)
+    ma2.unique_id = uuid.UUID(int=2)
+
+    ma1.add_constituting_agents({agent})  # would previously raise TypeError
+    assert agent.meta_agent is ma1  # lowest UUID
+
+
+def test_meta_agent_sorting_with_none_unique_id():
+    """A None unique_id sorts safely rather than crashing. Regression test for #3563."""
+    model = Model()
+    agent = CustomAgent(model)
+
+    ma1 = MetaAgent(model, {agent}, name="Group1")
+    ma2 = MetaAgent(model, {agent}, name="Group2")
+    ma1.unique_id = None
+    ma2.unique_id = "beta"
+
+    # None must not be coerced into an int that then clashes with the string id.
+    ma1.add_constituting_agents({agent})  # would previously raise TypeError
+    assert agent.meta_agent is ma1  # None sorts first (treated as lowest)
 
 
 def test_create_meta_agent_repeated_instances_with_descriptor_parent():
