@@ -350,9 +350,7 @@ class MetaAgent(Agent):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
-            agent.meta_agent = sorted(
-                agent.meta_agents, key=_unique_id_sort_key
-            )[0]
+            agent.meta_agent = sorted(agent.meta_agents, key=_unique_id_sort_key)[0]
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -429,9 +427,7 @@ class MetaAgent(Agent):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
-            agent.meta_agent = sorted(
-                agent.meta_agents, key=_unique_id_sort_key
-            )[0]
+            agent.meta_agent = sorted(agent.meta_agents, key=_unique_id_sort_key)[0]
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
