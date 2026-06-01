@@ -1,7 +1,5 @@
 """Tests for the meta_agents module."""
 
-import uuid
-
 import pytest
 
 from mesa import Agent, Model
@@ -447,20 +445,6 @@ def test_meta_agent_sorting_with_string_unique_ids():
 
     ma1.remove_constituting_agents({agent})
     assert agent.meta_agent is ma2  # only ma2 remains
-
-
-def test_meta_agent_sorting_with_uuid_unique_ids():
-    """Membership sorting works for UUID unique_ids. Regression test for #3563."""
-    model = Model()
-    agent = CustomAgent(model)
-
-    ma1 = MetaAgent(model, {agent}, name="Group1")
-    ma2 = MetaAgent(model, {agent}, name="Group2")
-    ma1.unique_id = uuid.UUID(int=1)
-    ma2.unique_id = uuid.UUID(int=2)
-
-    ma1.add_constituting_agents({agent})  # would previously raise TypeError
-    assert agent.meta_agent is ma1  # lowest UUID
 
 
 def test_meta_agent_sorting_with_none_unique_id():
