@@ -1097,6 +1097,20 @@ def test_select_random_agent_empty_safe():
     assert empty_collection.select_random_agent(default="Empty") == "Empty"
 
 
+def test_select_random_cell_empty_safe():
+    """Test that select_random_cell raises LookupError on an empty collection and honors default."""
+    rng = random.Random(42)
+    empty_collection = CellCollection([], random=rng)
+    with pytest.raises(LookupError):
+        empty_collection.select_random_cell()
+    assert empty_collection.select_random_cell(default=None) is None
+    assert empty_collection.select_random_cell(default="Empty") == "Empty"
+
+    # A non-empty collection still returns a cell from the collection
+    collection = CellCollection([Cell((i,), random=rng) for i in range(5)], random=rng)
+    assert collection.select_random_cell() in collection
+
+
 def test_infinite_loop_on_full_grid():
     """Test that select_random_empty_cell raises ValueError with informative message on a full grid."""
     # 1. Create a small 2x2 model
