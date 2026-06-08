@@ -64,6 +64,11 @@ class BaseObservable:
         self.fallback_value = fallback_value
 
     def __get__(self, instance: HasEmitters, owner):  # noqa: D105
+        # Class-level access (e.g. ``MyAgent.value``) returns the descriptor
+        # itself, following the standard descriptor protocol used by ``property``.
+        if instance is None:
+            return self
+
         value = getattr(instance, self.private_name)
 
         if CURRENT_COMPUTED is not None:

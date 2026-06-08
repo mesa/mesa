@@ -42,6 +42,31 @@ def test_observables():
     handler.assert_called_once()
 
 
+def test_observable_class_level_access():
+    """Accessing an Observable on the class returns the descriptor, not an error.
+
+    Standard descriptors (like ``property``) return themselves when accessed via
+    the class. Previously ``BaseObservable.__get__`` did ``getattr(None, ...)``,
+    raising AttributeError and making ``hasattr(cls, name)`` return False.
+    """
+
+    class MyAgent(Agent, HasEmitters):
+        value = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 10
+
+    # Class-level access returns the descriptor itself.
+    assert isinstance(MyAgent.value, Observable)
+    # Introspection works.
+    assert hasattr(MyAgent, "value")
+    # Instance access is unchanged.
+    model = Model(rng=42)
+    agent = MyAgent(model)
+    assert agent.value == 10
+
+
 def test_HasEmitters():
     """Test Observable."""
 
