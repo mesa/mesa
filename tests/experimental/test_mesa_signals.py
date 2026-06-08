@@ -42,6 +42,37 @@ def test_observables():
     handler.assert_called_once()
 
 
+def test_observable_class_level_access():
+    """Observables follow the descriptor protocol on class-level access.
+
+    Accessing an Observable/ObservableList on the class rather than an
+    instance should return the descriptor itself, like ``property``, instead
+    of raising ``AttributeError`` (gh #3732).
+    """
+
+    class MyAgent(Agent, HasEmitters):
+        value = Observable()
+        items = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 10
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+
+    # instance access is unchanged
+    assert agent.value == 10
+
+    # class-level access returns the descriptor (was AttributeError)
+    assert isinstance(MyAgent.value, Observable)
+    assert isinstance(MyAgent.items, ObservableList)
+
+    # hasattr no longer silently swallows the AttributeError
+    assert hasattr(MyAgent, "value")
+    assert hasattr(MyAgent, "items")
+
+
 def test_HasEmitters():
     """Test Observable."""
 
