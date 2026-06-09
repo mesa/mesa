@@ -433,3 +433,52 @@ def test_valid_model_params_types_accepted():  # noqa: D103
     _validate_model_params({"slider_param": Slider("Slider", 5, 1, 10, 1)})
 
     _validate_model_params({"dict_param": {"type": "SliderInt", "value": 5}})
+
+
+# ---------------------------------------------------------------------------
+# Class-vs-instance validation tests
+# ---------------------------------------------------------------------------
+
+
+class DummyModel(mesa.Model):
+    """A dummy model for validating SolaraViz class vs instance checks."""
+
+    def __init__(self):
+        """Initialize the dummy model."""
+        super().__init__()
+
+
+def test_solara_viz_rejects_class_instead_of_instance():
+    """Verify TypeError properly raised when passing a Model class."""
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(DummyModel, components=[], model_params={}), handle_error=False
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+    reactive_model = solara.reactive(DummyModel)
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(reactive_model, components=[], model_params={}),
+            handle_error=False,
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+
+def test_solara_viz_accepts_model_instance():
+    """Verify an instantiated model passes the instance validation check."""
+    model_instance = DummyModel()
+    solara.render(
+        SolaraViz(model_instance, components=[], model_params={}), handle_error=False
+    )
+
+    reactive_model = solara.reactive(model_instance)
+    solara.render(
+        SolaraViz(reactive_model, components=[], model_params={}), handle_error=False
+    )

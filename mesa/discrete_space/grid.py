@@ -110,6 +110,9 @@ class Grid(DiscreteSpace[T]):
             {"property_layers": set(), "__slots__": ()},
         )
         self.property_layers: dict[str, np.ndarray] = {}
+        # Track which property layers are read-only so the constraint survives
+        # pickling and deepcopy (see __getstate__/__setstate__).
+        self._read_only_layers: set[str] = set()
 
         # we register the pickle_gridcell helper function
         copyreg.pickle(self.cell_klass, pickle_gridcell)
@@ -173,6 +176,7 @@ class Grid(DiscreteSpace[T]):
         del self.property_layers[name]
         delattr(self.cell_klass, name)
         self.cell_klass.property_layers.discard(name)
+        self._read_only_layers.discard(name)
 
     def _attach_property_layer(
         self, name: str, array: np.ndarray, read_only: bool = False
@@ -212,6 +216,8 @@ class Grid(DiscreteSpace[T]):
         )
         setattr(self.cell_klass, name, accessor)
         self.cell_klass.property_layers.add(name)
+        if read_only:
+            self._read_only_layers.add(name)
 
     def get_neighborhood_mask(
         self, coordinate, include_center: bool = True, radius: int = 1
@@ -399,20 +405,30 @@ class Grid(DiscreteSpace[T]):
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Restore state and re-attach property_layer accessors to the cell class."""
+        """Restore state and re-attach property_layer accessors to the cell class.
+
+        Read-only layers (tracked in ``_read_only_layers``) are restored without a
+        setter so the read-only constraint survives the round trip.
+        """
         super().__setstate__(state)
+        # Older pickles may predate _read_only_layers; default to no read-only layers.
+        read_only_layers = getattr(self, "_read_only_layers", set())
+        self._read_only_layers = read_only_layers
         for name, array in self.property_layers.items():
-            setattr(
-                self.cell_klass,
-                name,
-                property(
+            if name in read_only_layers:
+                accessor = property(
+                    lambda self_cell, a=array: a[self_cell.coordinate],
+                    doc=f"property_layer '{name}'",
+                )
+            else:
+                accessor = property(
                     lambda self_cell, a=array: a[self_cell.coordinate],
                     lambda self_cell, v, a=array: a.__setitem__(
                         self_cell.coordinate, v
                     ),
                     doc=f"property_layer '{name}'",
-                ),
-            )
+                )
+            setattr(self.cell_klass, name, accessor)
 
 
 class OrthogonalMooreGrid(Grid[T]):

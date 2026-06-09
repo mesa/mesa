@@ -506,6 +506,27 @@ class TestEventGeneratorInit:
         with pytest.raises(ValueError, match="alive"):
             EventGenerator(model, lambda: 10, Schedule(interval=1.0))
 
+    def test_rejects_nonpositive_callable_interval(self, setup):
+        """A callable interval must follow the same > 0 rule as a fixed interval.
+
+        ``Schedule(interval=0)`` is rejected at construction, but a callable that
+        returns 0 was previously accepted, which would schedule the next event at
+        the current time. The runtime check must reject both 0 and negatives.
+        """
+        model, fn = setup
+
+        gen = EventGenerator(model, fn, Schedule(interval=lambda m: 0))
+        with pytest.raises(ValueError, match="> 0"):
+            gen._get_interval()
+
+        gen = EventGenerator(model, fn, Schedule(interval=lambda m: -1))
+        with pytest.raises(ValueError, match="> 0"):
+            gen._get_interval()
+
+        # A positive callable interval is returned unchanged.
+        gen = EventGenerator(model, fn, Schedule(interval=lambda m: 2.0))
+        assert gen._get_interval() == 2.0
+
 
 class TestEventGeneratorStartStop:
     def test_start_with_schedule_start(self, setup):
