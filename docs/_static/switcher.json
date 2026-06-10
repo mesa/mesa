@@ -1,7 +1,12 @@
 [
     {
-    "name": "stable",
-    "version": "stable",
-    "url": "https://mesa.readthedocs.io/en/stable/"
-  }
+        "name": "latest",
+        "version": "latest",
+        "url": "https://mesa.readthedocs.io/en/latest/"
+    },
+    {
+        "name": "v3.5.1",
+        "version": "v3.5.1",
+        "url": "https://mesa.readthedocs.io/en/v3.5.1/"
+    }
 ]
