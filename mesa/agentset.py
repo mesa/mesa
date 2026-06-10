@@ -958,5 +958,6 @@ class GroupBy:
         return len(self.groups)
 
     def __repr__(self) -> str:
-        """Return a concise representation showing the number of groups."""
-        return f"{type(self).__name__}({len(self)} groups)"
+        """Return a representation showing each group's identifier and size."""
+        sizes = {name: len(group) for name, group in self.groups.items()}
+        return f"{type(self).__name__}({len(self)} groups: {sizes})"

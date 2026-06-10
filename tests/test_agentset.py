@@ -745,11 +745,12 @@ def test_agentset_repr_and_str():
 
 
 def test_groupby_repr():
-    """GroupBy has a repr showing the number of groups."""
+    """GroupBy repr shows the number of groups and each group's identifier and size."""
     model = Model()
     agents = [AgentTest(model) for _ in range(6)]
     grouped = AgentSet(agents, random=model.random).groupby(lambda a: a.unique_id % 3)
-    assert repr(grouped) == "GroupBy(3 groups)"
+    sizes = {name: len(group) for name, group in grouped.groups.items()}
+    assert repr(grouped) == f"GroupBy(3 groups: {sizes})"
 
 
 def test_hardkeyagentset_init():
