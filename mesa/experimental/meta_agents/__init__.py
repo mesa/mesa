@@ -13,8 +13,9 @@ battery, computer etc. and the meta-agent is the car itself.
 - A company where the subagents are employees, departments, buildings, etc.
 - A city where the subagents are people, buildings, streets, etc.
 
-Currently meta-agents are restricted to one parent agent for each subagent/
-one meta-agent per subagent.
+The rewrite direction is to support overlapping memberships through the
+``meta_agents`` set on each subagent, while ``meta_agent`` remains a
+backward-compatible single-parent pointer during the transition.
 
 Goal is to assess usage and expand functionality.
 

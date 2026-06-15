@@ -14,7 +14,7 @@ To provide a simple demonstration of this capability is an alliance formation mo
 
 In this simulation n agents are created, who have two attributes (1) power and (2) preference. Each attribute is a number between 0 and 1 over a gaussian distribution. Agents then randomly select other agents and use the [bilateral shapley value](https://en.wikipedia.org/wiki/Shapley_value) to determine if they should form an alliance. If the expected utility support an alliances, the agent creates a meta-agent. Subsequent steps may add agents to the meta-agent, create new instances of similar hierarchy, or create a new hierarchy level where meta-agents form an alliance of meta-agents. In this visualization of this model a new meta-agent hierarchy will be a larger node and a new color.
 
-In MetaAgents current configuration, agents being part of multiple meta-agents is not supported.
+This example records memberships in the backend so agents can participate in multiple overlapping memberships.
 
 If you would like to see an example of explicit meta-agent formation see the [warehouse model in the Mesa example's repository](https://github.com/mesa/mesa-examples/tree/main/examples/warehouse)
 
@@ -45,4 +45,3 @@ Then run the example:
 solara run app.py
 
 Open the displayed local URL in your browser.
-
