@@ -1,10 +1,10 @@
 """Tests for the meta_agents module."""
 
 import pytest
-
 from mesa import Agent, Model
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.grid import OrthogonalMooreGrid
+from mesa.experimental.meta_agents.identity import ensure_entity_index
 from mesa.experimental.meta_agents.meta_agent import (
     MetaAgent,
     create_meta_agent,
@@ -168,6 +168,65 @@ def test_meta_agent_integration(setup_agents):
     assert meta_agent.custom_attribute == "custom_value"
     assert hasattr(meta_agent, "custom_method")
     assert meta_agent.custom_method() == "custom_method_value"
+
+
+def test_entity_index_tracks_atomic_and_meta_agents(setup_agents):
+    """The explicit entity index should assign stable ids to both entity kinds."""
+    model, agents = setup_agents
+    meta_agent = MetaAgent(model, set(agents))
+    entity_index = ensure_entity_index(model)
+
+    meta_record = entity_index.record_for(meta_agent)
+    atomic_records = [entity_index.record_for(agent) for agent in agents]
+
+    assert meta_record.kind == "meta"
+    assert meta_record.entity is meta_agent
+    assert meta_record.entity_id == meta_agent.entity_id
+    assert all(record.kind == "atomic" for record in atomic_records)
+    assert all(
+        record.entity_id == agent.entity_id
+        for record, agent in zip(atomic_records, agents)
+    )
+    assert entity_index.entity_for(meta_agent.entity_id) is meta_agent
+    assert {record.entity for record in entity_index.records()} == {meta_agent, *agents}
+
+
+def test_entity_index_lookup_survives_membership_updates(setup_agents):
+    """Membership churn should not change the explicit entity ids."""
+    model, agents = setup_agents
+    entity_index = ensure_entity_index(model)
+
+    meta_agent = MetaAgent(model, {agents[0], agents[1]})
+    original_meta_id = meta_agent.entity_id
+    original_agent_id = agents[0].entity_id
+
+    meta_agent.remove_constituting_agents({agents[0]})
+    meta_agent.add_constituting_agents({agents[0], agents[2]})
+    meta_agent.unique_id = "renamed-meta-agent"
+    entity_index.register(meta_agent, kind="meta")
+
+    assert agents[0].entity_id == original_agent_id
+    assert meta_agent.entity_id == original_meta_id
+    assert entity_index.entity_for(original_meta_id) is meta_agent
+    assert entity_index.entity_for(original_agent_id) is agents[0]
+    assert entity_index.kind_for(original_meta_id) == "meta"
+    assert entity_index.kind_for(original_agent_id) == "atomic"
+    entity_index.assert_invariants()
+
+
+def test_entity_index_preserves_meta_kind_for_nested_meta_agents():
+    """Nested meta-agents should stay classified as meta in the registry."""
+    model = Model()
+    atomic_agent = Agent(model)
+    child_meta = MetaAgent(model, {atomic_agent}, name="Child")
+    parent_meta = MetaAgent(model, {child_meta}, name="Parent")
+    entity_index = ensure_entity_index(model)
+
+    assert entity_index.kind_for(atomic_agent.entity_id) == "atomic"
+    assert entity_index.kind_for(child_meta.entity_id) == "meta"
+    assert entity_index.kind_for(parent_meta.entity_id) == "meta"
+    assert parent_meta.agents == {child_meta}
+    entity_index.assert_invariants()
 
 
 def test_evaluate_combination(setup_agents):
@@ -394,6 +453,24 @@ def test_meta_agent_remove_cleans_up_references(setup_agents):
 
     # MetaAgent should be gone from the model
     assert meta_agent not in model.agents
+
+
+def test_meta_agent_remove_cleans_entity_index(setup_agents):
+    """Meta-agent teardown should only remove meta-agent record."""
+    model, agents = setup_agents
+    meta_agent = MetaAgent(model, set(agents))
+    entity_index = ensure_entity_index(model)
+
+    meta_entity_id = meta_agent.entity_id
+    atomic_entity_ids = {agent.entity_id for agent in agents}
+
+    meta_agent.remove()
+
+    assert not entity_index.contains(meta_entity_id)
+    assert all(entity_index.contains(entity_id) for entity_id in atomic_entity_ids)
+    assert all(
+        entity_index.kind_for(entity_id) == "atomic" for entity_id in atomic_entity_ids
+    )
 
 
 def test_meta_agent_remove_with_multiple_memberships():

@@ -44,6 +44,7 @@ from types import MethodType
 from typing import Any
 
 from mesa.agent import Agent, AgentSet
+from mesa.experimental.meta_agents.identity import ensure_entity_index
 
 
 def _unique_id_sort_key(agent: Agent) -> tuple[bool, Any]:
@@ -229,11 +230,15 @@ def create_meta_agent(
         # Prevent collision of attributes with meta-agent instantiation
         mesa_primitives = [
             "unique_id",
+            "entity_id",
             "model",
             "pos",
             "name",
             "random",
             "rng",
+            "meta_agents",
+            "meta_agent",
+            "_constituting_set",
         ]
 
         if assume_constituting_agent_attributes:
@@ -276,6 +281,7 @@ def create_meta_agent(
         add_attributes(meta_agent, agents, meta_attributes)
         add_methods(meta_agent, agents, meta_methods)
         meta_agent.add_constituting_agents(agents)
+        ensure_entity_index(model).register(meta_agent, kind="meta")
         return meta_agent
 
     else:
@@ -291,6 +297,7 @@ def create_meta_agent(
             # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
+            ensure_entity_index(model).register(meta_agent_instance, kind="meta")
             return meta_agent_instance
         else:
             # Path 3 - Create a new meta-agent class
@@ -310,6 +317,7 @@ def create_meta_agent(
             # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
+            ensure_entity_index(model).register(meta_agent_instance, kind="meta")
             return meta_agent_instance
 
 
@@ -344,8 +352,15 @@ class MetaAgent(Agent):
         self._constituting_set = AgentSet(agents or [], random=model.random)
         self.name = name
 
+        entity_index = ensure_entity_index(self.model)
+        entity_index.register(self, kind="meta")
+
         # Add ref to meta_agent in constituting_agents
         for agent in self._constituting_set:
+            entity_index.register(
+                agent,
+                kind="meta" if isinstance(agent, MetaAgent) else "atomic",
+            )
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
@@ -422,6 +437,10 @@ class MetaAgent(Agent):
             new_agents (set[Agent]): The agents to add to MetaAgent constituting_set.
         """
         for agent in new_agents:
+            ensure_entity_index(self.model).register(
+                agent,
+                kind="meta" if isinstance(agent, MetaAgent) else "atomic",
+            )
             self._constituting_set.add(agent)
             if not hasattr(agent, "meta_agents"):
                 agent.meta_agents = set()

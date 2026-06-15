@@ -17,6 +17,11 @@ The rewrite direction is to support overlapping memberships through the
 ``meta_agents`` set on each subagent, while ``meta_agent`` remains a
 backward-compatible single-parent pointer during the transition.
 
+The experimental identity layer adds an explicit ``entity_index`` registry to
+models that use meta-agents. It assigns each tracked atomic agent and
+meta-agent a stable ``entity_id`` so membership bookkeeping does not have to
+lean on ad hoc object references or mutable ``unique_id`` values.
+
 Goal is to assess usage and expand functionality.
 
 """
@@ -24,4 +29,10 @@ Goal is to assess usage and expand functionality.
 from .backend import MembershipBackend
 from .meta_agent import MetaAgent
 
-__all__ = ["MembershipBackend", "MetaAgent"]
+__all__ = [
+    "EntityIndex",
+    "EntityRecord",
+    "MembershipBackend",
+    "MetaAgent",
+    "ensure_entyity_index",
+]

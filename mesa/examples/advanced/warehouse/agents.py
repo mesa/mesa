@@ -80,6 +80,7 @@ class SensorAgent(mesa.Agent):
         self, coord: tuple[int, int, int], path: list[tuple[int, int, int]]
     ) -> str:
         """Move one step along the current path."""
+        robot = getattr(self, "meta_agent", self)
 
         if coord not in path:
             raise ValueError("Current coordinate not in path.")
@@ -90,18 +91,18 @@ class SensorAgent(mesa.Agent):
 
         next_cell = self.model.warehouse[path[idx + 1]]
         if next_cell.is_empty:
-            self.meta_agent.cell = next_cell
+            robot.cell = next_cell
             return "moving"
 
-        neighbors = self.model.warehouse[self.meta_agent.cell.coordinate].neighborhood
+        neighbors = self.model.warehouse[robot.cell.coordinate].neighborhood
         empty_neighbors = [n for n in neighbors if n.is_empty]
         if empty_neighbors:
-            self.meta_agent.cell = self.random.choice(empty_neighbors)
+            robot.cell = self.random.choice(empty_neighbors)
 
-        new_path = self.meta_agent.get_constituting_agent_instance(
-            RouteAgent
-        ).find_path(self.meta_agent.cell, self.meta_agent.item.cell)
-        self.meta_agent.path = new_path
+        new_path = robot.get_constituting_agent_instance(RouteAgent).find_path(
+            robot.cell, robot.item.cell
+        )
+        robot.path = new_path
         return "recalculating"
 
 
@@ -118,36 +119,38 @@ class WorkerAgent(mesa.Agent):
 
     def initiate_task(self, item: InventoryAgent):
         """Start a new inventory task."""
-        self.item = item
-        self.path = self.find_path(self.cell, item.cell)
+        robot = getattr(self, "meta_agent", self)
+        robot.item = item
+        robot.path = robot.find_path(robot.cell, item.cell)
 
     def continue_task(self):
         """Continue the current task if the robot has one."""
-        if self.path is None or self.item is None:
+        robot = getattr(self, "meta_agent", self)
+        if robot.path is None or robot.item is None:
             return
 
-        status = self.meta_agent.get_constituting_agent_instance(SensorAgent).move(
-            self.cell.coordinate, self.path
+        status = robot.get_constituting_agent_instance(SensorAgent).move(
+            robot.cell.coordinate, robot.path
         )
 
-        if status == "movement complete" and self.meta_agent.status == "inventory":
-            source_coordinate = self.meta_agent.cell.coordinate
-            target_level = self.item.cell.coordinate[2]
-            self.meta_agent.cell = self.model.warehouse[
+        if status == "movement complete" and robot.status == "inventory":
+            source_coordinate = robot.cell.coordinate
+            target_level = robot.item.cell.coordinate[2]
+            robot.cell = self.model.warehouse[
                 (source_coordinate[0], source_coordinate[1], target_level)
             ]
-            self.meta_agent.status = "loading"
-            self.carrying = self.item.item
-            self.item.quantity -= 1
+            robot.status = "loading"
+            robot.carrying = robot.item.item
+            robot.item.quantity -= 1
 
-            loading_coordinate = self.meta_agent.cell.coordinate
-            self.meta_agent.cell = self.model.warehouse[
+            loading_coordinate = robot.cell.coordinate
+            robot.cell = self.model.warehouse[
                 (loading_coordinate[0], loading_coordinate[1], 0)
             ]
-            self.path = self.find_path(self.cell, self.loading_dock)
+            robot.path = robot.find_path(robot.cell, robot.loading_dock)
 
-        if status == "movement complete" and self.meta_agent.status == "loading":
-            self.carrying = None
-            self.meta_agent.status = "open"
-            self.path = None
-            self.item = None
+        if status == "movement complete" and robot.status == "loading":
+            robot.carrying = None
+            robot.status = "open"
+            robot.path = None
+            robot.item = None
