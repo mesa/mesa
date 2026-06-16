@@ -18,6 +18,9 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
 )
 from mesa.visualization.backends.abstract_renderer import AbstractRenderer
+from mesa.visualization.components.portrayal_components import (
+    warn_if_legacy_agent_portrayal,
+)
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
@@ -102,16 +105,7 @@ class MatplotlibBackend(AbstractRenderer):
             portray_input = agent_portrayal(agent)
 
             if isinstance(portray_input, dict):
-                warnings.warn(
-                    (
-                        "Returning a dict from agent_portrayal is deprecated and will be removed in Mesa 4.0. "
-                        "Please return an AgentPortrayalStyle instance instead. "
-                        "For more information, refer to the migration guide: "
-                        "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
-                    ),
-                    FutureWarning,
-                    stacklevel=2,
-                )
+                warn_if_legacy_agent_portrayal()
                 # Handle legacy dict input
                 dict_data = portray_input.copy()
                 agent_x, agent_y = self._get_agent_pos(agent, space)

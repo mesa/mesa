@@ -10,10 +10,31 @@ Classes:
 These components are designed to be passed into Mesa visualizations to customize and standardize how data is presented.
 """
 
+import warnings
 from dataclasses import dataclass
 from typing import Any
 
 ColorLike = str | tuple | int | float
+
+_legacy_agent_portrayal_warning_emitted = {"emitted": False}
+
+
+def warn_if_legacy_agent_portrayal() -> None:
+    """Warn once when agent_portrayal returns a legacy dict."""
+    if _legacy_agent_portrayal_warning_emitted["emitted"]:
+        return
+
+    _legacy_agent_portrayal_warning_emitted["emitted"] = True
+    warnings.warn(
+        (
+            "Returning a dict from agent_portrayal is deprecated and will be removed in Mesa 4.0. "
+            "Please return an AgentPortrayalStyle instance instead. "
+            "For more information, refer to the migration guide: "
+            "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
+        ),
+        FutureWarning,
+        stacklevel=3,
+    )
 
 
 @dataclass
