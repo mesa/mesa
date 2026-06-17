@@ -21,9 +21,9 @@ Open the displayed local URL in your browser.
 
 ## Files
 
-* [model.py](model.py): Contains the Boid Model
-* [agents.py](agents.py): Contains the Boid agent
-* [app.py](app.py): Solara based Visualization code.
+* [model.py](https://github.com/projectmesa/mesa/blob/main/mesa/examples/basic/boid_flockers/model.py): Contains the Boid Model
+* [agents.py](https://github.com/projectmesa/mesa/blob/main/mesa/examples/basic/boid_flockers/agents.py): Contains the Boid agent
+* [app.py](https://github.com/projectmesa/mesa/blob/main/mesa/examples/basic/boid_flockers/app.py): Solara based Visualization code.
 
 ## Further Reading
 
