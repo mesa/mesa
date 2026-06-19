@@ -1,13 +1,14 @@
 """Tests for mesa.experimental.scenarios."""
-
 import pickle
 
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.stats.qmc as qmc
 
 from mesa import Agent, Model
-from mesa.experimental.scenarios import Scenario
+from mesa.experimental.data_collection import DataRecorder
+from mesa.experimental.scenarios import RunConfiguration, Scenario
 from mesa.experimental.scenarios.scenario import rescale_samples
 
 
@@ -331,3 +332,51 @@ def test_from_ndarray_returns_subclass():
     scenarios = MyScenario.from_ndarray(samples, ["x"], rng=42)
 
     assert isinstance(scenarios[0], MyScenario)
+
+
+def test_run_configuration(mocker):
+    """Tests for RunConfiguration."""
+    dummy_recorder = mocker.Mock(spec=DataRecorder)
+
+
+    class DummyModel(Model):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.data_recorder = dummy_recorder()
+
+            # setting up the mock
+            self.data_recorder.get_table_dataframe.return_value = pd.DataFrame()
+            self.data_recorder.get_all_dataframes.return_value = {"a": pd.DataFrame(), "b": pd.DataFrame()}
+
+    until = 10
+    configuration = RunConfiguration(DummyModel, until=until)
+    assert configuration.model_class is DummyModel
+
+    with pytest.raises(TypeError):
+        RunConfiguration(DummyModel(), until=until)
+    with pytest.raises(TypeError):
+        RunConfiguration(object, until=until)
+    with pytest.raises(TypeError):
+        RunConfiguration(DummyModel, until="some string")
+    with pytest.raises(ValueError):
+        RunConfiguration(DummyModel, until=-until)
+
+    configuration = RunConfiguration(DummyModel, until=until, outcomes="a")
+    assert configuration.outcomes == ["a"]
+
+    configuration = RunConfiguration(DummyModel, until=until)
+    scenario = Scenario()
+    model = configuration.instantiate_model(scenario)
+    assert model.scenario == scenario
+
+    configuration.run_model(model)
+    assert model.time == until
+
+    output = configuration.extract_output(model)
+    assert "a" in output
+    assert "b" in output
+
+    configuration = RunConfiguration(DummyModel, until=until, outcomes="a")
+    output = configuration(scenario)
+    assert "a" in output
+    assert "b" not in output
