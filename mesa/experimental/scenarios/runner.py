@@ -1,4 +1,5 @@
 """Classes for running parameter sweeps over scenarios."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -27,8 +28,16 @@ class RunConfiguration:
     which run primitive to call.
 
     """
-    def __init__(self, model_class: type[Model], until:float | int, model_args:None| list[Any]=None,
-                 model_kwargs:None|dict[str, Any]=None, outcomes: None|str|list[str]=None, data_recorder_attr_name="data_recorder"):
+
+    def __init__(
+        self,
+        model_class: type[Model],
+        until: float | int,
+        model_args: None | list[Any] = None,
+        model_kwargs: None | dict[str, Any] = None,
+        outcomes: None | str | list[str] = None,
+        data_recorder_attr_name="data_recorder",
+    ):
         """Initialize a RunConfiguration object.
 
         Args:
@@ -43,11 +52,12 @@ class RunConfiguration:
 
         # we need to avoid circular imports
         from mesa.model import Model  # noqa: PLC0415
+
         if not (isinstance(model_class, type) and issubclass(model_class, Model)):
             raise TypeError("model_class must be a subclass of Model")
         if not isinstance(until, (int, float)):
             raise TypeError("until must be an int or float")
-        if until<=0:
+        if until <= 0:
             raise ValueError("until must be positive")
 
         self.model_class = model_class
@@ -65,7 +75,9 @@ class RunConfiguration:
 
     def instantiate_model(self, scenario) -> Model:
         """Instantiate the model."""
-        return self.model_class(*self.model_args, scenario=scenario, **self.model_kwargs)
+        return self.model_class(
+            *self.model_args, scenario=scenario, **self.model_kwargs
+        )
 
     def run_model(self, model: Model):
         """Run the model."""
@@ -78,7 +90,7 @@ class RunConfiguration:
         if self.outcomes is None:
             return recorder.get_all_dataframes()
         else:
-            return {k:recorder.get_table_dataframe(k) for k in self.outcomes}
+            return {k: recorder.get_table_dataframe(k) for k in self.outcomes}
 
     def __call__(self, scenario: Scenario) -> dict[str, pd.DataFrame]:
         """Run the scenario and extract output."""
@@ -86,4 +98,3 @@ class RunConfiguration:
         self.run_model(model)
         output = self.extract_output(model)
         return output
-
