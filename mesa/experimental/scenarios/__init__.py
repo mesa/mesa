@@ -1,8 +1,9 @@
 """Scenarios module."""
 
-from .scenario import Scenario
 from .runner import RunConfiguration
+from .scenario import Scenario
 
 __all__ = [
-    "Scenario",
+    "RunConfiguration",
+    "Scenario"
 ]
