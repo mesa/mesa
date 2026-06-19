@@ -72,7 +72,7 @@ class RunConfiguration:
             outcomes = [outcomes]
         self.outcomes = outcomes
 
-    def instantiate_model(self, scenario:Scenario) -> Model:
+    def instantiate_model(self, scenario: Scenario) -> Model:
         """Instantiate the model."""
         return self.model_class(
             *self.model_args, scenario=scenario, **self.model_kwargs
