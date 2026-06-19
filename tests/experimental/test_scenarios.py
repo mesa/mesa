@@ -1,4 +1,5 @@
 """Tests for mesa.experimental.scenarios."""
+
 import pickle
 
 import numpy as np
@@ -338,7 +339,6 @@ def test_run_configuration(mocker):
     """Tests for RunConfiguration."""
     dummy_recorder = mocker.Mock(spec=DataRecorder)
 
-
     class DummyModel(Model):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -346,7 +346,10 @@ def test_run_configuration(mocker):
 
             # setting up the mock
             self.data_recorder.get_table_dataframe.return_value = pd.DataFrame()
-            self.data_recorder.get_all_dataframes.return_value = {"a": pd.DataFrame(), "b": pd.DataFrame()}
+            self.data_recorder.get_all_dataframes.return_value = {
+                "a": pd.DataFrame(),
+                "b": pd.DataFrame(),
+            }
 
     until = 10
     configuration = RunConfiguration(DummyModel, until=until)
