@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.scenarios import Scenario
-
 if TYPE_CHECKING:
+    from mesa.experimental.scenarios import Scenario
     from mesa.model import Model
 
 
@@ -73,7 +72,7 @@ class RunConfiguration:
             outcomes = [outcomes]
         self.outcomes = outcomes
 
-    def instantiate_model(self, scenario) -> Model:
+    def instantiate_model(self, scenario:Scenario) -> Model:
         """Instantiate the model."""
         return self.model_class(
             *self.model_args, scenario=scenario, **self.model_kwargs
