@@ -22,6 +22,7 @@ from mesa.experimental.mesa_signals import (
     Observable,
     emit,
 )
+from mesa.experimental.states import ContinuousScheduler, StateTensor
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, method_logger
 from mesa.time import (
@@ -149,6 +150,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         )  # an agenset with all agents
 
         self.data_registry = DataRegistry()
+
+        # Initialize the Continuous Engine Backend
+        self.state_tensor = StateTensor(capacity=10_000)
+        self.continuous_scheduler = ContinuousScheduler(self, self.state_tensor)
+
 
     def _wrapped_step(self) -> None:
         """Advance time by one unit, processing any scheduled events."""

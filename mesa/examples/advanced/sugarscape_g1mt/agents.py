@@ -1,6 +1,7 @@
 import math
 
 from mesa.discrete_space import CellAgent
+from mesa.experimental.states import ContinuousState, Threshold
 
 
 # Helper function
@@ -25,6 +26,20 @@ class Trader(CellAgent):
     - harvest and trade sugar and spice to survive
     """
 
+    sugar = ContinuousState(
+        default=0.0, rate=lambda a: -a.metabolism_sugar, min_value=0.0
+    )
+    spice = ContinuousState(
+        default=0.0, rate=lambda a: -a.metabolism_spice, min_value=0.0
+    )
+
+    _sugar_starvation = Threshold(
+        state=sugar, limit=0.0, callback="remove", direction="falling", mode="eager"
+    )
+    _spice_starvation = Threshold(
+        state=spice, limit=0.0, callback="remove", direction="falling", mode="eager"
+    )
+
     def __init__(
         self,
         model,
@@ -37,13 +52,15 @@ class Trader(CellAgent):
     ):
         super().__init__(model)
         self.cell = cell
-        self.sugar = sugar
-        self.spice = spice
         self.metabolism_sugar = metabolism_sugar
         self.metabolism_spice = metabolism_spice
+
+        self.sugar = sugar
+        self.spice = spice
         self.vision = vision
         self.prices = []
         self.trade_partners = []
+
 
     def get_trader(self, cell):
         """
@@ -264,11 +281,11 @@ class Trader(CellAgent):
     def eat(self):
         self.sugar += self.cell.sugar
         self.cell.sugar = 0
-        self.sugar -= self.metabolism_sugar
+        # self.sugar -= self.metabolism_sugar
 
         self.spice += self.cell.spice
         self.cell.spice = 0
-        self.spice -= self.metabolism_spice
+        # self.spice -= self.metabolism_spice
 
     def maybe_die(self):
         """

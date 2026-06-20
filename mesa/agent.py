@@ -103,6 +103,12 @@ class Agent[M: Model]:
         # ensures models are also removed from datasets
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
+        
+        indices = getattr(self, "_continuous_indices", {})
+        for idx_list in indices.values():
+            for idx in idx_list:
+                if hasattr(self.model, "state_tensor"):
+                    self.model.state_tensor.remove(idx)
 
     def step(self) -> None:
         """A single step of the agent."""
@@ -133,6 +139,8 @@ class Agent[M: Model]:
         if not args and not kwargs:
             for _ in range(n):
                 agents.append(cls(model))
+            for agent in agents:
+                model.state_tensor.register(agent)
             return AgentSet(agents, random=model.random)
 
         # Prepare positional argument iterators
@@ -164,6 +172,9 @@ class Agent[M: Model]:
         else:
             for _, p_args in zip(range(n), pos_iter):
                 agents.append(cls(model, *p_args))
+
+        for agent in agents:
+            model.state_tensor.register(agent)
 
         return AgentSet(agents, random=model.random)
 
