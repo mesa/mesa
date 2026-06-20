@@ -1,7 +1,7 @@
 import math
 
 from mesa.discrete_space import CellAgent
-from mesa.experimental.states import ContinuousState, Threshold
+from mesa.experimental.states import ContinuousState
 
 
 # Helper function
@@ -33,12 +33,12 @@ class Trader(CellAgent):
         default=0.0, rate=lambda a: -a.metabolism_spice, min_value=0.0
     )
 
-    _sugar_starvation = Threshold(
-        state=sugar, limit=0.0, callback="remove", direction="falling", mode="lazy"
-    )
-    _spice_starvation = Threshold(
-        state=spice, limit=0.0, callback="remove", direction="falling", mode="lazy"
-    )
+    # _sugar_starvation = Threshold(
+    #     state=sugar, limit=0.0, callback="remove", direction="falling", mode="eager"
+    # )
+    # _spice_starvation = Threshold(
+    #     state=spice, limit=0.0, callback="remove", direction="falling", mode="eager"
+    # )
 
     def __init__(
         self,
