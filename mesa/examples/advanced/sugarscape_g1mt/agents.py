@@ -34,10 +34,10 @@ class Trader(CellAgent):
     )
 
     _sugar_starvation = Threshold(
-        state=sugar, limit=0.0, callback="remove", direction="falling", mode="eager"
+        state=sugar, limit=0.0, callback="remove", direction="falling", mode="lazy"
     )
     _spice_starvation = Threshold(
-        state=spice, limit=0.0, callback="remove", direction="falling", mode="eager"
+        state=spice, limit=0.0, callback="remove", direction="falling", mode="lazy"
     )
 
     def __init__(
