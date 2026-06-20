@@ -103,7 +103,7 @@ class Agent[M: Model]:
         # ensures models are also removed from datasets
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
-        
+
         indices = getattr(self, "_continuous_indices", {})
         for idx_list in indices.values():
             for idx in idx_list:

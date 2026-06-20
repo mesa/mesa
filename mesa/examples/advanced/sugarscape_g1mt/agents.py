@@ -61,7 +61,6 @@ class Trader(CellAgent):
         self.prices = []
         self.trade_partners = []
 
-
     def get_trader(self, cell):
         """
         helper function used in self.trade_with_neighbors()
