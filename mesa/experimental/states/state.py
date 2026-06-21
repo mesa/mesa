@@ -129,6 +129,13 @@ class StateTensor:
         with np.errstate(divide="ignore", invalid="ignore"):
             delta_t = (l - v) / r
 
+        # Flags agents already mathematically past their threshold bounds
+        already_past = (d == DIR_FALLING) & (v <= l)
+        already_past |= (d == DIR_RISING) & (v >= l)
+        already_past |= (d == DIR_BOTH) & ((v <= l) | (v >= l))
+
+        delta_t[already_past] = 0.0
+
         delta_t = np.maximum(0.0, delta_t - 1e-9)
         projected = lut + delta_t
 
@@ -137,6 +144,9 @@ class StateTensor:
         invalid_mask |= (d == DIR_RISING) & (r <= 0)
         invalid_mask |= (d == DIR_FALLING) & (r >= 0)
 
+        # Guard the fallback net from being suppressed
+        invalid_mask &= ~already_past
+
         projected[invalid_mask] = np.inf
         self.projected_times[: self.max_active_idx] = projected
 
@@ -144,12 +154,23 @@ class StateTensor:
         """Recompute projected time for a single row."""
         r = self.rates[idx]
         d = self.directions[idx]
+        limit = self.limits[idx]
+        val = self.values[idx]
+
+        # The Single-Row Fallback Net
+        if (
+            (d == DIR_FALLING and val <= limit)
+            or (d == DIR_RISING and val >= limit)
+            or (d == DIR_BOTH and (val <= limit or val >= limit))
+        ):
+            self.projected_times[idx] = current_time
+            return
 
         if r == 0:
             self.projected_times[idx] = np.inf
             return
 
-        dt = (self.limits[idx] - self.values[idx]) / r
+        dt = (limit - val) / r
 
         if dt < 0 or (d == DIR_RISING and r <= 0) or (d == DIR_FALLING and r >= 0):
             self.projected_times[idx] = np.inf
@@ -159,8 +180,10 @@ class StateTensor:
 
     def register(self, agent: Agent) -> None:
         """Allocate tensor rows for all `ContinuousState` attributes on an agent."""
-        if not hasattr(agent, "_continuous_indices"):
-            agent._continuous_indices = {}
+        if hasattr(agent, "_continuous_indices"):
+            return  # Idempotency check
+
+        agent._continuous_indices = {}
 
         for attr_name in dir(type(agent)):
             attr = getattr(type(agent), attr_name)
@@ -178,6 +201,10 @@ class StateTensor:
                         direction="both",
                     )
                     indices.append(idx)
+                    # Kickstart
+                    self.update_single_projection(
+                        idx, getattr(agent.model, "time", 0.0)
+                    )
                 else:
                     for threshold in attr.eager_thresholds:
                         idx = self.allocate(
@@ -189,6 +216,14 @@ class StateTensor:
                             direction=threshold.direction,
                         )
                         indices.append(idx)
+                        # Kickstart and queue
+                        self.update_single_projection(
+                            idx, getattr(agent.model, "time", 0.0)
+                        )
+                        if hasattr(agent.model, "continuous_scheduler"):
+                            agent.model.continuous_scheduler.check_and_reschedule(
+                                self.projected_times[idx]
+                            )
 
                 agent._continuous_indices[attr.name] = indices
                 setattr(agent, attr._cache_attr, indices)
@@ -291,11 +326,17 @@ class Threshold:
     """A trigger condition attached to a `ContinuousState` attribute.
 
     Warning:
-        Eager callbacks fire synchronously inside `ContinuousState.__set__`.
-        Do not use callbacks that directly remove the owning agent
-        (e.g., `remove()`) without explicitly handling reentrancy in your
-        step methods, as code executing after the variable update will run
-        against a removed agent. Prefer setting flags (e.g., `is_dead = True`).
+        Eager callbacks fire differently based on the trigger source:
+        1. Time-Decay (Passive): Projected future crossings are safely deferred
+           to the event scheduler queue (`heapq`) and execute between discrete steps.
+        2. Explicit Writes (Active): Thresholds crossed due to direct assignment
+           (e.g., `agent.energy = 0`) fire synchronously inline, bypassing the queue.
+
+        Due to this inline execution, do not use callbacks that directly remove the
+        owning agent (e.g., `remove()`) without explicitly handling reentrancy.
+        If a mid-step interaction triggers the threshold, the code executing
+        after the update will crash when running against a removed agent.
+        Prefer setting flags (e.g., `is_dead = True`) to defer teardown safely.
     """
 
     def __init__(
@@ -349,21 +390,15 @@ class ContinuousState:
         self,
         default: float = 0.0,
         rate: float | str | Callable = 0.0,
-        min_value: float = -float("inf"),
-        max_value: float = float("inf"),
     ) -> None:
-        """Configure continuous state defaults and limits.
+        """Configure continuous state defaults.
 
         Args:
             default: Starting value.
             rate: Float or callable determining the rate of change.
-            min_value: Lower bound.
-            max_value: Upper bound.
         """
         self.default = default
         self.rate_config = rate
-        self.min_value = min_value
-        self.max_value = max_value
         self.name: str = ""
 
         self.eager_thresholds: list[Threshold] = []
@@ -371,7 +406,6 @@ class ContinuousState:
 
         self._is_static_rate = not callable(rate) and not hasattr(rate, "__get__")
         self._static_rate_value = float(rate) if self._is_static_rate else 0.0
-        self._needs_clamp = (min_value != -float("inf")) or (max_value != float("inf"))
         self._cache_attr = ""
         self._lazy_cache_attr = ""
         self._has_thresholds = False
@@ -381,6 +415,25 @@ class ContinuousState:
         self.name = name
         self._cache_attr = f"_idx_{name}"
         self._lazy_cache_attr = f"_lazythr_{name}"
+
+        # Metaprogramming Fallback Registration
+        # Handles agents relying solely on defaults without explicit initial assignments
+        if not getattr(owner, "_continuous_patched", False):
+            original_init = owner.__init__
+
+            import functools
+
+            @functools.wraps(original_init)
+            def patched_init(self_agent, *args, **kwargs):
+                original_init(self_agent, *args, **kwargs)
+                if not hasattr(self_agent, "_continuous_indices"):
+                    if hasattr(self_agent, "model") and hasattr(
+                        self_agent.model, "state_tensor"
+                    ):
+                        self_agent.model.state_tensor.register(self_agent)
+
+            owner.__init__ = patched_init
+            owner._continuous_patched = True
 
     def _get_rate(self, instance: Agent) -> float:
         """Resolve the active rate of change."""
@@ -394,12 +447,12 @@ class ContinuousState:
 
     def _check_triggered(self, t: Threshold, old_val: float, new_val: float) -> bool:
         """Detect crossing between two values relative to a threshold limit."""
-        if t.direction == "falling" and old_val > t.limit >= new_val:
+        if t.direction == "falling" and old_val >= t.limit > new_val:
             return True
-        if t.direction == "rising" and old_val < t.limit <= new_val:
+        if t.direction == "rising" and old_val <= t.limit < new_val:
             return True
         if t.direction == "both":
-            return (old_val < t.limit <= new_val) or (old_val > t.limit >= new_val)
+            return (old_val >= t.limit > new_val) or (old_val <= t.limit < new_val)
         return False
 
     def _register_threshold(self, threshold: Threshold) -> None:
@@ -417,8 +470,10 @@ class ContinuousState:
 
         indices = getattr(instance, self._cache_attr, None)
         if indices is None:
-            # Fallback if accessed before register()
-            indices = getattr(instance, "_continuous_indices", {}).get(self.name)
+            # Just-In-Time Registration on access
+            if hasattr(instance, "model") and hasattr(instance.model, "state_tensor"):
+                instance.model.state_tensor.register(instance)
+                indices = getattr(instance, self._cache_attr, None)
             if not indices:
                 return 0.0
 
@@ -434,9 +489,6 @@ class ContinuousState:
         base_val = tensor.values[idx0]
         dt = instance.model.time - tensor.last_update_times[idx0]
         current_val = base_val + (current_rate * dt)
-
-        if self._needs_clamp:
-            current_val = max(self.min_value, min(self.max_value, current_val))
 
         if self.lazy_thresholds:
             # Prevents trigger spam by requiring an actual crossing between reads
@@ -466,8 +518,10 @@ class ContinuousState:
         """Store new baseline, adjust trajectory, and trigger eager thresholds."""
         indices = getattr(instance, self._cache_attr, None)
         if indices is None:
-            # Fallback if accessed before register()
-            indices = getattr(instance, "_continuous_indices", {}).get(self.name)
+            # Just-In-Time Registration on assignment
+            if hasattr(instance, "model") and hasattr(instance.model, "state_tensor"):
+                instance.model.state_tensor.register(instance)
+                indices = getattr(instance, self._cache_attr, None)
             if not indices:
                 return
 
@@ -480,16 +534,11 @@ class ContinuousState:
         old_dt = instance.model.time - tensor.last_update_times[idx0]
         old_val = tensor.values[idx0] + (tensor.rates[idx0] * old_dt)
 
-        clamped_val = (
-            max(self.min_value, min(self.max_value, value))
-            if self._needs_clamp
-            else value
-        )
         new_rate = self._get_rate(instance)
 
         # Sync all associated tensor rows
         for idx in indices:
-            tensor.values[idx] = clamped_val
+            tensor.values[idx] = value
             tensor.last_update_times[idx] = instance.model.time
             tensor.rates[idx] = new_rate
 
@@ -501,11 +550,11 @@ class ContinuousState:
 
         if self.eager_thresholds:
             for t in self.eager_thresholds:
-                if self._check_triggered(t, old_val, clamped_val):
+                if self._check_triggered(t, old_val, value):
                     cb = getattr(instance, t.callback, None)
                     if cb:
                         cb()
 
         # Reset lazy baseline to prevent false missed crossings
         if self.lazy_thresholds:
-            setattr(instance, self._lazy_cache_attr + "_last_val", clamped_val)
+            setattr(instance, self._lazy_cache_attr + "_last_val", value)
