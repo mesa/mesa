@@ -30,10 +30,10 @@ class Trader(CellAgent):
     spice = ContinuousState(default=0.0, rate=lambda a: -a.metabolism_spice)
 
     _sugar_starvation = Threshold(
-        state=sugar, limit=0.0, callback="flag_dead", direction="falling", mode="eager"
+        state=sugar, limit=0.0, callback="flag_dead", direction="falling", mode="lazy"
     )
     _spice_starvation = Threshold(
-        state=spice, limit=0.0, callback="flag_dead", direction="falling", mode="eager"
+        state=spice, limit=0.0, callback="flag_dead", direction="falling", mode="lazy"
     )
 
     def __init__(
