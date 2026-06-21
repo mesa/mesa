@@ -54,7 +54,7 @@ class Trader(CellAgent):
         self.cell = cell
         self.metabolism_sugar = metabolism_sugar
         self.metabolism_spice = metabolism_spice
-
+        self.model.state_tensor.register(self)
         self.sugar = sugar
         self.spice = spice
         self.vision = vision

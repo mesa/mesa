@@ -139,8 +139,6 @@ class Agent[M: Model]:
         if not args and not kwargs:
             for _ in range(n):
                 agents.append(cls(model))
-            for agent in agents:
-                model.state_tensor.register(agent)
             return AgentSet(agents, random=model.random)
 
         # Prepare positional argument iterators
@@ -172,9 +170,6 @@ class Agent[M: Model]:
         else:
             for _, p_args in zip(range(n), pos_iter):
                 agents.append(cls(model, *p_args))
-
-        for agent in agents:
-            model.state_tensor.register(agent)
 
         return AgentSet(agents, random=model.random)
 
