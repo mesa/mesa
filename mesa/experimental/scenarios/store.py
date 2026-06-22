@@ -11,15 +11,19 @@ from mesa.exceptions import MesaException
 if TYPE_CHECKING:
     from mesa.experimental.scenarios.scenario import Scenario
 
+
 class Status(Enum):
     """Enumeration for scenario run status."""
+
     PENDING = "PENDING"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
 
+
 @dataclass(frozen=True)
 class RunId:
     """Identifier for a specific scenario replication combination."""
+
     scenario_id: int
     replication_id: int | None = None
 
@@ -31,6 +35,7 @@ class Writer(Protocol):
     Picklable; carries only configuration, never the store's durable record. T
     his is the ONLY store capability a worker receives.
     """
+
     def to_reference(
         self, scenario_id: int, replication_id: int | None, outcome: dict
     ) -> Reference:
@@ -96,14 +101,17 @@ class Reference(Protocol):
     Must pickle cheaply: a reference crosses the process/rank boundary as the
     return value of the per-run worker call.
     """
+
     run_id: RunId
     payload: Any
+
 
 @dataclass(frozen=True)
 class InMemoryReference:
     """In-memory reference for scenario runs."""
+
     run_id: RunId
-    payload: dict[str, pd.DataFrame]   # rides the boundary inline
+    payload: dict[str, pd.DataFrame]  # rides the boundary inline
 
 
 class InMemoryWriter:
@@ -114,6 +122,7 @@ class InMemoryWriter:
     ) -> Reference:
         """Persist a run's outcome and return a reference to it."""
         return InMemoryReference(RunId(scenario_id, replication_id), outcome)
+
 
 class InMemoryStore:
     """Implements in memory store following store protocol."""
@@ -129,7 +138,7 @@ class InMemoryStore:
         """Return the picklable, write-only handle to hand to workers."""
         return InMemoryWriter()
 
-    def retrieve_output(self, run_id:RunId) -> dict[str, pd.DataFrame]:
+    def retrieve_output(self, run_id: RunId) -> dict[str, pd.DataFrame]:
         """Retrieve a run's output."""
         status = self._statuses.get(run_id)
         if status is None:
@@ -184,7 +193,7 @@ class InMemoryStore:
         )
         return pd.DataFrame(list(statuses.values()), index=idx, columns=["status"])
 
-    def check_status(self, run_id:RunId) -> Status:
+    def check_status(self, run_id: RunId) -> Status:
         """Check the status of the reference."""
         try:
             return self._statuses[run_id]
@@ -202,4 +211,3 @@ class ScenarioNotReadyException(MesaException):
 
 class ScenarioFailedException(MesaException):
     """Exception raised when a scenario run failed."""
-

@@ -125,10 +125,13 @@ def _safe_call(
     """
     try:
         outcome = config(scenario)
-        ref = writer.to_reference(scenario.scenario_id, scenario.replication_id, outcome)
+        ref = writer.to_reference(
+            scenario.scenario_id, scenario.replication_id, outcome
+        )
         return ref, None
     except Exception:
         return None, traceback.format_exc()
+
 
 def run_scenarios(
     scenarios: Iterable[Scenario],
@@ -180,7 +183,9 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(scenario: Scenario, ref: Reference | None, trace_back:str|None, origin):
+    def _record(
+        scenario: Scenario, ref: Reference | None, trace_back: str | None, origin
+    ):
         """Handler for recording the return _safe_call."""
         if trace_back is None:
             store.mark_succeeded(ref)
