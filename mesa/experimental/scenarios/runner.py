@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import traceback
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from mesa.experimental.scenarios.store import InMemoryStore, RunId
+
 if TYPE_CHECKING:
+    from concurrent.futures import Executor
+
     from mesa.experimental.scenarios import Scenario
+    from mesa.experimental.scenarios.store import Reference, Store, Writer
     from mesa.model import Model
 
 
@@ -97,3 +104,106 @@ class RunConfiguration:
         self.run_model(model)
         output = self.extract_output(model)
         return output
+
+
+def _safe_call(
+    config: RunConfiguration,
+    scenario: Scenario,
+    writer: Writer,
+) -> tuple[Reference | None, str | None]:
+    """Run one scenario and persist its outcome. Runs in the worker.
+
+    Args:
+        config: a RunConfiguration instance
+        scenario: a Scenario instance
+        writer: a Writer instance
+
+    Returns (reference, None) on success or (None, traceback) on a failure
+    raised inside the run or the writer. Catching here means a model
+    error becomes data (a traceback string) rather than an exception
+    crossing the process boundary, so one failed run never aborts a parameter sweep.
+    """
+    try:
+        outcome = config(scenario)
+        ref = writer.to_reference(scenario.scenario_id, scenario.replication_id, outcome)
+        return ref, None
+    except Exception:
+        return None, traceback.format_exc()
+
+def run_scenarios(
+    scenarios: Iterable[Scenario],
+    config: RunConfiguration,
+    *,
+    executor: Executor | None = None,
+    store: Store | None = None,
+    progress: bool = True,
+    timeout: float | None = None,
+) -> Store:
+    """Run the scenarios and return a Results object.
+
+    Args:
+        scenarios: an iterable of scenarios to run
+            Scenarios to execute. For replications, construct these via
+            ``MyScenario.from_dataframe(df, replications=n)`` — replication is
+            handled at scenario construction, not here.
+        config: a RunConfiguration instance
+            Per-scenario execution unit. Must be picklable when using a
+            distributed executor (e.g., ProcessPoolExecutor).
+        executor: an executor to run the scenarios
+            Execution backend. If None, scenarios run sequentially in the
+            calling thread (useful for debugging and small experiments).
+            Otherwise, pass a user-constructed executor; its lifetime is the
+            caller's responsibility (use a ``with`` block).
+        store: the Storage backend to use
+        progress: whether to display the progress
+            Display a progress bar via ``tqdm`` if installed.
+        timeout: the timeout in seconds for running a single scenario
+            only relevant if ``executor`` is not None
+
+    Returns: Store
+
+    """
+    if store is None:
+        store = InMemoryStore()
+
+    scenarios = list(scenarios)
+    writer = store.writer()
+    store.write_scenarios(scenarios)
+
+    def _bar(iterable):
+        if not progress:
+            return iterable
+        try:
+            from tqdm.auto import tqdm  # noqa: PLC0415
+
+            return tqdm(iterable, total=len(scenarios), desc="Running scenarios")
+        except ImportError:
+            return iterable
+
+    def _record(scenario: Scenario, ref: Reference | None, trace_back:str|None, origin):
+        """Handler for recording the return _safe_call."""
+        if trace_back is None:
+            store.mark_succeeded(ref)
+        else:
+            run_id = RunId(scenario.scenario_id, scenario.replication_id)
+
+            last = trace_back.strip().rsplit("\n", 1)[-1]
+            exc_type = last.split(":", 1)[0]
+            message = last.split(":", 1)[-1].strip()
+            store.mark_failed(
+                run_id,
+                origin=origin,
+                exception_type=exc_type,
+                message=message,
+                traceback=trace_back,
+            )
+
+    if executor is None:
+        # Sequential: run in the loop so the bar advances per scenario.
+        for scenario in _bar(scenarios):
+            ref, trace_back = _safe_call(config, scenario, writer)
+            _record(scenario, ref, trace_back, origin="model")
+    else:
+        raise NotImplementedError(f"Executor {executor} is not implemented")
+
+    return store
