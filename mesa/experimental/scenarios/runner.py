@@ -221,5 +221,6 @@ def run_scenarios(
 
     return store
 
+
 class ModelInstantiationError(MesaException):
-  """Raised when a model cannot be instantiated for a scenario."""
+    """Raised when a model cannot be instantiated for a scenario."""
