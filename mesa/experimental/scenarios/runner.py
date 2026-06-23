@@ -107,5 +107,6 @@ class RunConfiguration:
         output = self.extract_output(model)
         return output
 
+
 class ModelInstantiationError(MesaException):
-  """Raised when a model cannot be instantiated for a scenario."""
+    """Raised when a model cannot be instantiated for a scenario."""
