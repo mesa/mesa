@@ -43,7 +43,7 @@ jobs:
           #  python-version: 'pypy-3.8'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -79,7 +79,7 @@ jobs:
   examples:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -91,7 +91,7 @@ jobs:
       - name: Install Mesa
         run: uv pip install --system .[examples]
       - name: Checkout mesa-examples
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: mesa/mesa-examples
           path: mesa-examples

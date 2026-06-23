@@ -2,7 +2,7 @@
     {
         "name": "latest",
         "version": "latest",
-        "url": "https://mesa.readthedocs.io/en/latest/"
+        "url": "https://mesa.readthedocs.io/latest/"
     },
     {
         "name": "v3.5.1",
