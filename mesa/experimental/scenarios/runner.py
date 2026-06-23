@@ -150,7 +150,7 @@ def run_scenarios(
     progress: bool = True,
     timeout: float | None = None,
 ) -> Store:
-    """Run the scenarios and return a Results object.
+    """Run the scenarios and return a Store object.
 
     Args:
         scenarios: an iterable of scenarios to run
