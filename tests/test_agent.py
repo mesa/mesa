@@ -169,6 +169,7 @@ def test_agent_str():
     agent = AgentTest(model)
     assert str(agent) == f"AgentTest, agent_id = {agent.unique_id}"
 
+
 def test_agent_repr():
     """Test __repr__ returns unambiguous string."""
     model = Model()
@@ -180,8 +181,10 @@ def test_agent_repr():
     assert str(agent.unique_id) in r
     assert "object at 0x" not in r
 
+
 def test_agent_repr_subclass():
     """Test __repr__ uses subclass name, not base Agent name."""
+
     class Wolf(Agent):
         pass
 
