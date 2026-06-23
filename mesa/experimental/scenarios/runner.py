@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.scenarios.store import InMemoryStore, RunId
 from mesa.exceptions import MesaException
+from mesa.experimental.scenarios.store import InMemoryStore, RunId
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -221,5 +221,6 @@ def run_scenarios(
 
     return store
 
+
 class ModelInstantiationError(MesaException):
-  """Raised when a model cannot be instantiated for a scenario."""
+    """Raised when a model cannot be instantiated for a scenario."""
