@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.exceptions import MesaException
+from mesa.experimental.scenarios.exceptions import ModelInstantiationException
 from mesa.experimental.scenarios.store import InMemoryStore, RunId
 
 if TYPE_CHECKING:
@@ -85,7 +85,7 @@ class RunConfiguration:
                 *self.model_args, scenario=scenario, **self.model_kwargs
             )
         except Exception as e:
-            raise ModelInstantiationError(
+            raise ModelInstantiationException(
                 f"Failed to instantiate {self.model_class.__name__} "
                 f"Please check your model_args and model_kwargs.\n"
                 f" - Passed args: {self.model_args}\n"
@@ -220,7 +220,3 @@ def run_scenarios(
         raise NotImplementedError(f"Executor {executor} is not implemented")
 
     return store
-
-
-class ModelInstantiationError(MesaException):
-    """Raised when a model cannot be instantiated for a scenario."""

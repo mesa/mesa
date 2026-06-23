@@ -1,3 +1,5 @@
+""""Storage for parameter sweeps."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,7 +8,11 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import pandas as pd
 
-from mesa.exceptions import MesaException
+from mesa.experimental.scenarios.exceptions import (
+    ScenarioFailedException,
+    ScenarioNotFoundException,
+    ScenarioNotReadyException,
+)
 
 if TYPE_CHECKING:
     from mesa.experimental.scenarios.scenario import Scenario
@@ -201,13 +207,3 @@ class InMemoryStore:
             raise ScenarioNotFoundException() from e
 
 
-class ScenarioNotFoundException(MesaException):
-    """Exception raised when a scenario cannot be found."""
-
-
-class ScenarioNotReadyException(MesaException):
-    """Exception raised when a scenario run has not yet been completed."""
-
-
-class ScenarioFailedException(MesaException):
-    """Exception raised when a scenario run failed."""
