@@ -1,4 +1,4 @@
-""""Storage for parameter sweeps."""
+""" "Storage for parameter sweeps."""
 
 from __future__ import annotations
 
@@ -205,5 +205,3 @@ class InMemoryStore:
             return self._statuses[run_id]
         except KeyError as e:
             raise ScenarioNotFoundException() from e
-
-
