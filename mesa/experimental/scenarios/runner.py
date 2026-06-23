@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from mesa.experimental.scenarios.store import InMemoryStore, RunId
+from mesa.exceptions import MesaException
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor
@@ -25,7 +26,7 @@ class RunConfiguration:
     methods
 
     - ``instantiate_model`` — construct a Model from a Scenario (default:
-      ``model_class(*model_args, scenario=scenario, *model_kwargs)``).
+      ``model_class(*model_args, scenario=scenario, **model_kwargs)``).
     - ``run_model`` — advance the model. Default delegates to ``model.run_until`` based on the ``until`` attribute.
       Override for alternative run control
     - ``extract_output`` — return a dict with outcome names as key and dataframes as values
@@ -54,8 +55,6 @@ class RunConfiguration:
             outcomes: the outcomes to extract. If None, extract all outcomes.
             data_recorder_attr_name : the name of the data recorder attribute to use on the model
         """
-        super().__init__()
-
         # we need to avoid circular imports
         from mesa.model import Model  # noqa: PLC0415
 
@@ -81,11 +80,20 @@ class RunConfiguration:
 
     def instantiate_model(self, scenario: Scenario) -> Model:
         """Instantiate the model."""
-        return self.model_class(
-            *self.model_args, scenario=scenario, **self.model_kwargs
-        )
+        try:
+            return self.model_class(
+                *self.model_args, scenario=scenario, **self.model_kwargs
+            )
+        except Exception as e:
+            raise ModelInstantiationError(
+                f"Failed to instantiate {self.model_class.__name__} "
+                f"Please check your model_args and model_kwargs.\n"
+                f" - Passed args: {self.model_args}\n"
+                f" - Passed kwargs: {self.model_kwargs}\n"
+                f" - for scenario: {{'scenario': {scenario}}}\n"
+            ) from e
 
-    def run_model(self, model: Model):
+    def run_model(self, model: Model) -> None:
         """Run the model."""
         model.run_until(self.until)
 
@@ -212,3 +220,6 @@ def run_scenarios(
         raise NotImplementedError(f"Executor {executor} is not implemented")
 
     return store
+
+class ModelInstantiationError(MesaException):
+  """Raised when a model cannot be instantiated for a scenario."""
