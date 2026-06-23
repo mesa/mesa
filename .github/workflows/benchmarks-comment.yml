@@ -15,6 +15,28 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve PR number from workflow_run event
+        id: pr
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prs = context.payload.workflow_run.pull_requests || [];
+            if (prs.length === 0) {
+              core.setFailed('No pull request found on workflow_run payload.');
+              return;
+            }
+            const headSha = context.payload.workflow_run.head_sha;
+            const matching = prs.filter(pr => pr.head && pr.head.sha === headSha);
+            if (matching.length === 0) {
+              core.setFailed(`No pull request with head SHA ${headSha} found on workflow_run payload.`);
+              return;
+            }
+            if (matching.length > 1) {
+              core.setFailed(`Multiple pull requests with head SHA ${headSha} found on workflow_run payload.`);
+              return;
+            }
+            core.setOutput('number', String(matching[0].number));
+
       - name: Download benchmark results
         uses: actions/download-artifact@v8
         with:
@@ -27,7 +49,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const prNumber = parseInt(fs.readFileSync('pr_number.txt', 'utf8').trim());
+            const prNumber = parseInt('${{ steps.pr.outputs.number }}', 10);
             const output = fs.readFileSync('benchmark_output.txt', 'utf8');
             await github.rest.issues.createComment({
               issue_number: prNumber,
