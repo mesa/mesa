@@ -107,8 +107,7 @@ class Agent[M: Model]:
         indices = getattr(self, "_continuous_indices", {})
         for idx_list in indices.values():
             for idx in idx_list:
-                if hasattr(self.model, "state_tensor"):
-                    self.model.state_tensor.remove(idx)
+                self.model.state_tensor.remove(idx)
 
     def step(self) -> None:
         """A single step of the agent."""
