@@ -1,6 +1,7 @@
 import math
 
 from mesa.discrete_space import CellAgent
+from mesa.experimental.states import ContinuousState, Threshold
 
 
 # Helper function
@@ -25,6 +26,16 @@ class Trader(CellAgent):
     - harvest and trade sugar and spice to survive
     """
 
+    sugar = ContinuousState(default=0.0, rate=lambda a: -a.metabolism_sugar)
+    spice = ContinuousState(default=0.0, rate=lambda a: -a.metabolism_spice)
+
+    _sugar_starvation = Threshold(
+        state=sugar, limit=0.0, callback="flag_dead", direction="falling", mode="lazy"
+    )
+    _spice_starvation = Threshold(
+        state=spice, limit=0.0, callback="flag_dead", direction="falling", mode="lazy"
+    )
+
     def __init__(
         self,
         model,
@@ -37,13 +48,17 @@ class Trader(CellAgent):
     ):
         super().__init__(model)
         self.cell = cell
-        self.sugar = sugar
-        self.spice = spice
         self.metabolism_sugar = metabolism_sugar
         self.metabolism_spice = metabolism_spice
+        self.sugar = sugar
+        self.spice = spice
         self.vision = vision
         self.prices = []
         self.trade_partners = []
+        self.is_dead = False
+
+    def flag_dead(self):
+        self.is_dead = True
 
     def get_trader(self, cell):
         """
@@ -264,27 +279,31 @@ class Trader(CellAgent):
     def eat(self):
         self.sugar += self.cell.sugar
         self.cell.sugar = 0
-        self.sugar -= self.metabolism_sugar
+        # self.sugar -= self.metabolism_sugar
 
         self.spice += self.cell.spice
         self.cell.spice = 0
-        self.spice -= self.metabolism_spice
+        # self.spice -= self.metabolism_spice
 
     def maybe_die(self):
         """
         Function to remove Traders who have consumed all their sugar or spice
         """
 
-        if self.is_starved():
+        if self.is_dead or self.is_starved():
             self.remove()
+            return True
+        return False
 
     def step(self):
         """Agent step method."""
+        if self.maybe_die():
+            return
+
         self.prices = []
         self.trade_partners = []
         self.move()
         self.eat()
-        self.maybe_die()
 
     def trade_with_neighbors(self):
         """
@@ -296,6 +315,10 @@ class Trader(CellAgent):
         """
         # iterate through traders in neighboring cells and trade
         for a in self.cell.get_neighborhood(radius=self.vision).agents:
-            self.trade(a)
+            if self.is_dead:
+                break
 
-        return
+            if a.is_dead:
+                continue
+
+            self.trade(a)

@@ -104,6 +104,11 @@ class Agent[M: Model]:
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
 
+        indices = getattr(self, "_continuous_indices", {})
+        for idx_list in indices.values():
+            for idx in idx_list:
+                self.model.state_tensor.remove(idx)
+
     def step(self) -> None:
         """A single step of the agent."""
 

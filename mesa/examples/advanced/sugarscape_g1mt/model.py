@@ -132,3 +132,20 @@ class SugarscapeG1mt(mesa.Model):
     def run_model(self, step_count=1000):
         for _ in range(step_count):
             self.step()
+
+
+if __name__ == "__main__":
+    import timeit
+
+    scenario = SugarScapeScenario(rng=42)
+    model = SugarscapeG1mt(scenario=scenario)
+    start_time = timeit.default_timer()
+    for i in range(500):
+        model.step()
+        if i % 50 == 0:
+            print(f"Step {i} complete")
+        # print(len(getattr(model, '_event_list', [])))
+    end_time = timeit.default_timer()
+    print(f"Time taken: {end_time - start_time} seconds")
+    print(model.datacollector.get_model_vars_dataframe().head())
+    print(model.datacollector.get_model_vars_dataframe().tail())
