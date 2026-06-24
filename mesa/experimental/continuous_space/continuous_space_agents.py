@@ -3,18 +3,11 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import Protocol
 
 import numpy as np
 
 from mesa.agent import Agent
 from mesa.experimental.continuous_space import ContinuousSpace
-
-
-class HasPositionProtocol(Protocol):
-    """Protocol for continuous space position holders."""
-
-    position: np.ndarray
 
 
 class ContinuousSpaceAgent(Agent):
