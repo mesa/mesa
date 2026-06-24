@@ -427,10 +427,7 @@ class ContinuousState:
             def patched_init(self_agent, *args, **kwargs):
                 original_init(self_agent, *args, **kwargs)
                 if not hasattr(self_agent, "_continuous_indices"):
-                    if hasattr(self_agent, "model") and hasattr(
-                        self_agent.model, "state_tensor"
-                    ):
-                        self_agent.model.state_tensor.register(self_agent)
+                    self_agent.model.state_tensor.register(self_agent)
 
             owner.__init__ = patched_init
             owner._continuous_patched = True
