@@ -13,6 +13,7 @@ from .dataset import (
     DataSet,
     ModelDataSet,
     NumpyAgentDataSet,
+    ObservableAgentDataSet,
     TableDataSet,
 )
 
@@ -26,6 +27,7 @@ __all__ = [
     "JSONDataRecorder",
     "ModelDataSet",
     "NumpyAgentDataSet",
+    "ObservableAgentDataSet",
     "ParquetDataRecorder",
     "SQLDataRecorder",
     "TableDataSet",
