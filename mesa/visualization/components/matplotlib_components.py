@@ -155,15 +155,18 @@ def PlotMatplotlib(
     ax = fig.subplots()
     df = model.datacollector.get_model_vars_dataframe()
     if isinstance(measure, str):
-        ax.plot(df.loc[:, measure])
-        ax.set_ylabel(measure)
+        if measure in df.columns:
+            ax.plot(df.loc[:, measure])
+            ax.set_ylabel(measure)
     elif isinstance(measure, dict):
         for m, color in measure.items():
-            ax.plot(df.loc[:, m], label=m, color=color)
+            if m in df.columns:
+                ax.plot(df.loc[:, m], label=m, color=color)
         ax.legend(loc="best")
     elif isinstance(measure, list | tuple):
         for m in measure:
-            ax.plot(df.loc[:, m], label=m)
+            if m in df.columns:
+                ax.plot(df.loc[:, m], label=m)
         ax.legend(loc="best")
 
     if post_process is not None:
