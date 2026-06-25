@@ -53,7 +53,7 @@ class Writer(Protocol):
     """
 
     def to_reference(
-        self, scenario_id: int, replication_id: int | None, outcome: dict
+        self, run_id: RunId, outcome: dict
     ) -> Reference:
         """Persist a run's outcome and return a reference to it."""
         ...
@@ -103,24 +103,16 @@ class Store(Protocol):
         """Check the status of the reference."""
         ...
 
-    def get_runs_by_status(self, status: Status) -> list[RunId]:
-        """Return all RunIds with the given status."""
-        ...
-
-    def succeeded(self) -> list[RunId]:
+    def succeeded(self) -> dict[RunId, RunRecord]:
         """Return all succeeded RunIds."""
         ...
 
-    def failed(self) -> list[RunId]:
+    def failed(self) -> dict[RunId, RunRecord]:
         """Return all failed RunIds."""
         ...
 
-    def pending(self) -> list[RunId]:
+    def pending(self) -> dict[RunId, RunRecord]:
         """Return all pending RunIds."""
-        ...
-
-    def get_failed_records(self) -> dict[RunId, RunRecord]:
-        """Return all failed RunRecords, including failure diagnostics."""
         ...
 
 
@@ -144,10 +136,10 @@ class InMemoryWriter:
     """Writer for in-memory store."""
 
     def to_reference(
-        self, scenario_id: int, replication_id: int | None, outcome: dict
+        self, run_id:RunId, outcome: dict
     ) -> InMemoryReference:
         """Persist a run's outcome and return a reference to it."""
-        return InMemoryReference(RunId(scenario_id, replication_id), outcome)
+        return InMemoryReference(run_id, outcome)
 
 
 class InMemoryStore:
@@ -162,7 +154,7 @@ class InMemoryStore:
         try:
             return self._runs[run_id]
         except KeyError as e:
-            raise ScenarioNotFoundException() from e
+            raise ScenarioNotFoundException(run_id) from e
 
     def writer(self) -> InMemoryWriter:
         """Return the pickleable, write-only handle to hand to workers."""
@@ -172,9 +164,9 @@ class InMemoryStore:
         """Retrieve a run's output."""
         record = self._get_record(run_id)
         if record.status == Status.PENDING:
-            raise ScenarioNotReadyException()
+            raise ScenarioNotReadyException(run_id)
         if record.status == Status.FAILED:
-            raise ScenarioFailedException()
+            raise ScenarioFailedException(run_id, record.failure)
         return record.output
 
     def write_scenarios(self, scenarios: list[Scenario]) -> None:
@@ -223,22 +215,14 @@ class InMemoryStore:
         """Check the status of a run."""
         return self._get_record(run_id).status
 
-    def get_runs_by_status(self, status: Status) -> list[RunId]:
-        """Return all RunIds with the given status."""
-        return [rid for rid, r in self._runs.items() if r.status == status]
+    def succeeded(self) -> dict[RunId, RunRecord]:
+        """Return all succeeded runs."""
+        return {rid: r for rid, r in self._runs.items() if r.status == Status.SUCCEEDED}
 
-    def succeeded(self) -> list[RunId]:
-        """Return all succeeded RunIds."""
-        return self.get_runs_by_status(Status.SUCCEEDED)
-
-    def failed(self) -> list[RunId]:
-        """Return all failed RunIds."""
-        return self.get_runs_by_status(Status.FAILED)
-
-    def pending(self) -> list[RunId]:
-        """Return all pending RunIds."""
-        return self.get_runs_by_status(Status.PENDING)
-
-    def get_failed_records(self) -> dict[RunId, RunRecord]:
-        """Return all failed RunRecords, including failure diagnostics."""
+    def failed(self) -> dict[RunId, RunRecord]:
+        """Return all failed runs."""
         return {rid: r for rid, r in self._runs.items() if r.status == Status.FAILED}
+
+    def pending(self) -> dict[RunId, RunRecord]:
+        """Return all pending run."""
+        return {rid: r for rid, r in self._runs.items() if r.status == Status.PENDING}

@@ -85,13 +85,7 @@ class RunConfiguration:
                 *self.model_args, scenario=scenario, **self.model_kwargs
             )
         except Exception as e:
-            raise ModelInstantiationException(
-                f"Failed to instantiate {self.model_class.__name__} "
-                f"Please check your model_args and model_kwargs.\n"
-                f" - Passed args: {self.model_args}\n"
-                f" - Passed kwargs: {self.model_kwargs}\n"
-                f" - for scenario: {{'scenario': {scenario}}}\n"
-            ) from e
+            raise ModelInstantiationException(self.model_class, self.model_args, self.model_kwargs, scenario) from e
 
     def run_model(self, model: Model) -> None:
         """Run the model."""
@@ -133,9 +127,7 @@ def _safe_call(
     """
     try:
         outcome = config(scenario)
-        ref = writer.to_reference(
-            scenario.scenario_id, scenario.replication_id, outcome
-        )
+        ref = writer.to_reference(RunId(scenario.scenario_id, scenario.replication_id), outcome)
         return ref, None
     except Exception:
         return None, traceback.format_exc()
@@ -171,7 +163,7 @@ def run_scenarios(
         timeout: the timeout in seconds for running a single scenario
             only relevant if ``executor`` is not None
 
-    Returns: Store
+    Returns: a Store instance
 
     """
     if store is None:
