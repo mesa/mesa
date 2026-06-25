@@ -91,7 +91,6 @@ class RunConfiguration:
             *self.model_args, scenario=scenario, **self.model_kwargs
         )
 
-
     def run_model(self, model: Model) -> None:
         """Run the model."""
         model.run_until(self.until)
@@ -117,12 +116,16 @@ class RunConfiguration:
         try:
             self.run_model(model)
         except Exception as e:
-            raise ModelRunException(RunId(scenario.scenario_id, scenario.replication_id)) from e
+            raise ModelRunException(
+                RunId(scenario.scenario_id, scenario.replication_id)
+            ) from e
 
         try:
             output = self.extract_output(model)
         except Exception as e:
-            raise OutcomeExtractionException(RunId(scenario.scenario_id, scenario.replication_id), self.outcomes) from e
+            raise OutcomeExtractionException(
+                RunId(scenario.scenario_id, scenario.replication_id), self.outcomes
+            ) from e
         return output
 
 
@@ -216,9 +219,7 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(
-        scenario: Scenario, ref: Reference | None, failure: FailureInfo | None
-    ):
+    def _record(scenario: Scenario, ref: Reference | None, failure: FailureInfo | None):
         """Handler for recording the return _safe_call."""
         if failure is None:
             store.mark_succeeded(ref)

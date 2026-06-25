@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
 # preserved as __cause__ and the recorded failure reports the real error type.
 # ---------------------------------------------------------------------------
 
+
 class FailureOrigin(Enum):
     """Enum describing where a scenario run failed."""
 
@@ -40,10 +40,12 @@ class FailureInfo:
     ensures traceback information can be safely sent from workers to root.
 
     """
+
     origin: FailureOrigin
     exception_type: str
     message: str
     traceback: str
+
 
 class RunStageException(MesaException):
     """Base for failures attributable to a stage of a single run."""
@@ -63,7 +65,8 @@ class RunStageException(MesaException):
 
 class ModelInstantiationException(RunStageException):
     """Raised when a model cannot be instantiated for a scenario."""
-    origin : FailureOrigin = FailureOrigin.INSTANTIATING
+
+    origin: FailureOrigin = FailureOrigin.INSTANTIATING
 
     def __init__(
         self,
@@ -97,7 +100,8 @@ class ModelInstantiationException(RunStageException):
 
 class ModelRunException(RunStageException):
     """Raised when a model fails while advancing (run_model)."""
-    origin : FailureOrigin = FailureOrigin.RUNNING
+
+    origin: FailureOrigin = FailureOrigin.RUNNING
 
     def __init__(self, run_id: RunId):
         """Initialize a model run exception.
@@ -111,6 +115,7 @@ class ModelRunException(RunStageException):
 
 class OutcomeExtractionException(RunStageException):
     """Raised when extracting outcomes from a finished model fails."""
+
     origin = FailureOrigin.EXTRACTING
 
     def __init__(self, run_id: RunId, outcomes: list[str] | None):
@@ -121,7 +126,9 @@ class OutcomeExtractionException(RunStageException):
             outcomes: the requested outcome keys (None means "all")
         """
         requested = "all" if outcomes is None else outcomes
-        super().__init__(f"Outcome extraction failed for {run_id} (outcomes={requested})")
+        super().__init__(
+            f"Outcome extraction failed for {run_id} (outcomes={requested})"
+        )
         self.run_id = run_id
         self.outcomes = outcomes
 
@@ -131,6 +138,7 @@ class OutcomeExtractionException(RunStageException):
 #
 # Raised by the store when querying run results, unrelated to run stages.
 # ---------------------------------------------------------------------------
+
 
 class ScenarioNotFoundException(MesaException):
     """Raised when no run is recorded for a given RunId."""

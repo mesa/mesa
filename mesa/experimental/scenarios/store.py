@@ -15,8 +15,8 @@ from mesa.experimental.scenarios.exceptions import (
 )
 
 if TYPE_CHECKING:
-    from mesa.experimental.scenarios.scenario import Scenario
     from mesa.experimental.scenarios.exceptions import FailureInfo
+    from mesa.experimental.scenarios.scenario import Scenario
 
 
 class Status(Enum):
