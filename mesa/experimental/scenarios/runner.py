@@ -85,7 +85,9 @@ class RunConfiguration:
                 *self.model_args, scenario=scenario, **self.model_kwargs
             )
         except Exception as e:
-            raise ModelInstantiationException(self.model_class, self.model_args, self.model_kwargs, scenario) from e
+            raise ModelInstantiationException(
+                self.model_class, self.model_args, self.model_kwargs, scenario
+            ) from e
 
     def run_model(self, model: Model) -> None:
         """Run the model."""
@@ -127,7 +129,9 @@ def _safe_call(
     """
     try:
         outcome = config(scenario)
-        ref = writer.to_reference(RunId(scenario.scenario_id, scenario.replication_id), outcome)
+        ref = writer.to_reference(
+            RunId(scenario.scenario_id, scenario.replication_id), outcome
+        )
         return ref, None
     except Exception:
         return None, traceback.format_exc()

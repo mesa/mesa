@@ -52,9 +52,7 @@ class Writer(Protocol):
     This is the ONLY store capability a worker receives.
     """
 
-    def to_reference(
-        self, run_id: RunId, outcome: dict
-    ) -> Reference:
+    def to_reference(self, run_id: RunId, outcome: dict) -> Reference:
         """Persist a run's outcome and return a reference to it."""
         ...
 
@@ -135,9 +133,7 @@ class InMemoryReference:
 class InMemoryWriter:
     """Writer for in-memory store."""
 
-    def to_reference(
-        self, run_id:RunId, outcome: dict
-    ) -> InMemoryReference:
+    def to_reference(self, run_id: RunId, outcome: dict) -> InMemoryReference:
         """Persist a run's outcome and return a reference to it."""
         return InMemoryReference(run_id, outcome)
 
