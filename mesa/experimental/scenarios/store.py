@@ -16,6 +16,7 @@ from mesa.experimental.scenarios.exceptions import (
 
 if TYPE_CHECKING:
     from mesa.experimental.scenarios.scenario import Scenario
+    from mesa.experimental.scenarios.exceptions import FailureInfo
 
 
 class Status(Enum):
@@ -41,7 +42,7 @@ class RunRecord:
     scenario: Scenario
     status: Status = Status.PENDING
     output: dict[str, pd.DataFrame] | None = None
-    failure: tuple[str, str, str, str] | None = None  # origin, type, message, traceback
+    failure: FailureInfo | None = None
 
 
 @runtime_checkable
@@ -62,7 +63,7 @@ class Store(Protocol):
     """The Store interface."""
 
     def writer(self) -> Writer:
-        """Return the picklable, write-only handle to hand to workers."""
+        """Return the pickleable, write-only handle to hand to workers."""
         ...
 
     def retrieve_output(self, run_id: RunId) -> dict[str, pd.DataFrame]:
@@ -70,7 +71,12 @@ class Store(Protocol):
         ...
 
     def write_scenarios(self, scenarios: list[Scenario]) -> None:
-        """Record the full ensemble of scenarios before dispatch."""
+        """Record the full ensemble of scenarios before dispatch.
+
+        It is critical that this method is called prior to executing any runs, because mark_succeeded and mark_failed
+        will check against the registered runs.
+
+        """
         ...
 
     def read_scenarios(self) -> list[Scenario]:
@@ -78,39 +84,39 @@ class Store(Protocol):
         ...
 
     def mark_succeeded(self, ref: Reference) -> None:
-        """Record that a run completed and its outcome was received."""
+        """Record that a run completed and its outcome was received.
+
+        For a run to be marked, the scenario should first have been registered via write_scenarios.
+
+        """
         ...
 
-    def mark_failed(
-        self,
-        run_id: RunId,
-        *,
-        origin: str,
-        exception_type: str,
-        message: str,
-        traceback: str,
-    ) -> None:
-        """Record that a run failed, with its origin and diagnostics."""
+    def mark_failed(self, run_id: RunId, failure: FailureInfo) -> None:
+        """Record that a run failed, with its origin and diagnostics.
+
+        For a run to be marked, the scenario should first have been registered via write_scenarios.
+
+        """
         ...
 
     def status(self) -> pd.DataFrame:
-        """One row per design point: pending / succeeded / failed."""
+        """One row per scenario: pending / succeeded / failed."""
         ...
 
     def check_status(self, run_id: RunId) -> Status:
-        """Check the status of the reference."""
+        """Check the status of the run id."""
         ...
 
     def succeeded(self) -> dict[RunId, RunRecord]:
-        """Return all succeeded RunIds."""
+        """Return all succeeded RunIds and their run record."""
         ...
 
     def failed(self) -> dict[RunId, RunRecord]:
-        """Return all failed RunIds."""
+        """Return all failed RunIds and their run record."""
         ...
 
     def pending(self) -> dict[RunId, RunRecord]:
-        """Return all pending RunIds."""
+        """Return all pending RunIds and their run record."""
         ...
 
 
@@ -181,19 +187,11 @@ class InMemoryStore:
         record.status = Status.SUCCEEDED
         record.output = ref.payload
 
-    def mark_failed(
-        self,
-        run_id: RunId,
-        *,
-        origin: str,
-        exception_type: str,
-        message: str,
-        traceback: str,
-    ) -> None:
+    def mark_failed(self, run_id: RunId, failure: FailureInfo) -> None:
         """Record that a run failed, with its origin and diagnostics."""
         record = self._get_record(run_id)
         record.status = Status.FAILED
-        record.failure = (origin, exception_type, message, traceback)
+        record.failure = failure
 
     def status(self) -> pd.DataFrame:
         """One row per design point: pending / succeeded / failed."""

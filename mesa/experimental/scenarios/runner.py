@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from mesa.experimental.scenarios.exceptions import ModelInstantiationException
+from mesa.experimental.scenarios.exceptions import (
+    FailureInfo,
+    FailureOrigin,
+    ModelInstantiationException,
+    ModelRunException,
+    OutcomeExtractionException,
+    RunStageException,
+)
 from mesa.experimental.scenarios.store import InMemoryStore, RunId
 
 if TYPE_CHECKING:
@@ -80,14 +87,10 @@ class RunConfiguration:
 
     def instantiate_model(self, scenario: Scenario) -> Model:
         """Instantiate the model."""
-        try:
-            return self.model_class(
-                *self.model_args, scenario=scenario, **self.model_kwargs
-            )
-        except Exception as e:
-            raise ModelInstantiationException(
-                self.model_class, self.model_args, self.model_kwargs, scenario
-            ) from e
+        return self.model_class(
+            *self.model_args, scenario=scenario, **self.model_kwargs
+        )
+
 
     def run_model(self, model: Model) -> None:
         """Run the model."""
@@ -104,9 +107,22 @@ class RunConfiguration:
 
     def __call__(self, scenario: Scenario) -> dict[str, pd.DataFrame]:
         """Run the scenario and extract output."""
-        model = self.instantiate_model(scenario)
-        self.run_model(model)
-        output = self.extract_output(model)
+        try:
+            model = self.instantiate_model(scenario)
+        except Exception as e:
+            raise ModelInstantiationException(
+                self.model_class, self.model_args, self.model_kwargs, scenario
+            ) from e
+
+        try:
+            self.run_model(model)
+        except Exception as e:
+            raise ModelRunException(RunId(scenario.scenario_id, scenario.replication_id)) from e
+
+        try:
+            output = self.extract_output(model)
+        except Exception as e:
+            raise OutcomeExtractionException(RunId(scenario.scenario_id, scenario.replication_id), self.outcomes) from e
         return output
 
 
@@ -114,7 +130,7 @@ def _safe_call(
     config: RunConfiguration,
     scenario: Scenario,
     writer: Writer,
-) -> tuple[Reference | None, str | None]:
+) -> tuple[Reference | None, FailureInfo | None]:
     """Run one scenario and persist its outcome. Runs in the worker.
 
     Args:
@@ -122,19 +138,32 @@ def _safe_call(
         scenario: a Scenario instance
         writer: a Writer instance
 
-    Returns (reference, None) on success or (None, traceback) on a failure
+    Returns (reference, None) on success or (None, failure_info) on a failure
     raised inside the run or the writer. Catching here means a model
-    error becomes data (a traceback string) rather than an exception
+    error becomes data (a FailureInfo instance) rather than an exception
     crossing the process boundary, so one failed run never aborts a parameter sweep.
     """
+    run_id = RunId(scenario.scenario_id, scenario.replication_id)
     try:
         outcome = config(scenario)
-        ref = writer.to_reference(
-            RunId(scenario.scenario_id, scenario.replication_id), outcome
+    except RunStageException as e:
+        cause = e.__cause__ or e
+        return None, FailureInfo(
+            origin=e.origin,
+            exception_type=type(cause).__name__,
+            message=str(cause),
+            traceback="".join(traceback.format_exception(e)),
         )
-        return ref, None
-    except Exception:
-        return None, traceback.format_exc()
+    try:
+        ref = writer.to_reference(run_id, outcome)
+    except Exception as e:
+        return None, FailureInfo(
+            origin=FailureOrigin.WRITING,
+            exception_type=type(e).__name__,
+            message=str(e),
+            traceback="".join(traceback.format_exception(e)),
+        )
+    return ref, None
 
 
 def run_scenarios(
@@ -188,30 +217,20 @@ def run_scenarios(
             return iterable
 
     def _record(
-        scenario: Scenario, ref: Reference | None, trace_back: str | None, origin
+        scenario: Scenario, ref: Reference | None, failure: FailureInfo | None
     ):
         """Handler for recording the return _safe_call."""
-        if trace_back is None:
+        if failure is None:
             store.mark_succeeded(ref)
         else:
             run_id = RunId(scenario.scenario_id, scenario.replication_id)
-
-            last = trace_back.strip().rsplit("\n", 1)[-1]
-            exc_type = last.split(":", 1)[0]
-            message = last.split(":", 1)[-1].strip()
-            store.mark_failed(
-                run_id,
-                origin=origin,
-                exception_type=exc_type,
-                message=message,
-                traceback=trace_back,
-            )
+            store.mark_failed(run_id, failure)
 
     if executor is None:
         # Sequential: run in the loop so the bar advances per scenario.
         for scenario in _bar(scenarios):
-            ref, trace_back = _safe_call(config, scenario, writer)
-            _record(scenario, ref, trace_back, origin="model")
+            ref, failure_info = _safe_call(config, scenario, writer)
+            _record(scenario, ref, failure_info)
     else:
         raise NotImplementedError(f"Executor {executor} is not implemented")
 
