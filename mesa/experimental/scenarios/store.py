@@ -124,8 +124,15 @@ class Store(Protocol):
 class Reference(Protocol):
     """A small, picklable handle to a single run's outcome."""
 
-    run_id: RunId
-    payload: Any
+    @property
+    def run_id(self) -> RunId:
+        """Return the run_id."""
+        ...
+
+    @property
+    def payload(self) -> Any:
+        """Return the payload."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -200,7 +207,7 @@ class InMemoryStore:
             names=[f.name for f in fields(RunId)],
         )
         return pd.DataFrame(
-            [r.status for r in self._runs.values()],
+            [r.status.value for r in self._runs.values()],
             index=idx,
             columns=["status"],
         )
