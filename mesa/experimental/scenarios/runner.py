@@ -128,6 +128,7 @@ class RunConfiguration:
             ) from e
         return output
 
+
 @overload
 def _safe_call(
     config: RunConfiguration,
@@ -135,11 +136,12 @@ def _safe_call(
     writer: Writer,
 ) -> tuple[Reference, None]: ...
 
+
 @overload
 def _safe_call(
-        config: RunConfiguration,
-        scenario: Scenario,
-        writer: Writer,
+    config: RunConfiguration,
+    scenario: Scenario,
+    writer: Writer,
 ) -> tuple[None, FailureInfo]: ...
 
 
