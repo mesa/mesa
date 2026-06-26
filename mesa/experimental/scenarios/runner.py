@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import traceback
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import pandas as pd
 
@@ -128,12 +128,26 @@ class RunConfiguration:
             ) from e
         return output
 
-
+@overload
 def _safe_call(
     config: RunConfiguration,
     scenario: Scenario,
     writer: Writer,
-) -> tuple[Reference, None] | tuple[None, FailureInfo]:
+) -> tuple[Reference, None]: ...
+
+@overload
+def _safe_call(
+        config: RunConfiguration,
+        scenario: Scenario,
+        writer: Writer,
+) -> tuple[None, FailureInfo]: ...
+
+
+def _safe_call(
+    config,
+    scenario,
+    writer,
+):
     """Run one scenario and persist its outcome. Runs in the worker.
 
     Args:
@@ -176,6 +190,7 @@ def run_scenarios(
     executor: Executor | None = None,
     store: Store | None = None,
     progress: bool = True,
+    timeout: float | None = None,
 ) -> Store:
     """Run the scenarios and return a Store object.
 
@@ -195,6 +210,8 @@ def run_scenarios(
         store: the Storage backend to use
         progress: whether to display the progress
             Display a progress bar via ``tqdm`` if installed.
+        timeout: the timeout in seconds for running a single scenario
+            only relevant if ``executor`` is not None
 
     Returns: a Store instance
 
