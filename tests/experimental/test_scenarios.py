@@ -660,14 +660,18 @@ def test_run_scenarios_all_succeed():
     """Test the succesful branch of run_scenarios."""
     Scenario._reset_counter()
     scenarios = [Scenario(x=i) for i in range(4)]
-    store = run_scenarios(scenarios, RunConfiguration(_DummyModel, until=3), progress=False)
+    store = run_scenarios(
+        scenarios, RunConfiguration(_DummyModel, until=3), progress=False
+    )
 
     assert len(store.succeeded()) == 4
     assert len(store.failed()) == 0
     assert len(store.pending()) == 0
 
     for scenario in scenarios:
-        output = store.retrieve_output(RunId(scenario.scenario_id, scenario.replication_id))
+        output = store.retrieve_output(
+            RunId(scenario.scenario_id, scenario.replication_id)
+        )
         assert "results" in output
 
 
@@ -682,7 +686,9 @@ def test_run_scenarios_partial_failure():
                 raise RuntimeError("intentional")
             super().run_model(model)
 
-    store = run_scenarios(scenarios, _ConditionalConfig(_DummyModel, until=3), progress=False)
+    store = run_scenarios(
+        scenarios, _ConditionalConfig(_DummyModel, until=3), progress=False
+    )
 
     assert len(store.succeeded()) == 2
     assert len(store.failed()) == 1
@@ -731,7 +737,9 @@ def test_run_scenarios_empty_input():
             ScenarioFailedException,
             {
                 "run_id": RunId(4, 2),
-                "failure": FailureInfo(FailureOrigin.RUNNING, "RuntimeError", "boom", "tb"),
+                "failure": FailureInfo(
+                    FailureOrigin.RUNNING, "RuntimeError", "boom", "tb"
+                ),
             },
         ),
     ],
