@@ -21,6 +21,7 @@ from mesa.experimental.scenarios import (
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
 from mesa.experimental.scenarios.runner import _safe_call
 from mesa.experimental.scenarios.store import (
+    InMemoryReference,
     InMemoryStore,
     InMemoryWriter,
     RunId,
@@ -764,3 +765,54 @@ def test_scenario_failed_exception_message_includes_failure_detail():
     assert "KeyError" in str(exc)
     assert "missing key" in str(exc)
     assert exc.failure is failure
+
+
+# ============================================================
+# Picklability (needed for parallel execution)
+# ============================================================
+# These objects are pickled to/from workers once a process-pool executor
+# lands. FailureInfo in particular is a primitives-only dataclass precisely
+# so it pickles (a live exception's traceback object would not). Verifying
+# the round-trip here keeps a regression visible on the named object rather
+# than surfacing later as a PicklingError deep in the parallel machinery.
+
+
+def test_run_configuration_is_picklable():
+    """RunConfiguration round-trips through pickle (sent to workers)."""
+    config = RunConfiguration(
+        _DummyModel, until=5, model_kwargs={"w": 3}, outcomes=["a"]
+    )
+    restored = pickle.loads(pickle.dumps(config))  # noqa: S301
+    assert restored.model_class is _DummyModel
+    assert restored.until == 5
+    assert restored.model_kwargs == {"w": 3}
+    assert restored.outcomes == ["a"]
+
+
+def test_writer_is_picklable():
+    """The writer handed to workers round-trips through pickle."""
+    writer = InMemoryStore().writer()
+    restored = pickle.loads(pickle.dumps(writer))  # noqa: S301
+    assert isinstance(restored, InMemoryWriter)
+
+
+def test_inmemory_reference_is_picklable():
+    """References cross back from worker to root; they must pickle."""
+    ref = InMemoryReference(RunId(1, 0), {"results": pd.DataFrame({"x": [1]})})
+    restored = pickle.loads(pickle.dumps(ref))  # noqa: S301
+    assert restored.run_id == RunId(1, 0)
+    assert "results" in restored.payload
+
+
+def test_failure_info_is_picklable():
+    """FailureInfo crosses back from worker to root; primitives-only by design."""
+    fi = FailureInfo(
+        origin=FailureOrigin.RUNNING,
+        exception_type="RuntimeError",
+        message="boom",
+        traceback="tb",
+    )
+    restored = pickle.loads(pickle.dumps(fi))  # noqa: S301
+    assert restored.origin is FailureOrigin.RUNNING
+    assert restored.exception_type == "RuntimeError"
+    assert restored.message == "boom"
