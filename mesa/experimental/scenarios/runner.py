@@ -190,7 +190,6 @@ def run_scenarios(
     executor: Executor | None = None,
     store: Store | None = None,
     progress: bool = True,
-    timeout: float | None = None,
 ) -> Store:
     """Run the scenarios and return a Store object.
 
@@ -210,8 +209,6 @@ def run_scenarios(
         store: the Storage backend to use
         progress: whether to display the progress
             Display a progress bar via ``tqdm`` if installed.
-        timeout: the timeout in seconds for running a single scenario
-            only relevant if ``executor`` is not None
 
     Returns: a Store instance
 
