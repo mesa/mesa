@@ -657,7 +657,7 @@ def test_safe_call_writer_failure(basic_config):
 
 
 def test_run_scenarios_all_succeed():
-    """Test the succesful branch of run_scenarios."""
+    """Test the successful branch of run_scenarios."""
     Scenario._reset_counter()
     scenarios = [Scenario(x=i) for i in range(4)]
     store = run_scenarios(
