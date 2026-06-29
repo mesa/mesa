@@ -225,6 +225,57 @@ class ComputedState:
         except KeyError:
             self.parents[parent] = {name: current_value}
 
+    def evaluate(self) -> Any:
+        """Recompute the value by calling self.func, tracking dependencies as it runs.
+
+        Any Observable read during the call is recorded as a dependency, and
+        subscriptions are updated so this state is marked dirty again when
+        one of them changes. On success, value is updated and is_dirty is
+        cleared.
+
+        Raises:
+            Exception: Any exception raised by self.func propagates
+                unchanged. parents is restored to its prior state and
+                is_dirty is left set, so the caller may retry later.
+
+        Returns:
+            The newly computed value.
+        """
+        global CURRENT_COMPUTED  # noqa: PLW0603
+
+        old_computed = CURRENT_COMPUTED
+        # Save and reset PROCESSING_SIGNALS so that `self.func` accessing an
+        # Observable that is itself derived from this same ComputedState
+        # (e.g. a rate function reading the ContinuousState it drives) does
+        # not falsely trigger a cyclical-dependency error.
+        old_processing = set(PROCESSING_SIGNALS)
+        PROCESSING_SIGNALS.clear()
+
+        CURRENT_COMPUTED = self
+        old_parents = self.parents
+        self.parents = weakref.WeakKeyDictionary()
+
+        try:
+            self.value = self.func(self.owner)
+        except Exception:
+            self.parents = old_parents
+            raise
+        finally:
+            CURRENT_COMPUTED = old_computed
+            PROCESSING_SIGNALS.update(old_processing)
+
+        # Diffing engine: subscribe/unsubscribe as dependencies come and go.
+        old_deps = {(p, attr) for p, attrs in old_parents.items() for attr in attrs}
+        new_deps = {(p, attr) for p, attrs in self.parents.items() for attr in attrs}
+
+        for p, attr in old_deps - new_deps:
+            p.unobserve(attr, ALL, self._set_dirty)
+        for p, attr in new_deps - old_deps:
+            p.observe(attr, ALL, self._set_dirty)
+
+        self.is_dirty = False
+        return self.value
+
 
 class ComputedProperty(property):
     """A custom property class to identify computed properties."""
@@ -252,8 +303,6 @@ def computed_property(
 
         @functools.wraps(computation_func)
         def wrapper(self: HasEmitters):
-            global CURRENT_COMPUTED  # noqa: PLW0603
-
             if not hasattr(self, key):
                 state = ComputedState(
                     self,
@@ -285,38 +334,7 @@ def computed_property(
                             break
 
                 if changed:
-                    old = CURRENT_COMPUTED
-                    CURRENT_COMPUTED = state
-
-                    old_parents = state.parents
-                    state.parents = weakref.WeakKeyDictionary()
-
-                    try:
-                        state.value = computation_func(self)
-                    except Exception as e:
-                        # Rollback on failure to prevent corrupted graphs
-                        state.parents = old_parents
-                        raise e
-                    finally:
-                        CURRENT_COMPUTED = old
-
-                    # Diffing Engine
-                    old_deps = {
-                        (p, attr) for p, attrs in old_parents.items() for attr in attrs
-                    }
-                    new_deps = {
-                        (p, attr)
-                        for p, attrs in state.parents.items()
-                        for attr in attrs
-                    }
-
-                    # Unsubscribe from removed dependencies
-                    for p, attr in old_deps - new_deps:
-                        p.unobserve(attr, ALL, state._set_dirty)
-
-                    # Subscribe to newly discovered dependencies
-                    for p, attr in new_deps - old_deps:
-                        p.observe(attr, ALL, state._set_dirty)
+                    state.evaluate()
 
                 state.is_dirty = False
 
