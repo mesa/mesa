@@ -10,7 +10,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.mesa_signals import HasEmitters, Observable
-from mesa.experimental.states.state import (
+from mesa.experimental.states import (
     ContinuousScheduler,
     ContinuousState,
     Threshold,

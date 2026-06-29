@@ -1,4 +1,4 @@
-"""Continuous physics layer for Mesa 4.0.0a0.
+"""Continuous States Descriptor.
 
 Provides piecewise-linear and piecewise-quadratic trajectory tracking, centralized batch scheduling,
 and declarative threshold monitors natively integrated with mesa_signals.
