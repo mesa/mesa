@@ -123,15 +123,17 @@ nb_execution_raise_on_error = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "pydata_sphinx_theme"
-
+version_match = os.environ.get("READTHEDOCS_VERSION", release)
+if not version_match or version_match.isdigit():
+    version_match = "latest"
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
-        "json_url": "https://mesa.readthedocs.io/en/stable/_static/switcher.json",
-        "version_match": os.environ.get("READTHEDOCS_VERSION", release),
+        "json_url": "https://mesa.readthedocs.io/latest/_static/switcher.json",
+        "version_match": version_match,
     },
 }
 
