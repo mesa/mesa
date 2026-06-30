@@ -1,12 +1,12 @@
 """Tests for mesa.experimental.scenarios."""
 
 import pickle
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
 import pytest
 import scipy.stats.qmc as qmc
-from concurrent.futures import ProcessPoolExecutor
 
 from mesa import Agent, Model
 from mesa.experimental.data_collection import DataRecorder
@@ -38,7 +38,6 @@ def _reset_scenario_ids():
 
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
-
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario.scenario_id == 0
     assert scenario.a == 1
@@ -462,8 +461,22 @@ class _WorkerKillModel(Model):
         self.data_recorder = _DummyRecorder()
 
     def run_until(self, until):
-        import os
+        import os  # noqa: PLC0415
+
         os._exit(1)  # hard-kills the worker; not catchable by _safe_call
+
+
+class _ConditionalConfig(RunConfiguration):
+    """Fails the run for any scenario flagged should_fail.
+
+    Module-level (not a local class inside a test) so it pickles to process
+    workers when the parallel backend runs it.
+    """
+
+    def run_model(self, model):
+        if getattr(model.scenario, "should_fail", False):
+            raise RuntimeError("intentional")
+        super().run_model(model)
 
 
 @pytest.fixture
@@ -488,12 +501,12 @@ def populated_store(scenario_list):
 
 @pytest.fixture(params=["sequential", "process"])
 def maybe_executor(request):
+    """Fixture controlling the executor to use."""
     if request.param == "sequential":
         yield None
     else:
         with ProcessPoolExecutor(max_workers=2) as ex:
             yield ex
-
 
 
 # ============================================================
@@ -594,7 +607,7 @@ def test_store_status_dataframe(populated_store):
 
 
 def test_store_status_dataframe_mixed_case(populated_store):
-    """Test the status dataframe store with a mix of successes and failures."""
+    """Test the status dataframe store with a mix of statuses."""
     store, scenarios = populated_store
     writer = store.writer()
 
@@ -639,7 +652,10 @@ def test_store_aborted_filter(populated_store):
     run_id_0 = RunId(s0.scenario_id, s0.replication_id)
     run_id_2 = RunId(s2.scenario_id, s2.replication_id)
 
-    store.mark_aborted(run_id_0, FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"))
+    store.mark_aborted(
+        run_id_0,
+        FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"),
+    )
 
     assert set(store.aborted()) == {run_id_0}
     assert run_id_0 not in store.pending()
@@ -715,7 +731,10 @@ def test_run_scenarios_all_succeed(maybe_executor):
     """Test the successful branch of run_scenarios."""
     scenarios = [Scenario(x=i) for i in range(4)]
     store = run_scenarios(
-        scenarios, RunConfiguration(_DummyModel, until=3), progress=False, executor=maybe_executor,
+        scenarios,
+        RunConfiguration(_DummyModel, until=3),
+        progress=False,
+        executor=maybe_executor,
     )
 
     assert len(store.succeeded()) == 4
@@ -729,18 +748,19 @@ def test_run_scenarios_all_succeed(maybe_executor):
         assert "results" in output
 
 
-def test_run_scenarios_partial_failure():
-    """Test run_scenarios with a mix of successes and failures."""
+def test_run_scenarios_partial_failure(maybe_executor):
+    """A failing run becomes a recorded FailureInfo while the rest succeed.
+
+    Parametrized over sequential and process backends: under the process pool
+    this proves a worker-raised failure pickles home and attributes to the
+    correct RunId, not just that the sequential path records it.
+    """
     scenarios = [Scenario(x=i, should_fail=(i == 1)) for i in range(3)]
-
-    class _ConditionalConfig(RunConfiguration):
-        def run_model(self, model):
-            if getattr(model.scenario, "should_fail", False):
-                raise RuntimeError("intentional")
-            super().run_model(model)
-
     store = run_scenarios(
-        scenarios, _ConditionalConfig(_DummyModel, until=3), progress=False
+        scenarios,
+        _ConditionalConfig(_DummyModel, until=3),
+        progress=False,
+        executor=maybe_executor,
     )
 
     assert len(store.succeeded()) == 2
@@ -772,19 +792,31 @@ def test_run_scenarios_empty_input():
 
 
 def test_run_scenarios_aborts_on_broken_pool():
-    """Test run_scenarios for aborts on broken pool."""
+    """A hard worker death aborts every unrun scenario and does not raise.
+
+    Every _WorkerKillModel calls os._exit on run, so no run can complete: the
+    pool breaks on the first future and all four runs flip PENDING -> ABORTED.
+    Asserting the exact partition (4 aborted, 0 of everything else) distinguishes
+    correct bulk-marking from a partial-marking bug that == 4 catches but > 0
+    would not.
+    """
     scenarios = [Scenario(x=i) for i in range(4)]
     with ProcessPoolExecutor(max_workers=2) as ex:
         store = run_scenarios(
-            scenarios, RunConfiguration(_WorkerKillModel, until=3),
-            executor=ex, progress=False,
+            scenarios,
+            RunConfiguration(_WorkerKillModel, until=3),
+            executor=ex,
+            progress=False,
         )
 
     # returns, does not raise
-    assert len(store.aborted()) > 0
+    assert len(store.aborted()) == 4
+    assert len(store.succeeded()) == 0
+    assert len(store.failed()) == 0
+    assert len(store.pending()) == 0
+
     for rec in store.aborted().values():
         assert rec.failure.origin is FailureOrigin.ABORTED
-    assert len(store.pending()) == 0   # all pending flipped to aborted
 
 
 # ============================================================
