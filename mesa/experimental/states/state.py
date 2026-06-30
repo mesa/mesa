@@ -76,7 +76,7 @@ class ContinuousState(BaseObservable):
         """Retrieve or initialize the internal state tracking dictionary."""
         if not hasattr(instance, self.private_state_name):
             time = (
-                getattr(instance.model, "time", 0.0)
+                getattr(instance.model, "_time", 0.0)
                 if hasattr(instance, "model")
                 else 0.0
             )
@@ -153,7 +153,7 @@ class ContinuousState(BaseObservable):
         #   4. Notify Threshold observers that the trajectory has shifted.
 
         state = self._get_state(instance)
-        current_time = getattr(instance.model, "time", 0.0)
+        current_time = getattr(instance.model, "_time", 0.0)
 
         dt = current_time - state["last_time"]
         current_value = self._extrapolate(state, dt)
@@ -245,7 +245,7 @@ class ContinuousState(BaseObservable):
 
         state = self._get_state(instance)
         self._refresh_rate_if_dirty(state, instance)
-        current_time = getattr(instance.model, "time", 0.0)
+        current_time = getattr(instance.model, "_time", 0.0)
         dt = current_time - state["last_time"]
         current_value = self._extrapolate(state, dt)
 
@@ -266,7 +266,7 @@ class ContinuousState(BaseObservable):
             raise ValueError("Cyclical dependency detected in ContinuousState.")
 
         state = self._get_state(instance)
-        current_time = getattr(instance.model, "time", 0.0)
+        current_time = getattr(instance.model, "_time", 0.0)
 
         has_subscribers = instance._has_subscribers(
             self.public_name, ObservableSignals.CHANGED
