@@ -635,7 +635,7 @@ def test_store_filter_methods(populated_store):
 def test_store_aborted_filter(populated_store):
     """Test the aborted() filter on InMemoryStore."""
     store, scenarios = populated_store
-    s0, s1, s2 = scenarios
+    s0, _, s2 = scenarios
     run_id_0 = RunId(s0.scenario_id, s0.replication_id)
     run_id_2 = RunId(s2.scenario_id, s2.replication_id)
 
