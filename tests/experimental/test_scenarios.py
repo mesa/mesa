@@ -6,12 +6,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy.stats.qmc as qmc
+from concurrent.futures import ProcessPoolExecutor
 
 from mesa import Agent, Model
 from mesa.experimental.data_collection import DataRecorder
 from mesa.experimental.scenarios import (
     RunConfiguration,
     Scenario,
+    ScenarioAbortedException,
     ScenarioFailedException,
     ScenarioNotFoundException,
     ScenarioNotReadyException,
@@ -29,9 +31,13 @@ from mesa.experimental.scenarios.store import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_scenario_ids():
+    Scenario._ids.clear()
+
+
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
-    Scenario._reset_counter()
 
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario.scenario_id == 0
@@ -450,6 +456,16 @@ class _FailingWriter:
         raise OSError("disk full")
 
 
+class _WorkerKillModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+    def run_until(self, until):
+        import os
+        os._exit(1)  # hard-kills the worker; not catchable by _safe_call
+
+
 @pytest.fixture
 def basic_config():
     """Basic scenario configuration."""
@@ -459,7 +475,6 @@ def basic_config():
 @pytest.fixture
 def scenario_list():
     """Scenario list."""
-    Scenario._reset_counter()
     return [Scenario(x=i) for i in range(3)]
 
 
@@ -469,6 +484,16 @@ def populated_store(scenario_list):
     store = InMemoryStore()
     store.write_scenarios(scenario_list)
     return store, scenario_list
+
+
+@pytest.fixture(params=["sequential", "process"])
+def maybe_executor(request):
+    if request.param == "sequential":
+        yield None
+    else:
+        with ProcessPoolExecutor(max_workers=2) as ex:
+            yield ex
+
 
 
 # ============================================================
@@ -537,6 +562,20 @@ def test_store_mark_failed(populated_store):
     assert exc_info.value.failure is failure
 
 
+def test_store_mark_aborted(populated_store):
+    """Test storing marked aborted scenarios."""
+    store, scenarios = populated_store
+    run_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    failure = FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb")
+    store.mark_aborted(run_id, failure)
+
+    assert store.check_status(run_id) == Status.ABORTED
+    with pytest.raises(ScenarioAbortedException) as exc_info:
+        store.retrieve_output(run_id)
+    assert exc_info.value.run_id == run_id
+    assert exc_info.value.failure is failure
+
+
 def test_store_unknown_run_id_raises():
     """Test the unknown run_id raises exception."""
     store = InMemoryStore()
@@ -590,6 +629,21 @@ def test_store_filter_methods(populated_store):
     assert set(store.succeeded()) == {run_id_0}
     assert set(store.failed()) == {run_id_1}
     assert set(store.pending()) == {run_id_2}
+    assert set(store.aborted()) == set()
+
+
+def test_store_aborted_filter(populated_store):
+    """Test the aborted() filter on InMemoryStore."""
+    store, scenarios = populated_store
+    s0, s1, s2 = scenarios
+    run_id_0 = RunId(s0.scenario_id, s0.replication_id)
+    run_id_2 = RunId(s2.scenario_id, s2.replication_id)
+
+    store.mark_aborted(run_id_0, FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"))
+
+    assert set(store.aborted()) == {run_id_0}
+    assert run_id_0 not in store.pending()
+    assert run_id_2 in store.pending()
 
 
 # ============================================================
@@ -657,12 +711,11 @@ def test_safe_call_writer_failure(basic_config):
 # ============================================================
 
 
-def test_run_scenarios_all_succeed():
+def test_run_scenarios_all_succeed(maybe_executor):
     """Test the successful branch of run_scenarios."""
-    Scenario._reset_counter()
     scenarios = [Scenario(x=i) for i in range(4)]
     store = run_scenarios(
-        scenarios, RunConfiguration(_DummyModel, until=3), progress=False
+        scenarios, RunConfiguration(_DummyModel, until=3), progress=False, executor=maybe_executor,
     )
 
     assert len(store.succeeded()) == 4
@@ -678,7 +731,6 @@ def test_run_scenarios_all_succeed():
 
 def test_run_scenarios_partial_failure():
     """Test run_scenarios with a mix of successes and failures."""
-    Scenario._reset_counter()
     scenarios = [Scenario(x=i, should_fail=(i == 1)) for i in range(3)]
 
     class _ConditionalConfig(RunConfiguration):
@@ -701,7 +753,6 @@ def test_run_scenarios_partial_failure():
 
 def test_run_scenarios_uses_provided_store():
     """Test run_scenarios for user specified store."""
-    Scenario._reset_counter()
     custom_store = InMemoryStore()
     returned = run_scenarios(
         [Scenario(x=0)],
@@ -718,6 +769,22 @@ def test_run_scenarios_empty_input():
     assert len(store.pending()) == 0
     assert len(store.succeeded()) == 0
     assert len(store.failed()) == 0
+
+
+def test_run_scenarios_aborts_on_broken_pool():
+    """Test run_scenarios for aborts on broken pool."""
+    scenarios = [Scenario(x=i) for i in range(4)]
+    with ProcessPoolExecutor(max_workers=2) as ex:
+        store = run_scenarios(
+            scenarios, RunConfiguration(_WorkerKillModel, until=3),
+            executor=ex, progress=False,
+        )
+
+    # returns, does not raise
+    assert len(store.aborted()) > 0
+    for rec in store.aborted().values():
+        assert rec.failure.origin is FailureOrigin.ABORTED
+    assert len(store.pending()) == 0   # all pending flipped to aborted
 
 
 # ============================================================

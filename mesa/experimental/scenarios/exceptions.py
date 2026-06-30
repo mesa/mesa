@@ -31,6 +31,7 @@ class FailureOrigin(Enum):
     RUNNING = "running"
     EXTRACTING = "extracting"
     WRITING = "writing"
+    ABORTED = "aborted"
 
 
 @dataclass(frozen=True)
@@ -178,6 +179,27 @@ class ScenarioFailedException(MesaException):
             failure: structured failure diagnostics for the run, if available
         """
         msg = f"Run {run_id} failed"
+        if failure is not None:
+            msg += (
+                f": {failure.exception_type} in {failure.origin.value}: "
+                f"{failure.message}"
+            )
+        super().__init__(msg)
+        self.run_id = run_id
+        self.failure = failure
+
+
+class ScenarioAbortedException(MesaException):
+    """Raised when an aborted run's output is requested."""
+
+    def __init__(self, run_id: RunId | None = None, failure: FailureInfo | None = None):
+        """Initialize a scenario-aborted exception.
+
+        Args:
+            run_id: the RunId of the aborted run
+            failure: structured failure diagnostics for the run, if available
+        """
+        msg = f"Run {run_id} aborted"
         if failure is not None:
             msg += (
                 f": {failure.exception_type} in {failure.origin.value}: "

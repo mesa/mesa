@@ -2,6 +2,7 @@
 
 from .exceptions import (
     ModelInstantiationException,
+    ScenarioAbortedException,
     ScenarioFailedException,
     ScenarioNotFoundException,
     ScenarioNotReadyException,
@@ -16,6 +17,7 @@ __all__ = [
     "RunId",
     "RunRecord",
     "Scenario",
+    "ScenarioAbortedException",
     "ScenarioFailedException",
     "ScenarioNotFoundException",
     "ScenarioNotReadyException",
