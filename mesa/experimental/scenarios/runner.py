@@ -246,11 +246,14 @@ def run_scenarios(
                 except Exception as e:
                     # pickling failure or CancelledError on the return trip; record and continue
                     # RUNNING might not be the right label here....
-                    ref, failure_info = None, FailureInfo(
-                        origin=FailureOrigin.WRITING,
-                        exception_type=type(e).__name__,
-                        message=str(e),
-                        traceback="".join(traceback.format_exception(e)),
+                    ref, failure_info = (
+                        None,
+                        FailureInfo(
+                            origin=FailureOrigin.WRITING,
+                            exception_type=type(e).__name__,
+                            message=str(e),
+                            traceback="".join(traceback.format_exception(e)),
+                        ),
                     )
                 _record(scenario, ref, failure_info)
         except BrokenExecutor as e:
