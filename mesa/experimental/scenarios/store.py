@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 import pandas as pd
 
 from mesa.experimental.scenarios.exceptions import (
+    ScenarioAbortedException,
     ScenarioFailedException,
     ScenarioNotFoundException,
     ScenarioNotReadyException,
@@ -25,6 +26,7 @@ class Status(Enum):
     PENDING = "PENDING"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
+    ABORTED = "ABORTED"
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,14 @@ class Store(Protocol):
         """
         ...
 
+    def mark_aborted(self, run_id: RunId, failure: FailureInfo) -> None:
+        """Record that a run was aborted (e.g. because the executor pool broke).
+
+        For a run to be marked, the scenario should first have been registered via write_scenarios.
+
+        """
+        ...
+
     def status(self) -> pd.DataFrame:
         """One row per scenario: pending / succeeded / failed."""
         ...
@@ -117,6 +127,10 @@ class Store(Protocol):
 
     def pending(self) -> dict[RunId, RunRecord]:
         """Return all pending RunIds and their run record."""
+        ...
+
+    def aborted(self) -> dict[RunId, RunRecord]:
+        """Return all aborted RunIds and their run record."""
         ...
 
 
@@ -176,7 +190,8 @@ class InMemoryStore:
             raise ScenarioNotReadyException(run_id)
         if record.status == Status.FAILED:
             raise ScenarioFailedException(run_id, record.failure)
-        # guard against any future Status value not handled above
+        if record.status == Status.ABORTED:
+            raise ScenarioAbortedException(run_id, record.failure)
         if record.status != Status.SUCCEEDED:
             raise ScenarioNotReadyException(run_id)
         return record.output
@@ -201,6 +216,12 @@ class InMemoryStore:
         """Record that a run failed, with its origin and diagnostics."""
         record = self._get_record(run_id)
         record.status = Status.FAILED
+        record.failure = failure
+
+    def mark_aborted(self, run_id: RunId, failure: FailureInfo) -> None:
+        """Record that a run was aborted (e.g. because the executor pool broke)."""
+        record = self._get_record(run_id)
+        record.status = Status.ABORTED
         record.failure = failure
 
     def status(self) -> pd.DataFrame:
@@ -230,3 +251,7 @@ class InMemoryStore:
     def pending(self) -> dict[RunId, RunRecord]:
         """Return all pending runs."""
         return {rid: r for rid, r in self._runs.items() if r.status == Status.PENDING}
+
+    def aborted(self) -> dict[RunId, RunRecord]:
+        """Return all aborted runs."""
+        return {rid: r for rid, r in self._runs.items() if r.status == Status.ABORTED}

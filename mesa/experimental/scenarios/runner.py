@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import traceback
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, overload
+from concurrent.futures import BrokenExecutor, as_completed
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -129,27 +130,11 @@ class RunConfiguration:
         return output
 
 
-@overload
 def _safe_call(
     config: RunConfiguration,
     scenario: Scenario,
     writer: Writer,
-) -> tuple[Reference, None]: ...
-
-
-@overload
-def _safe_call(
-    config: RunConfiguration,
-    scenario: Scenario,
-    writer: Writer,
-) -> tuple[None, FailureInfo]: ...
-
-
-def _safe_call(
-    config,
-    scenario,
-    writer,
-):
+) -> tuple[Reference, None] | tuple[None, FailureInfo]:
     """Run one scenario and persist its outcome. Runs in the worker.
 
     Args:
@@ -192,7 +177,6 @@ def run_scenarios(
     executor: Executor | None = None,
     store: Store | None = None,
     progress: bool = True,
-    timeout: float | None = None,
 ) -> Store:
     """Run the scenarios and return a Store object.
 
@@ -212,8 +196,6 @@ def run_scenarios(
         store: the Storage backend to use
         progress: whether to display the progress
             Display a progress bar via ``tqdm`` if installed.
-        timeout: the timeout in seconds for running a single scenario
-            only relevant if ``executor`` is not None
 
     Returns: a Store instance
 
@@ -249,6 +231,40 @@ def run_scenarios(
             ref, failure_info = _safe_call(config, scenario, writer)
             _record(scenario, ref, failure_info)
     else:
-        raise NotImplementedError(f"Executor {executor} is not implemented")
+        futures = {
+            executor.submit(_safe_call, config, scenario, writer): scenario
+            for scenario in scenarios
+        }
+        try:
+            for future in _bar(as_completed(futures)):
+                scenario = futures[future]
+                try:
+                    ref, failure_info = future.result()
+                except BrokenExecutor:
+                    # raise it again so it is handled in the dedicated outer except clause
+                    raise
+                except Exception as e:
+                    # pickling failure or CancelledError on the return trip; record and continue
+                    # RUNNING might not be the right label here....
+                    ref, failure_info = None, FailureInfo(
+                        origin=FailureOrigin.WRITING,
+                        exception_type=type(e).__name__,
+                        message=str(e),
+                        traceback="".join(traceback.format_exception(e)),
+                    )
+                _record(scenario, ref, failure_info)
+        except BrokenExecutor as e:
+            cause = e.__cause__ or e
+            for entry in list(store.pending()):
+                store.mark_aborted(
+                    entry,
+                    FailureInfo(
+                        origin=FailureOrigin.ABORTED,
+                        exception_type=type(cause).__name__,
+                        message=str(e),
+                        traceback="".join(traceback.format_exception(e)),
+                    ),
+                )
+            return store
 
     return store
