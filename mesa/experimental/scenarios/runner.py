@@ -217,8 +217,8 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(scenario: Scenario, ref: Reference | None, failure: FailureInfo | None):
-        """Handler for recording the return _safe_call."""
+    def _record(scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]):
+        ref, failure = result
         if failure is None:
             store.mark_succeeded(ref)
         else:
@@ -228,8 +228,7 @@ def run_scenarios(
     if executor is None:
         # Sequential: run in the loop so the bar advances per scenario.
         for scenario in _bar(scenarios):
-            ref, failure_info = _safe_call(config, scenario, writer)
-            _record(scenario, ref, failure_info)
+            _record(scenario, _safe_call(config, scenario, writer))
     else:
         futures = {
             executor.submit(_safe_call, config, scenario, writer): scenario
@@ -239,23 +238,18 @@ def run_scenarios(
             for future in _bar(as_completed(futures)):
                 scenario = futures[future]
                 try:
-                    ref, failure_info = future.result()
+                    result = future.result()
                 except BrokenExecutor:
-                    # raise it again so it is handled in the dedicated outer except clause
                     raise
                 except Exception as e:
-                    # pickling failure or CancelledError on the return trip; record and continue
-                    # RUNNING might not be the right label here....
-                    ref, failure_info = (
-                        None,
-                        FailureInfo(
-                            origin=FailureOrigin.WRITING,
-                            exception_type=type(e).__name__,
-                            message=str(e),
-                            traceback="".join(traceback.format_exception(e)),
-                        ),
-                    )
-                _record(scenario, ref, failure_info)
+                    # pickling failure or CancelledError on the return trip; record as failed and continue
+                    result = (None, FailureInfo(
+                        origin=FailureOrigin.WRITING,
+                        exception_type=type(e).__name__,
+                        message=str(e),
+                        traceback="".join(traceback.format_exception(e)),
+                    ))
+                _record(scenario, result)
         except BrokenExecutor as e:
             cause = e.__cause__ or e
             for entry in list(store.pending()):
@@ -264,10 +258,8 @@ def run_scenarios(
                     FailureInfo(
                         origin=FailureOrigin.ABORTED,
                         exception_type=type(cause).__name__,
-                        message=str(e),
+                        message=str(cause),
                         traceback="".join(traceback.format_exception(e)),
                     ),
                 )
-            return store
-
     return store
