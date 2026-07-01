@@ -33,6 +33,6 @@ This namespace contains experimental features. These are under development, and 
 ```
 
 ```{eval-rst}
-.. automodule:: experimental.scenarios.model_with_scenario
+.. automodule:: experimental.scenarios.runner
    :members:
 ```

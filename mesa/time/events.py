@@ -263,7 +263,7 @@ class EventGenerator:
         """Get the next interval value."""
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
-            if interval < 0:
+            if interval <= 0:
                 raise ValueError(f"Interval must be > 0, got {interval}")
             return interval
         return self.schedule.interval
