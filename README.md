@@ -11,6 +11,16 @@
 | Chat    | [![chat](https://img.shields.io/matrix/project-mesa:matrix.org?label=chat&logo=Matrix)](https://matrix.to/#/#project-mesa:matrix.org) |
 | Cite    | [![DOI](https://joss.theoj.org/papers/10.21105/joss.07668/status.svg)](https://doi.org/10.21105/joss.07668) |
 
+## Table of Contents
+- [About Mesa](#mesa-agent-based-modeling-in-python)
+- [Features](#features)
+- [Using Mesa](#using-mesa)
+- [Resources](#resources)
+- [Running Mesa in Docker](#running-mesa-in-docker)
+- [Contributing to Mesa](#contributing-to-mesa)
+- [Citing Mesa](#citing-mesa)
+- [Troubleshooting](#troubleshooting)
+
 Mesa allows users to quickly create agent-based models using built-in
 core components (such as spatial grids and agent schedulers) or
 customized implementations; visualize them using a browser-based
@@ -55,13 +65,13 @@ pip install -U "mesa[all]"
 
 You can also use `pip` to install the latest GitHub version:
 
-``` bash
+```bash
 pip install -U -e git+https://github.com/mesa/mesa@main#egg=mesa
 ```
 
 Or any other (development) branch on this repo or your own fork:
 
-``` bash
+```bash
 pip install -U -e git+https://github.com/YOUR_FORK/mesa@YOUR_BRANCH#egg=mesa
 ```
 
@@ -75,17 +85,16 @@ For resources or help on using Mesa, check out the following:
     -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
 -   [Discussions](https://github.com/mesa/mesa/discussions) (GitHub threaded discussions about Mesa)
 -   [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org) (Chat Forum via Matrix to talk about Mesa)
+-   [Troubleshooting](#troubleshooting) (Common issues and solutions)
 
 ## Running Mesa in Docker
-
 You can run Mesa in a Docker container in a few ways.
 
 If you are a Mesa developer, first [install Docker
 Compose](https://docs.docker.com/compose/install/) and then, in the
 folder containing the Mesa Git repository, you run:
-
-``` bash
-$ docker compose up
+```bash
+docker compose up
 # If you want to make it run in the background, you instead run
 $ docker compose up -d
 ```
@@ -115,9 +124,8 @@ Then, you just need to run `docker compose up -d` to have it
 accessible from `localhost:8765`.
 
 ## Contributing to Mesa
-
 Want to join the Mesa team or just curious about what is happening with
-Mesa? You can\...
+Mesa? You can...
 
 > -   Join our [Matrix chat room](https://matrix.to/#/#project-mesa:matrix.org) in which questions, issues, and
 >     ideas can be (informally) discussed.
@@ -135,8 +143,16 @@ to be added if you build it!
 Don't forget to checkout the [Contributors guide](https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md).
 
 ## Citing Mesa
-
 To cite Mesa in your publication, you can refer to our peer-reviewed article in the Journal of Open Source Software (JOSS):
 - ter Hoeven, E., Kwakkel, J., Hess, V., Pike, T., Wang, B., rht, & Kazil, J. (2025). Mesa 3: Agent-based modeling with Python in 2025. Journal of Open Source Software, 10(107), 7668. https://doi.org/10.21105/joss.07668
 
 Our [CITATION.cff](https://github.com/mesa/mesa/blob/main/CITATION.cff) can be used to generate APA, BibTeX and other citation formats.
+
+## Troubleshooting
+If you encounter issues while using Mesa, here are some common solutions:
+
+- **Installation problems**: Ensure you have the latest version of pip and try `pip install --upgrade pip` before installing Mesa.
+- **Docker issues**: Verify Docker is running and you have sufficient permissions. Try restarting Docker daemon.
+- **Visualization problems**: Check that your browser supports WebGL and that port 8765 is not blocked by firewall.
+- **Model errors**: Check your model's app.py for syntax errors and ensure all required dependencies are installed.
+- **Getting help**: Visit our [Discussions](https://github.com/mesa/mesa/discussions) or [Matrix chat](https://matrix.to/#/#project-mesa:matrix.org) for community support.
