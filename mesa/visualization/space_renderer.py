@@ -150,7 +150,9 @@ class SpaceRenderer:
         """Setup the space structure without drawing.
 
         Args:
-            **kwargs: Additional keyword arguments for the setup function.
+            **kwargs: Additional keyword arguments for the setup function. For ContinuousSpace,
+                you may pass ``viz_dims=(i, j)`` to select which two dimensions are projected
+                to x/y.
             Checkout respective `SpaceDrawer` class on details how to pass **kwargs.
 
         Returns:

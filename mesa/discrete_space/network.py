@@ -16,7 +16,6 @@ from collections.abc import Callable, Mapping
 from random import Random
 from typing import Any
 
-import networkx as nx
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -34,7 +33,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
-        layout: Mapping | Callable | None = nx.circular_layout,
+        layout: Mapping | Callable | None = None,
     ) -> None:
         """A Networked grid.
 
@@ -49,6 +48,11 @@ class Network(DiscreteSpace[Cell]):
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
         """
+        if layout is None:
+            import networkx as nx  # noqa: PLC0415
+
+            layout = nx.circular_layout
+
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 
@@ -64,6 +68,7 @@ class Network(DiscreteSpace[Cell]):
             )
 
         self._kdtree_cells = []
+        self._kdtree_dirty = False  # True when KDTree needs a rebuild.
         positions_for_tree = []
 
         # Create cells and gather KD-Tree data simultaneously
@@ -100,6 +105,7 @@ class Network(DiscreteSpace[Cell]):
             self._kdtree = KDTree(positions)
         else:
             self._kdtree = None
+        self._kdtree_dirty = False  # set to false after rebuilding  every time
 
     def _connect_cells(self) -> None:
         for cell in self.all_cells:
@@ -114,6 +120,11 @@ class Network(DiscreteSpace[Cell]):
 
         Only works for spatial networks (networks with node positions).
 
+        Note:
+            The KD-Tree index is rebuilt lazily. If cells were added or removed
+            since the previous spatial query, this method rebuilds the KD-Tree
+            before performing the nearest-neighbor lookup.
+
         Args:
             position: Physical position [x, y]
 
@@ -123,6 +134,11 @@ class Network(DiscreteSpace[Cell]):
         Raises:
             ValueError: If network is not spatial
         """
+        # build the kd-tree once if the _kdtree_dirty flag is true
+
+        if self._kdtree_dirty:
+            self._rebuild_kdtree()
+
         if getattr(self, "_kdtree", None) is None:
             raise ValueError("No nodes with positions found in network")
 
@@ -136,17 +152,16 @@ class Network(DiscreteSpace[Cell]):
 
         if cell._position is not None:
             self._kdtree_cells.append(cell)
-            self._rebuild_kdtree()
+            self._kdtree_dirty = True
 
     def remove_cell(self, cell: Cell):
         """Remove a cell from the space."""
         super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
-        self._rebuild_kdtree()
 
-        if cell._position is not None:
+        if cell._position is not None and cell in self._kdtree_cells:
             self._kdtree_cells.remove(cell)
-            self._rebuild_kdtree()
+            self._kdtree_dirty = True
 
     def add_connection(self, cell1: Cell, cell2: Cell):
         """Add a connection between the two cells."""

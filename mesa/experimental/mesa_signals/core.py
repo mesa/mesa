@@ -64,17 +64,22 @@ class BaseObservable:
         self.fallback_value = fallback_value
 
     def __get__(self, instance: HasEmitters, owner):  # noqa: D105
+        # Class-level access (e.g. ``MyAgent.value``) returns the descriptor
+        # itself, following the standard descriptor protocol used by ``property``.
+        if instance is None:
+            return self
+
         value = getattr(instance, self.private_name)
 
         if CURRENT_COMPUTED is not None:
             if isinstance(value, MutableSequence):
                 # Pass None for mutable sequences to prevent memory leaks and
                 # ensure in-place mutations bypass the `old != new` check.
-                CURRENT_COMPUTED._add_parent(instance, self.public_name, None)
+                CURRENT_COMPUTED._record_access(instance, self.public_name, None)
             else:
                 # there is a computed dependent on this Observable, so let's add
                 # this Observable as a parent
-                CURRENT_COMPUTED._add_parent(instance, self.public_name, value)
+                CURRENT_COMPUTED._record_access(instance, self.public_name, value)
 
             # fixme, this can be done more cleanly
             #  problem here is that we cannot use self (i.e., the observable), we need to add the instance as well
@@ -204,8 +209,10 @@ class ComputedState:
             self.is_dirty = True
             self.owner.notify(self.name, ObservableSignals.CHANGED, old=self.value)
 
-    def _add_parent(self, parent: HasEmitters, name: str, current_value: Any) -> None:
-        """Add a parent Observable.
+    def _record_access(
+        self, parent: HasEmitters, name: str, current_value: Any
+    ) -> None:
+        """Records access to a parent Observable.
 
         Args:
             parent: the HasEmitters instance to which the Observable belongs
@@ -213,19 +220,61 @@ class ComputedState:
             current_value: the current value of the Observable
 
         """
-        parent.observe(name, ALL, self._set_dirty)
-
         try:
             self.parents[parent][name] = current_value
         except KeyError:
             self.parents[parent] = {name: current_value}
 
-    def _remove_parents(self):
-        """Remove all parent Observables."""
-        # we can unsubscribe from everything on each parent
-        for parent in self.parents:
-            parent.unobserve(ALL, ALL, self._set_dirty)
-        self.parents.clear()
+    def evaluate(self) -> Any:
+        """Recompute the value by calling self.func, tracking dependencies as it runs.
+
+        Any Observable read during the call is recorded as a dependency, and
+        subscriptions are updated so this state is marked dirty again when
+        one of them changes. On success, value is updated and is_dirty is
+        cleared.
+
+        Raises:
+            Exception: Any exception raised by self.func propagates
+                unchanged. parents is restored to its prior state and
+                is_dirty is left set, so the caller may retry later.
+
+        Returns:
+            The newly computed value.
+        """
+        global CURRENT_COMPUTED  # noqa: PLW0603
+
+        old_computed = CURRENT_COMPUTED
+        # Save and reset PROCESSING_SIGNALS so that `self.func` accessing an
+        # Observable that is itself derived from this same ComputedState
+        # (e.g. a rate function reading the ContinuousState it drives) does
+        # not falsely trigger a cyclical-dependency error.
+        old_processing = set(PROCESSING_SIGNALS)
+        PROCESSING_SIGNALS.clear()
+
+        CURRENT_COMPUTED = self
+        old_parents = self.parents
+        self.parents = weakref.WeakKeyDictionary()
+
+        try:
+            self.value = self.func(self.owner)
+        except Exception:
+            self.parents = old_parents
+            raise
+        finally:
+            CURRENT_COMPUTED = old_computed
+            PROCESSING_SIGNALS.update(old_processing)
+
+        # Diffing engine: subscribe/unsubscribe as dependencies come and go.
+        old_deps = {(p, attr) for p, attrs in old_parents.items() for attr in attrs}
+        new_deps = {(p, attr) for p, attrs in self.parents.items() for attr in attrs}
+
+        for p, attr in old_deps - new_deps:
+            p.unobserve(attr, ALL, self._set_dirty)
+        for p, attr in new_deps - old_deps:
+            p.observe(attr, ALL, self._set_dirty)
+
+        self.is_dirty = False
+        return self.value
 
 
 class ComputedProperty(property):
@@ -242,7 +291,7 @@ def computed_property(
     """Decorator to create a computed property.
 
     Acts like @property, but automatically tracks dependencies (Observables)
-    accessed during the function execution.
+    accessed during the function execution and updates them using a diffing engine.
 
     Args:
         func: The function to be decorated.
@@ -254,8 +303,6 @@ def computed_property(
 
         @functools.wraps(computation_func)
         def wrapper(self: HasEmitters):
-            global CURRENT_COMPUTED  # noqa: PLW0603
-
             if not hasattr(self, key):
                 state = ComputedState(
                     self,
@@ -287,21 +334,12 @@ def computed_property(
                             break
 
                 if changed:
-                    state._remove_parents()
-
-                    old = CURRENT_COMPUTED
-                    CURRENT_COMPUTED = state
-                    try:
-                        state.value = computation_func(self)
-                    except Exception as e:
-                        raise e
-                    finally:
-                        CURRENT_COMPUTED = old
+                    state.evaluate()
 
                 state.is_dirty = False
 
             if CURRENT_COMPUTED is not None:
-                CURRENT_COMPUTED._add_parent(
+                CURRENT_COMPUTED._record_access(
                     self, computation_func.__name__, state.value
                 )
 

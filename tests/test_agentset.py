@@ -653,12 +653,33 @@ def test_agentset_groupby():
     assert len(groups.groups[False]) == 5
     assert len(groups) == 2
 
+    even_group = groups.get_group(True)
+    assert len(even_group) == 5
+    assert all(agent.unique_id % 2 == 0 for agent in even_group)
+
+    assert groups.get_group("missing", default=None) is None
+
+    fallback_group = AgentSet([], random=model.random)
+    assert groups.get_group("missing", default=fallback_group) is fallback_group
+
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        groups.get_group("missing")
+
     for group_name, group in groups:
         assert len(group) == 5
         assert group_name in {True, False}
 
     sizes = agentset.groupby("even", result_type="list").map(len)
     assert sizes == {True: 5, False: 5}
+
+    list_groups = agentset.groupby("even", result_type="list")
+    assert "missing" not in list_groups.groups
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        list_groups.get_group("missing")
+    assert "missing" not in list_groups.groups
+
+    assert list_groups.get_group("missing", default=None) is None
+    assert "missing" not in list_groups.groups
 
     attributes = agentset.groupby("even", result_type="agentset").map("get", "even")
     for group_name, group in attributes.items():
@@ -702,6 +723,34 @@ def test_agentset_groupby():
     assert custom_result[False] == custom_agg(
         [agent.value for agent in agents if not agent.even]
     )
+
+
+def test_agentset_repr_and_str():
+    """AgentSet and its subclasses have informative repr/str showing the count."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+
+    agentset = AgentSet(agents, random=model.random)
+    assert repr(agentset) == "<AgentSet (5 agents)>"
+    assert str(agentset) == "AgentSet with 5 agents"
+
+    # _HardKeyAgentSet uses its own class name (repr is programmer-facing).
+    hard_set = _HardKeyAgentSet(agents, random=model.random)
+    assert repr(hard_set) == "<_HardKeyAgentSet (5 agents)>"
+    assert str(hard_set) == "_HardKeyAgentSet with 5 agents"
+
+    # Count reflects the actual size, including empty sets.
+    empty = AgentSet([], random=model.random)
+    assert repr(empty) == "<AgentSet (0 agents)>"
+
+
+def test_groupby_repr():
+    """GroupBy repr shows the number of groups and each group's identifier and size."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(6)]
+    grouped = AgentSet(agents, random=model.random).groupby(lambda a: a.unique_id % 3)
+    sizes = {name: len(group) for name, group in grouped.groups.items()}
+    assert repr(grouped) == f"GroupBy(3 groups: {sizes})"
 
 
 def test_hardkeyagentset_init():
