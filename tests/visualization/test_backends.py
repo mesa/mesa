@@ -13,6 +13,17 @@ from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components.portrayal_components import (
+    _legacy_agent_portrayal_warning_emitted,
+)
+
+
+@pytest.fixture(autouse=True)
+def reset_legacy_agent_portrayal_warning():
+    """Reset legacy portrayal warning state for isolated tests."""
+    _legacy_agent_portrayal_warning_emitted["emitted"] = False
+    yield
+    _legacy_agent_portrayal_warning_emitted["emitted"] = False
 
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
@@ -93,6 +104,32 @@ def test_matplotlib_backend_collects_agent_data():
         data = mb.collect_agent_data(DummySpace(), agent_portrayal_dict)
 
     assert "loc" in data and data["loc"].shape[0] == 1
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_backend_warns_once_for_dict_agent_portrayal(backend_cls):
+    """Dict-based agent portrayal should emit one deprecation warning per session."""
+    backend = backend_cls(space_drawer=MagicMock())
+
+    class DummyAgent:
+        position = (0, 0)
+        cell = types.SimpleNamespace(coordinate=(0, 0))
+
+    class DummySpace:
+        agents: ClassVar[list] = [DummyAgent(), DummyAgent(), DummyAgent()]
+
+    def agent_portrayal_dict(agent):
+        return {"size": 5, "color": "red", "marker": "o"}
+
+    with pytest.warns(FutureWarning) as warnings_record:
+        backend.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
+    dict_portrayal_warnings = [
+        warning
+        for warning in warnings_record
+        if "Returning a dict from agent_portrayal is deprecated" in str(warning.message)
+    ]
+    assert len(dict_portrayal_warnings) == 1
 
 
 def test_matplotlib_backend_draw_agents():
