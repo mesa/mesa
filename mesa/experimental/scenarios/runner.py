@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import traceback
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import pandas as pd
 
@@ -129,11 +129,27 @@ class RunConfiguration:
         return output
 
 
+@overload
 def _safe_call(
     config: RunConfiguration,
     scenario: Scenario,
     writer: Writer,
-) -> tuple[Reference, None] | tuple[None, FailureInfo]:
+) -> tuple[Reference, None]: ...
+
+
+@overload
+def _safe_call(
+    config: RunConfiguration,
+    scenario: Scenario,
+    writer: Writer,
+) -> tuple[None, FailureInfo]: ...
+
+
+def _safe_call(
+    config,
+    scenario,
+    writer,
+):
     """Run one scenario and persist its outcome. Runs in the worker.
 
     Args:
