@@ -5,6 +5,7 @@ import re
 import unittest
 
 import ipyvuetify as vw
+import numpy as np
 import pytest
 import solara
 
@@ -20,10 +21,12 @@ from mesa.visualization.solara_viz import (
     SolaraViz,
     UserInputs,
     _build_model_init_kwargs,
+    _build_viz_dependencies,
     _check_model_params,
     _validate_model_params,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
+from mesa.visualization.utils import update_counter
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
@@ -313,6 +316,27 @@ def test_solara_viz_with_scenario():
 
     # Should render without error
     solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_build_viz_dependencies_defaults_to_update_counter():
+    """Dependency builder always includes update counter as first dependency."""
+    deps = _build_viz_dependencies()
+    assert deps == [update_counter.value]
+
+
+def test_build_viz_dependencies_appends_custom_dependencies():
+    """Dependency builder appends caller-provided dependencies after update counter."""
+    custom = ["a", 2, True]
+    deps = _build_viz_dependencies(custom)
+    assert deps[0] == update_counter.value
+    assert deps[1:] == custom
+
+
+def test_build_viz_dependencies_accepts_numpy_sequence():
+    """Dependency builder should accept sequence-like objects with ambiguous truthiness."""
+    deps = _build_viz_dependencies(np.array([1, 2]))
+    assert deps[0] == update_counter.value
+    assert deps[1:] == [1, 2]
 
 
 def test_model_creator_with_scenario():
