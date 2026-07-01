@@ -260,7 +260,7 @@ class Scenario:
         scenarios = []
 
         for i, entry in enumerate(experiments.to_dict(orient="records")):
-            scenario = Scenario(rng=rng, scenario_id=i, **entry)
+            scenario = cls(rng=rng, scenario_id=i, **entry)
             if replications is None:
                 scenarios.append(scenario)
             else:

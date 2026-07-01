@@ -33,7 +33,7 @@ jobs:
 
       # Benchmarks on main
       - name: Checkout main branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           repository: mesa/mesa
@@ -50,7 +50,7 @@ jobs:
           name: timings-main
           path: benchmarks/timings_1.pickle
       - name: Checkout PR branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
