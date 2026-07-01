@@ -176,6 +176,9 @@ class InMemoryStore:
             raise ScenarioNotReadyException(run_id)
         if record.status == Status.FAILED:
             raise ScenarioFailedException(run_id, record.failure)
+        # guard against any future Status value not handled above
+        if record.status != Status.SUCCEEDED:
+            raise ScenarioNotReadyException(run_id)
         return record.output
 
     def write_scenarios(self, scenarios: list[Scenario]) -> None:
@@ -225,5 +228,5 @@ class InMemoryStore:
         return {rid: r for rid, r in self._runs.items() if r.status == Status.FAILED}
 
     def pending(self) -> dict[RunId, RunRecord]:
-        """Return all pending run."""
+        """Return all pending runs."""
         return {rid: r for rid, r in self._runs.items() if r.status == Status.PENDING}
