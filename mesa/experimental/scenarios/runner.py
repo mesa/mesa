@@ -216,8 +216,8 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(scenario: Scenario, ref: Reference | None, failure: FailureInfo | None):
-        """Handler for recording the return _safe_call."""
+    def _record(scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]):
+        ref, failure = result
         if failure is None:
             store.mark_succeeded(ref)
         else:
@@ -227,8 +227,7 @@ def run_scenarios(
     if executor is None:
         # Sequential: run in the loop so the bar advances per scenario.
         for scenario in _bar(scenarios):
-            ref, failure_info = _safe_call(config, scenario, writer)
-            _record(scenario, ref, failure_info)
+            _record(scenario, _safe_call(config, scenario, writer))
     else:
         raise NotImplementedError(f"Executor {executor} is not implemented")
 

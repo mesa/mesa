@@ -20,6 +20,7 @@ from mesa.experimental.scenarios import (
 )
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
 from mesa.experimental.scenarios.runner import _safe_call
+from mesa.experimental.scenarios.scenario import PARENT_REPLICATION_ID
 from mesa.experimental.scenarios.store import (
     InMemoryReference,
     InMemoryStore,
@@ -29,10 +30,13 @@ from mesa.experimental.scenarios.store import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_scenario_ids():
+    Scenario._ids.clear()
+
+
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
-    Scenario._reset_counter()
-
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario.scenario_id == 0
     assert scenario.a == 1
@@ -42,7 +46,7 @@ def test_scenario():
     d = scenario.to_dict()
     assert d["a"] == 1
     assert d["scenario_id"] == 0
-    assert d["replication_id"] is None
+    assert d["replication_id"] == PARENT_REPLICATION_ID
 
     with pytest.raises(TypeError):
         scenario.c = 4
@@ -163,7 +167,7 @@ def test_scenario_frozen():
 
 
 def test_scenario_spawn_replications():
-    """Test that replicate() produces correctly seeded copies."""
+    """Test that spawn_replications() produces correctly seeded copies."""
 
     class MyScenario(Scenario):
         density: float = 0.8
@@ -459,7 +463,6 @@ def basic_config():
 @pytest.fixture
 def scenario_list():
     """Scenario list."""
-    Scenario._reset_counter()
     return [Scenario(x=i) for i in range(3)]
 
 
@@ -541,8 +544,8 @@ def test_store_unknown_run_id_raises():
     """Test the unknown run_id raises exception."""
     store = InMemoryStore()
     with pytest.raises(ScenarioNotFoundException) as exc_info:
-        store.check_status(RunId(999, None))
-    assert exc_info.value.run_id == RunId(999, None)
+        store.check_status(RunId(999, -1))
+    assert exc_info.value.run_id == RunId(999, -1)
 
 
 def test_store_status_dataframe(populated_store):
@@ -567,11 +570,10 @@ def test_store_status_dataframe_mixed_case(populated_store):
     store.mark_failed(run_id_1, FailureInfo(FailureOrigin.RUNNING, "E", "m", ""))
 
     df = store.status()
-    # pandas converts None replication_id to NaN in the MultiIndex, so look up by scenario_id
-    by_id = dict(zip(df.reset_index()["scenario_id"], df["status"]))
-    assert by_id[s0.scenario_id] == "SUCCEEDED"
-    assert by_id[s1.scenario_id] == "FAILED"
-    assert by_id[s2.scenario_id] == "PENDING"
+    assert df.index.get_level_values("replication_id").dtype == np.int64
+    assert df.loc[(s0.scenario_id, s0.replication_id), "status"] == "SUCCEEDED"
+    assert df.loc[(s1.scenario_id, s1.replication_id), "status"] == "FAILED"
+    assert df.loc[(s2.scenario_id, s2.replication_id), "status"] == "PENDING"
 
 
 def test_store_filter_methods(populated_store):
@@ -659,7 +661,6 @@ def test_safe_call_writer_failure(basic_config):
 
 def test_run_scenarios_all_succeed():
     """Test the successful branch of run_scenarios."""
-    Scenario._reset_counter()
     scenarios = [Scenario(x=i) for i in range(4)]
     store = run_scenarios(
         scenarios, RunConfiguration(_DummyModel, until=3), progress=False
@@ -678,7 +679,6 @@ def test_run_scenarios_all_succeed():
 
 def test_run_scenarios_partial_failure():
     """Test run_scenarios with a mix of successes and failures."""
-    Scenario._reset_counter()
     scenarios = [Scenario(x=i, should_fail=(i == 1)) for i in range(3)]
 
     class _ConditionalConfig(RunConfiguration):
@@ -701,7 +701,6 @@ def test_run_scenarios_partial_failure():
 
 def test_run_scenarios_uses_provided_store():
     """Test run_scenarios for user specified store."""
-    Scenario._reset_counter()
     custom_store = InMemoryStore()
     returned = run_scenarios(
         [Scenario(x=0)],
@@ -729,7 +728,7 @@ def test_run_scenarios_empty_input():
     "exc_class, kwargs",
     [
         (ScenarioNotFoundException, {}),
-        (ScenarioNotFoundException, {"run_id": RunId(1, None)}),
+        (ScenarioNotFoundException, {"run_id": RunId(1, -1)}),
         (ScenarioNotReadyException, {}),
         (ScenarioNotReadyException, {"run_id": RunId(2, 0)}),
         (ScenarioFailedException, {}),
