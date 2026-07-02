@@ -217,7 +217,9 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]):
+    def _record(
+        scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]
+    ):
         ref, failure = result
         if failure is None:
             store.mark_succeeded(ref)
@@ -243,12 +245,15 @@ def run_scenarios(
                     raise
                 except Exception as e:
                     # pickling failure or CancelledError on the return trip; record as failed and continue
-                    result = (None, FailureInfo(
-                        origin=FailureOrigin.WRITING,
-                        exception_type=type(e).__name__,
-                        message=str(e),
-                        traceback="".join(traceback.format_exception(e)),
-                    ))
+                    result = (
+                        None,
+                        FailureInfo(
+                            origin=FailureOrigin.WRITING,
+                            exception_type=type(e).__name__,
+                            message=str(e),
+                            traceback="".join(traceback.format_exception(e)),
+                        ),
+                    )
                 _record(scenario, result)
         except BrokenExecutor as e:
             cause = e.__cause__ or e
