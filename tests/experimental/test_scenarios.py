@@ -1,6 +1,7 @@
 """Tests for mesa.experimental.scenarios."""
 
 import pickle
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -9,14 +10,34 @@ import scipy.stats.qmc as qmc
 
 from mesa import Agent, Model
 from mesa.experimental.data_collection import DataRecorder
-from mesa.experimental.scenarios import RunConfiguration, Scenario
-from mesa.experimental.scenarios.scenario import rescale_samples
+from mesa.experimental.scenarios import (
+    RunConfiguration,
+    Scenario,
+    ScenarioAbortedException,
+    ScenarioFailedException,
+    ScenarioNotFoundException,
+    ScenarioNotReadyException,
+    rescale_samples,
+    run_scenarios,
+)
+from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
+from mesa.experimental.scenarios.runner import _safe_call
+from mesa.experimental.scenarios.store import (
+    InMemoryReference,
+    InMemoryStore,
+    InMemoryWriter,
+    RunId,
+    Status,
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset_scenario_ids():
+    Scenario._ids.clear()
 
 
 def test_scenario():
     """Test Scenario and ModelWithScenario class."""
-    Scenario._reset_counter()
-
     scenario = Scenario(a=1, b=2, c=3, rng=42)
     assert scenario.scenario_id == 0
     assert scenario.a == 1
@@ -383,3 +404,622 @@ def test_run_configuration(mocker):
     output = configuration(scenario)
     assert "a" in output
     assert "b" not in output
+
+
+# ============================================================
+# Shared helpers for store / runner tests
+# ============================================================
+
+
+class _DummyRecorder:
+    def get_all_dataframes(self):
+        return {"results": pd.DataFrame({"x": [1]})}
+
+    def get_table_dataframe(self, key):
+        return pd.DataFrame({"x": [1]})
+
+
+class _DummyModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+
+class _InstantiationFailModel(Model):
+    def __init__(self, *args, **kwargs):
+        raise RuntimeError("cannot instantiate")
+
+
+class _RunFailModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+    def run_until(self, until):
+        raise RuntimeError("run failed")
+
+
+class _FailingRecorder:
+    def get_all_dataframes(self):
+        raise RuntimeError("extraction failed")
+
+
+class _ExtractionFailModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _FailingRecorder()
+
+
+class _FailingWriter:
+    def to_reference(self, run_id, outcome):
+        raise OSError("disk full")
+
+
+class _WorkerKillModel(Model):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+    def run_until(self, until):
+        import os  # noqa: PLC0415
+
+        os._exit(1)  # hard-kills the worker; not catchable by _safe_call
+
+
+class _ConditionalKillModel(Model):
+    """Kills the worker for any scenario with should_kill=True; otherwise runs normally."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+    def run_until(self, until):
+        if getattr(self.scenario, "should_kill", False):
+            import os  # noqa: PLC0415
+
+            os._exit(1)
+        super().run_until(until)
+
+
+class _ConditionalConfig(RunConfiguration):
+    """Fails the run for any scenario flagged should_fail.
+
+    Module-level (not a local class inside a test) so it pickles to process
+    workers when the parallel backend runs it.
+    """
+
+    def run_model(self, model):
+        if getattr(model.scenario, "should_fail", False):
+            raise RuntimeError("intentional")
+        super().run_model(model)
+
+
+@pytest.fixture
+def basic_config():
+    """Basic scenario configuration."""
+    return RunConfiguration(_DummyModel, until=5)
+
+
+@pytest.fixture
+def scenario_list():
+    """Scenario list."""
+    return [Scenario(x=i) for i in range(3)]
+
+
+@pytest.fixture
+def populated_store(scenario_list):
+    """Populated InMemoryStore."""
+    store = InMemoryStore()
+    store.write_scenarios(scenario_list)
+    return store, scenario_list
+
+
+@pytest.fixture(params=["sequential", "process"])
+def maybe_executor(request):
+    """Fixture controlling the executor to use."""
+    if request.param == "sequential":
+        yield None
+    else:
+        with ProcessPoolExecutor(max_workers=2) as ex:
+            yield ex
+
+
+# ============================================================
+# InMemoryStore
+# ============================================================
+
+
+def test_store_write_and_read_scenarios(scenario_list):
+    """Store and read scenarios."""
+    store = InMemoryStore()
+    store.write_scenarios(scenario_list)
+    recovered = store.read_scenarios()
+    assert len(recovered) == len(scenario_list)
+    assert {s.scenario_id for s in recovered} == {s.scenario_id for s in scenario_list}
+
+
+def test_store_initial_status_is_pending(populated_store):
+    """Test the initial status of the store."""
+    store, scenarios = populated_store
+    for scenario in scenarios:
+        run_id = RunId(scenario.scenario_id, scenario.replication_id)
+        assert store.check_status(run_id) == Status.PENDING
+
+
+def test_store_mark_succeeded(populated_store):
+    """Test the marked status of the store for successes."""
+    store, scenarios = populated_store
+    scenario = scenarios[0]
+    run_id = RunId(scenario.scenario_id, scenario.replication_id)
+    writer = store.writer()
+    outcome = {"results": pd.DataFrame({"x": [1]})}
+    ref = writer.to_reference(run_id, outcome)
+    store.mark_succeeded(ref)
+
+    assert store.check_status(run_id) == Status.SUCCEEDED
+    output = store.retrieve_output(run_id)
+    assert "results" in output
+
+
+def test_store_retrieve_output_pending_raises(populated_store):
+    """Test the retrieve output of the store while status is pending."""
+    store, scenarios = populated_store
+    run_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    with pytest.raises(ScenarioNotReadyException) as exc_info:
+        store.retrieve_output(run_id)
+    assert exc_info.value.run_id == run_id
+
+
+def test_store_mark_failed(populated_store):
+    """Test the marked status of the store for failures."""
+    store, scenarios = populated_store
+    scenario = scenarios[0]
+    run_id = RunId(scenario.scenario_id, scenario.replication_id)
+    failure = FailureInfo(
+        origin=FailureOrigin.RUNNING,
+        exception_type="RuntimeError",
+        message="boom",
+        traceback="...",
+    )
+    store.mark_failed(run_id, failure)
+
+    assert store.check_status(run_id) == Status.FAILED
+    with pytest.raises(ScenarioFailedException) as exc_info:
+        store.retrieve_output(run_id)
+    assert exc_info.value.run_id == run_id
+    assert exc_info.value.failure is failure
+
+
+def test_store_mark_aborted(populated_store):
+    """Test storing marked aborted scenarios."""
+    store, scenarios = populated_store
+    run_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    failure = FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb")
+    store.mark_aborted(run_id, failure)
+
+    assert store.check_status(run_id) == Status.ABORTED
+    with pytest.raises(ScenarioAbortedException) as exc_info:
+        store.retrieve_output(run_id)
+    assert exc_info.value.run_id == run_id
+    assert exc_info.value.failure is failure
+
+
+def test_store_unknown_run_id_raises():
+    """Test the unknown run_id raises exception."""
+    store = InMemoryStore()
+    with pytest.raises(ScenarioNotFoundException) as exc_info:
+        store.check_status(RunId(999, None))
+    assert exc_info.value.run_id == RunId(999, None)
+
+
+def test_store_status_dataframe(populated_store):
+    """Test the status dataframe store."""
+    store, scenarios = populated_store
+    df = store.status()
+    assert list(df.columns) == ["status"]
+    assert len(df) == len(scenarios)
+    assert (df["status"] == "PENDING").all()
+
+
+def test_store_status_dataframe_mixed_case(populated_store):
+    """Test the status dataframe store with a mix of statuses."""
+    store, scenarios = populated_store
+    writer = store.writer()
+
+    s0, s1, s2 = scenarios
+    run_id_0 = RunId(s0.scenario_id, s0.replication_id)
+    run_id_1 = RunId(s1.scenario_id, s1.replication_id)
+
+    store.mark_succeeded(writer.to_reference(run_id_0, {}))
+    store.mark_failed(run_id_1, FailureInfo(FailureOrigin.RUNNING, "E", "m", ""))
+
+    df = store.status()
+    # pandas converts None replication_id to NaN in the MultiIndex, so look up by scenario_id
+    by_id = dict(zip(df.reset_index()["scenario_id"], df["status"]))
+    assert by_id[s0.scenario_id] == "SUCCEEDED"
+    assert by_id[s1.scenario_id] == "FAILED"
+    assert by_id[s2.scenario_id] == "PENDING"
+
+
+def test_store_filter_methods(populated_store):
+    """Test the extraction methods on InMemoryStore for succeeded, failed, and pending."""
+    store, scenarios = populated_store
+    writer = store.writer()
+
+    s0, s1, s2 = scenarios
+    run_id_0 = RunId(s0.scenario_id, s0.replication_id)
+    run_id_1 = RunId(s1.scenario_id, s1.replication_id)
+    run_id_2 = RunId(s2.scenario_id, s2.replication_id)
+
+    store.mark_succeeded(writer.to_reference(run_id_0, {}))
+    store.mark_failed(run_id_1, FailureInfo(FailureOrigin.RUNNING, "E", "m", ""))
+
+    assert set(store.succeeded()) == {run_id_0}
+    assert set(store.failed()) == {run_id_1}
+    assert set(store.pending()) == {run_id_2}
+    assert set(store.aborted()) == set()
+
+
+def test_store_aborted_filter(populated_store):
+    """Test the aborted() filter on InMemoryStore."""
+    store, scenarios = populated_store
+    s0, _, s2 = scenarios
+    run_id_0 = RunId(s0.scenario_id, s0.replication_id)
+    run_id_2 = RunId(s2.scenario_id, s2.replication_id)
+
+    store.mark_aborted(
+        run_id_0,
+        FailureInfo(FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"),
+    )
+
+    assert set(store.aborted()) == {run_id_0}
+    assert run_id_0 not in store.pending()
+    assert run_id_2 in store.pending()
+
+
+# ============================================================
+# _safe_call
+# ============================================================
+
+
+def test_safe_call_success(basic_config):
+    """Test the success branch of safe call."""
+    scenario = Scenario(x=1)
+    ref, failure = _safe_call(basic_config, scenario, InMemoryWriter())
+
+    assert failure is None
+    assert ref is not None
+    assert ref.run_id == RunId(scenario.scenario_id, scenario.replication_id)
+    assert "results" in ref.payload
+
+
+def test_safe_call_instantiation_failure():
+    """Test the instantiation failure branch of safe call."""
+    config = RunConfiguration(_InstantiationFailModel, until=5)
+    ref, failure = _safe_call(config, Scenario(), InMemoryWriter())
+
+    assert ref is None
+    assert failure.origin == FailureOrigin.INSTANTIATING
+    assert failure.exception_type == "RuntimeError"
+    assert "cannot instantiate" in failure.message
+    assert failure.traceback
+
+
+def test_safe_call_run_failure():
+    """Test the run failure branch of safe call."""
+    config = RunConfiguration(_RunFailModel, until=5)
+    ref, failure = _safe_call(config, Scenario(), InMemoryWriter())
+
+    assert ref is None
+    assert failure.origin == FailureOrigin.RUNNING
+    assert failure.exception_type == "RuntimeError"
+    assert "run failed" in failure.message
+
+
+def test_safe_call_extraction_failure():
+    """Test the extraction failure branch of safe call."""
+    config = RunConfiguration(_ExtractionFailModel, until=5)
+    ref, failure = _safe_call(config, Scenario(), InMemoryWriter())
+
+    assert ref is None
+    assert failure.origin == FailureOrigin.EXTRACTING
+    assert failure.exception_type == "RuntimeError"
+    assert "extraction failed" in failure.message
+
+
+def test_safe_call_writer_failure(basic_config):
+    """Test the failure branch of safe call."""
+    ref, failure = _safe_call(basic_config, Scenario(), _FailingWriter())
+
+    assert ref is None
+    assert failure.origin == FailureOrigin.WRITING
+    assert failure.exception_type == "OSError"
+    assert "disk full" in failure.message
+
+
+# ============================================================
+# run_scenarios integration
+# ============================================================
+
+
+def test_run_scenarios_all_succeed(maybe_executor):
+    """Test the successful branch of run_scenarios."""
+    scenarios = [Scenario(x=i) for i in range(4)]
+    store = run_scenarios(
+        scenarios,
+        RunConfiguration(_DummyModel, until=3),
+        progress=False,
+        executor=maybe_executor,
+    )
+
+    assert len(store.succeeded()) == 4
+    assert len(store.failed()) == 0
+    assert len(store.pending()) == 0
+
+    for scenario in scenarios:
+        output = store.retrieve_output(
+            RunId(scenario.scenario_id, scenario.replication_id)
+        )
+        assert "results" in output
+
+
+def test_run_scenarios_partial_failure(maybe_executor):
+    """A failing run becomes a recorded FailureInfo while the rest succeed.
+
+    Parametrized over sequential and process backends: under the process pool
+    this proves a worker-raised failure pickles home and attributes to the
+    correct RunId, not just that the sequential path records it.
+    """
+    scenarios = [Scenario(x=i, should_fail=(i == 1)) for i in range(3)]
+    store = run_scenarios(
+        scenarios,
+        _ConditionalConfig(_DummyModel, until=3),
+        progress=False,
+        executor=maybe_executor,
+    )
+
+    assert len(store.succeeded()) == 2
+    assert len(store.failed()) == 1
+
+    failed_id = RunId(scenarios[1].scenario_id, scenarios[1].replication_id)
+    assert failed_id in store.failed()
+    assert store.failed()[failed_id].failure.origin == FailureOrigin.RUNNING
+
+
+def test_run_scenarios_uses_provided_store():
+    """Test run_scenarios for user specified store."""
+    custom_store = InMemoryStore()
+    returned = run_scenarios(
+        [Scenario(x=0)],
+        RunConfiguration(_DummyModel, until=1),
+        store=custom_store,
+        progress=False,
+    )
+    assert returned is custom_store
+
+
+def test_run_scenarios_empty_input():
+    """Test run_scenarios for empty input."""
+    store = run_scenarios([], RunConfiguration(_DummyModel, until=1), progress=False)
+    assert len(store.pending()) == 0
+    assert len(store.succeeded()) == 0
+    assert len(store.failed()) == 0
+
+
+def test_run_scenarios_aborts_on_broken_pool():
+    """A hard worker death aborts every unrun scenario and does not raise.
+
+    Every _WorkerKillModel calls os._exit on run, so no run can complete: the
+    pool breaks on the first future and all four runs flip PENDING -> ABORTED.
+    Asserting the exact partition (4 aborted, 0 of everything else) distinguishes
+    correct bulk-marking from a partial-marking bug that == 4 catches but > 0
+    would not.
+    """
+    scenarios = [Scenario(x=i) for i in range(4)]
+    with ProcessPoolExecutor(max_workers=2) as ex:
+        store = run_scenarios(
+            scenarios,
+            RunConfiguration(_WorkerKillModel, until=3),
+            executor=ex,
+            progress=False,
+        )
+
+    # returns, does not raise
+    assert len(store.aborted()) == 4
+    assert len(store.succeeded()) == 0
+    assert len(store.failed()) == 0
+    assert len(store.pending()) == 0
+
+    for rec in store.aborted().values():
+        assert rec.failure.origin is FailureOrigin.ABORTED
+
+
+def test_run_scenarios_partial_abort():
+    """Runs that finish before the pool breaks are SUCCEEDED; the rest become ABORTED.
+
+    With max_workers=1 the pool processes tasks in submission order. Scenario 0
+    completes successfully before scenario 1 starts. Scenario 1 kills the worker,
+    so its future surfaces as BrokenExecutor before _record can mark it — leaving
+    scenarios 1, 2, and 3 all PENDING when the outer handler fires. All three
+    become ABORTED.
+    """
+    scenarios = [
+        Scenario(x=0, should_kill=False),
+        Scenario(x=1, should_kill=True),
+        Scenario(x=2, should_kill=False),
+        Scenario(x=3, should_kill=False),
+    ]
+    with ProcessPoolExecutor(max_workers=1) as ex:
+        store = run_scenarios(
+            scenarios,
+            RunConfiguration(_ConditionalKillModel, until=3),
+            executor=ex,
+            progress=False,
+        )
+
+    assert len(store.succeeded()) == 1
+    assert len(store.aborted()) == 3
+    assert len(store.failed()) == 0
+    assert len(store.pending()) == 0
+
+    succeeded_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    assert succeeded_id in store.succeeded()
+    for rec in store.aborted().values():
+        assert rec.failure.origin is FailureOrigin.ABORTED
+
+
+def test_run_scenarios_handles_result_transport_error():
+    """A non-BrokenExecutor error from future.result() records the run as failed and continues.
+
+    This exercises the inner except-Exception branch in the executor path, which
+    handles pickling failures or CancelledError on the return trip from a worker.
+    A pre-failed Future simulates that condition without spawning real processes.
+    """
+    from concurrent.futures import Future  # noqa: PLC0415
+
+    class _TransportErrorExecutor:
+        def submit(self, fn, *args, **kwargs):
+            f = Future()
+            f.set_exception(RuntimeError("simulated transport error"))
+            return f
+
+    scenarios = [Scenario(x=i) for i in range(2)]
+    store = run_scenarios(
+        scenarios,
+        RunConfiguration(_DummyModel, until=3),
+        executor=_TransportErrorExecutor(),
+        progress=False,
+    )
+
+    assert len(store.failed()) == 2
+    assert len(store.succeeded()) == 0
+    assert len(store.pending()) == 0
+    assert len(store.aborted()) == 0
+    for rec in store.failed().values():
+        assert rec.failure.origin == FailureOrigin.WRITING
+        assert rec.failure.exception_type == "RuntimeError"
+        assert "transport error" in rec.failure.message
+
+
+# ============================================================
+# Exception constructors
+# ============================================================
+
+
+@pytest.mark.parametrize(
+    "exc_class, kwargs",
+    [
+        (ScenarioNotFoundException, {}),
+        (ScenarioNotFoundException, {"run_id": RunId(1, None)}),
+        (ScenarioNotReadyException, {}),
+        (ScenarioNotReadyException, {"run_id": RunId(2, 0)}),
+        (ScenarioFailedException, {}),
+        (ScenarioFailedException, {"run_id": RunId(3, 1)}),
+        (
+            ScenarioFailedException,
+            {
+                "run_id": RunId(4, 2),
+                "failure": FailureInfo(
+                    FailureOrigin.RUNNING, "RuntimeError", "boom", "tb"
+                ),
+            },
+        ),
+        (ScenarioAbortedException, {}),
+        (ScenarioAbortedException, {"run_id": RunId(5, 0)}),
+        (
+            ScenarioAbortedException,
+            {
+                "run_id": RunId(6, 1),
+                "failure": FailureInfo(
+                    FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"
+                ),
+            },
+        ),
+    ],
+)
+def test_exception_constructors(exc_class, kwargs):
+    """Test exception constructors."""
+    exc = exc_class(**kwargs)
+    assert str(exc)
+    assert exc.run_id == kwargs.get("run_id")
+
+
+def test_scenario_failed_exception_message_includes_failure_detail():
+    """Test scenario failed exception message including failure detail."""
+    failure = FailureInfo(
+        origin=FailureOrigin.EXTRACTING,
+        exception_type="KeyError",
+        message="missing key",
+        traceback="...",
+    )
+    exc = ScenarioFailedException(run_id=RunId(5, 0), failure=failure)
+    assert "extracting" in str(exc)
+    assert "KeyError" in str(exc)
+    assert "missing key" in str(exc)
+    assert exc.failure is failure
+
+
+def test_scenario_aborted_exception_message_includes_failure_detail():
+    """Test scenario aborted exception message including failure detail."""
+    failure = FailureInfo(
+        origin=FailureOrigin.ABORTED,
+        exception_type="BrokenProcessPool",
+        message="worker died",
+        traceback="...",
+    )
+    exc = ScenarioAbortedException(run_id=RunId(5, 0), failure=failure)
+    assert "aborted" in str(exc)
+    assert "BrokenProcessPool" in str(exc)
+    assert "worker died" in str(exc)
+    assert exc.failure is failure
+
+
+# ============================================================
+# Picklability (needed for parallel execution)
+# ============================================================
+# These objects are pickled to/from workers once a process-pool executor
+# lands. FailureInfo in particular is a primitives-only dataclass precisely
+# so it pickles (a live exception's traceback object would not). Verifying
+# the round-trip here keeps a regression visible on the named object rather
+# than surfacing later as a PicklingError deep in the parallel machinery.
+
+
+def test_run_configuration_is_picklable():
+    """RunConfiguration round-trips through pickle (sent to workers)."""
+    config = RunConfiguration(
+        _DummyModel, until=5, model_kwargs={"w": 3}, outcomes=["a"]
+    )
+    restored = pickle.loads(pickle.dumps(config))  # noqa: S301
+    assert restored.model_class is _DummyModel
+    assert restored.until == 5
+    assert restored.model_kwargs == {"w": 3}
+    assert restored.outcomes == ["a"]
+
+
+def test_writer_is_picklable():
+    """The writer handed to workers round-trips through pickle."""
+    writer = InMemoryStore().writer()
+    restored = pickle.loads(pickle.dumps(writer))  # noqa: S301
+    assert isinstance(restored, InMemoryWriter)
+
+
+def test_inmemory_reference_is_picklable():
+    """References cross back from worker to root; they must pickle."""
+    ref = InMemoryReference(RunId(1, 0), {"results": pd.DataFrame({"x": [1]})})
+    restored = pickle.loads(pickle.dumps(ref))  # noqa: S301
+    assert restored.run_id == RunId(1, 0)
+    assert "results" in restored.payload
+
+
+def test_failure_info_is_picklable():
+    """FailureInfo crosses back from worker to root; primitives-only by design."""
+    fi = FailureInfo(
+        origin=FailureOrigin.RUNNING,
+        exception_type="RuntimeError",
+        message="boom",
+        traceback="tb",
+    )
+    restored = pickle.loads(pickle.dumps(fi))  # noqa: S301
+    assert restored.origin is FailureOrigin.RUNNING
+    assert restored.exception_type == "RuntimeError"
+    assert restored.message == "boom"
