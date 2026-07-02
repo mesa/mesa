@@ -23,6 +23,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 # never collides with a real replication_id.
 PARENT_REPLICATION_ID = -1
 
+
 def rescale_samples(
     samples: np.ndarray,
     ranges: np.ndarray,
@@ -236,8 +237,13 @@ class Scenario:
             A list of n Scenario instances with replication_id 0..n-1.
         """
         if self.replication_id != PARENT_REPLICATION_ID:
-            warnings.warn(UserWarning("spawning replications from an already replicated scenario."
-                                      "Replication ids might be duplicated."), stacklevel=2)
+            warnings.warn(
+                UserWarning(
+                    "spawning replications from an already replicated scenario."
+                    "Replication ids might be duplicated."
+                ),
+                stacklevel=2,
+            )
 
         inner = self.initial_rng_state["state"]["state"]
         entropy = inner.tolist() if hasattr(inner, "tolist") else inner

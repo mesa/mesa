@@ -216,7 +216,9 @@ def run_scenarios(
         except ImportError:
             return iterable
 
-    def _record(scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]):
+    def _record(
+        scenario: Scenario, result: tuple[Reference, None] | tuple[None, FailureInfo]
+    ):
         ref, failure = result
         if failure is None:
             store.mark_succeeded(ref)
