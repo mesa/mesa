@@ -838,8 +838,10 @@ def test_run_scenarios_partial_abort():
     """Runs that finish before the pool breaks are SUCCEEDED; the rest become ABORTED.
 
     With max_workers=1 the pool processes tasks in submission order. Scenario 0
-    completes successfully, scenario 1 kills the worker, and scenarios 2-3 are
-    still pending when the pool breaks — all three become ABORTED.
+    completes successfully before scenario 1 starts. Scenario 1 kills the worker,
+    so its future surfaces as BrokenExecutor before _record can mark it — leaving
+    scenarios 1, 2, and 3 all PENDING when the outer handler fires. All three
+    become ABORTED.
     """
     scenarios = [
         Scenario(x=0, should_kill=False),
@@ -892,6 +894,7 @@ def test_run_scenarios_handles_result_transport_error():
     assert len(store.failed()) == 2
     assert len(store.succeeded()) == 0
     assert len(store.pending()) == 0
+    assert len(store.aborted()) == 0
     for rec in store.failed().values():
         assert rec.failure.origin == FailureOrigin.WRITING
         assert rec.failure.exception_type == "RuntimeError"
@@ -918,6 +921,17 @@ def test_run_scenarios_handles_result_transport_error():
                 "run_id": RunId(4, 2),
                 "failure": FailureInfo(
                     FailureOrigin.RUNNING, "RuntimeError", "boom", "tb"
+                ),
+            },
+        ),
+        (ScenarioAbortedException, {}),
+        (ScenarioAbortedException, {"run_id": RunId(5, 0)}),
+        (
+            ScenarioAbortedException,
+            {
+                "run_id": RunId(6, 1),
+                "failure": FailureInfo(
+                    FailureOrigin.ABORTED, "BrokenProcessPool", "pool died", "tb"
                 ),
             },
         ),
