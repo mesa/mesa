@@ -466,6 +466,21 @@ class _WorkerKillModel(Model):
         os._exit(1)  # hard-kills the worker; not catchable by _safe_call
 
 
+class _ConditionalKillModel(Model):
+    """Kills the worker for any scenario with should_kill=True; otherwise runs normally."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_recorder = _DummyRecorder()
+
+    def run_until(self, until):
+        if getattr(self.scenario, "should_kill", False):
+            import os  # noqa: PLC0415
+
+            os._exit(1)
+        super().run_until(until)
+
+
 class _ConditionalConfig(RunConfiguration):
     """Fails the run for any scenario flagged should_fail.
 
@@ -819,6 +834,70 @@ def test_run_scenarios_aborts_on_broken_pool():
         assert rec.failure.origin is FailureOrigin.ABORTED
 
 
+def test_run_scenarios_partial_abort():
+    """Runs that finish before the pool breaks are SUCCEEDED; the rest become ABORTED.
+
+    With max_workers=1 the pool processes tasks in submission order. Scenario 0
+    completes successfully, scenario 1 kills the worker, and scenarios 2-3 are
+    still pending when the pool breaks — all three become ABORTED.
+    """
+    scenarios = [
+        Scenario(x=0, should_kill=False),
+        Scenario(x=1, should_kill=True),
+        Scenario(x=2, should_kill=False),
+        Scenario(x=3, should_kill=False),
+    ]
+    with ProcessPoolExecutor(max_workers=1) as ex:
+        store = run_scenarios(
+            scenarios,
+            RunConfiguration(_ConditionalKillModel, until=3),
+            executor=ex,
+            progress=False,
+        )
+
+    assert len(store.succeeded()) == 1
+    assert len(store.aborted()) == 3
+    assert len(store.failed()) == 0
+    assert len(store.pending()) == 0
+
+    succeeded_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    assert succeeded_id in store.succeeded()
+    for rec in store.aborted().values():
+        assert rec.failure.origin is FailureOrigin.ABORTED
+
+
+def test_run_scenarios_handles_result_transport_error():
+    """A non-BrokenExecutor error from future.result() records the run as failed and continues.
+
+    This exercises the inner except-Exception branch in the executor path, which
+    handles pickling failures or CancelledError on the return trip from a worker.
+    A pre-failed Future simulates that condition without spawning real processes.
+    """
+    from concurrent.futures import Future  # noqa: PLC0415
+
+    class _TransportErrorExecutor:
+        def submit(self, fn, *args, **kwargs):
+            f = Future()
+            f.set_exception(RuntimeError("simulated transport error"))
+            return f
+
+    scenarios = [Scenario(x=i) for i in range(2)]
+    store = run_scenarios(
+        scenarios,
+        RunConfiguration(_DummyModel, until=3),
+        executor=_TransportErrorExecutor(),
+        progress=False,
+    )
+
+    assert len(store.failed()) == 2
+    assert len(store.succeeded()) == 0
+    assert len(store.pending()) == 0
+    for rec in store.failed().values():
+        assert rec.failure.origin == FailureOrigin.WRITING
+        assert rec.failure.exception_type == "RuntimeError"
+        assert "transport error" in rec.failure.message
+
+
 # ============================================================
 # Exception constructors
 # ============================================================
@@ -863,6 +942,21 @@ def test_scenario_failed_exception_message_includes_failure_detail():
     assert "extracting" in str(exc)
     assert "KeyError" in str(exc)
     assert "missing key" in str(exc)
+    assert exc.failure is failure
+
+
+def test_scenario_aborted_exception_message_includes_failure_detail():
+    """Test scenario aborted exception message including failure detail."""
+    failure = FailureInfo(
+        origin=FailureOrigin.ABORTED,
+        exception_type="BrokenProcessPool",
+        message="worker died",
+        traceback="...",
+    )
+    exc = ScenarioAbortedException(run_id=RunId(5, 0), failure=failure)
+    assert "aborted" in str(exc)
+    assert "BrokenProcessPool" in str(exc)
+    assert "worker died" in str(exc)
     assert exc.failure is failure
 
 
