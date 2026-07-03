@@ -190,7 +190,9 @@ class Scenario:
             bg_class = getattr(np.random, gen_class)
         except AttributeError as e:
             # highly unlikely source of trouble but at least it is caught now.
-            raise NotImplementedError("only default numpy generators are currently supported") from e
+            raise NotImplementedError(
+                "only default numpy generators are currently supported"
+            ) from e
 
         self.rng = np.random.Generator(bg_class(self.seed_sequence))
 

@@ -121,6 +121,7 @@ def test_scenario_serialization():
     with pytest.raises(NotImplementedError):
         restored.__setstate__(tuple(state))
 
+
 def test_agent_scenario_property():
     """Test that agents can access scenario via property."""
     scenario = Scenario(test_param=100, another_param="test", rng=42)
