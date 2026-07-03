@@ -92,10 +92,11 @@ class Scenario:
     __slots__ = (
         "__dict__",
         "_frozen",
-        "initial_rng_state",
+        "_generator_class",
         "replication_id",
         "rng",
         "scenario_id",
+        "seed_sequence",
     )
 
     @classmethod
@@ -130,7 +131,7 @@ class Scenario:
         Args:
             rng: Seed for the random number generator. Accepts any value accepted by
                 numpy.random.default_rng(). scenario.rng is always a Generator after
-                initialisation. The initial rng state is stored in scenario.initial_rng_state
+                initialisation. The initial seed sequence is stored in scenario.seed_sequence
                 and used by spawn_replications() to derive child seeds.
             scenario_id: Index of the design point in the experiment matrix.
             replication_id: Index of the stochastic replication for this design point.
@@ -142,7 +143,8 @@ class Scenario:
         )
         self.replication_id = replication_id
         self.rng = np.random.default_rng(rng)
-        self.initial_rng_state = self.rng.bit_generator.state
+        self.seed_sequence = self.rng.bit_generator.seed_seq
+        self._generator_class = self.rng.bit_generator.__class__.__name__
 
         self.__dict__.update(self._scenario_defaults)
         self.__dict__.update(kwargs)
@@ -169,30 +171,41 @@ class Scenario:
             self.__dict__.copy(),
             self.scenario_id,
             self.replication_id,
-            self.initial_rng_state,
+            self.seed_sequence.entropy,
+            tuple(self.seed_sequence.spawn_key),
+            self._generator_class,
         )
 
     def __setstate__(self, state):
         """Restore state when unpickling."""
-        dict_state, scenario_id, replication_id, initial_rng_state = state
+        dict_state, scenario_id, replication_id, entropy, spawn_key, gen_class = state
         self._frozen = False
+
         self.scenario_id = scenario_id
         self.replication_id = replication_id
-        self.initial_rng_state = initial_rng_state
-        bg_class = getattr(np.random, initial_rng_state["bit_generator"])
-        bg = bg_class()
-        bg.state = initial_rng_state
-        self.rng = np.random.Generator(bg)
+        self.seed_sequence = np.random.SeedSequence(entropy, spawn_key=spawn_key)
+        self._generator_class = gen_class
+
+        try:
+            bg_class = getattr(np.random, gen_class)
+        except AttributeError as e:
+            # highly unlikely source of trouble but at least it is caught now.
+            raise NotImplementedError("only default numpy generators are currently supported") from e
+
+        self.rng = np.random.Generator(bg_class(self.seed_sequence))
+
         self.__dict__.update(dict_state)
+
         self._frozen = True
 
     @property
     def _stdlib_seed(self) -> int:
-        """Derive a reproducible stdlib seed from the initial rng state."""
-        inner = self.initial_rng_state["state"]["state"]
-        if hasattr(inner, "tolist"):
-            return int(inner.tolist()[0]) % (2**31)
-        return int(inner) % (2**31)
+        """Derive a reproducible stdlib seed from the initial rng state.
+
+        We use SeedSequence.generate_state to create deterministically a seed value for a stdlib seed
+
+        """
+        return int(self.seed_sequence.generate_state(1, dtype=np.uint32)[0])
 
     def __iter__(self):
         """Iterate over (key, value) pairs of the user specified parameters (excluding rng)."""
@@ -203,12 +216,18 @@ class Scenario:
         return len(self.__dict__)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return dict representation of the scenario."""
+        """Return dict representation of the scenario.
+
+        Seed_sequence_entropy and seed_sequence_spawn_key together can be used to reconstruct the SeedSequence.
+
+        """
         return {
             **self.__dict__,
             "scenario_id": self.scenario_id,
             "replication_id": self.replication_id,
-            "initial_rng_state": self.initial_rng_state,
+            "seed_sequence_entropy": self.seed_sequence.entropy,
+            "seed_sequence_spawn_key": tuple(self.seed_sequence.spawn_key),
+            "generator_class": self._generator_class,
         }
 
     def spawn_replications(self, n: int) -> list[Scenario]:
@@ -223,9 +242,7 @@ class Scenario:
         Returns:
             A list of n Scenario instances with replication_id 0..n-1.
         """
-        inner = self.initial_rng_state["state"]["state"]
-        entropy = inner.tolist() if hasattr(inner, "tolist") else inner
-        child_seeds = np.random.SeedSequence(entropy).spawn(n)
+        child_seeds = self.seed_sequence.spawn(n)
         return [
             self.__class__(
                 rng=child_seeds[i],
