@@ -116,6 +116,7 @@ class ModelRunException(RunStageException):
 
 class OutcomeExtractionException(RunStageException):
     """Raised when extracting outcomes from a finished model fails."""
+
     origin: FailureOrigin = FailureOrigin.EXTRACTING
 
     def __init__(self, run_id: RunId, outcomes: list[str] | None):
