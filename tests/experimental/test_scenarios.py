@@ -47,7 +47,7 @@ def test_scenario():
     d = scenario.to_dict()
     assert d["a"] == 1
     assert d["scenario_id"] == 0
-    assert d["replication_id"] is None
+    assert d["replication_id"] is -1
 
     with pytest.raises(TypeError):
         scenario.c = 4
