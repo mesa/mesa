@@ -34,7 +34,7 @@ class RunId:
     """Identifier for a specific scenario replication combination."""
 
     scenario_id: int
-    replication_id: int | None = None
+    replication_id: int
 
 
 @dataclass
