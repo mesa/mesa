@@ -636,7 +636,6 @@ def test_store_status_dataframe_mixed_case(populated_store):
 
     df = store.status()
     # pandas converts None replication_id to NaN in the MultiIndex, so look up by scenario_id
-    by_id = dict(zip(df.reset_index()["scenario_id"], df["status"]))
     assert df.index.get_level_values("replication_id").dtype == np.int64
     assert df.loc[(s0.scenario_id, s0.replication_id), "status"] == "SUCCEEDED"
     assert df.loc[(s1.scenario_id, s1.replication_id), "status"] == "FAILED"
