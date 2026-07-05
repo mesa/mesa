@@ -609,8 +609,8 @@ def test_store_unknown_run_id_raises():
     """Test the unknown run_id raises exception."""
     store = InMemoryStore()
     with pytest.raises(ScenarioNotFoundException) as exc_info:
-        store.check_status(RunId(999, None))
-    assert exc_info.value.run_id == RunId(999, None)
+        store.check_status(RunId(999, -1))
+    assert exc_info.value.run_id == RunId(999, -1)
 
 
 def test_store_status_dataframe(populated_store):
@@ -637,9 +637,10 @@ def test_store_status_dataframe_mixed_case(populated_store):
     df = store.status()
     # pandas converts None replication_id to NaN in the MultiIndex, so look up by scenario_id
     by_id = dict(zip(df.reset_index()["scenario_id"], df["status"]))
-    assert by_id[s0.scenario_id] == "SUCCEEDED"
-    assert by_id[s1.scenario_id] == "FAILED"
-    assert by_id[s2.scenario_id] == "PENDING"
+    assert df.index.get_level_values("replication_id").dtype == np.int64
+    assert df.loc[(s0.scenario_id, s0.replication_id), "status"] == "SUCCEEDED"
+    assert df.loc[(s1.scenario_id, s1.replication_id), "status"] == "FAILED"
+    assert df.loc[(s2.scenario_id, s2.replication_id), "status"] == "PENDING"
 
 
 def test_store_filter_methods(populated_store):
@@ -911,7 +912,7 @@ def test_run_scenarios_handles_result_transport_error():
     "exc_class, kwargs",
     [
         (ScenarioNotFoundException, {}),
-        (ScenarioNotFoundException, {"run_id": RunId(1, None)}),
+        (ScenarioNotFoundException, {"run_id": RunId(1, -1)}),
         (ScenarioNotReadyException, {}),
         (ScenarioNotReadyException, {"run_id": RunId(2, 0)}),
         (ScenarioFailedException, {}),
