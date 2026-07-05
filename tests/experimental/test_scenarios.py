@@ -22,6 +22,7 @@ from mesa.experimental.scenarios import (
 )
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
 from mesa.experimental.scenarios.runner import _safe_call
+from mesa.experimental.scenarios.scenario import PARENT_REPLICATION_ID
 from mesa.experimental.scenarios.store import (
     InMemoryReference,
     InMemoryStore,
@@ -47,7 +48,7 @@ def test_scenario():
     d = scenario.to_dict()
     assert d["a"] == 1
     assert d["scenario_id"] == 0
-    assert d["replication_id"] is -1
+    assert d["replication_id"] is PARENT_REPLICATION_ID
 
     with pytest.raises(TypeError):
         scenario.c = 4
@@ -168,7 +169,7 @@ def test_scenario_frozen():
 
 
 def test_scenario_spawn_replications():
-    """Test that replicate() produces correctly seeded copies."""
+    """Test that spawn_replications() produces correctly seeded copies."""
 
     class MyScenario(Scenario):
         density: float = 0.8
