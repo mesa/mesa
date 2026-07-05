@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Sequence
 from functools import partial
@@ -13,6 +14,14 @@ import pandas as pd
 
 SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 RNGLike = np.random.Generator | np.random.BitGenerator
+
+# Reserved replication_id for a source/parent scenario: one that has not been
+# derived from spawn_replications (its rng is the original seed, not a
+# spawned child). Kept as an int so RunID only uses ints for unique keys. In turn,
+# this makes any Store implementation cleaner as well. See e.g., InMemoryStore.status().
+# Safe as a sentinel because spawned replications are always 0..n-1, so -1
+# never collides with a real replication_id.
+PARENT_REPLICATION_ID = -1
 
 
 def rescale_samples(
@@ -84,7 +93,7 @@ class Scenario:
         All parameters are accessible via attribute access (scenario.param).
         Class-level attributes in subclasses serve as default values.
         Scenario instances are frozen after initialisation; parameters cannot be modified.
-        To create replications with derived seeds, use replicate().
+        To create replications with derived seeds, use spawn_replications().
     """
 
     _ids: ClassVar[defaultdict] = defaultdict(partial(count, 0))
@@ -122,7 +131,7 @@ class Scenario:
         *,
         rng: RNGLike | SeedLike | None = None,
         scenario_id: int | None = None,
-        replication_id: int | None = None,
+        replication_id: int = PARENT_REPLICATION_ID,
         **kwargs,
     ):
         """Initialize a Scenario.
@@ -134,6 +143,8 @@ class Scenario:
                 and used by spawn_replications() to derive child seeds.
             scenario_id: Index of the design point in the experiment matrix.
             replication_id: Index of the stochastic replication for this design point.
+                            defaults to PARENT_REPLICATION_ID (-1). It is advised to use spawn_replications() to create
+                            replications for a given scenario, rather than handling this yourself.
             **kwargs: All other scenario parameters (override class-level defaults).
         """
         self._frozen = False
@@ -215,7 +226,9 @@ class Scenario:
         """Spawn n replications of this scenario with deterministically derived seeds.
 
         Each replication has identical user provided parameters but a unique random number generator and replication_id.
-        The rng is spawned from the original rng of the base scenario instance.
+        The rng is spawned from the original rng of the base scenario instance. Indexing for replication_id starts
+        from 0. This assumes that the instance on which this is called has replication_id == PARENT_REPLICATION_ID. If
+        this assumption does not hold, a user warning is issued.
 
         Args:
             n: Number of replications to create.
@@ -223,6 +236,15 @@ class Scenario:
         Returns:
             A list of n Scenario instances with replication_id 0..n-1.
         """
+        if self.replication_id != PARENT_REPLICATION_ID:
+            warnings.warn(
+                UserWarning(
+                    "spawning replications from an already replicated scenario."
+                    "Replication ids might be duplicated."
+                ),
+                stacklevel=2,
+            )
+
         inner = self.initial_rng_state["state"]["state"]
         entropy = inner.tolist() if hasattr(inner, "tolist") else inner
         child_seeds = np.random.SeedSequence(entropy).spawn(n)
