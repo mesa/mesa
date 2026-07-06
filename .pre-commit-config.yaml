@@ -5,7 +5,7 @@ ci:
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.15.15
+  rev: v0.15.20
   hooks:
     # Run the linter.
     - id: ruff-check
@@ -32,7 +32,7 @@ repos:
 
 # Prose linting with Vale
 - repo: https://github.com/errata-ai/vale
-  rev: v3.14.2
+  rev: v3.15.1
   hooks:
     - id: vale
       name: Vale
