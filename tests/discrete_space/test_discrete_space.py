@@ -406,7 +406,7 @@ def test_cell_neighborhood():
     grid = HexGrid(
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
-    for radius, n in zip(range(1, 4), [3, 7, 13]):
+    for radius, n in zip(range(1, 4), [2, 6, 11]):
         if radius == 1:
             neighborhood = grid._cells[(0, 0)].neighborhood
         else:
@@ -418,7 +418,7 @@ def test_cell_neighborhood():
     grid = HexGrid(
         (width, height), torus=False, capacity=None, random=random.Random(42)
     )
-    for radius, n in zip(range(1, 4), [4, 10, 17]):
+    for radius, n in zip(range(1, 4), [4, 9, 15]):
         if radius == 1:
             neighborhood = grid._cells[(1, 0)].neighborhood
         else:
@@ -437,15 +437,15 @@ def test_hexgrid():
     assert len(grid._cells) == width * height
 
     # first row
-    assert len(grid._cells[(0, 0)].connections.values()) == 3
+    assert len(grid._cells[(0, 0)].connections.values()) == 2
     for connection in grid._cells[(0, 0)].connections.values():
-        assert connection.coordinate in {(0, 1), (1, 0), (1, 1)}
+        assert connection.coordinate in {(0, 1), (1, 0)}
 
     # second row
     assert len(grid._cells[(1, 0)].connections.values()) == 4
     for connection in grid._cells[(1, 0)].connections.values():
         # fmt: off
-        assert connection.coordinate in {   (1, 1), (2, 1),
+        assert connection.coordinate in {   (0, 1), (1, 1),
                                          (0, 0),    (2, 0),}
         # fmt: on
 
@@ -453,9 +453,9 @@ def test_hexgrid():
     assert len(grid._cells[(5, 5)].connections.values()) == 6
     for connection in grid._cells[(5, 5)].connections.values():
         # fmt: off
-        assert connection.coordinate in {  (4, 4), (5, 4),
+        assert connection.coordinate in {  (5, 4), (6, 4),
                                          (4, 5), (6, 5),
-                                         (4, 6), (5, 6)}
+                                         (5, 6), (6, 6)}
 
         # fmt: on
 
@@ -463,9 +463,9 @@ def test_hexgrid():
     assert len(grid._cells[(4, 4)].connections.values()) == 6
     for connection in grid._cells[(4, 4)].connections.values():
         # fmt: off
-        assert connection.coordinate in {(4, 3), (5, 3),
-                                         (3, 4), (5, 4),
-                                         (4, 5), (5, 5)}
+        assert connection.coordinate in {(3, 3), (4, 3),
+                                         (3, 4),    (5, 4),
+                                         (3, 5), (4, 5)}
 
         # fmt: on
 
@@ -476,11 +476,47 @@ def test_hexgrid():
     assert len(grid._cells[(0, 0)].connections.values()) == 6
     for connection in grid._cells[(0, 0)].connections.values():
         # fmt: off
-        assert connection.coordinate in {(0, 9), (1, 9),
+        assert connection.coordinate in {(0, 9), (9, 9),
                                          (9, 0), (1, 0),
-                                         (0, 1), (1, 1)}
+                                         (0, 1), (9, 1)}
 
         # fmt: on
+
+
+def _true_hex_neighbors(grid, coordinate):
+    """Nearest-neighbor coordinates derived from cell.position, independent of connections."""
+    width, height = grid.dimensions
+    width_px = width * np.sqrt(3)
+    height_px = height * 1.5
+    center = grid._cells[coordinate].position
+
+    def distance(other):
+        delta = other - center
+        if grid.torus:
+            delta[0] = (delta[0] + width_px / 2) % width_px - width_px / 2
+            delta[1] = (delta[1] + height_px / 2) % height_px - height_px / 2
+        return np.linalg.norm(delta)
+
+    distances = [
+        (round(distance(cell.position), 6), coord)
+        for coord, cell in grid._cells.items()
+        if coord != coordinate
+    ]
+    dmin = min(distances)[0]
+    return {coord for d, coord in distances if abs(d - dmin) < 1e-6}
+
+
+def test_hexgrid_connectivity_matches_geometry():
+    """HexGrid connections must match nearest neighbors by physical position."""
+    width = 10
+    height = 10
+
+    for torus in (False, True):
+        grid = HexGrid((width, height), torus=torus, random=random.Random(42))
+        for coordinate, cell in grid._cells.items():
+            actual = {connection.coordinate for connection in cell.connections.values()}
+            expected = _true_hex_neighbors(grid, coordinate)
+            assert actual == expected
 
 
 def test_networkgrid():
