@@ -1,6 +1,27 @@
 """Scenarios module."""
 
-from .runner import RunConfiguration
-from .scenario import Scenario
+from .exceptions import (
+    ModelInstantiationException,
+    ScenarioAbortedException,
+    ScenarioFailedException,
+    ScenarioNotFoundException,
+    ScenarioNotReadyException,
+)
+from .runner import RunConfiguration, run_scenarios
+from .scenario import Scenario, rescale_samples
+from .store import RunId, RunRecord, Store
 
-__all__ = ["RunConfiguration", "Scenario"]
+__all__ = [
+    "ModelInstantiationException",
+    "RunConfiguration",
+    "RunId",
+    "RunRecord",
+    "Scenario",
+    "ScenarioAbortedException",
+    "ScenarioFailedException",
+    "ScenarioNotFoundException",
+    "ScenarioNotReadyException",
+    "Store",
+    "rescale_samples",
+    "run_scenarios",
+]
