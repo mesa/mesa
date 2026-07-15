@@ -172,6 +172,7 @@ def test_agent_str():
 
 def test_agent_repr():
     """Test __repr__ returns unambiguous string with agent state."""
+
     class Wolf(Agent):
         def __init__(self, model):
             super().__init__(model)
@@ -190,6 +191,7 @@ def test_agent_repr():
     assert "energy=50" in r
     assert "object at 0x" not in r  # no fallback to object repr
 
+
 def test_agent_repr_basic():
     """Test __repr__ on basic Agent with no custom attributes."""
     model = Model()
@@ -202,6 +204,7 @@ def test_agent_repr_basic():
     # Should NOT have extra stuff if no custom attrs
     assert "model=" not in r  # model is filtered out
     assert "_" not in r  # no private attrs
+
 
 def test_agent_repr_subclass():
     """Test __repr__ uses subclass name, not base Agent name."""

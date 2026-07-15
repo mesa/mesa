@@ -212,21 +212,22 @@ class Agent[M: Model]:
     def __repr__(self) -> str:
         """Return an unambiguous string representation including agent state."""
         # Mesa default fields to exclude
-        mesa_fields = {'model', 'unique_id', 'current_action'}
-        
+        mesa_fields = {"model", "unique_id", "current_action"}
+
         # Get user-defined attributes (exclude private and Mesa fields)
         user_attrs = {
-            k: v for k, v in self.__dict__.items()
-            if not k.startswith('_') and k not in mesa_fields
+            k: v
+            for k, v in self.__dict__.items()
+            if not k.startswith("_") and k not in mesa_fields
         }
-        
+
         # Build the repr string
         if user_attrs:
             attr_str = ", ".join(f"{k}={v!r}" for k, v in user_attrs.items())
             return f"<{self.__class__.__name__} id={self.unique_id} {attr_str}>"
         else:
             return f"<{self.__class__.__name__} id={self.unique_id}>"
-    
+
     @property
     def random(self) -> Random:
         """Return a seeded stdlib rng."""
