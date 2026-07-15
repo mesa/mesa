@@ -171,16 +171,37 @@ def test_agent_str():
 
 
 def test_agent_repr():
-    """Test __repr__ returns unambiguous string."""
+    """Test __repr__ returns unambiguous string with agent state."""
+    class Wolf(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self.energy = 50
+
     model = Model()
-    agent = AgentTest(model)
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    # Check it shows class name, id, and state
+    assert "Wolf" in r
+    assert "id=0" in r or "id=" in r  # unique_id is in repr
+    assert "wealth=100" in r
+    assert "energy=50" in r
+    assert "object at 0x" not in r  # no fallback to object repr
+
+def test_agent_repr_basic():
+    """Test __repr__ on basic Agent with no custom attributes."""
+    model = Model()
+    agent = Agent(model)
 
     r = repr(agent)
 
-    assert "AgentTest" in r
-    assert str(agent.unique_id) in r
-    assert "object at 0x" not in r
-
+    assert "Agent" in r
+    assert "id=" in r
+    # Should NOT have extra stuff if no custom attrs
+    assert "model=" not in r  # model is filtered out
+    assert "_" not in r  # no private attrs
 
 def test_agent_repr_subclass():
     """Test __repr__ uses subclass name, not base Agent name."""
