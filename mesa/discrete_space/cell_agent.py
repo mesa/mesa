@@ -115,7 +115,9 @@ class FixedAgent(Agent, FixedCell):
         """Remove the agent from the model."""
         super().remove()
 
-        self.cell.remove_agent(self)
+        # bypasses the FixedCell setter, which rejects reassignment
+        if self.cell is not None:
+            self.cell.remove_agent(self)
         self._mesa_cell = None
 
 

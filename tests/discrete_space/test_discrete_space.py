@@ -1218,6 +1218,43 @@ def test_fixed_agent_removal_state():
     assert agent.cell is None
 
 
+def test_fixed_agent_removal_without_cell():
+    """Test that a FixedAgent that was never placed on a cell can be removed.
+
+    This is a regression test for issue #3748:
+    FixedAgent.remove() raises AttributeError when the agent has no cell.
+    """
+    model = Model()
+    agent = FixedAgent(model)
+
+    assert agent.cell is None
+
+    agent.remove()
+
+    assert agent.cell is None
+    assert agent not in model._all_agents
+
+
+def test_remove_all_agents_with_unplaced_fixed_agent():
+    """Test that a model with an unplaced FixedAgent can still be torn down.
+
+    This is a regression test for issue #3748: remove_all_agents() crashed on
+    any FixedAgent that was never assigned a cell.
+    """
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    placed_agent = FixedAgent(model)
+    placed_agent.cell = cell
+    unplaced_agent = FixedAgent(model)
+
+    model.remove_all_agents()
+
+    assert placed_agent not in cell.agents
+    assert placed_agent.cell is None
+    assert unplaced_agent.cell is None
+    assert len(model._all_agents) == 0
+
+
 def test_pickling_cell():
     """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
