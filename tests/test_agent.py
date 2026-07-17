@@ -1,5 +1,7 @@
 """Agent.py related tests."""
 
+from typing import ClassVar
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -224,7 +226,11 @@ def test_agent_repr_extensible():
     """Test that subclasses can exclude additional fields from __repr__."""
 
     class Wolf(Agent):
-        _repr_excluded_fields = {"model", "current_action", "internal_cache"}
+        _repr_excluded_fields: ClassVar[set[str]] = {
+            "model",
+            "current_action",
+            "internal_cache",
+        }
 
         def __init__(self, model):
             super().__init__(model)
