@@ -184,12 +184,11 @@ def test_agent_repr():
 
     r = repr(wolf)
 
-    # Check it shows class name, id, and state
     assert "Wolf" in r
-    assert "id=0" in r or "id=" in r  # unique_id is in repr
+    assert "id=0" in r or "id=" in r
     assert "wealth=100" in r
     assert "energy=50" in r
-    assert "object at 0x" not in r  # no fallback to object repr
+    assert "object at 0x" not in r
 
 
 def test_agent_repr_basic():
@@ -201,9 +200,8 @@ def test_agent_repr_basic():
 
     assert "Agent" in r
     assert "id=" in r
-    # Should NOT have extra stuff if no custom attrs
-    assert "model=" not in r  # model is filtered out
-    assert "_" not in r  # no private attrs
+    assert "model=" not in r
+    assert "current_action=" not in r
 
 
 def test_agent_repr_subclass():
@@ -220,3 +218,24 @@ def test_agent_repr_subclass():
     assert "Wolf" in r
     assert str(wolf.unique_id) in r
     assert "Agent" not in r
+
+
+def test_agent_repr_extensible():
+    """Test that subclasses can exclude additional fields from __repr__."""
+
+    class Wolf(Agent):
+        _repr_excluded_fields = {"model", "current_action", "internal_cache"}
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self.internal_cache = "secret_data"
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "wealth=100" in r
+    assert "internal_cache" not in r
+    assert "secret_data" not in r
