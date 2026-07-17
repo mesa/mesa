@@ -702,6 +702,17 @@ class HasEmitters:
             for st in current_signals:
                 subs_dict[(name, st)].append(ref)
 
+    def peek(self, name: str, default: Any = None) -> Any:
+        """Retrieve an attribute without registering it in the dependency graph."""
+        global CURRENT_COMPUTED  # noqa: PLW0603
+        prev = CURRENT_COMPUTED
+        CURRENT_COMPUTED = None
+
+        try:
+            return getattr(self, name, default)
+        finally:
+            CURRENT_COMPUTED = prev
+
 
 def descriptor_generator(
     cls,
