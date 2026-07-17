@@ -249,12 +249,13 @@ def test_agent_repr_extensible():
 
 def test_agent_repr_filters_mesa_fields():
     """Test that Mesa internal fields are filtered from __repr__."""
+
     class Wolf(Agent):
         def __init__(self, model):
             super().__init__(model)
             self.wealth = 100
-            self.model = model  
-            self.current_action = None 
+            self.model = model
+            self.current_action = None
 
     model = Model()
     wolf = Wolf(model)
@@ -265,8 +266,10 @@ def test_agent_repr_filters_mesa_fields():
     assert "model=" not in r
     assert "current_action=" not in r
 
+
 def test_agent_repr_filters_private_attributes():
     """Test that private attributes (starting with _) are filtered from __repr__."""
+
     class Wolf(Agent):
         def __init__(self, model):
             super().__init__(model)
@@ -284,8 +287,10 @@ def test_agent_repr_filters_private_attributes():
     assert "_cache" not in r
     assert "processing" not in r
 
+
 def test_agent_repr_with_various_types():
     """Test __repr__ with different attribute types (strings, numbers, None, lists)."""
+
     class Wolf(Agent):
         def __init__(self, model):
             super().__init__(model)
