@@ -1,5 +1,7 @@
 """Agent.py related tests."""
 
+from typing import ClassVar
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -168,3 +170,141 @@ def test_agent_str():
     model = Model()
     agent = AgentTest(model)
     assert str(agent) == f"AgentTest, agent_id = {agent.unique_id}"
+
+
+def test_agent_repr():
+    """Test __repr__ returns unambiguous string with agent state."""
+
+    class Wolf(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self.energy = 50
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "Wolf" in r
+    assert "id=0" in r or "id=" in r
+    assert "wealth=100" in r
+    assert "energy=50" in r
+    assert "object at 0x" not in r
+
+
+def test_agent_repr_basic():
+    """Test __repr__ on basic Agent with no custom attributes."""
+    model = Model()
+    agent = Agent(model)
+
+    r = repr(agent)
+
+    assert "Agent" in r
+    assert "id=" in r
+    assert "model=" not in r
+    assert "current_action=" not in r
+
+
+def test_agent_repr_subclass():
+    """Test __repr__ uses subclass name, not base Agent name."""
+
+    class Wolf(Agent):
+        pass
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "Wolf" in r
+    assert str(wolf.unique_id) in r
+    assert "Agent" not in r
+
+
+def test_agent_repr_extensible():
+    """Test that subclasses can exclude additional fields from __repr__."""
+
+    class Wolf(Agent):
+        _repr_excluded_fields: ClassVar[set[str]] = {
+            "model",
+            "current_action",
+            "internal_cache",
+        }
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self.internal_cache = "secret_data"
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "wealth=100" in r
+    assert "internal_cache" not in r
+    assert "secret_data" not in r
+
+
+def test_agent_repr_filters_mesa_fields():
+    """Test that Mesa internal fields are filtered from __repr__."""
+
+    class Wolf(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self.model = model
+            self.current_action = None
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "wealth=100" in r
+    assert "model=" not in r
+    assert "current_action=" not in r
+
+
+def test_agent_repr_filters_private_attributes():
+    """Test that private attributes (starting with _) are filtered from __repr__."""
+
+    class Wolf(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 100
+            self._internal_state = "processing"
+            self._cache = {"data": "sensitive"}
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "wealth=100" in r
+    assert "_internal_state" not in r
+    assert "_cache" not in r
+    assert "processing" not in r
+
+
+def test_agent_repr_with_various_types():
+    """Test __repr__ with different attribute types (strings, numbers, None, lists)."""
+
+    class Wolf(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.name = "Alpha"
+            self.count = 42
+            self.status = None
+            self.items = [1, 2, 3]
+
+    model = Model()
+    wolf = Wolf(model)
+
+    r = repr(wolf)
+
+    assert "name='Alpha'" in r or 'name="Alpha"' in r
+    assert "count=42" in r
+    assert "status=None" in r
+    assert "items=[1, 2, 3]" in r

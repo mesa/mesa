@@ -37,6 +37,7 @@ class Agent[M: Model]:
     """
 
     _datasets: ClassVar = set()
+    _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action"}
 
     def __init_subclass__(cls, **kwargs):
         """Called when DatasetTrackedAgent is subclassed."""
@@ -208,6 +209,24 @@ class Agent[M: Model]:
     def __str__(self) -> str:
         """Return a human-readable string representation of the agent."""
         return f"{self.__class__.__name__}, agent_id = {self.unique_id}"
+
+    def __repr__(self) -> str:
+        """Return an unambiguous string representation including agent state."""
+        # Get excluded fields (allows subclasses to override)
+        excluded = self._repr_excluded_fields
+
+        # Get user-defined attributes (exclude private and Mesa fields)
+        user_attrs = {
+            k: v
+            for k, v in self.__dict__.items()
+            if not k.startswith("_") and k not in excluded
+        }
+
+        if user_attrs:
+            attr_str = ", ".join(f"{k}={v!r}" for k, v in user_attrs.items())
+            return f"<{self.__class__.__name__} id={self.unique_id} {attr_str}>"
+        else:
+            return f"<{self.__class__.__name__} id={self.unique_id}>"
 
     @property
     def random(self) -> Random:
