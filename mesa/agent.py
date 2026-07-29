@@ -127,7 +127,7 @@ class Agent[M: Model]:
 
         Returns:
             AgentSet containing the agents created.
- 
+
         Warning:
             A list, tuple, ndarray, or pandas Series argument whose length
             equals n is always treated as one value per agent, even if you
