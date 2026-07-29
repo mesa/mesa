@@ -560,6 +560,7 @@ def test_empties_space():
 
     assert len(grid.empties) == n - 8
 
+
 def test_cell_missing_exception():
     """Test that CellMissingException is raised when accessing non-existent cells."""
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
