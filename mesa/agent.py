@@ -127,6 +127,19 @@ class Agent[M: Model]:
 
         Returns:
             AgentSet containing the agents created.
+ 
+        Warning:
+            A list, tuple, ndarray, or pandas Series argument whose length
+            equals n is always treated as one value per agent, even if you
+            intended it as a single shared value. This is especially easy
+            to hit with coordinate tuples: create_agents(model, 2, pos=(10,
+            20)) does NOT give both agents pos=(10, 20); it gives agent 0
+            pos=10 and agent 1 pos=20, since the tuple's length (2) matches
+            n (2).
+
+            To share a value across all agents regardless of its length,
+            wrap it so its own length no longer matches n, e.g.:
+            create_agents(model, 2, pos=[(10, 20)] * 2)
 
         """
         agents = []
