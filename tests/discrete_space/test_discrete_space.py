@@ -558,8 +558,7 @@ def test_empties_space():
     for i in range(8):
         grid._cells[i].add_agent(CellAgent(model))
 
-        assert len(grid.empties) == n - 8
-
+    assert len(grid.empties) == n - 8
 
 def test_cell_missing_exception():
     """Test that CellMissingException is raised when accessing non-existent cells."""
