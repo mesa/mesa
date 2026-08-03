@@ -48,9 +48,9 @@ class RunConfiguration:
         self,
         model_class: type[Model],
         until: float | int,
-        model_args: None | list[Any] = None,
-        model_kwargs: None | dict[str, Any] = None,
-        outcomes: None | str | list[str] = None,
+        model_args: list[Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        outcomes: str | list[str] | None = None,
         data_recorder_attr_name="data_recorder",
     ):
         """Initialize a RunConfiguration object.
