@@ -3,6 +3,152 @@ This guide contains breaking changes between major Mesa versions and how to reso
 
 Non-breaking changes aren't included, for those see our [Release history](https://github.com/mesa/mesa/releases).
 
+## Mesa 4.0.0
+Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing the underlying APIs outright: [Simulator classes](#simulator-classes-removed) for the event-scheduling approach, [`seed`](#seed-parameter-removed) for `rng`, [`model.steps`](#model-steps-removed) for `model.time`, [`batch_run`](#batch-run-removed) for `Scenario`-based sweeps, [`mesa.space`](#mesa-space-removed) for `mesa.discrete_space`, and [`PropertyLayer`](#propertylayer-and-haspropertylayers-removed) for direct grid/cell exposure. None of these emit a `DeprecationWarning` on 4.0 — code still using them fails immediately with an `ImportError`, `ModuleNotFoundError`, or `TypeError`. If you're upgrading from a 3.x release, run your test suite there first with `-W error::DeprecationWarning` and resolve every warning before moving to 4.0.
+
+Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
+
+### Simulator classes removed
+The experimental `Simulator`, `ABMSimulator`, and `DEVSimulator` classes, and the `mesa.experimental.devs` package that contained them, have been removed outright. They were deprecated in Mesa 3.5.0 (see "Event scheduling and time advancement" under the Mesa 3.5.0 section below) in favor of scheduling methods defined directly on `Model`. The lower-level primitives they were built on — `Event`, `EventGenerator`, `EventList`, `Priority`, `Schedule` — are unaffected and still live in the stable `mesa.time` module.
+
+```python
+# Old
+from mesa.experimental.devs.simulator import ABMSimulator
+
+simulator = ABMSimulator()
+simulator.setup(model)
+simulator.run_for(100)
+
+# New
+model.run_for(100)
+```
+
+```python
+# Old
+from mesa.experimental.devs.simulator import DEVSimulator
+
+simulator = DEVSimulator()
+simulator.setup(model)
+simulator.schedule_event_absolute(model.on_event, time=10.5)
+simulator.run_for(50)
+
+# New
+model.schedule_event(model.on_event, at=10.5)
+model.run_for(50)
+```
+
+`simulator.time` becomes `model.time`; a simulator-scheduled recurring event becomes `model.schedule_recurring(function, schedule)`. Note that `schedule_event`'s callback must be a bound method (or another object that supports weak references) — a bare lambda raises `ValueError`, since the event system only holds a weak reference to it and needs somewhere durable to hold the strong one.
+
+- Ref: Deprecated in [PR #3277](https://github.com/mesa/mesa/pull/3277), removed in [PR #3530](https://github.com/mesa/mesa/pull/3530), tracked in [Issue #3132](https://github.com/mesa/mesa/issues/3132)
+
+### `seed` parameter removed
+`Model.__init__()` no longer accepts `seed`. Pass a seed (or a NumPy `Generator`) via `rng` instead, directly or through a `Scenario`.
+
+```python
+# Old
+model = MyModel(seed=42)
+
+# New
+model = MyModel(rng=42)
+```
+
+- Ref: [PR #3318](https://github.com/mesa/mesa/pull/3318)
+
+### `model.steps` removed
+The integer step counter is gone in favor of the time-centric model. Use `model.time`, which Mesa now advances directly.
+
+```python
+# Old
+if model.steps >= 100:
+    ...
+
+# New
+if model.time >= 100:
+    ...
+```
+
+- Ref: [PR #3328](https://github.com/mesa/mesa/pull/3328)
+
+### `batch_run` removed
+`mesa.batch_run` no longer exists. Parameter sweeps go through `Scenario` + `RunConfiguration` + `run_scenarios()` in `mesa.experimental.scenarios`. This isn't a drop-in replacement — it separates *what varies between runs* (`Scenario`) from *how a single run is executed and what's extracted* (`RunConfiguration`), and returns a queryable `Store` rather than a single DataFrame.
+
+```python
+# Old
+from mesa.batchrunner import batch_run
+
+results = pd.DataFrame(batch_run(
+    MyModel,
+    parameters={"n_agents": [10, 20, 30]},
+    iterations=5,
+    max_steps=100,
+))
+
+# New
+from mesa.experimental.scenarios import RunConfiguration, Scenario, run_scenarios
+
+scenarios = Scenario.from_dataframe(param_df, replications=5)  # one row per n_agents value
+config = RunConfiguration(MyModel, until=100)
+store = run_scenarios(scenarios, config)
+```
+
+See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have.
+
+- Ref: [PR #3325](https://github.com/mesa/mesa/pull/3325), background in [Issue #3134](https://github.com/mesa/mesa/issues/3134)
+
+### `mesa.space` removed
+The legacy `mesa.space` module and `agent.pos` are gone. Use `mesa.discrete_space` for grid and network models.
+
+```python
+# Old
+from mesa.space import SingleGrid
+
+grid = SingleGrid(width, height, torus=True)
+
+# New
+from mesa.discrete_space import OrthogonalMooreGrid
+
+grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
+```
+Networks migrate the same way — `NetworkGrid` becomes `discrete_space.Network`, and placing an agent becomes assigning its `cell` rather than calling a `place_agent` method:
+
+​```python
+# Old
+from mesa.space import NetworkGrid
+
+grid = NetworkGrid(some_networkx_graph)
+grid.place_agent(agent, node_id)
+
+# New
+from mesa.discrete_space import Network
+
+grid = Network(some_networkx_graph, random=model.random)
+agent.cell = grid[node_id]
+​```
+
+- Ref: [PR #3337](https://github.com/mesa/mesa/pull/3337)
+
+### `PropertyLayer` and `HasPropertyLayers` removed
+The standalone `PropertyLayer` class and `HasPropertyLayers` mixin are gone. Grids expose property layers directly as NumPy arrays, and cells expose them as attributes.
+
+```python
+# Old
+from mesa.space import PropertyLayer
+
+layer = PropertyLayer("sugar", grid.width, grid.height, default_value=0)
+grid.add_property_layer(layer)
+grid.properties["sugar"].data[x, y] = 10
+
+# New
+grid.create_property_layer("sugar", default_value=0)
+grid.sugar[x, y] = 10  # equivalently: grid.property_layers["sugar"][x, y] = 10
+```
+
+Reassigning `grid.sugar = new_array` instead of mutating it in place (`grid.sugar[:] = ...`) detaches it from `property_layers` and breaks cell-level access — mutate, don't reassign.
+
+- Ref: [PR #3340](https://github.com/mesa/mesa/pull/3340), [PR #3432](https://github.com/mesa/mesa/pull/3432)
+
+Install with `pip install -U "mesa[rec]"` — this resolves to the latest stable Mesa 3.x release (3.5.0 and its patch releases), not the 4.0 pre-release described in the preceding section.
+
 ## Mesa 3.5.0
 ### Event scheduling and time advancement
 Mesa 3.5 introduces public methods for event scheduling and time advancement directly on `Model`, replacing the need for `Simulator` classes.
