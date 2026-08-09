@@ -4,7 +4,7 @@ _For candidates interested in participating in the Google Summer of Code (GSoC),
 
 As an open source project, Mesa welcomes contributions of many forms, and from beginners to experts. If you are
 curious or just want to see what is happening, we post our development session agendas
-and development session notes on [Mesa discussions]. We also have a threaded discussion forum on [Matrix]
+and development session notes on [Mesa discussions]. We also have a chat server on [Discord]
 for casual conversation.
 
 In no particular order, examples include:
@@ -16,7 +16,7 @@ In no particular order, examples include:
 - Tutorials
 
 No contribution is too small. Although, contributions can be too big, so let's
-discuss via [Matrix] OR via [an issue].
+discuss via [Discord] OR via [an issue].
 
 **To submit a contribution**
 
@@ -416,7 +416,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [gh actions build]: https://github.com/mesa/mesa/actions/workflows/build_lint.yml
 [google style guide]: https://google.github.io/styleguide/pyguide.html
 [license]: https://github.com/mesa/mesa/blob/main/LICENSE
-[matrix]: https://matrix.to/#/#project-mesa:matrix.org`
+[discord]: https://discord.gg/9mhjwWCqD
 [mesa discussions]: https://github.com/mesa/mesa/discussions
 [pep8]: https://www.python.org/dev/peps/pep-0008
 [pre-commit]: https://github.com/pre-commit/pre-commit
