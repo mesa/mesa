@@ -16,8 +16,8 @@
 :target: https://github.com/psf/black
 ```
 
-```{image} https://img.shields.io/matrix/project-mesa:matrix.org?label=chat&logo=Matrix
-:target: https://matrix.to/#/#project-mesa:matrix.org
+```{image} https://img.shields.io/badge/chat-Discord-5865F2?logo=discord&logoColor=white
+:target: https://discord.gg/9mhjwWCqD
 ```
 
 [Mesa] is an Apache2 licensed agent-based modeling (or ABM) framework in Python.
@@ -79,7 +79,7 @@ For help getting started with Mesa, check out these resources:
 - [Mesa releases] - Check what's new in the latest Mesa version
 - [Mesa Extensions] - Overview of mesa's Extensions
 - [GitHub Discussions] - Ask questions and discuss Mesa
-- [Matrix Chat Room] - Real-time chat with the Mesa community
+- [Discord] - Real-time chat with the Mesa community
 
 ### Development and Support
 
@@ -123,7 +123,7 @@ API Documentation <apis/api_main>
 [github discussions]: https://github.com/mesa/mesa/discussions
 [Mesa releases]: https://github.com/mesa/mesa/releases
 [issue tracker]: https://github.com/mesa/mesa/issues
-[matrix chat room]: https://matrix.to/#/#project-mesa:matrix.org
+[discord]: https://discord.gg/9mhjwWCqD
 [mesa]: https://github.com/mesa/mesa/
 [mesa overview]: overview
 [mesa examples]: https://mesa.readthedocs.io/stable/examples.html
