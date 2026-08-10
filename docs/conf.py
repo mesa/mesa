@@ -323,27 +323,21 @@ def setup_examples_pages():
     # create md files for all examples
     # check what examples exist
     examples_folder = osp.abspath(osp.join(HERE, "..", "mesa", "examples"))
-    basic_examples = [
-        ("basic", f.path)
-        for f in os.scandir(osp.join(examples_folder, "basic"))
+    kinds = ("basic", "advanced", "experimental")
+    examples = [
+        (kind, f.path)
+        for kind in kinds
+        for f in os.scandir(osp.join(examples_folder, kind))
         if f.is_dir() and not f.name.startswith("__")
     ]
-    advanced_examples = [
-        ("advanced", f.path)
-        for f in os.scandir(osp.join(examples_folder, "advanced"))
-        if f.is_dir() and not f.name.startswith("__")
-    ]
-    examples = basic_examples + advanced_examples
 
     with open(os.path.join(HERE, "example_template.txt")) as fh:
         template = string.Template(fh.read())
 
     root_folder = pathlib.Path(os.path.join(HERE, "examples"))
     root_folder.mkdir(parents=True, exist_ok=True)
-    pathlib.Path(os.path.join(root_folder, "basic")).mkdir(parents=True, exist_ok=True)
-    pathlib.Path(os.path.join(root_folder, "advanced")).mkdir(
-        parents=True, exist_ok=True
-    )
+    for kind in kinds:
+        pathlib.Path(os.path.join(root_folder, kind)).mkdir(parents=True, exist_ok=True)
 
     examples_md = []
     for kind, example in examples:

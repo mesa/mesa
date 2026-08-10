@@ -2,9 +2,10 @@
 This repository contains a curated set of classic agent-based models implemented using Mesa. These core examples are maintained by the Mesa development team and serve as both demonstrations of Mesa's capabilities and starting points for your own models.
 
 ## Overview
-The examples are categorized into two groups:
+The examples are categorized into three groups:
 1. **Basic Examples** - Simpler models that use only stable Mesa features; ideal for beginners
 2. **Advanced Examples** - More complex models that demonstrate additional concepts and may use some experimental features
+3. **Experimental Examples** - Models built on experimental Mesa APIs that may change without notice
 
 > **Note:** Looking for more examples? Visit the [mesa-examples](https://github.com/mesa/mesa-examples) repository for user-contributed models and showcases.
 
@@ -42,3 +43,9 @@ This is Epstein & Axtell's Sugarscape model with Traders, a detailed description
 
 ### [Wolf-Sheep Predation Model](examples/advanced/wolf_sheep)
 Implementation of an ecological model of predation and reproduction, based on the NetLogo [Wolf Sheep Predation](http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation) model.
+
+## Experimental Examples
+The experimental examples are built on Mesa APIs that live under `mesa.experimental` and carry no semver guarantees. They show where Mesa is heading, but both the models and the APIs they use may change without notice.
+
+### [Alliance Formation Model](examples/experimental/alliance_formation)
+Demonstrates dynamic meta-agent creation: agents form alliances through a game-theoretic process, and the resulting alliances become meta-agents that can themselves form higher-level alliances.
