@@ -8,11 +8,16 @@ As the model runs, the distribution of wealth among agents goes from being perfe
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Install Mesa with recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+Then run the example:
+
+solara run app.py
+
+Open the displayed local URL in your browser.
+
 ## Files
 
 * ``model.py``: Final version of the model.

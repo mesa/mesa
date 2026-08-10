@@ -38,7 +38,7 @@ class PdGrid(mesa.Model):
 
     def __init__(
         self,
-        scenario=None,
+        scenario: PrisonersDilemmaScenario = PrisonersDilemmaScenario,
     ):
         """
         Create a new Spatial Prisoners' Dilemma Model.
@@ -49,9 +49,6 @@ class PdGrid(mesa.Model):
                            Determines the agent activation regime.
             payoffs: (optional) Dictionary of (move, neighbor_move) payoffs.
         """
-        if scenario is None:
-            scenario = PrisonersDilemmaScenario()
-
         super().__init__(scenario=scenario)
         self.activation_order = scenario.activation_order
         self.grid = OrthogonalMooreGrid(

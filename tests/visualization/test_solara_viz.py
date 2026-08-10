@@ -21,6 +21,7 @@ from mesa.visualization.solara_viz import (
     UserInputs,
     _build_model_init_kwargs,
     _check_model_params,
+    _validate_model_params,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
@@ -389,3 +390,95 @@ def test_parameter_splitting_logic():
     assert kwargs["scenario"].scenario_param2 == 25
     assert kwargs["model_param1"] == 15
     assert kwargs["model_param2"] == 30
+
+
+def test_raw_solara_component_in_model_params():  # noqa: D103
+    with pytest.raises(
+        TypeError,
+        match="model_params\\['raw_param'\\] has unsupported type",
+    ):
+        _validate_model_params({"raw_param": solara.SliderInt("Raw", 10)})
+
+
+def test_unsupported_type_rejected():  # noqa: D103
+    with pytest.raises(
+        TypeError, match="model_params\\['agents'\\] has unsupported type 'list'"
+    ):
+        _validate_model_params({"agents": [1, 2, 3]})
+
+    class MyObj:
+        pass
+
+    with pytest.raises(
+        TypeError, match="model_params\\['obj'\\] has unsupported type 'MyObj'"
+    ):
+        _validate_model_params({"obj": MyObj()})
+
+    with pytest.raises(
+        TypeError, match="model_params\\['x'\\] has unsupported type 'NoneType'"
+    ):
+        _validate_model_params({"x": None})
+
+
+def test_valid_model_params_types_accepted():  # noqa: D103
+    _validate_model_params(
+        {
+            "int_param": 5,
+            "float_param": 0.5,
+            "bool_param": False,
+            "str_param": "hello",
+        }
+    )
+
+    _validate_model_params({"slider_param": Slider("Slider", 5, 1, 10, 1)})
+
+    _validate_model_params({"dict_param": {"type": "SliderInt", "value": 5}})
+
+
+# ---------------------------------------------------------------------------
+# Class-vs-instance validation tests
+# ---------------------------------------------------------------------------
+
+
+class DummyModel(mesa.Model):
+    """A dummy model for validating SolaraViz class vs instance checks."""
+
+    def __init__(self):
+        """Initialize the dummy model."""
+        super().__init__()
+
+
+def test_solara_viz_rejects_class_instead_of_instance():
+    """Verify TypeError properly raised when passing a Model class."""
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(DummyModel, components=[], model_params={}), handle_error=False
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+    reactive_model = solara.reactive(DummyModel)
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(reactive_model, components=[], model_params={}),
+            handle_error=False,
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+
+def test_solara_viz_accepts_model_instance():
+    """Verify an instantiated model passes the instance validation check."""
+    model_instance = DummyModel()
+    solara.render(
+        SolaraViz(model_instance, components=[], model_params={}), handle_error=False
+    )
+
+    reactive_model = solara.reactive(model_instance)
+    solara.render(
+        SolaraViz(reactive_model, components=[], model_params={}), handle_error=False
+    )

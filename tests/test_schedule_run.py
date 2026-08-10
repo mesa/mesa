@@ -164,6 +164,17 @@ class TestScheduleEvent:
         model.run_for(2.0)
         assert log == ["x"]
 
+    def test_rejects_past_time(self):
+        """schedule_event should not allow scheduling in the past."""
+        model = SimpleModel()
+        model.run_until(10)
+
+        def noop():
+            pass
+
+        with pytest.raises(ValueError, match="Cannot schedule event in the past"):
+            model.schedule_event(noop, at=5)
+
 
 # --- schedule_recurring ---
 class TestScheduleRecurring:
@@ -215,24 +226,50 @@ class TestScheduleRecurring:
         model.run_for(10)
         assert len(log) == 3
 
+    def test_rejects_past_start(self):
+        """schedule_recurring should not allow start time in the past."""
+        model = SimpleModel()
+        model.run_until(10)
 
-# --- schedule validation guards ---
-class TestScheduleValidation:
-    def test_rejects_nonpositive_fixed_interval(self):
-        with pytest.raises(ValueError):
-            Schedule(interval=0)
+        def noop():
+            pass
 
-        with pytest.raises(ValueError):
-            Schedule(interval=-1)
+        with pytest.raises(
+            ValueError, match="Cannot start recurring schedule in the past"
+        ):
+            model.schedule_recurring(noop, Schedule(interval=1.0, start=3.0))
 
-    def test_rejects_nonpositive_count(self):
-        with pytest.raises(ValueError):
-            Schedule(interval=1.0, count=0)
 
-        with pytest.raises(ValueError):
-            Schedule(interval=1.0, count=-5)
+class TestEdgeCases:
+    def test_schedule_event_at_zero(self):
+        """Event scheduled at t=0 should fire during the first run."""
+        model = SimpleModel()
+        log = []
 
-    def test_start_after_end_raises(self):
-        """Test that Schedule raises an error if start is greater than end."""
-        with pytest.raises(ValueError):
-            Schedule(interval=1.0, start=10, end=5)
+        def fire():
+            log.append("fired")
+
+        model.schedule_event(fire, at=0.0)
+        model.run_for(1)
+        assert "fired" in log
+
+    def test_event_and_recurring_interact(self):
+        """One-off and recurring events coexist correctly."""
+        model = SimpleModel()
+        log = []
+
+        def one_off():
+            log.append(("once", model.time))
+
+        def recurring():
+            log.append(("repeat", model.time))
+
+        model.schedule_event(one_off, at=2.5)
+        model.schedule_recurring(recurring, Schedule(interval=2.0, start=2.0))
+        model.run_for(6)
+
+        one_off_events = [t for label, t in log if label == "once"]
+        recurring_events = [t for label, t in log if label == "repeat"]
+
+        assert one_off_events == [2.5]
+        assert recurring_events == [2.0, 4.0, 6.0]

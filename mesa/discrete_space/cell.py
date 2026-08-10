@@ -104,6 +104,7 @@ class Cell:
         self._agents: list[
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        self._empty: bool = True  # a freshly created cell holds no agents
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
@@ -231,7 +232,7 @@ class Cell:
         of recursion to avoid RecursionError on large radius values.
         """
         if radius < 1:
-            raise ValueError("radius must be larger than one")
+            raise ValueError("radius must be at least 1")
 
         # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:

@@ -1,0 +1,42 @@
+name: Update docs version switcher
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-switcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Update switcher.json
+        shell: python
+        env:
+          NEW_TAG: ${{ github.ref_name }}
+        run: |
+          import json, os
+          from pathlib import Path
+          tag = os.environ["NEW_TAG"]
+          path = Path("docs/_static/switcher.json")
+          entries = json.loads(path.read_text())
+          if not any(e.get("version") == tag for e in entries):
+              entries.append({"name": tag, "version": tag, "url": f"https://mesa.readthedocs.io/{tag}/"})
+          path.write_text(json.dumps(entries, indent=2) + "\n")
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: add ${{ github.ref_name }} to version switcher"
+          branch: "docs/switcher-${{ github.ref_name }}"
+          delete-branch: true
+          title: "docs: add ${{ github.ref_name }} to version switcher"
+          body: "Adds `${{ github.ref_name }}` to `docs/_static/switcher.json`."
+          base: main
+          labels: documentation

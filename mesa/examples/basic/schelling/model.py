@@ -29,15 +29,12 @@ class SchellingScenario(Scenario):
 class Schelling(Model):
     """Model class for the Schelling segregation model."""
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: SchellingScenario = SchellingScenario):
         """Create a new Schelling model.
 
         Args:
             scenario: SchellingScenario containing model parameters.
         """
-        if scenario is None:
-            scenario = SchellingScenario()
-
         super().__init__(scenario=scenario)
 
         # Model parameters

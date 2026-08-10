@@ -37,10 +37,14 @@ Mesa allows users to quickly create agent-based models using built-in core compo
 
 ## Using Mesa
 ### Installation Options
-To install our latest stable release, run:
+To install our latest stable Mesa 3 release, run:
 
 ```bash
 pip install -U mesa
+```
+Development of Mesa 4 has started. To install our latest Mesa 4 pre-release, use:
+```bash
+pip install -U --pre mesa
 ```
 To also install our recommended dependencies:
 ```bash
@@ -72,6 +76,7 @@ For help getting started with Mesa, check out these resources:
 - [Getting started] - Learn about Mesa's core concepts and components
 - [Migration Guide] - Upgrade to Mesa 3.0
 - [Mesa Examples] - Browse user-contributed models and implementations
+- [Mesa releases] - Check what's new in the latest Mesa version
 - [Mesa Extensions] - Overview of mesa's Extensions
 - [GitHub Discussions] - Ask questions and discuss Mesa
 - [Matrix Chat Room] - Real-time chat with the Mesa community
@@ -116,6 +121,7 @@ API Documentation <apis/api_main>
 [GSoC at Mesa — Candidates Guide]: GSoC.md
 [github repository]: https://github.com/mesa/mesa/
 [github discussions]: https://github.com/mesa/mesa/discussions
+[Mesa releases]: https://github.com/mesa/mesa/releases
 [issue tracker]: https://github.com/mesa/mesa/issues
 [matrix chat room]: https://matrix.to/#/#project-mesa:matrix.org
 [mesa]: https://github.com/mesa/mesa/

@@ -76,7 +76,7 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = page_session.locator("img").last.screenshot()
 
         if measure_config:
             display(graph_viz)

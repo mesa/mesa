@@ -33,10 +33,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run Vale
-        uses: errata-ai/vale-action@v2.1.1
+        uses: errata-ai/vale-action@2.1.2
         with:
           files: all
           vale_flags: "--minAlertLevel=warning"

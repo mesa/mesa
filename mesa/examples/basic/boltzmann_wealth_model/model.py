@@ -37,15 +37,12 @@ class BoltzmannWealth(Model):
         datacollector (DataCollector): Collects and stores model data
     """
 
-    def __init__(self, scenario=None):
+    def __init__(self, scenario: BoltzmannScenario = BoltzmannScenario):
         """Initialize the model.
 
         Args:
             scenario: BoltzmannScenario object containing model parameters.
         """
-        if scenario is None:
-            scenario = BoltzmannScenario()
-
         super().__init__(scenario=scenario)
 
         self.num_agents = scenario.n

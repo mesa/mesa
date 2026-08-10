@@ -33,7 +33,7 @@ To further explore Mesa and its features, we have the following resources availa
 - [Mesa best practices](best-practices): an overview of tips and guidelines for using MESA.
 
 ### API documentation
-- [Mesa API reference](apis): Detailed documentation of Mesa's classes and functions.
+- [Mesa API reference](apis/api_main.md): Detailed documentation of Mesa's classes and functions.
 
 ### Repository of models built using MESA
 - [Mesa Examples repository](https://github.com/mesa/mesa-examples): A collection of example models demonstrating various Mesa features and modeling techniques.
