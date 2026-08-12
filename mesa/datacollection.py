@@ -115,6 +115,10 @@ class DataCollector:
             - If you want to pickle your model you must not use lambda functions.
             - If your model includes a large number of agents, it is recommended to
               use attribute names for the agent reporter, as it will be faster.
+            - agenttype_reporters collect only agents of exactly the given type.
+              Subclasses are not included, so a reporter keyed on a superclass does
+              not pick up its subclasses. Add a separate reporter per concrete type
+              if you need subclass data.
         """
         self.model_reporters = {}
         self.agent_reporters = {}
@@ -350,19 +354,15 @@ class DataCollector:
                     reports.append(deepcopy(value))
             return _prefix + tuple(reports)
 
-        agent_types = model.agent_types
-        if agent_type in agent_types:
-            agents = model.agents_by_type[agent_type]
-        else:
-            if issubclass(agent_type, Agent):
-                agents = [
-                    agent for agent in model.agents if isinstance(agent, agent_type)
-                ]
-            else:
-                # Raise error if agent_type is not in model.agent_types
-                raise ValueError(
-                    f"Agent type {agent_type} is not recognized as an Agent type in the model or Agent subclass. Use an Agent (sub)class, like {agent_types}."
-                )
+        if not (isinstance(agent_type, type) and issubclass(agent_type, Agent)):
+            raise ValueError(
+                f"Agent type {agent_type} is not recognized as an Agent type in the model or Agent subclass. Use an Agent (sub)class, like {model.agent_types}."
+            )
+
+        # Collect only agents whose type is exactly agent_type. Subclasses are not
+        # included: a reporter keyed on a superclass does not pick up its subclasses.
+        # This is consistent regardless of whether agent_type has direct instances.
+        agents = model.agents_by_type.get(agent_type, [])
 
         agenttype_records = map(get_reports, agents)
         return agenttype_records
@@ -487,10 +487,16 @@ class DataCollector:
             )
             return pd.DataFrame()
 
-        all_records = itertools.chain.from_iterable(
-            records[agent_type]
-            for records in self._agenttype_records.values()
-            if agent_type in records
+        # Materialize to a list: passing an empty generator to
+        # pd.DataFrame.from_records with an index misparses the index labels as
+        # rows (producing spurious all-NaN rows), whereas an empty list does not.
+        # Empty results are normal now that agenttype collection is exact-type.
+        all_records = list(
+            itertools.chain.from_iterable(
+                records[agent_type]
+                for records in self._agenttype_records.values()
+                if agent_type in records
+            )
         )
         rep_names = list(self.agenttype_reporters[agent_type])
 
