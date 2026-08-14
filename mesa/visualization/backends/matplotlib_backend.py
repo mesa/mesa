@@ -163,15 +163,30 @@ class MatplotlibBackend(AbstractRenderer):
             arguments["marker"].append(aps.marker)
             arguments["zorder"].append(aps.zorder)
             arguments["alpha"].append(aps.alpha)
-            if aps.edgecolors is not None:
-                arguments["edgecolors"].append(aps.edgecolors)
+            arguments["edgecolors"].append(aps.edgecolors)
             arguments["linewidths"].append(aps.linewidths)
 
+        if any(edgecolor is not None for edgecolor in arguments["edgecolors"]):
+            arguments["edgecolors"] = [
+                edgecolor if edgecolor is not None else "none"
+                for edgecolor in arguments["edgecolors"]
+            ]
+        else:
+            arguments["edgecolors"] = []
+
         # Convert to numpy arrays
-        data = {
-            k: (np.asarray(v, dtype=object) if k == "marker" else np.asarray(v))
-            for k, v in arguments.items()
-        }
+        data = {}
+        for key, value in arguments.items():
+            if key == "marker":
+                data[key] = np.asarray(value, dtype=object)
+            elif key == "edgecolors":
+                try:
+                    data[key] = np.asarray(value)
+                except ValueError:
+                    data[key] = np.empty(len(value), dtype=object)
+                    data[key][:] = value
+            else:
+                data[key] = np.asarray(value)
 
         # Handle marker array specially to preserve tuples
         arr = np.empty(len(arguments["marker"]), dtype=object)

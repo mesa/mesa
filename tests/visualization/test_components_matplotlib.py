@@ -1,6 +1,7 @@
 """tests for matplotlib components."""
 
 import networkx as nx
+import pytest
 from matplotlib.figure import Figure
 
 from mesa import Model
@@ -136,6 +137,35 @@ def test_draw_network():
     fig = Figure()
     ax = fig.add_subplot()
     draw_network(grid, agent_portrayal, ax)
+
+
+@pytest.mark.parametrize("edgecolor", ["black", (1.0, 0.0, 0.0, 1.0)])
+def test_draw_network_with_partial_edgecolors(edgecolor):
+    """Network drawing handles edgecolors provided for only some agents."""
+    graph = nx.path_graph(2)
+    model = Model(rng=42)
+    grid = Network(graph, random=model.random, capacity=1, layout=nx.spring_layout)
+
+    for index, cell in enumerate(grid.all_cells):
+        agent = CellAgent(model)
+        agent.kind = index
+        agent.cell = cell
+
+    def partial_edgecolor_portrayal(agent):
+        portrayal = {
+            "size": 10,
+            "color": "tab:blue",
+            "marker": "o",
+            "zorder": 1,
+        }
+        if agent.kind == 0:
+            portrayal["edgecolors"] = edgecolor
+        return portrayal
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    with pytest.warns(FutureWarning):
+        draw_network(grid, partial_edgecolor_portrayal, ax)
 
 
 def test_draw_property_layers():
