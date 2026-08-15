@@ -143,20 +143,30 @@ class Cell:
     def add_agent(self, agent: CellAgent) -> None:
         """Adds an agent to the cell.
 
+        The agent is removed from the cell it currently occupies, if any, and
+        its `cell` reference is updated to point to this cell.
+
         Args:
             agent (CellAgent): agent to add to this Cell
 
         """
-        n = len(self._agents)
-        self.empty = False
-
-        if self.capacity is not None and n >= self.capacity:
+        # capacity is checked before anything is mutated, so a CellFullException
+        # leaves both this cell and the agent untouched
+        if self.capacity is not None and len(self._agents) >= self.capacity:
             raise CellFullException(self.coordinate)
 
+        old_cell = agent._mesa_cell
+        if old_cell is not None and old_cell is not self:
+            old_cell.remove_agent(agent)
+
         self._agents.append(agent)
+        self.empty = False
+        agent._mesa_cell = self
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
+
+        The agent's `cell` reference is cleared as well.
 
         Args:
             agent (CellAgent): agent to remove from this cell
@@ -168,6 +178,8 @@ class Cell:
             raise AgentMissingException(agent, self.coordinate) from e
 
         self.empty = self.is_empty
+        if agent._mesa_cell is self:
+            agent._mesa_cell = None
 
     @property
     def is_empty(self) -> bool:

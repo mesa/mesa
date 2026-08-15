@@ -1585,3 +1585,94 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
     a1.move_to(cell)
     with pytest.raises(CellFullException):
         a2.move_to(cell)
+
+
+# ---------------------------------------------------------------------------
+# Section 4 — cell/agent reference sync  (regression tests for Issue #3790)
+# ---------------------------------------------------------------------------
+
+
+def test_add_agent_sets_agent_cell() -> None:
+    """Cell.add_agent must point the agent back at the cell."""
+    model = make_model()
+    cell = Cell(coordinate=(0, 0), capacity=None, random=RNG)
+
+    agent = make_agent(model)
+    cell.add_agent(agent)
+
+    assert agent in cell.agents
+    assert agent.cell is cell
+
+
+def test_remove_agent_clears_agent_cell() -> None:
+    """Cell.remove_agent must clear the agent's cell reference."""
+    model = make_model()
+    cell = Cell(coordinate=(0, 0), capacity=None, random=RNG)
+
+    agent = make_agent(model)
+    cell.add_agent(agent)
+    cell.remove_agent(agent)
+
+    assert agent not in cell.agents
+    assert agent.cell is None
+
+
+def test_add_agent_detaches_from_previous_cell() -> None:
+    """Adding an agent to a second cell must remove it from the first one."""
+    model = make_model()
+    first = Cell(coordinate=(0, 0), capacity=None, random=RNG)
+    second = Cell(coordinate=(0, 1), capacity=None, random=RNG)
+
+    agent = make_agent(model)
+    first.add_agent(agent)
+    second.add_agent(agent)
+
+    assert agent not in first.agents
+    assert first.empty
+    assert agent in second.agents
+    assert agent.cell is second
+
+
+def test_move_to_after_direct_remove_agent() -> None:
+    """move_to must work after the agent was removed through the cell itself."""
+    model = make_model()
+    first = Cell(coordinate=(0, 0), capacity=None, random=RNG)
+    second = Cell(coordinate=(0, 1), capacity=None, random=RNG)
+
+    agent = make_agent(model)
+    agent.move_to(first)
+    first.remove_agent(agent)
+
+    agent.move_to(second)  # must not raise AgentMissingException
+    assert agent.cell is second
+    assert agent in second.agents
+
+
+def test_failed_add_agent_leaves_cell_empty() -> None:
+    """A CellFullException must not mark a zero-capacity cell as occupied."""
+    model = make_model()
+    cell = Cell(coordinate=(0, 0), capacity=0, random=RNG)
+
+    with pytest.raises(CellFullException):
+        cell.add_agent(make_agent(model))
+
+    assert cell.empty
+    assert cell.is_empty
+
+
+def test_failed_move_keeps_agent_in_original_cell() -> None:
+    """A blocked move must leave both the agent and the cells unchanged."""
+    model = make_model()
+    origin = Cell(coordinate=(0, 0), capacity=None, random=RNG)
+    full = Cell(coordinate=(0, 1), capacity=1, random=RNG)
+    full.add_agent(make_agent(model))
+
+    agent = make_agent(model)
+    agent.move_to(origin)
+
+    with pytest.raises(CellFullException):
+        agent.move_to(full)
+
+    assert agent.cell is origin
+    assert agent in origin.agents
+    assert agent not in full.agents

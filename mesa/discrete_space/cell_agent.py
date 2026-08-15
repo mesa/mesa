@@ -44,14 +44,13 @@ class HasCell:
         if cell is old_cell:
             return
 
-        # Attempt to add first
+        # Cell.add_agent detaches from the old cell and updates _mesa_cell. It
+        # checks capacity before mutating anything, so a CellFullException
+        # leaves the agent in its original cell.
         if cell is not None:
             cell.add_agent(self)
-
-        if old_cell is not None:
+        elif old_cell is not None:
             old_cell.remove_agent(self)
-
-        self._mesa_cell = cell
 
 
 class BasicMovement:
