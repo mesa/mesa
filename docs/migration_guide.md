@@ -535,8 +535,8 @@ You can access it by `Model.steps`, and it's internally in the datacollector, ba
 #### Removal of `Model._advance_time()`
 - The `Model._advance_time()` method is removed. This now happens automatically.
 
-#### Replacing Schedulers with AgentSet functionality
-The whole Time module in Mesa is deprecated and will be removed in Mesa 3.1. All schedulers should be replaced with AgentSet functionality and the internal `Model.steps` counter. This allows much more flexibility in how to activate Agents and makes it explicit what's done exactly.
+#### Replacing Schedulers with AgentSet features
+The whole Time module in Mesa is deprecated and will be removed in Mesa 3.1. All schedulers should be replaced with AgentSet features and the internal `Model.steps` counter. This allows much more flexibility in how to activate Agents and makes it explicit what's done exactly.
 
 Here's how to replace each scheduler:
 
@@ -611,7 +611,7 @@ for agent_class in self.agent_types:
 ```
 
 ###### Replacing `step_type`
-The `RandomActivationByType` scheduler had a `step_type` method that allowed stepping only agents of a specific type. To replicate this functionality using AgentSet:
+The `RandomActivationByType` scheduler had a `step_type` method that allowed stepping only agents of a specific type. To replicate this behavior using AgentSet:
 
 Replace:
 ```python

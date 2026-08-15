@@ -8,7 +8,7 @@ This model demonstrates Mesa's meta agent capability.
 
 This reality is the motivation for meta-agents. It allows users to represent these multiple levels, where each level can have agents with sub-agents.
 
-This model demonstrates Mesa's ability to dynamically create new classes of agents that are composed of existing agents. These meta-agents inherits functions and attributes from their sub-agents and users can specify new functionality or attributes they want the meta agent to have. For example, if a user is doing a factory simulation with autonomous systems, each major component of that system can be a sub-agent of the overall robot agent. Or, if someone is doing a simulation of an organization, individuals can be part of different organizational units that are working for some purpose.
+This model demonstrates Mesa's ability to dynamically create new classes of agents that are composed of existing agents. These meta-agents inherits functions and attributes from their sub-agents and users can specify new capabilities or attributes they want the meta agent to have. For example, if a user is doing a factory simulation with autonomous systems, each major component of that system can be a sub-agent of the overall robot agent. Or, if someone is doing a simulation of an organization, individuals can be part of different organizational units that are working for some purpose.
 
 To provide a simple demonstration of this capability is an alliance formation model.
 

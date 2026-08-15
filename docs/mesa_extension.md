@@ -1,6 +1,6 @@
 # Mesa Extensions Overview
 
-This contains an overview of Mesa Extensions. Mesa's extensibility is a key feature that allows users to enhance functionality, improve scalability, and foster innovation in agent-based modeling.
+This contains an overview of Mesa Extensions. Mesa's extensibility is a key feature that allows users to enhance capabilities, improve scalability, and foster innovation in agent-based modeling.
 
 
 ## Mesa-Geo 🌍
@@ -68,9 +68,9 @@ Mesa-Frames is an extension of the Mesa framework designed to handle complex sim
 **Key Features:**
 - **Enhanced Performance:** Uses DataFrames for SIMD processing and vectorized functions to speed up simulations.
 - **Backend Support:** Supports `pandas` (ease of use) and `Polars` (performance innovations with Rust-based backend).
-- **Seamless Integration:** Maintains a similar API and functionality as the base Mesa framework for easier adoption.
+- **Seamless Integration:** Maintains a similar API and capabilities as the base Mesa framework for easier adoption.
 - **In-Place Operations:** Functional programming and fast memory-efficient copy methods.
-- **Future Plans:** GPU functionality, automatic model vectorization, and backend-independent AgentSet class.
+- **Future Plans:** GPU support, automatic model vectorization, and backend-independent AgentSet class.
 
 ---
 

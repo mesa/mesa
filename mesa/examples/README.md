@@ -39,7 +39,11 @@ Joshua Epstein's [model](https://www.pnas.org/doi/10.1073/pnas.092080199) of how
 Grid-based demographic prisoner's dilemma model, demonstrating how simple rules can lead to the emergence of widespread cooperation -- and how a model activation regime can change its outcome.
 
 ### [Sugarscape Model with Traders](examples/advanced/sugarscape_g1mt)
-This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in Chapter four of *Growing Artificial Societies: Social Science from the Bottom Up (1996)*. The model shows how emergent price equilibrium can happen via decentralized dynamics.
+This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in
+<!-- vale Google.WordList = NO -->
+Chapter four of *Growing Artificial Societies: Social Science from the Bottom Up (1996)*.
+<!-- vale Google.WordList = YES -->
+The model shows how emergent price equilibrium can happen via decentralized dynamics.
 
 ### [Wolf-Sheep Predation Model](examples/advanced/wolf_sheep)
 Implementation of an ecological model of predation and reproduction, based on the NetLogo [Wolf Sheep Predation](http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation) model.
