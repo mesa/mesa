@@ -298,30 +298,55 @@ class Agent[M: Model]:
         # called _do_complete which cleared current_action via the Action.
         return action
 
+    def should_interrupt(self, current: Action, incoming: Action) -> bool:
+        """Decide whether an incoming action may preempt the current one.
+
+        Consulted by interrupt_for() whenever the agent is busy, with both
+        priorities already resolved. Override to encode preemption policy,
+        e.g. comparing action names or agent state instead of priorities.
+
+        Args:
+            current: The action the agent is performing.
+            incoming: The action that wants to replace it.
+
+        Returns:
+            True to attempt the interruption, False to refuse it.
+
+        Notes:
+            Returning True cannot override the interruptible flag; use
+            cancel_action() to force. This hook decides policy, the flag
+            stays a hard property of the action.
+        """
+        return current.interruptible and incoming.priority >= current.priority
+
     def interrupt_for(self, new_action: Action) -> bool:
         """Interrupt the current action and start a new one.
 
-        If there is no current action, simply starts the new one. If the
-        current action is non-interruptible, returns False and does nothing.
+        If there is no current action, simply starts the new one. Otherwise
+        should_interrupt(current, incoming) decides whether to preempt.
 
         Args:
             new_action: The Action to perform instead.
 
         Returns:
-            True if the new action was started. False if the current action
-            refused to be interrupted, or if the new action failed its
-            start requirements.
+            True if the new action was started. False if should_interrupt
+            refused, the current action is non-interruptible, or the new
+            action failed its start requirements.
 
         Notes:
-            The two False cases differ in what they leave behind. A refused
-            interruption changes nothing. A failed requirement does not roll
-            the interruption back: the old action is already INTERRUPTED and
-            the agent is left idle, since whether to resume it is the model's
-            decision.
+            The False cases differ in what they leave behind. A refusal
+            changes nothing. A failed requirement does not roll the
+            interruption back: the old action is already INTERRUPTED and
+            the agent is left idle, since whether to resume it is the
+            model's decision.
         """
-        if self.current_action is not None and not self.current_action.interrupt():
-            return False
-            # interrupt() already cleared current_action
+        if self.current_action is not None:
+            new_action._resolve_priority()
+            if not self.should_interrupt(self.current_action, new_action):
+                return False
+            if not self.current_action.interrupt():
+                return False
+                # interrupt() already cleared current_action
 
         self.start_action(new_action)
         return not new_action.has_failed

@@ -71,7 +71,8 @@ class Action:
         duration: Time to complete. May be a callable(agent) -> float
             for state-dependent duration, resolved at start time.
         priority: Importance level. Higher = more important. May be a
-            callable(agent) -> float, resolved at start time.
+            callable(agent) -> float, resolved once: at start, or earlier
+            if Agent.interrupt_for weighs it against a running action.
         interruptible: Whether higher-priority actions can preempt this.
         start_requirements: Predicates that must hold for the action to start.
         completion_requirements: Predicates that must hold for the effect to
@@ -112,7 +113,8 @@ class Action:
             name: Human-readable name. Defaults to the class name.
             priority: Importance level for interruption decisions. Either
                 a float or a callable that receives the agent and returns
-                a float. Resolved when start() is called.
+                a float. Resolved once, at start() or when interrupt_for
+                first consults Agent.should_interrupt with it.
             interruptible: If False, interrupt() will fail and return False.
             start_requirements: A single callable(agent) -> bool, or an
                 iterable of them. All must hold for the action to start.
@@ -135,9 +137,11 @@ class Action:
         self._duration_spec = duration
         self._priority_spec = priority
 
-        # Resolved values (set in start())
+        # Resolved values (set in start(); priority possibly earlier, see
+        # _resolve_priority)
         self.duration: float = 0.0
         self.priority: float = 0.0
+        self._priority_resolved: bool = False
 
         # Lifecycle state
         self.state: ActionState = ActionState.PENDING
@@ -298,11 +302,7 @@ class Action:
                 if callable(self._duration_spec)
                 else self._duration_spec
             )
-            self.priority = (
-                self._priority_spec(self.agent)
-                if callable(self._priority_spec)
-                else self._priority_spec
-            )
+            self._resolve_priority()
 
             if self.duration < 0:
                 raise ValueError(f"Action duration must be >= 0, got {self.duration}")
@@ -396,6 +396,23 @@ class Action:
         if self._event is not None:
             self._event.cancel()
             self._event = None
+
+    def _resolve_priority(self) -> None:
+        """Resolve the priority spec against the agent, at most once.
+
+        Called from start(), and from Agent.interrupt_for before it consults
+        should_interrupt, since the incoming action has not started yet and
+        its priority would otherwise still read 0.0. A callable spec is
+        called at most once either way.
+        """
+        if self._priority_resolved:
+            return
+        self.priority = (
+            self._priority_spec(self.agent)
+            if callable(self._priority_spec)
+            else self._priority_spec
+        )
+        self._priority_resolved = True
 
     def _requirements_met(self, requirements: list[Callable[[Agent], bool]]) -> bool:
         """Whether every requirement in the given list holds right now."""

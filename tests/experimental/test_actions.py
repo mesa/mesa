@@ -982,6 +982,124 @@ class TestInterruptForWithRequirements:
         assert not replacement.failed
 
 
+# --- Preemption policy ---
+
+
+class TestShouldInterrupt:
+    def test_higher_priority_preempts(self):
+        model, agent = make_model_and_agent()
+        low = TrackedAction(agent, duration=10.0, priority=1.0)
+        high = TrackedAction(agent, duration=5.0, priority=2.0)
+
+        agent.start_action(low)
+        model.run_for(2)
+
+        assert agent.interrupt_for(high) is True
+        assert low.state is ActionState.INTERRUPTED
+        assert agent.current_action is high
+
+    def test_lower_priority_is_refused(self):
+        model, agent = make_model_and_agent()
+        high = TrackedAction(agent, duration=10.0, priority=2.0)
+        low = TrackedAction(agent, duration=5.0, priority=1.0)
+
+        agent.start_action(high)
+        model.run_for(2)
+
+        assert agent.interrupt_for(low) is False
+        assert high.state is ActionState.ACTIVE
+        assert agent.current_action is high
+        assert low.state is ActionState.PENDING
+        assert low.start_count == 0
+
+    def test_equal_priority_preempts(self):
+        """>= keeps the pre-priority behavior: both default to 0.0."""
+        _model, agent = make_model_and_agent()
+        first = TrackedAction(agent, duration=10.0)
+        second = TrackedAction(agent, duration=5.0)
+
+        agent.start_action(first)
+
+        assert agent.interrupt_for(second) is True
+
+    def test_callable_priority_resolved_before_decision(self):
+        _model, agent = make_model_and_agent()
+        agent.threat = 5.0
+        current = TrackedAction(agent, duration=10.0, priority=3.0)
+        incoming = TrackedAction(agent, duration=2.0, priority=lambda a: a.threat)
+
+        agent.start_action(current)
+
+        assert agent.interrupt_for(incoming) is True
+        assert incoming.priority == 5.0
+
+    def test_callable_priority_resolved_once(self):
+        _model, agent = make_model_and_agent()
+        calls = []
+
+        def prio(a):
+            calls.append(a)
+            return 1.0
+
+        agent.start_action(TrackedAction(agent, duration=10.0))
+        agent.interrupt_for(TrackedAction(agent, duration=5.0, priority=prio))
+
+        assert len(calls) == 1
+
+    def test_non_interruptible_refused_despite_priority(self):
+        _model, agent = make_model_and_agent()
+        agent.start_action(
+            TrackedAction(agent, duration=10.0, priority=1.0, interruptible=False)
+        )
+
+        assert agent.interrupt_for(TrackedAction(agent, priority=100.0)) is False
+
+    def test_not_consulted_when_idle(self):
+        _model, agent = make_model_and_agent()
+        consulted = []
+
+        class Watcher(Agent):
+            def should_interrupt(self, current, incoming):
+                consulted.append((current, incoming))
+                return super().should_interrupt(current, incoming)
+
+        watcher = Watcher(agent.model)
+        action = TrackedAction(watcher, duration=5.0)
+
+        assert watcher.interrupt_for(action) is True
+        assert consulted == []
+        assert watcher.current_action is action
+
+    def test_override_encodes_custom_policy(self):
+        """A subclass can ignore priorities entirely."""
+        model = Model()
+
+        class Stubborn(Agent):
+            def should_interrupt(self, current, incoming):
+                return incoming.name == "Flee"
+
+        agent = Stubborn(model)
+        agent.start_action(TrackedAction(agent, duration=10.0))
+
+        assert agent.interrupt_for(TrackedAction(agent, priority=100.0)) is False
+        assert agent.interrupt_for(TrackedAction(agent, name="Flee")) is True
+
+    def test_override_cannot_force_non_interruptible(self):
+        """Returning True attempts the interruption; the flag still refuses."""
+        model = Model()
+
+        class Pushy(Agent):
+            def should_interrupt(self, current, incoming):
+                return True
+
+        agent = Pushy(model)
+        shielded = TrackedAction(agent, duration=10.0, interruptible=False)
+        agent.start_action(shielded)
+
+        assert agent.interrupt_for(TrackedAction(agent, priority=100.0)) is False
+        assert shielded.state is ActionState.ACTIVE
+
+
 # --- Integration: realistic scenarios ---
 
 
