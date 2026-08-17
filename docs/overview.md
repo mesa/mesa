@@ -8,7 +8,7 @@ Mesa is modular, meaning that its modeling, analysis and visualization component
 
 ### Modeling modules
 
-Most models consist of one class to represent the model itself and one or more classes for agents. Mesa provides built-in features for managing agents and their interactions. These are implemented in Mesa's modeling modules:
+Most models consist of one class to represent the model itself and one or more classes for agents. Mesa provides built-in support for managing agents and their interactions. These are implemented in Mesa's modeling modules:
 
 - [mesa.model](apis/model)
 - [mesa.agent](apis/agent)

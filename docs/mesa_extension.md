@@ -1,6 +1,6 @@
 # Mesa Extensions Overview
 
-This contains an overview of Mesa Extensions. Mesa's extensibility is a key feature that allows users to enhance capabilities, improve scalability, and foster innovation in agent-based modeling.
+This contains an overview of Mesa Extensions. Mesa's extensibility is a key feature that allows users to enhance functionality, improve scalability, and foster innovation in agent-based modeling.
 
 
 ## Mesa-Geo 🌍
