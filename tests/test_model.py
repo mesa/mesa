@@ -88,6 +88,32 @@ def test_agents_by_type():
     assert len(model.agents_by_type) == 2
 
 
+def test_agent_type_bucket_removed_when_empty():
+    """Removing the last agent of a type drops it from agent_types/agents_by_type."""
+
+    class Wolf(Agent):
+        pass
+
+    class Sheep(Agent):
+        pass
+
+    model = Model()
+    wolves = [Wolf(model) for _ in range(2)]
+    Sheep(model)
+
+    assert Wolf in model.agent_types
+    assert len(model.agents_by_type) == 2
+
+    # Remove every Wolf; the type should no longer be reported.
+    for wolf in wolves:
+        wolf.remove()
+
+    assert Wolf not in model.agent_types
+    assert Wolf not in model.agents_by_type
+    assert list(model.agent_types) == [Sheep]
+    assert len(model.agents_by_type) == 1
+
+
 def test_agent_remove():
     """Test removing all agents from the model."""
 

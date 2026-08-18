@@ -288,7 +288,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             This method is called automatically by ``Agent.remove``
 
         """
-        self._agents_by_type[type(agent)].remove(agent)
+        agent_type = type(agent)
+        self._agents_by_type[agent_type].remove(agent)
+        # Drop the bucket once empty so agent_types reflects only live types.
+        if not self._agents_by_type[agent_type]:
+            del self._agents_by_type[agent_type]
         self._all_agents.remove(agent)
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
