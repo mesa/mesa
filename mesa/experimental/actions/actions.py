@@ -263,6 +263,7 @@ class Action:
 
         # Schedule completion event for remaining duration
         self._event = self.model.schedule_event(self._do_complete, after=remaining)
+        self.agent.on_action_start(self)
         return self
 
     def interrupt(self) -> bool:
@@ -291,6 +292,7 @@ class Action:
             self.agent.current_action = None
 
         self.on_interrupt(self._progress)
+        self.agent.on_action_interrupt(self, self._progress)
         return True
 
     def cancel(self) -> bool:
@@ -315,6 +317,7 @@ class Action:
             self.agent.current_action = None
 
         self.on_interrupt(self._progress)
+        self.agent.on_action_interrupt(self, self._progress)
         return True
 
     # --- Internal ---
@@ -349,6 +352,7 @@ class Action:
             self.agent.current_action = None
 
         self.on_complete()
+        self.agent.on_action_complete(self)
 
     def __repr__(self) -> str:
         """Return string representation."""
