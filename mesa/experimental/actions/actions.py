@@ -4,8 +4,8 @@ An Action represents something an agent does over time. It integrates with
 Mesa's event scheduling system for precise timing and supports interruption
 with progress tracking and optional resumption.
 
-Actions are subclassable: override on_start(), on_complete(), and
-on_interrupt() to define behavior.
+Actions are subclassable: override on_start(), on_complete(),
+on_interrupt(), and on_fail() to define behavior.
 
 Example::
 
@@ -24,7 +24,7 @@ Example::
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from enum import IntEnum, auto
 from typing import TYPE_CHECKING
 
@@ -40,6 +40,18 @@ class ActionState(IntEnum):
     ACTIVE = auto()
     COMPLETED = auto()
     INTERRUPTED = auto()
+    FAILED = auto()
+
+
+def _as_predicates(
+    spec: Callable[[Agent], bool] | Iterable[Callable[[Agent], bool]] | None,
+) -> list[Callable[[Agent], bool]]:
+    """Normalise a requirement spec into a list the action owns."""
+    if spec is None:
+        return []
+    if callable(spec):
+        return [spec]
+    return list(spec)
 
 
 class Action:
@@ -59,9 +71,14 @@ class Action:
         duration: Time to complete. May be a callable(agent) -> float
             for state-dependent duration, resolved at start time.
         priority: Importance level. Higher = more important. May be a
-            callable(agent) -> float, resolved at start time.
+            callable(agent) -> float, resolved once: at start, or earlier
+            if Agent.interrupt_for weighs it against a running action.
         interruptible: Whether higher-priority actions can preempt this.
-        state: Current lifecycle state (PENDING, ACTIVE, COMPLETED, INTERRUPTED).
+        start_requirements: Predicates that must hold for the action to start.
+        completion_requirements: Predicates that must hold for the effect to
+            apply. Empty by default.
+        state: Current lifecycle state (PENDING, ACTIVE, COMPLETED,
+            INTERRUPTED, FAILED).
         progress: Time fraction completed, 0.0 to 1.0. Computed live
             while the action is active.
 
@@ -79,6 +96,12 @@ class Action:
         name: str | None = None,
         priority: float | Callable[[Agent], float] = 0.0,
         interruptible: bool = True,
+        start_requirements: Callable[[Agent], bool]
+        | Iterable[Callable[[Agent], bool]]
+        | None = None,
+        completion_requirements: Callable[[Agent], bool]
+        | Iterable[Callable[[Agent], bool]]
+        | None = None,
     ) -> None:
         """Initialize an Action.
 
@@ -90,21 +113,35 @@ class Action:
             name: Human-readable name. Defaults to the class name.
             priority: Importance level for interruption decisions. Either
                 a float or a callable that receives the agent and returns
-                a float. Resolved when start() is called.
+                a float. Resolved once, at start() or when interrupt_for
+                first consults Agent.should_interrupt with it.
             interruptible: If False, interrupt() will fail and return False.
+            start_requirements: A single callable(agent) -> bool, or an
+                iterable of them. All must hold for the action to start.
+            completion_requirements: The same, checked instead when the action
+                completes, gating the effect rather than the attempt.
         """
         self.agent = agent
         self.model = agent.model
         self.interruptible = interruptible
         self._name: str | None = name
 
+        self.start_requirements: list[Callable[[Agent], bool]] = _as_predicates(
+            start_requirements
+        )
+        self.completion_requirements: list[Callable[[Agent], bool]] = _as_predicates(
+            completion_requirements
+        )
+
         # Store raw values (may be callables, resolved at start)
         self._duration_spec = duration
         self._priority_spec = priority
 
-        # Resolved values (set in start())
+        # Resolved values (set in start(); priority possibly earlier, see
+        # _resolve_priority)
         self.duration: float = 0.0
         self.priority: float = 0.0
+        self._priority_resolved: bool = False
 
         # Lifecycle state
         self.state: ActionState = ActionState.PENDING
@@ -162,6 +199,11 @@ class Action:
         """Whether this action can be resumed (interrupted, not completed)."""
         return self.state is ActionState.INTERRUPTED and self._progress < 1.0
 
+    @property
+    def has_failed(self) -> bool:
+        """Whether a requirement did not hold, at start or at completion."""
+        return self.state is ActionState.FAILED
+
     # --- Lifecycle methods (override in subclasses) ---
 
     def on_start(self) -> None:
@@ -206,6 +248,19 @@ class Action:
             necessarily cancelled, not interrupted.
         """
 
+    def on_fail(self) -> None:
+        """Called when a requirement does not hold.
+
+        Override to release anything the action
+        reserved, or to record the attempt.
+
+        Notes:
+            Check self.progress to tell the two failures apart: it is 1.0
+            when the action ran its full duration and only then found the
+            requirement broken, and below 1.0 when the action never got to
+            run this attempt.
+        """
+
     # --- Execution (called by Agent, not typically by users) ---
 
     def start(self) -> Action:
@@ -215,11 +270,16 @@ class Action:
         starts from progress=0. On resume (INTERRUPTED): continues from
         existing progress with remaining duration.
 
+        If a requirement does not hold the action moves to FAILED instead,
+        firing on_fail() rather than on_start() or on_resume(). Inspect
+        state after starting rather than assuming the action is ACTIVE.
+
         Returns:
             Self, for chaining.
 
         Raises:
             ValueError: If the action is not in PENDING or INTERRUPTED state.
+                A FAILED action cannot be restarted; create a new one.
         """
         resuming = self.state is ActionState.INTERRUPTED
 
@@ -229,6 +289,12 @@ class Action:
                 f"Only PENDING or INTERRUPTED actions can be started."
             )
 
+        # Gate entry before duration and priority are resolved, so a failing
+        # action neither fires on_start() nor schedules a completion event.
+        if not self._requirements_met(self.start_requirements):
+            self._fail()
+            return self
+
         # Resolve callables on first start only
         if not resuming:
             self.duration = (
@@ -236,11 +302,7 @@ class Action:
                 if callable(self._duration_spec)
                 else self._duration_spec
             )
-            self.priority = (
-                self._priority_spec(self.agent)
-                if callable(self._priority_spec)
-                else self._priority_spec
-            )
+            self._resolve_priority()
 
             if self.duration < 0:
                 raise ValueError(f"Action duration must be >= 0, got {self.duration}")
@@ -335,13 +397,50 @@ class Action:
             self._event.cancel()
             self._event = None
 
+    def _resolve_priority(self) -> None:
+        """Resolve the priority spec against the agent, at most once.
+
+        Called from start(), and from Agent.interrupt_for before it consults
+        should_interrupt, since the incoming action has not started yet and
+        its priority would otherwise still read 0.0. A callable spec is
+        called at most once either way.
+        """
+        if self._priority_resolved:
+            return
+        self.priority = (
+            self._priority_spec(self.agent)
+            if callable(self._priority_spec)
+            else self._priority_spec
+        )
+        self._priority_resolved = True
+
+    def _requirements_met(self, requirements: list[Callable[[Agent], bool]]) -> bool:
+        """Whether every requirement in the given list holds right now."""
+        return all(requirement(self.agent) for requirement in requirements)
+
+    def _fail(self) -> None:
+        """Move to FAILED, release the agent, and fire on_fail()."""
+        self.state = ActionState.FAILED
+
+        if self.agent.current_action is self:
+            self.agent.current_action = None
+
+        self.on_fail()
+
     def _do_complete(self) -> None:
         """Handle normal completion. Called by the scheduled event."""
         if self.state is not ActionState.ACTIVE:
             return
 
+        # Progress reaches 1.0 even if a requirement broke: the full duration
+        # elapsed, only the effect is withheld.
         self._progress = 1.0
         self._event = None
+
+        if not self._requirements_met(self.completion_requirements):
+            self._fail()
+            return
+
         self.state = ActionState.COMPLETED
 
         # Clear agent's reference so it's no longer busy
