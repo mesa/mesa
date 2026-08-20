@@ -17,7 +17,7 @@
 ```
 
 ```{image} https://img.shields.io/badge/chat-Discord-5865F2?logo=discord&logoColor=white
-:target: https://discord.gg/9mhjwWCqD
+:target: https://discord.gg/UUGJvdtEJu
 ```
 
 [Mesa] is an Apache2 licensed agent-based modeling (or ABM) framework in Python.
@@ -123,7 +123,7 @@ API Documentation <apis/api_main>
 [github discussions]: https://github.com/mesa/mesa/discussions
 [Mesa releases]: https://github.com/mesa/mesa/releases
 [issue tracker]: https://github.com/mesa/mesa/issues
-[discord]: https://discord.gg/9mhjwWCqD
+[discord]: https://discord.gg/UUGJvdtEJu
 [mesa]: https://github.com/mesa/mesa/
 [mesa overview]: overview
 [mesa examples]: https://mesa.readthedocs.io/stable/examples.html

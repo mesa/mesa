@@ -8,7 +8,7 @@
 | CI/CD   | [![GitHub Actions build status](https://github.com/mesa/mesa/workflows/build/badge.svg)](https://github.com/mesa/mesa/actions) [![Coverage status](https://codecov.io/gh/mesa/mesa/branch/main/graph/badge.svg)](https://codecov.io/gh/mesa/mesa) |
 | Package | [![PyPI - Version](https://img.shields.io/pypi/v/mesa.svg?logo=pypi&label=PyPI&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/mesa.svg?color=blue&label=Downloads&logo=pypi&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mesa.svg?logo=python&label=Python&logoColor=gold)](https://pypi.org/project/Mesa/) |
 | Meta    | [![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch) [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/) |
-| Chat    | [![chat](https://img.shields.io/badge/chat-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/9mhjwWCqD) |
+| Chat    | [![chat](https://img.shields.io/badge/chat-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/UUGJvdtEJu) |
 | Cite    | [![DOI](https://joss.theoj.org/papers/10.21105/joss.07668/status.svg)](https://doi.org/10.21105/joss.07668) |
 
 Mesa allows users to quickly create agent-based models using built-in
@@ -74,7 +74,7 @@ For resources or help on using Mesa, check out the following:
 -   [Docs](http://mesa.readthedocs.org/) (Mesa's documentation, API and useful snippets)
     -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
 -   [Discussions](https://github.com/mesa/mesa/discussions) (GitHub threaded discussions about Mesa)
--   [Discord](https://discord.gg/9mhjwWCqD) (Chat Forum via Discord to talk about Mesa)
+-   [Discord](https://discord.gg/UUGJvdtEJu) (Chat Forum via Discord to talk about Mesa)
 
 ## Running Mesa in Docker
 
@@ -119,7 +119,7 @@ accessible from `localhost:8765`.
 Want to join the Mesa team or just curious about what is happening with
 Mesa? You can\...
 
-> -   Join our [Discord server](https://discord.gg/9mhjwWCqD) in which questions, issues, and
+> -   Join our [Discord server](https://discord.gg/UUGJvdtEJu) in which questions, issues, and
 >     ideas can be (informally) discussed.
 > -   Come to a monthly dev session (you can find dev session times,
 >     agendas and notes on [Mesa discussions](https://github.com/mesa/mesa/discussions)).
