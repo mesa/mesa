@@ -350,19 +350,21 @@ class DataCollector:
                     reports.append(deepcopy(value))
             return _prefix + tuple(reports)
 
-        agent_types = model.agent_types
-        if agent_type in agent_types:
-            agents = model.agents_by_type[agent_type]
-        else:
-            if issubclass(agent_type, Agent):
-                agents = [
-                    agent for agent in model.agents if isinstance(agent, agent_type)
-                ]
-            else:
-                # Raise error if agent_type is not in model.agent_types
-                raise ValueError(
-                    f"Agent type {agent_type} is not recognized as an Agent type in the model or Agent subclass. Use an Agent (sub)class, like {agent_types}."
-                )
+        if not (isinstance(agent_type, type) and issubclass(agent_type, Agent)):
+            raise ValueError(
+                f"Agent type {agent_type} is not recognized as an Agent type in the model or Agent subclass. Use an Agent (sub)class, like {model.agent_types}."
+            )
+
+        # Collect every agent that is an instance of agent_type, including subclasses,
+        # regardless of whether agent_type itself has direct instances. Iterating the
+        # per-type buckets keeps this to the number of registered types rather than a
+        # full scan of all agents.
+        agents = [
+            agent
+            for a_type, bucket in model.agents_by_type.items()
+            if issubclass(a_type, agent_type)
+            for agent in bucket
+        ]
 
         agenttype_records = map(get_reports, agents)
         return agenttype_records

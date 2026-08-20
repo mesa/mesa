@@ -385,6 +385,26 @@ class TestDataCollectorWithAgentTypes(unittest.TestCase):
         self.assertEqual(len(agent_data), 30)
         self.assertTrue(super_data.equals(agent_data))
 
+    def test_agenttype_reporter_includes_subclasses_with_direct_instances(self):
+        """A superclass reporter includes subclass agents even when the superclass has direct instances.
+
+        Regression: collection previously used exact-type lookup when the type had
+        direct instances (dropping subclass agents) but isinstance otherwise, so the
+        result flipped depending on whether a direct instance happened to exist.
+        """
+        model = Model()
+        for i in range(2):
+            MockAgent(model, val=i)  # direct superclass instances
+        for i in range(3):
+            MockAgentA(model, val=i)  # subclass instances
+
+        dc = DataCollector(agenttype_reporters={MockAgent: {"v": lambda a: a.val}})
+        dc.collect(model)
+
+        df = dc.get_agenttype_vars_dataframe(MockAgent)
+        # All 5 (2 direct + 3 subclass) must be collected, not just the 2 direct ones.
+        assert len(df) == 5
+
 
 class MockModelForErrors(Model):
     """Test model for error handling."""
