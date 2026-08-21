@@ -1227,6 +1227,36 @@ def test_fixed_agent_removal_state():
     assert agent.cell is None
 
 
+def test_fixed_agent_removal_without_cell():
+    """Test that removing an unplaced FixedAgent succeeds without error."""
+    model = Model()
+    agent = FixedAgent(model)
+    assert agent.cell is None
+    assert agent in model.agents
+
+    agent.remove()
+    assert agent not in model.agents
+    assert agent.cell is None
+
+
+def test_remove_all_agents_unplaced_fixed_agent():
+    """Test that model.remove_all_agents() handles unplaced FixedAgents cleanly."""
+    model = Model()
+    cell1 = Cell((1,), capacity=None, random=random.Random())
+
+    agent1 = FixedAgent(model)
+    agent1.cell = cell1
+    agent2 = FixedAgent(model)  # unplaced
+
+    assert len(model.agents) == 2
+
+    model.remove_all_agents()
+
+    assert len(model.agents) == 0
+    assert agent1.cell is None
+    assert agent2.cell is None
+
+
 def test_pickling_cell():
     """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
