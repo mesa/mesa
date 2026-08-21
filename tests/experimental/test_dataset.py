@@ -162,7 +162,7 @@ def test_agent_dataset():
     dataset.close()
     with pytest.raises(RuntimeError):
         _ = dataset.data
-    assert dataset.agents is None
+    assert dataset._agents is None
 
 
 def test_numpy_agent_dataset():
@@ -525,3 +525,173 @@ def test_agent_dataset_dirty_flag():
     dataset.close()
     with pytest.raises(RuntimeError):
         dataset.set_dirty_flag()
+
+
+def test_agent_dataset_with_agent_class():
+    """Test AgentDataSet with agent class input."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.wealth = value
+
+    model = Model()
+    MyAgent.create_agents(model, 5, [1, 2, 3, 4, 5])
+
+    dataset = AgentDataSet(
+        "wealth_ds",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    data = dataset.data
+
+    assert len(data) == 5
+    assert all("wealth" in row for row in data)
+
+
+def test_agent_dataset_class_without_model_raises():
+    """Test that passing agent class without model raises error."""
+
+    class MyAgent(Agent):
+        pass
+
+    with pytest.raises(ValueError):
+        AgentDataSet("x", MyAgent, fields="wealth")
+
+
+def test_agent_dataset_agents_override_with_agentset_source():
+    """Test that agents override takes precedence over AgentSet source."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.wealth = value
+
+    model = Model()
+    MyAgent.create_agents(model, 5, [1, 2, 3, 4, 5])
+
+    subset = model.agents.select(lambda a: a.wealth > 2)
+
+    dataset = AgentDataSet(
+        "x",
+        model.agents,
+        agents=subset,
+        fields="wealth",
+    )
+
+    data = dataset.data
+    assert len(data) == len(subset)
+
+
+def test_agent_dataset_agents_override_with_class():
+    """Test agents override works with agent class source."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.wealth = value
+
+    model = Model()
+    MyAgent.create_agents(model, 3, [1, 2, 3])
+
+    subset = model.agents
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        agents=subset,
+        fields="wealth",
+    )
+
+    data = dataset.data
+    assert len(data) == len(subset)
+
+
+def test_agent_dataset_legacy_positional_fields():
+    """Test backward compatibility with positional fields argument."""
+    model = Model()
+
+    dataset = AgentDataSet("x", model.agents, "wealth")
+
+    assert dataset is not None
+
+
+def test_agent_dataset_dynamic_agents_with_class():
+    """Test dynamic agent addition is reflected in dataset."""
+
+    class MyAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    assert len(dataset.data) == 0
+
+    MyAgent(model)
+    assert len(dataset.data) == 1
+
+    MyAgent(model)
+    assert len(dataset.data) == 2
+
+
+def test_agent_dataset_invalid_source_type():
+    """Test that invalid source type raises TypeError."""
+    with pytest.raises(TypeError):
+        AgentDataSet("invalid", 123, fields="wealth")
+
+
+def test_agent_dataset_class_no_agents():
+    """Agent class with no instances should return empty data."""
+
+    class MyAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    assert dataset.data == []
+
+
+def test_agent_dataset_close_with_class():
+    """After close(), accessing data should raise RuntimeError."""
+
+    class MyAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.wealth = 1
+
+    model = Model()
+    MyAgent(model)
+
+    dataset = AgentDataSet(
+        "x",
+        MyAgent,
+        model=model,
+        fields="wealth",
+    )
+
+    assert len(dataset.data) == 1
+
+    dataset.close()
+
+    with pytest.raises(RuntimeError):
+        _ = dataset.data
