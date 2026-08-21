@@ -48,11 +48,11 @@ The model shows how emergent price equilibrium can happen via decentralized dyna
 ### [Wolf-Sheep Predation Model](examples/advanced/wolf_sheep)
 Implementation of an ecological model of predation and reproduction, based on the NetLogo [Wolf Sheep Predation](http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation) model.
 
+### [Alliance Formation Model](examples/advanced/alliance_formation)
+Demonstrates `mesa.meta_agents`: agents form alliances through a game-theoretic process, and the resulting alliances become meta-agents that can themselves form higher-level alliances.
+
 ## Experimental Examples
 The experimental examples are built on Mesa APIs that live under `mesa.experimental` and carry no semver guarantees. They show where Mesa is heading, but both the models and the APIs they use may change without notice.
-
-### [Alliance Formation Model](examples/experimental/alliance_formation)
-Demonstrates dynamic meta-agent creation: agents form alliances through a game-theoretic process, and the resulting alliances become meta-agents that can themselves form higher-level alliances.
 
 ### [Tram Route Model](examples/experimental/tram_model)
 Demonstrates continuous states and thresholds: a tram accelerates, coasts, brakes and dwells its way along a route, with every transition solved for analytically and scheduled on the event queue rather than polled for on each tick.

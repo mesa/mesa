@@ -7,6 +7,7 @@ import datetime
 
 import mesa.discrete_space as discrete_space
 import mesa.experimental as experimental
+import mesa.meta_agents as meta_agents
 import mesa.time as time
 from mesa.agent import Agent
 from mesa.datacollection import DataCollector
@@ -18,6 +19,7 @@ __all__ = [
     "Model",
     "discrete_space",
     "experimental",
+    "meta_agents",
     "time",
 ]
 

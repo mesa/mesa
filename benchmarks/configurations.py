@@ -3,10 +3,12 @@
 from mesa.examples import (
     BoidFlockers,
     BoltzmannWealth,
+    MultiLevelAllianceModel,
     Schelling,
     SugarscapeG1mt,
     WolfSheep,
 )
+from mesa.examples.advanced.alliance_formation.model import AllianceScenario
 from mesa.examples.advanced.sugarscape_g1mt.model import SugarScapeScenario
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
@@ -124,6 +126,20 @@ configurations = {
             "scenario": BoidsScenario(
                 population_size=400, width=150, height=150, vision=15.0
             ),
+        },
+    },
+    MultiLevelAllianceModel: {
+        "small": {
+            "replications": 25,
+            "iterations": 3,
+            "steps": 10,
+            "scenario": AllianceScenario(n=50, mean=0.5, std_dev=0.1, rng=42),
+        },
+        "large": {
+            "replications": 10,
+            "iterations": 3,
+            "steps": 10,
+            "scenario": AllianceScenario(n=200, mean=0.5, std_dev=0.1, rng=42),
         },
     },
 }

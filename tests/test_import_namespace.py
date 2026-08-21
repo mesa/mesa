@@ -61,3 +61,16 @@ def test_simulator_replacement_api_present():
 
     for name in ("Event", "EventGenerator", "EventList", "Priority", "Schedule"):
         assert hasattr(mesa.time, name)
+
+
+def test_meta_agents():
+    """Meta-agents live at mesa.meta_agents, not mesa.experimental.meta_agents."""
+    import mesa  # noqa: PLC0415
+
+    with pytest.raises(ModuleNotFoundError):
+        import mesa.experimental.meta_agents  # noqa: PLC0415
+
+    assert hasattr(mesa, "meta_agents")
+    from mesa.meta_agents import MetaAgents  # noqa: PLC0415
+
+    assert MetaAgents is mesa.meta_agents.MetaAgents
