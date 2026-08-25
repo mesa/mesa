@@ -23,7 +23,7 @@ class PDAgent(CellAgent):
         self.next_move = None
 
     @property
-    def is_cooroperating(self):
+    def is_cooperating(self):
         return self.move == "C"
 
     def step(self):
@@ -34,9 +34,6 @@ class PDAgent(CellAgent):
         neighbors = [*list(self.cell.neighborhood.agents), self]
         best_neighbor = max(neighbors, key=lambda a: a.score)
         self.next_move = best_neighbor.move
-
-        if self.model.activation_order != "Simultaneous":
-            self.advance()
 
     def advance(self):
         self.move = self.next_move

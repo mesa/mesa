@@ -10,7 +10,7 @@ changelog:
     - title: ⏳ Deprecations
       labels:
         - deprecation
-    - title: 🧪 Experimental features
+    - title: 🧪 Experimental
       labels:
         - experimental
     - title: 🎉 New features added
@@ -22,6 +22,9 @@ changelog:
     - title: 🐛 Bugs fixed
       labels:
         - bug
+    - title: ⚡ Performance improvements
+      labels:
+        - performance
     - title: 🔍 Examples updated
       labels:
         - example

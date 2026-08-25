@@ -55,6 +55,7 @@ class AgentPortrayalStyle:
     alpha: float | None = 1.0
     edgecolors: str | tuple | None = None
     linewidths: float | int | None = 1.0
+    tooltip: dict | None = None
 
     def update(self, *updates_fields: tuple[str, Any]):
         """Updates attributes from variable (field_name, new_value) tuple arguments.
@@ -98,10 +99,10 @@ class PropertyLayerStyle:
     'color' (for a uniform layer appearance), but not both simultaneously.
 
     Example:
-        >>> def propertylayer_portrayal(layer):
+        >>> def property_layer_portrayal(layer):
         >>>     return PropertyLayerStyle(colormap="viridis", vmin=0, vmax=100, alpha=0.5, colorbar=True)
         >>> # or for a uniform color layer
-        >>> def propertylayer_portrayal(layer):
+        >>> def property_layer_portrayal(layer):
         >>>     return PropertyLayerStyle(color="lightblue", alpha=0.8, colorbar=False)
     """
 

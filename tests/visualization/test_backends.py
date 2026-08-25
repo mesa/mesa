@@ -8,10 +8,26 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
-from mesa.discrete_space.property_layer import PropertyLayer
+from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_backend_get_agent_pos_raises_when_position_too_short(backend_cls):
+    """Backends should reject agent positions with fewer than 2 coordinates."""
+    backend = backend_cls(space_drawer=MagicMock())
+
+    class DummySpace:
+        viz_dims = (0, 1)
+
+    class DummyAgent:
+        position = (0.1,)
+
+    with pytest.raises(ValueError, match="at least 2 dimensions"):
+        backend._get_agent_pos(DummyAgent(), DummySpace())
 
 
 def test_matplotlib_initialize_canvas():
@@ -46,7 +62,7 @@ def test_matplotlib_backend_collects_agent_data():
     mb = MatplotlibBackend(space_drawer=MagicMock())
 
     class DummyAgent:
-        pos = (0, 0)
+        position = (0, 0)
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
@@ -123,7 +139,7 @@ def test_matplotlib_backend_draw_agents_bad_marker(monkeypatch):
         mb.draw_agents(arguments.copy())
 
 
-def test_matplotlib_backend_draw_propertylayer():
+def test_matplotlib_backend_draw_property():
     """Test drawing property layer."""
     # Test with color
     mb = MatplotlibBackend(space_drawer=MagicMock())
@@ -131,44 +147,35 @@ def test_matplotlib_backend_draw_propertylayer():
 
     # set up space and layer
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    layer = PropertyLayer("test", [2, 2], default_value=0.0)
-    space.add_property_layer(layer)
+    space.create_property_layer("test", default_value=0.0)
 
-    # Test with color
-    def propertylayer_portrayal_color(layer):
-        return PropertyLayerStyle(
+    result = mb.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
             color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
-        )
-
-    result = mb.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_color
+        ),
     )
     assert result[0] == mb.ax
     assert result[1] is None
 
-    # Test with colormap
-    def propertylayer_portrayal_colormap(layer):
-        return PropertyLayerStyle(
+    result = mb.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
             colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
-        )
-
-    result = mb.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_colormap
+        ),
     )
     assert result[0] == mb.ax
     assert result[1] is not None
 
-    # Test with no color or colormap
-    def propertylayer_portrayal_no_color_colormap(layer):
-        return PropertyLayerStyle(
-            color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
-        )
-
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        mb.draw_propertylayer(
+        mb.draw_property_layer(
             space,
-            space._mesa_property_layers,
-            propertylayer_portrayal_no_color_colormap,
+            space.property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
+                color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
+            ),
         )
 
 
@@ -184,7 +191,7 @@ def test_altair_backend_collects_agent_data():
     ab = AltairBackend(space_drawer=MagicMock())
 
     class DummyAgent:
-        pos = (0, 0)
+        position = (0, 0)
         cell = types.SimpleNamespace(coordinate=(0, 0))
 
     class DummySpace:
@@ -254,51 +261,48 @@ def test_altair_backend_draw_agents():
         "color": np.array(["red", "blue"]),
         "filled": np.array([True, True]),
         "stroke": np.array(["black", "black"]),
+        "tooltip": np.array([None, None]),
     }
     ab.space_drawer.get_viz_limits = MagicMock(return_value=(0, 10, 0, 10))
     assert ab.draw_agents(arguments) is not None
 
 
-def test_altair_backend_draw_propertylayer():
-    """Test drawing propertylayer."""
+def test_altair_backend_draw_property_layer():
+    """Test drawing property_layer."""
     ab = AltairBackend(space_drawer=MagicMock())
 
-    # set up space and layer
     space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
-    layer = PropertyLayer("test", [2, 2], default_value=0.0)
-    space.add_property_layer(layer)
+    space.create_property_layer("test", default_value=0.0)
 
-    # Test with color
-    def propertylayer_portrayal_color(layer):
-        return PropertyLayerStyle(
-            color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+    assert (
+        ab.draw_property_layer(
+            space,
+            space.property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
+                color="red", alpha=0.5, vmin=0, vmax=1, colorbar=False
+            ),
         )
-
-    result = ab.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_color
+        is not None
     )
-    assert result is not None
 
-    # Test with colormap
-    def propertylayer_portrayal_colormap(layer):
-        return PropertyLayerStyle(
-            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+    assert (
+        ab.draw_property_layer(
+            space,
+            space.property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
+                colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+            ),
         )
-
-    result = ab.draw_propertylayer(
-        space, space._mesa_property_layers, propertylayer_portrayal_colormap
+        is not None
     )
-    assert result is not None
-
-    # Test with no color or colormap
-    def propertylayer_portrayal(layer):
-        return PropertyLayerStyle(
-            color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
-        )
 
     with pytest.raises(ValueError, match="Specify one of 'color' or 'colormap'"):
-        ab.draw_propertylayer(
-            space, space._mesa_property_layers, propertylayer_portrayal
+        ab.draw_property_layer(
+            space,
+            space.property_layers,
+            lambda l: PropertyLayerStyle(  # noqa: E741
+                color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
+            ),
         )
 
 
@@ -307,21 +311,101 @@ def test_backend_get_agent_pos():
     mb = MatplotlibBackend(space_drawer=MagicMock())
 
     class AgentWithPos:
-        pos = (1, 2)
+        position = (1, 2)
 
     x, y = mb._get_agent_pos(AgentWithPos(), None)
     assert (x, y) == (1, 2)
 
     class AgentWithCell:
-        pos = None
+        position = (3, 4)
         cell = types.SimpleNamespace(coordinate=(3, 4))
 
     x, y = mb._get_agent_pos(AgentWithCell(), None)
     assert (x, y) == (3, 4)
 
 
+def test_backend_get_agent_pos_uses_space_drawer_viz_dims():
+    """Backends should project continuous positions using the space drawer's viz_dims."""
+    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
+
+    class DummyAgent:
+        position = (0.1, 0.2, 0.3)
+
+    x, y = mb._get_agent_pos(DummyAgent(), None)
+    assert (x, y) == (0.1, 0.3)
+
+
+def test_backend_get_agent_pos_raises_when_viz_dims_out_of_range():
+    """Backends should raise a helpful error when viz_dims do not match the position."""
+    mb = MatplotlibBackend(space_drawer=types.SimpleNamespace(viz_dims=(0, 2)))
+
+    class DummyAgent:
+        position = (0.1, 0.2)
+
+    with pytest.raises(ValueError, match="not have enough dimensions"):
+        mb._get_agent_pos(DummyAgent(), None)
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_backend_collect_agent_data_projects_3d_continuous_positions(backend_cls):
+    """Test collect_agent_data projects nD continuous positions onto viz_dims."""
+    backend = backend_cls(space_drawer=MagicMock())
+    model = Model(rng=42)
+    space = ContinuousSpace(
+        dimensions=np.array([[0, 1], [0, 1], [0, 1]]),
+        torus=False,
+        random=model.random,
+    )
+
+    agent_1 = ContinuousSpaceAgent(space, model)
+    agent_1.position = [0.1, 0.2, 0.3]
+    agent_2 = ContinuousSpaceAgent(space, model)
+    agent_2.position = [0.4, 0.5, 0.6]
+
+    def agent_portrayal(agent):
+        return AgentPortrayalStyle(
+            x=None,
+            y=None,
+            size=5,
+            color="red",
+            marker="o",
+            zorder=1,
+            alpha=1.0,
+            edgecolors="black",
+            linewidths=1,
+        )
+
+    data = backend.collect_agent_data(space, agent_portrayal)
+
+    assert data["loc"].shape == (2, 2)
+    np.testing.assert_allclose(data["loc"][:, 0], [0.1, 0.4])
+    np.testing.assert_allclose(data["loc"][:, 1], [0.2, 0.5])
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_backend_collect_agent_data_warns_once_for_dict_portrayal(backend_cls):
+    """The dict portrayal FutureWarning is emitted once per call, not per agent."""
+    backend = backend_cls(space_drawer=MagicMock())
+
+    class DummyAgent:
+        position = (0, 0)
+        cell = types.SimpleNamespace(coordinate=(0, 0))
+
+    class DummySpace:
+        agents: ClassVar[list] = [DummyAgent() for _ in range(5)]
+
+    def agent_portrayal_dict(agent):
+        return {"size": 5, "color": "red", "marker": "o"}
+
+    with pytest.warns(FutureWarning) as record:
+        data = backend.collect_agent_data(DummySpace(), agent_portrayal_dict)
+
+    assert len([w for w in record if issubclass(w.category, FutureWarning)]) == 1
+    assert data["loc"].shape[0] == 5
+
+
 def test_backends_handle_errors():
-    """Test error handling scenarios for invalid agent/propertylayer data."""
+    """Test error handling scenarios for invalid agent/property_layer data."""
     mb = MatplotlibBackend(space_drawer=MagicMock())
     mb.initialize_canvas()
     arguments = {

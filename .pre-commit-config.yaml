@@ -5,10 +5,10 @@ ci:
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.14.10
+  rev: v0.15.4
   hooks:
     # Run the linter.
-    - id: ruff
+    - id: ruff-check
       types_or: [ python, pyi, jupyter ]
       args: [ --fix ]
     # Run the formatter.
@@ -32,7 +32,7 @@ repos:
 
 # Prose linting with Vale
 - repo: https://github.com/errata-ai/vale
-  rev: v3.0.7
+  rev: v3.13.1
   hooks:
     - id: vale
       name: Vale

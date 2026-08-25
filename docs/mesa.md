@@ -11,14 +11,6 @@
     :show-inheritance:
 ```
 
-## mesa.batchrunner module
-
-```{eval-rst}
-.. automodule:: mesa.batchrunner
-    :members:
-    :undoc-members:
-    :show-inheritance:
-```
 
 ## mesa.datacollection module
 
@@ -42,15 +34,6 @@
 
 ```{eval-rst}
 .. automodule:: mesa.model
-    :members:
-    :undoc-members:
-    :show-inheritance:
-```
-
-## mesa.space module
-
-```{eval-rst}
-.. automodule:: mesa.space
     :members:
     :undoc-members:
     :show-inheritance:

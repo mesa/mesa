@@ -38,6 +38,7 @@ from copy import deepcopy
 from functools import partial
 
 from mesa import Agent
+from mesa.exceptions import TableMissingException
 
 with contextlib.suppress(ImportError):
     import pandas as pd
@@ -64,9 +65,10 @@ class DataCollector:
 
         Both model_reporters, agent_reporters, and agenttype_reporters accept a
         dictionary mapping a variable name to either an attribute name, a function,
-        a method of a class/instance, or a function with parameters placed in a list.
+        a method of a class/instance, a partial function, or a function with
+        parameters placed in a list.
 
-        Model reporters can take four types of arguments:
+        Model reporters can take five types of arguments:
         1. Lambda function:
            {"agent_count": lambda m: len(m.agents)}
         2. Method of a class/instance:
@@ -74,7 +76,9 @@ class DataCollector:
            {"agent_count": Model.get_agent_count} # Model here is a class
         3. Class attributes of a model:
            {"model_attribute": "model_attribute"}
-        4. Functions with parameters that have been placed in a list:
+        4. Partial function:
+           {"agent_count": functools.partial(count_agents, multiplier=2)}
+        5. Functions with parameters that have been placed in a list:
            {"Model_Function": [function, [param_1, param_2]]}
 
         Agent reporters can similarly take:
@@ -85,7 +89,9 @@ class DataCollector:
         3. Method of an agent class/instance:
            {"agent_action": self.do_action} # self here is an agent class instance
            {"agent_action": Agent.do_action} # Agent here is a class
-        4. Functions with parameters placed in a list:
+        4. Partial function:
+           {"energy": functools.partial(get_energy, scale=2)}
+        5. Functions with parameters placed in a list:
            {"Agent_Function": [function, [param_1, param_2]]}
 
         Agenttype reporters take a dictionary mapping agent types to dictionaries
@@ -140,6 +146,20 @@ class DataCollector:
             for name, columns in tables.items():
                 self._new_table(name, columns)
 
+    @staticmethod
+    def _check_list_reporter(name, reporter):
+        """Validate that a list-style reporter has the form [callable, [params]]."""
+        if len(reporter) != 2 or not callable(reporter[0]):
+            raise ValueError(
+                f"Reporter '{name}' must use the format [function, [param1, param2]]. "
+                f"Got: {reporter!r}"
+            )
+        if not isinstance(reporter[1], (list, tuple)):
+            raise ValueError(
+                f"Reporter '{name}' must use the format [function, [param1, param2]]. "
+                f"The second element must be a list or tuple of parameters, got: {reporter[1]!r}"
+            )
+
     def _validate_model_reporter(self, name, reporter, model):
         """Validate model reporter and handle validation results appropriately.
 
@@ -154,10 +174,9 @@ class DataCollector:
             TypeError: If reporter type is not supported
             RuntimeError: If reporter execution fails
         """
-        self._validated = True  # put the change of signal firstly avoid losing efficacy
+        self._validated = True
 
-        # Type 1: Lambda function
-        if isinstance(reporter, types.LambdaType):
+        if isinstance(reporter, (types.LambdaType, partial)):
             try:
                 reporter(model)
             except Exception as e:
@@ -166,36 +185,28 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        # Type 2: Method of class/instance (bound methods are callable)
-        if callable(reporter) and not isinstance(reporter, types.LambdaType):
+        if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
             try:
-                reporter()  # Call without args for bound methods
+                reporter()
             except Exception as e:
                 raise RuntimeError(
                     f"Method reporter '{name}' failed validation: {e!s}"
                 ) from e
-        # if not callable(reporter) and not isinstance(reporter, types.LambdaType):
-        #     pass
 
-        # Type 3: Model attribute (string)
         if isinstance(reporter, str):
             try:
                 if not hasattr(model, reporter):
                     raise AttributeError(
                         f"Model reporter '{name}' references non-existent attribute '{reporter}'\n"
                     )
-                getattr(model, reporter)  # verify attribute is accessible
+                getattr(model, reporter)
             except AttributeError as e:
                 raise AttributeError(
                     f"Model reporter '{name}' attribute validation failed: {e!s}\n"
                 ) from e
 
-        # Type 4: Function with parameters in list
-        if isinstance(reporter, list) and (not reporter or not callable(reporter[0])):
-            raise ValueError(
-                f"Invalid function list format for reporter '{name}'\n"
-                f"Expected: [function, [param1, param2]], got: {reporter}"
-            )
+        if isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
 
     def _new_model_reporter(self, name, reporter):
         """Add a new model-level reporter to collect.
@@ -208,6 +219,8 @@ class DataCollector:
                 3. Method: model.get_count or Model.get_count
                 4. List of [function, [parameters]]
         """
+        if isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
         self.model_reporters[name] = reporter
         self.model_vars[name] = []
 
@@ -235,8 +248,8 @@ class DataCollector:
 
             reporter = attr_reporter
 
-        # Check if the reporter is a function with arguments placed in a list
         elif isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
@@ -278,6 +291,7 @@ class DataCollector:
             reporter = attr_reporter
 
         elif isinstance(reporter, list):
+            self._check_list_reporter(name, reporter)
             func, params = reporter[0], reporter[1]
 
             def func_with_params(agent):
@@ -375,6 +389,7 @@ class DataCollector:
                     )
                 # Check if function with arguments
                 elif isinstance(reporter, list):
+                    self._check_list_reporter(var, reporter)
                     self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
                 # Assume it's a callable otherwise (e.g., method)
                 else:
@@ -402,7 +417,7 @@ class DataCollector:
                             if False, throw an error if any columns are missing
         """
         if table_name not in self.tables:
-            raise Exception("Table does not exist.")
+            raise TableMissingException(table_name)
 
         for column in self.tables[table_name]:
             if column in row:
@@ -410,7 +425,7 @@ class DataCollector:
             elif ignore_missing:
                 self.tables[table_name][column].append(None)
             else:
-                raise Exception("Could not insert row with missing column")
+                raise ValueError(f"Could not insert row with missing column '{column}'")
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
@@ -418,11 +433,14 @@ class DataCollector:
         The DataFrame has one column for each model variable, and the index is
         (implicitly) the model tick.
         """
-        # Check if self.model_reporters dictionary is empty, if so raise warning
+        # Check if self.model_reporters dictionary is empty, if so warn
         if not self.model_reporters:
-            raise UserWarning(
-                "No model reporters have been defined in the DataCollector, returning empty DataFrame."
+            warnings.warn(
+                "No model reporters have been defined in the DataCollector, returning empty DataFrame.",
+                UserWarning,
+                stacklevel=2,
             )
+            return pd.DataFrame()
 
         return pd.DataFrame(self.model_vars)
 
@@ -432,11 +450,14 @@ class DataCollector:
         The DataFrame has one column for each variable, with two additional
         columns for tick and agent_id.
         """
-        # Check if self.agent_reporters dictionary is empty, if so raise warning
+        # Check if self.agent_reporters dictionary is empty, if so warn
         if not self.agent_reporters:
-            raise UserWarning(
-                "No agent reporters have been defined in the DataCollector, returning empty DataFrame."
+            warnings.warn(
+                "No agent reporters have been defined in the DataCollector, returning empty DataFrame.",
+                UserWarning,
+                stacklevel=2,
             )
+            return pd.DataFrame()
 
         all_records = itertools.chain.from_iterable(self._agent_records.values())
         rep_names = list(self.agent_reporters)
@@ -487,5 +508,5 @@ class DataCollector:
             table_name: The name of the table to convert.
         """
         if table_name not in self.tables:
-            raise Exception("No such table.")
+            raise TableMissingException(table_name)
         return pd.DataFrame(self.tables[table_name])

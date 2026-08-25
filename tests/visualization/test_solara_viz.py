@@ -1,5 +1,6 @@
 """Test Solara visualizations - Modern API."""
 
+import random
 import re
 import unittest
 
@@ -8,7 +9,8 @@ import pytest
 import solara
 
 import mesa
-from mesa.space import MultiGrid, PropertyLayer
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
+from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
@@ -17,7 +19,9 @@ from mesa.visualization.solara_viz import (
     Slider,
     SolaraViz,
     UserInputs,
+    _build_model_init_kwargs,
     _check_model_params,
+    _validate_model_params,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
@@ -110,28 +114,36 @@ def test_solara_viz_backends(mocker, backend):
     """Validates BOTH backends using the modern API."""
     spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
     spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
-    spy_properties = mocker.spy(SpaceRenderer, "draw_propertylayer")
+    spy_properties = mocker.spy(SpaceRenderer, "draw_property_layer")
 
     class MockModel(mesa.Model):
         def __init__(self):
             super().__init__()
-            # Include property layer to verify it gets drawn
-            layer = PropertyLayer("sugar", 10, 10, 10.0, dtype=float)
-            self.grid = MultiGrid(10, 10, True, property_layers=layer)
-            self.grid.place_agent(mesa.Agent(self), (5, 5))
+            self.grid = OrthogonalMooreGrid(
+                (10, 10), torus=True, random=random.Random(42)
+            )
+            self.grid.create_property_layer("sugar", default_value=10.0, dtype=float)
+
+            agent = CellAgent(self)
+            agent.cell = self.grid[
+                (
+                    5,
+                    5,
+                )
+            ]
 
     model = MockModel()
 
     def agent_portrayal(_):
         return AgentPortrayalStyle(marker="o", color="gray")
 
-    def property_portrayal(_):
+    def property_layer_portrayal(_):
         return PropertyLayerStyle(colormap="viridis")
 
     renderer = (
         SpaceRenderer(model, backend=backend)
         .setup_agents(agent_portrayal)
-        .setup_propertylayer(property_portrayal)
+        .setup_property_layer(property_layer_portrayal)
         .render()
     )
 
@@ -274,3 +286,199 @@ def test_check_model_params_with_args_only():
         ),
     ):
         _check_model_params(ModelWithArgsOnly.__init__, model_params)
+
+
+def test_solara_viz_with_scenario():
+    """Test SolaraViz with scenario-enabled models."""
+
+    class TestScenario(Scenario):
+        density: float = 0.8
+        vision: int = 7
+
+    class TestModel(mesa.Model):
+        def __init__(self, height=20, width=20, scenario: TestScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.height = height
+            self.width = width
+
+    scenario = TestScenario(density=0.5, vision=10)
+    model = TestModel(scenario=scenario)
+
+    model_params = {
+        "height": Slider("Height", 30, 10, 50, 5),
+        "width": Slider("Width", 25, 10, 50, 5),
+        "density": Slider("Density", 0.7, 0.0, 1.0, 0.1),  # Scenario param
+        "vision": Slider("Vision", 5, 1, 15, 1),  # Scenario param
+    }
+
+    # Should render without error
+    solara.render(SolaraViz(model, model_params=model_params), handle_error=False)
+
+
+def test_model_creator_with_scenario():
+    """Test ModelCreator component with scenario parameters."""
+
+    class TestScenario(Scenario):
+        param1: float = 0.5
+        param2: int = 10
+
+    class TestModel(mesa.Model):
+        def __init__(self, model_param=5, scenario: TestScenario | None = None):
+            super().__init__(scenario=scenario)
+            self.model_param = model_param
+
+    scenario = TestScenario(param1=0.8, param2=15)
+    model = TestModel(model_param=10, scenario=scenario)
+
+    # Only include model parameters in user_params for ModelCreator
+    # Scenario parameters are handled internally by the parameter splitting logic
+    user_params = {
+        "model_param": 20,
+    }
+
+    # Should render without error
+    solara.render(
+        ModelCreator(
+            solara.reactive(model),
+            user_params=user_params,
+        ),
+        handle_error=False,
+    )
+
+
+def test_parameter_splitting_logic():
+    """Test the core parameter splitting logic used in ModelController."""
+
+    class TestScenario(Scenario):
+        scenario_param1: float = 0.5
+        scenario_param2: int = 10
+
+    class TestModel(mesa.Model):
+        def __init__(
+            self, model_param1=5, model_param2=15, scenario: TestScenario | None = None
+        ):
+            super().__init__(scenario=scenario)
+            self.model_param1 = model_param1
+            self.model_param2 = model_param2
+
+    # Test the splitting logic
+    scenario = TestScenario(scenario_param1=0.8, scenario_param2=20)
+    model = TestModel(model_param1=10, model_param2=25, scenario=scenario)
+
+    # Mock model parameters (mixed model and scenario params)
+    model_parameters = {
+        "model_param1": 15,
+        "model_param2": 30,
+        "scenario_param1": 0.9,  # Should go to scenario
+        "scenario_param2": 25,  # Should go to scenario
+    }
+
+    # Test the splitting logic using the actual helper
+    kwargs = _build_model_init_kwargs(
+        model,
+        model_parameters,
+        add_scenario_when_empty=True,
+        require_model_accepts_scenario=True,
+    )
+
+    # Verify the split
+    assert "model_param1" in kwargs
+    assert "model_param2" in kwargs
+    assert "scenario" in kwargs
+    assert isinstance(kwargs["scenario"], TestScenario)
+    assert kwargs["scenario"].scenario_param1 == 0.9
+    assert kwargs["scenario"].scenario_param2 == 25
+    assert kwargs["model_param1"] == 15
+    assert kwargs["model_param2"] == 30
+
+
+def test_raw_solara_component_in_model_params():  # noqa: D103
+    with pytest.raises(
+        TypeError,
+        match="model_params\\['raw_param'\\] has unsupported type",
+    ):
+        _validate_model_params({"raw_param": solara.SliderInt("Raw", 10)})
+
+
+def test_unsupported_type_rejected():  # noqa: D103
+    with pytest.raises(
+        TypeError, match="model_params\\['agents'\\] has unsupported type 'list'"
+    ):
+        _validate_model_params({"agents": [1, 2, 3]})
+
+    class MyObj:
+        pass
+
+    with pytest.raises(
+        TypeError, match="model_params\\['obj'\\] has unsupported type 'MyObj'"
+    ):
+        _validate_model_params({"obj": MyObj()})
+
+    with pytest.raises(
+        TypeError, match="model_params\\['x'\\] has unsupported type 'NoneType'"
+    ):
+        _validate_model_params({"x": None})
+
+
+def test_valid_model_params_types_accepted():  # noqa: D103
+    _validate_model_params(
+        {
+            "int_param": 5,
+            "float_param": 0.5,
+            "bool_param": False,
+            "str_param": "hello",
+        }
+    )
+
+    _validate_model_params({"slider_param": Slider("Slider", 5, 1, 10, 1)})
+
+    _validate_model_params({"dict_param": {"type": "SliderInt", "value": 5}})
+
+
+# ---------------------------------------------------------------------------
+# Class-vs-instance validation tests
+# ---------------------------------------------------------------------------
+
+
+class DummyModel(mesa.Model):
+    """A dummy model for validating SolaraViz class vs instance checks."""
+
+    def __init__(self):
+        """Initialize the dummy model."""
+        super().__init__()
+
+
+def test_solara_viz_rejects_class_instead_of_instance():
+    """Verify TypeError properly raised when passing a Model class."""
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(DummyModel, components=[], model_params={}), handle_error=False
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+    reactive_model = solara.reactive(DummyModel)
+    with pytest.raises(TypeError, match="initialized model instance") as exc_info:
+        solara.render(
+            SolaraViz(reactive_model, components=[], model_params={}),
+            handle_error=False,
+        )
+    assert (
+        "Did you mean: SolaraViz(DummyModel(), ...) instead of SolaraViz(DummyModel, ...)?"
+        in str(exc_info.value)
+    )
+
+
+def test_solara_viz_accepts_model_instance():
+    """Verify an instantiated model passes the instance validation check."""
+    model_instance = DummyModel()
+    solara.render(
+        SolaraViz(model_instance, components=[], model_params={}), handle_error=False
+    )
+
+    reactive_model = solara.reactive(model_instance)
+    solara.render(
+        SolaraViz(reactive_model, components=[], model_params={}), handle_error=False
+    )

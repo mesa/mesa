@@ -36,9 +36,9 @@ class VirusOnNetwork(Model):
         virus_check_frequency=0.4,
         recovery_chance=0.3,
         gain_resistance_chance=0.5,
-        seed=None,
+        rng=None,
     ):
-        super().__init__(seed=seed)
+        super().__init__(rng=rng)
         prob = avg_node_degree / num_nodes
         graph = nx.erdos_renyi_graph(n=num_nodes, p=prob)
         self.grid = Network(graph, capacity=1, random=self.random)

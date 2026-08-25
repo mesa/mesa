@@ -14,18 +14,17 @@ or Hex for more uniform distances.
 from __future__ import annotations
 
 import copyreg
+import math
 from collections.abc import Sequence
-from itertools import product
+from itertools import chain, product
 from random import Random
 from typing import Any, TypeVar
 
 import numpy as np
+from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
-from mesa.discrete_space.property_layer import (
-    HasPropertyLayers,
-    PropertyDescriptor,
-)
+from mesa.discrete_space.cell_collection import CellCollection
 
 T = TypeVar("T", bound=Cell)
 
@@ -43,7 +42,7 @@ def unpickle_gridcell(parent, fields):
     cell_klass = type(
         "GridCell",
         (parent,),
-        {"_mesa_properties": set()},
+        {"property_layers": set(), "__slots__": ()},
     )
     instance = cell_klass(
         (0, 0)
@@ -52,13 +51,12 @@ def unpickle_gridcell(parent, fields):
     # __gestate__ returns a tuple with dict and slots, but slots contains the dict so we can just use the
     # second item only
     for k, v in fields[1].items():
-        if k != "__dict__":
-            setattr(instance, k, v)
+        setattr(instance, k, v)
 
     return instance
 
 
-class Grid(DiscreteSpace[T], HasPropertyLayers):
+class Grid(DiscreteSpace[T]):
     """Base class for all grid classes.
 
     Attributes:
@@ -69,7 +67,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         _try_random (bool): whether to get empty cell be repeatedly trying random cell
 
     Notes:
-        width and height are accessible via properties, higher dimensions can be retrieved via dimensions
+        width and height are accessible via property_layers, higher dimensions can be retrieved via dimensions
 
     """
 
@@ -109,8 +107,12 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"_mesa_properties": set()},
+            {"property_layers": set(), "__slots__": ()},
         )
+        self.property_layers: dict[str, np.ndarray] = {}
+        # Track which property layers are read-only so the constraint survives
+        # pickling and deepcopy (see __getstate__/__setstate__).
+        self._read_only_layers: set[str] = set()
 
         # we register the pickle_gridcell helper function
         copyreg.pickle(self.cell_klass, pickle_gridcell)
@@ -118,11 +120,146 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
         self._cells = {
-            coord: self.cell_klass(coord, capacity, random=self.random)
+            coord: self.cell_klass(coord, capacity=capacity, random=self.random)
             for coord in coordinates
         }
+        self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def create_property_layer(
+        self,
+        name: str,
+        default_value=0.0,
+        dtype=float,
+        read_only: bool = False,
+    ) -> np.ndarray:
+        """Create a property layer array and attach it to cells.
+
+        Warning:
+        Do not reassign `grid.name` directly — this will detach it from
+        `property_layers` and break cell-level access. Use in-place operations.
+
+            grid.sugar[:] = 0    # correct
+            grid.sugar = array   # wrong — breaks cell access
+        """
+        array = np.full(self.dimensions, default_value, dtype=dtype)
+        self._attach_property_layer(name, array, read_only=read_only)
+        return array
+
+    def add_property_layer(
+        self, name: str, array: np.ndarray, read_only: bool = False
+    ) -> None:
+        """Attach an existing array as a property layer.  Shape must match `self.dimensions`.
+
+        Warning:
+        Do not reassign `grid.name` directly — this will detach it from
+        `property_layers` and break cell-level access. Use in-place operations.
+
+            grid.sugar[:] = 0    # correct
+            grid.sugar = array   # wrong — breaks cell access
+        """
+        if tuple(array.shape) != tuple(self.dimensions):
+            raise ValueError(
+                f"Array shape {array.shape} does not match grid dimensions {self.dimensions}."
+            )
+        self._attach_property_layer(name, array, read_only=read_only)
+
+    def remove_property_layer(self, name: str) -> None:
+        """Remove a property_layer.
+
+        Args:
+            name: property_layer name.
+        """
+        if name not in self.property_layers:
+            raise KeyError(f"No property_layer named '{name}'.")
+        del self.property_layers[name]
+        delattr(self.cell_klass, name)
+        self.cell_klass.property_layers.discard(name)
+        self._read_only_layers.discard(name)
+
+    def _attach_property_layer(
+        self, name: str, array: np.ndarray, read_only: bool = False
+    ) -> None:
+        if name in type(self).__dict__ or any(
+            name in c.__dict__ for c in type(self).__mro__
+        ):
+            raise ValueError(
+                f"property_layer '{name}' conflicts with an existing Grid attribute."
+            )
+
+        if name in self.property_layers:
+            raise ValueError(f"property_layer '{name}' already exists.")
+
+        slots = set(
+            chain.from_iterable(
+                getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
+            )
+        )
+        if name in slots:
+            raise ValueError(
+                f"property_layer name '{name}' clashes with existing slot '{name}'."
+            )
+        self.property_layers[name] = array
+        setattr(self, name, array)
+
+        def getter(self_cell):
+            return array[self_cell.coordinate]
+
+        def setter(self_cell, value):
+            array[self_cell.coordinate] = value
+
+        accessor = (
+            property(getter, doc=f"property_layer '{name}'")
+            if read_only
+            else property(getter, setter, doc=f"property_layer '{name}'")
+        )
+        setattr(self.cell_klass, name, accessor)
+        self.cell_klass.property_layers.add(name)
+        if read_only:
+            self._read_only_layers.add(name)
+
+    def get_neighborhood_mask(
+        self, coordinate, include_center: bool = True, radius: int = 1
+    ) -> np.ndarray:
+        """Return a boolean mask shaped like ``self.dimensions`` for a neighborhood."""
+        cell = self._cells[coordinate]
+        neighborhood = cell.get_neighborhood(
+            include_center=include_center, radius=radius
+        )
+        mask = np.zeros(self.dimensions, dtype=bool)
+        coords = np.array([c.coordinate for c in neighborhood])
+        if coords.size:
+            mask[tuple(coords[:, i] for i in range(coords.shape[1]))] = True
+        return mask
+
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the cell containing the given position.
+
+        Args:
+            position: Physical position [x, y]
+
+        Returns:
+            Cell: The cell containing the position
+
+        Raises:
+            ValueError: If position is outside grid bounds and not a torus
+        """
+        # Floor to get cell coordinate
+        coord = tuple(np.floor(position).astype(int))
+
+        # Handle torus wrapping
+        if self.torus:
+            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+
+        # Check bounds for non-torus grids
+        elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
+            raise ValueError(
+                f"Position {position} is outside grid bounds. "
+                f"Dimensions: {self.dimensions}"
+            )
+
+        return self._cells[coord]
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
@@ -130,17 +267,23 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         else:
             self._connect_cells_nd()
 
-    def _connect_cells_2d(self) -> None: ...
+    def _connect_cells_2d(self) -> None:
+        raise NotImplementedError(  # pragma: no cover
+            f"{type(self).__name__} does not implement _connect_cells_2d(). "
+        )
 
-    def _connect_cells_nd(self) -> None: ...
+    def _connect_cells_nd(self) -> None:
+        raise NotImplementedError(  # pragma: no cover
+            f"{type(self).__name__} does not implement _connect_cells_nd(). "
+        )
 
     def _validate_parameters(self):
         if not all(isinstance(dim, int) and dim > 0 for dim in self.dimensions):
             raise ValueError("Dimensions must be a list of positive integers.")
         if not isinstance(self.torus, bool):
-            raise ValueError("Torus must be a boolean.")
+            raise TypeError("Torus must be a boolean.")
         if self.capacity is not None and not isinstance(self.capacity, float | int):
-            raise ValueError("Capacity must be a number or None.")
+            raise TypeError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
@@ -152,16 +295,87 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
+        random = self.random
+        cells = self._celllist
+
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
-                cell = self.all_cells.select_random_cell()
+                cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.empty.data)
-        random_coord = self.random.choice(empty_coords)
+        empty_coords = np.argwhere(self.property_layers["empty"])
+        try:
+            random_coord = self.random.choice(empty_coords)
+        except IndexError as e:
+            raise ValueError(
+                "Grid is completely full. No empty cells available. "
+                "Cannot select a random empty cell."
+            ) from e
         return self._cells[tuple(random_coord)]
+
+    @property
+    def cells_with_capacity(self) -> CellCollection[T]:
+        """Return all cells that have available capacity (i.e. are not full).
+
+        A cell is considered *available* if ``not cell.is_full``.
+
+        This is meaningfully different from :attr:`~DiscreteSpace.empties`:
+        ``empties`` only includes cells with **zero** agents. If a cell has
+        ``capacity=5`` and currently holds 3 agents it is **not** empty, but it
+        **is** still available. ``available_cells`` is therefore the correct
+        API for models where agents share cells up to a finite limit.
+
+        For cells with ``capacity=None`` (unlimited), every cell is always
+        available regardless of how many agents it holds.
+
+        Returns:
+            CellCollection[T]: All cells where ``len(agents) < capacity``
+            (or all cells when capacity is None).
+
+        Example::
+
+            # Place an agent in any non-full cell
+            agent.move_to(grid.select_random_cell_with_capacity())
+
+            # Count how many cells still have room
+            len(list(grid.cells_with_capacity))
+        """
+        if self.capacity is None:
+            return self.all_cells
+        return self.all_cells.select(lambda cell: not cell.is_full)
+
+    def select_random_cell_with_capacity(self) -> Cell:
+        """Select a random cell that has remaining capacity.
+
+        Raises:
+            IndexError: If every cell in the grid is at full capacity.
+
+        Example::
+
+            # Safe placement that respects capacity limits
+            free_cell = grid.select_random_cell_with_capacity()
+            agent.move_to(free_cell)
+        """
+        random = self.random
+        cells = self._celllist
+        # Fast path: up to 50 random samples, O(1) average when grid is sparse.
+        # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
+        # heuristic, see https://github.com/JuliaDynamics/Agents.jl/pull/541).
+
+        if self._try_random:
+            for _ in range(50):
+                cell = random.choice(cells)
+                if not cell.is_full:
+                    return cell
+
+        available = list(self.cells_with_capacity)
+        if not available:
+            raise IndexError(
+                "No available cells exist in the grid: all cells are at full capacity."
+            )
+        return random.choice(available)
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
@@ -185,21 +399,36 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 cell.connect(self._cells[ni, nj], (di, dj))
 
     def __getstate__(self) -> dict[str, Any]:
-        """Custom __getstate__ for handling dynamic GridCell class and PropertyDescriptors."""
+        """Custom __getstate__ for handling dynamic GridCell class and property_layer accessors."""
         state = super().__getstate__()
         state = {k: v for k, v in state.items() if k != "cell_klass"}
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
-        self.__dict__ = state
-        self._connect_cells()  # using super fails for this for some reason, so we repeat ourselves
+        """Restore state and re-attach property_layer accessors to the cell class.
 
-        self.cell_klass = type(
-            self._cells[(0, 0)]
-        )  # the __reduce__ function handles this for us nicely
-        for layer in self._mesa_property_layers.values():
-            setattr(self.cell_klass, layer.name, PropertyDescriptor(layer))
+        Read-only layers (tracked in ``_read_only_layers``) are restored without a
+        setter so the read-only constraint survives the round trip.
+        """
+        super().__setstate__(state)
+        # Older pickles may predate _read_only_layers; default to no read-only layers.
+        read_only_layers = getattr(self, "_read_only_layers", set())
+        self._read_only_layers = read_only_layers
+        for name, array in self.property_layers.items():
+            if name in read_only_layers:
+                accessor = property(
+                    lambda self_cell, a=array: a[self_cell.coordinate],
+                    doc=f"property_layer '{name}'",
+                )
+            else:
+                accessor = property(
+                    lambda self_cell, a=array: a[self_cell.coordinate],
+                    lambda self_cell, v, a=array: a.__setitem__(
+                        self_cell.coordinate, v
+                    ),
+                    doc=f"property_layer '{name}'",
+                )
+            setattr(self.cell_klass, name, accessor)
 
 
 class OrthogonalMooreGrid(Grid[T]):
@@ -284,6 +513,68 @@ class HexGrid(Grid[T]):
     Raises:
         ValueError: If torus=True and either width or height is odd.
     """
+
+    def __init__(
+        self,
+        dimensions: Sequence[int],
+        torus: bool = False,
+        capacity: float | None = None,
+        random: Random | None = None,
+        cell_klass: type[T] = Cell,
+    ) -> None:
+        """Initialize the hex grid.
+
+        Args:
+            dimensions: the dimensions of the space
+            torus: whether the space wraps
+            capacity: capacity of the grid cell
+            random: a random number generator
+            cell_klass: the base class to use for the cells
+        """
+        super().__init__(
+            dimensions=dimensions,
+            torus=torus,
+            capacity=capacity,
+            random=random,
+            cell_klass=cell_klass,
+        )
+        self._init_hex_geometry()
+
+    def _init_hex_geometry(self) -> None:
+        """Calculate physical positions for all cells and build KD-Tree.
+
+        Refer https://www.redblobgames.com/grids/hexagons/#hex-to-pixel for more detail
+        """
+        positions = []
+        self._kdtree_coords = []
+
+        size = 1.0
+        for coord, cell in self._cells.items():
+            col, row = coord
+            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            y = size * 1.5 * row
+            position = np.array([x, y])
+
+            cell.position = position
+            positions.append(position)
+            self._kdtree_coords.append(coord)
+
+        self._kdtree = KDTree(np.array(positions))
+
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the hex cell at the given position."""
+        position = np.asarray(position)
+
+        if self.torus:
+            width_pixels = self.dimensions[0] * math.sqrt(3)
+            height_pixels = self.dimensions[1] * 1.5
+            position = np.array(
+                [position[0] % width_pixels, position[1] % height_pixels]
+            )
+
+        _, index = self._kdtree.query(position)
+        coord = self._kdtree_coords[index]
+        return self._cells[coord]
 
     def _connect_cells_2d(self) -> None:
         # fmt: off

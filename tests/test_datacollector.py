@@ -1,11 +1,15 @@
 """Test the DataCollector."""
 
 import unittest
+import warnings
+from functools import partial
 
 import pandas as pd
+import pytest
 
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
+from mesa.exceptions import TableMissingException
 
 
 class MockAgent(Agent):
@@ -88,7 +92,7 @@ class MockModel(Model):
         if input2 > 0:
             return (self.model_val * input1) / input2
         else:
-            assert ValueError
+            # Return None for invalid input (input2 must be positive for division)
             return None
 
     def step(self):  # noqa: D102
@@ -511,11 +515,106 @@ class TestDataCollectorErrorHandling(unittest.TestCase):
 
     def test_function_error(self):
         """Test error when function list is not callable."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(model_reporters={"bad_function": ["not_callable", [1, 2]]})
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_function_error_missing_params_list(self):
+        """Test error when function list is missing parameter list."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(model_reporters={"bad_function": [lambda m: len(m.agents)]})
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_function_error_invalid_params_type(self):
+        """Test error when function list has non-list/tuple params."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(
+                model_reporters={"bad_function": [lambda m, x: len(m.agents) + x, 1]}
+            )
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("list or tuple of parameters", str(context.exception))
+
+    def test_function_error_after_validation(self):
+        """Test collect defensively rejects invalid reporter after validation."""
         dc_function = DataCollector(
-            model_reporters={"bad_function": ["not_callable", [1, 2]]}
+            model_reporters={"bad_function": lambda m: len(m.agents)}
         )
-        with self.assertRaises(ValueError):
+        dc_function._validated = True
+        dc_function.model_reporters["bad_function"] = [lambda m: len(m.agents)]
+
+        with self.assertRaises(ValueError) as context:
             dc_function.collect(self.model)
+
+        self.assertIn("bad_function", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_agent_reporter_error_missing_params_list(self):
+        """Test agent reporters reject malformed list reporters at init time."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(agent_reporters={"bad_agent": [lambda a: a]})
+
+        self.assertIn("bad_agent", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_agenttype_reporter_error_missing_params_list(self):
+        """Test agenttype reporters reject malformed list reporters at init time."""
+        with self.assertRaises(ValueError) as context:
+            DataCollector(
+                agenttype_reporters={MockAgent: {"bad_agenttype": [lambda a: a]}}
+            )
+
+        self.assertIn("bad_agenttype", str(context.exception))
+        self.assertIn("[function, [param1, param2]]", str(context.exception))
+
+    def test_valid_model_list_reporter_with_empty_params(self):
+        """Test valid model list reporters still work with empty params."""
+
+        def constant_value():
+            return self.model.num_agents
+
+        dc_function = DataCollector(
+            model_reporters={"agent_count": [constant_value, []]}
+        )
+        dc_function.collect(self.model)
+
+        data = dc_function.get_model_vars_dataframe()
+        self.assertEqual(data["agent_count"][0], self.model.num_agents)
+
+    def test_valid_agent_reporter_with_complex_params(self):
+        """Test agent reporters still accept complex parameter values."""
+
+        def describe_agent(agent, prefix, config):
+            return f"{prefix}:{agent.unique_id}:{config['scale']}"
+
+        model = Model()
+        Agent(model)
+        dc_function = DataCollector(
+            agent_reporters={"descriptor": [describe_agent, ["agent", {"scale": 2}]]}
+        )
+        dc_function.collect(model)
+
+        records = dc_function._agent_records[0]
+        self.assertEqual(records[0][2], "agent:1:2")
+
+    def test_valid_agenttype_reporter_with_tuple_params(self):
+        """Test agenttype reporters still work with tuple params."""
+
+        def scale_value(agent, multiplier):
+            return agent.val * multiplier
+
+        model = MockModelWithAgentTypes()
+        model.datacollector._new_agenttype_reporter(
+            MockAgentA, "scaled_val", [scale_value, (3,)]
+        )
+        model.step()
+
+        agent_a_data = model.datacollector.get_agenttype_vars_dataframe(MockAgentA)
+        self.assertEqual(agent_a_data["scaled_val"].iloc[0], 3)
 
 
 class TestMethodReporterValidation(unittest.TestCase):
@@ -673,6 +772,28 @@ class TestMethodReporterValidation(unittest.TestCase):
         self.assertGreaterEqual(model.call_count, 1)
 
 
+class TestPartialReporterValidation(unittest.TestCase):
+    """Tests for partial function model reporters."""
+
+    def test_partial_model_reporter(self):
+        """Test that partial model reporters receive the model argument."""
+
+        def count_agents(model, multiplier):
+            return len(model.agents) * multiplier
+
+        model = Model()
+        for _ in range(3):
+            Agent(model)
+
+        dc = DataCollector(
+            model_reporters={"AgentsTimesTwo": partial(count_agents, multiplier=2)}
+        )
+        dc.collect(model)
+
+        data = dc.get_model_vars_dataframe()
+        self.assertEqual(data["AgentsTimesTwo"][0], 6)
+
+
 def test_mutable_data_independence():
     """Test that mutable agent data is deep-copied, preventing historical records from changing."""
 
@@ -693,7 +814,7 @@ def test_mutable_data_independence():
 
         def step(self):
             self.datacollector.collect(self)
-            self.agent.data.append(self.steps)  # Modify after collection
+            self.agent.data.append(self.time)  # Modify after collection
 
     model = MutableModel()
 
@@ -707,6 +828,58 @@ def test_mutable_data_independence():
     assert df.loc[(1, 1), "Data"] == []
     assert df.loc[(2, 1), "Data"] == [1]
     assert df.loc[(3, 1), "Data"] == [1, 2]
+
+
+def test_get_model_vars_dataframe_no_reporters():
+    """Test that get_model_vars_dataframe warns and returns empty DataFrame when no reporters defined."""
+    dc = DataCollector()
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        df = dc.get_model_vars_dataframe()
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "No model reporters" in str(w[0].message)
+
+    assert df.empty
+
+
+def test_get_agent_vars_dataframe_no_reporters():
+    """Test that get_agent_vars_dataframe warns and returns empty DataFrame when no reporters defined."""
+    dc = DataCollector()
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        df = dc.get_agent_vars_dataframe()
+        assert len(w) == 1
+        assert issubclass(w[0].category, UserWarning)
+        assert "No agent reporters" in str(w[0].message)
+
+    assert df.empty
+
+
+def test_add_table_row_nonexistent_table():
+    """Test that add_table_row raises TableMissingException for nonexistent table."""
+    dc = DataCollector()
+
+    with pytest.raises(TableMissingException, match="does not exist"):
+        dc.add_table_row("nonexistent", {"col": "val"})
+
+
+def test_add_table_row_missing_column():
+    """Test that add_table_row raises ValueError for missing column."""
+    dc = DataCollector(tables={"mytable": ["col_a", "col_b"]})
+
+    with pytest.raises(ValueError, match="missing column"):
+        dc.add_table_row("mytable", {"col_a": 1})
+
+
+def test_get_table_dataframe_nonexistent():
+    """Test that get_table_dataframe raises TableMissingException for nonexistent table."""
+    dc = DataCollector()
+
+    with pytest.raises(TableMissingException, match="does not exist"):
+        dc.get_table_dataframe("nonexistent")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,9 @@
 import altair as alt
 
-from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannWealth
+from mesa.examples.basic.boltzmann_wealth_model.model import (
+    BoltzmannScenario,
+    BoltzmannWealth,
+)
 from mesa.mesa_logging import INFO, log_to_stderr
 from mesa.visualization import (
     SolaraViz,
@@ -14,12 +17,13 @@ log_to_stderr(INFO)
 
 def agent_portrayal(agent):
     return AgentPortrayalStyle(
-        color=agent.wealth
+        color=agent.wealth,
+        tooltip={"Agent ID": agent.unique_id, "Wealth": agent.wealth},
     )  # we are using a colormap to translate wealth to color
 
 
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",
@@ -54,7 +58,13 @@ def post_process(chart):
     return chart
 
 
-model = BoltzmannWealth(50, 10, 10)
+model = BoltzmannWealth(
+    scenario=BoltzmannScenario(
+        n=50,
+        width=10,
+        height=10,
+    )
+)
 
 # The SpaceRenderer is responsible for drawing the model's space and agents.
 # It builds the visualization in layers, first drawing the grid structure,

@@ -29,8 +29,7 @@ def test_hexgrid_torus_odd_dimensions_error():
         HexGrid((6, 5), random=random.Random(42), torus=True)
 
     # Valid cases should not raise
-    try:
-        HexGrid((6, 6), random=random.Random(42), torus=True)
-        HexGrid((5, 5), random=random.Random(42), torus=False)
-    except ValueError:
-        pytest.fail("Valid HexGrid configurations should not raise ValueError")
+    grid1 = HexGrid((6, 6), random=random.Random(42), torus=True)
+    grid2 = HexGrid((5, 5), random=random.Random(42), torus=False)
+    assert grid1 is not None
+    assert grid2 is not None

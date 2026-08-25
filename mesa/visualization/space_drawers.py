@@ -5,7 +5,6 @@ orthogonal grids, hexagonal grids, networks, continuous spaces, and Voronoi grid
 It includes implementations for both Matplotlib and Altair backends.
 """
 
-import itertools
 from itertools import pairwise
 
 import altair as alt
@@ -21,18 +20,11 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
-from mesa.space import (
-    ContinuousSpace,
-    HexMultiGrid,
-    HexSingleGrid,
-    MultiGrid,
-    NetworkGrid,
-    SingleGrid,
-)
+from mesa.experimental.continuous_space import ContinuousSpace
 
-OrthogonalGrid = SingleGrid | MultiGrid | OrthogonalMooreGrid | OrthogonalVonNeumannGrid
-HexGrid = HexSingleGrid | HexMultiGrid | mesa.discrete_space.HexGrid
-Network = NetworkGrid | mesa.discrete_space.Network
+OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
+HexGrid = mesa.discrete_space.HexGrid
+Network = mesa.discrete_space.Network
 
 
 class BaseSpaceDrawer:
@@ -200,6 +192,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         super().__init__(space)
         self.s_default = (180 / max(self.space.width, self.space.height)) ** 2
         size = 1.0
+
         self.x_spacing = np.sqrt(3) * size
         self.y_spacing = 1.5 * size
 
@@ -211,7 +204,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         x_padding = size * np.sqrt(3) / 2
         y_padding = size
 
-        self.hexagons = self._get_hexmesh(self.space.width, self.space.height, size)
+        self.hexagons = self._get_hexmesh(size)
 
         # Parameters for visualization limits
         self.viz_xmin = -1.8 * x_padding
@@ -219,10 +212,8 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         self.viz_ymin = -1.8 * y_padding
         self.viz_ymax = y_max
 
-    def _get_hexmesh(
-        self, width: int, height: int, size: float = 1.0
-    ) -> list[tuple[float, float]]:
-        """Generate hexagon vertices for the mesh. Yields list of vertex coordinates for each hexagon."""
+    def _get_hexmesh(self, size: float = 1.0) -> list[list[tuple[float, float]]]:
+        """Generate hexagon vertices for the mesh. Yields list of list of vertex coordinates for each hexagon."""
 
         # Helper function for getting the vertices of a hexagon given the center and size
         def _get_hex_vertices(
@@ -239,15 +230,10 @@ class HexSpaceDrawer(BaseSpaceDrawer):
             ]
             return vertices
 
-        x_spacing = np.sqrt(3) * size
-        y_spacing = 1.5 * size
         hexagons = []
-
-        for row, col in itertools.product(range(height), range(width)):
-            # Calculate center position with offset for even rows
-            x = col * x_spacing + (row % 2 == 0) * (x_spacing / 2)
-            y = row * y_spacing
-            hexagons.append(_get_hex_vertices(x, y, size))
+        for cell in self.space.all_cells:
+            cx, cy = cell.position
+            hexagons.append(_get_hex_vertices(cx, cy, size))
 
         return hexagons
 
@@ -382,7 +368,12 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
 
         # gather locations for nodes in network
         self.graph = self.space.G
-        self.pos = self.layout_alg(self.graph, **self.layout_kwargs)
+
+        self.pos = {}
+
+        for node_id, cell in self.space._cells.items():
+            if getattr(cell, "_position", None) is not None:
+                self.pos[node_id] = cell.position
 
         x, y = list(zip(*self.pos.values())) if self.pos else ([0], [0])
         xmin, xmax = min(x), max(x)
@@ -519,15 +510,63 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
 class ContinuousSpaceDrawer(BaseSpaceDrawer):
     """Drawer for continuous spaces."""
 
-    def __init__(self, space: ContinuousSpace):
+    def __init__(self, space: ContinuousSpace, viz_dims: tuple[int, int] = (0, 1)):
         """Initialize the continuous space drawer.
 
         Args:
-            space: The continuous space to draw
+            space: The continuous space to draw.
+            viz_dims: The pair of dimension indices to project onto the x and y axes.
+
+        Raises:
+            ValueError: If the space has fewer than two dimensions.
+            ValueError: If viz_dims does not contain exactly two distinct valid indices.
         """
         super().__init__(space)
-        width = self.space.x_max - self.space.x_min
-        height = self.space.y_max - self.space.y_min
+        # Default is the classic 2D XY plane.
+        self.viz_dims: tuple[int, int] = (0, 1)
+        self.set_viz_dims(viz_dims)
+
+    def set_viz_dims(self, viz_dims: tuple[int, int]) -> None:
+        """Set which dimensions are visualized on the x and y axes.
+
+        Args:
+            viz_dims: Tuple of two distinct dimension indices.
+
+        Raises:
+            ValueError: If viz_dims is invalid for the underlying space.
+        """
+        self._validate_viz_dims(viz_dims)
+        # Normalize to a plain tuple[int, int]
+        self.viz_dims = (int(viz_dims[0]), int(viz_dims[1]))
+        self._update_viz_params()
+
+    def _validate_viz_dims(self, viz_dims) -> None:
+        """Validate viz_dims against the underlying space."""
+        ndims = getattr(self.space, "ndims", self.space.dimensions.shape[0])
+        if ndims < 2:
+            raise ValueError(
+                "Continuous space visualization requires at least 2 dimensions"
+            )
+
+        if not isinstance(viz_dims, (tuple, list)) or len(viz_dims) != 2:
+            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+
+        i, j = viz_dims
+        if not isinstance(i, int) or not isinstance(j, int) or i == j:
+            raise ValueError("viz_dims must contain exactly two distinct dimensions")
+
+        if any(dim < 0 or dim >= ndims for dim in (i, j)):
+            raise ValueError(f"viz_dims must be within [0, {ndims - 1}] for this space")
+
+    def _update_viz_params(self) -> None:
+        """Recompute visualization limits and marker defaults."""
+        i, j = self.viz_dims
+        x_min, x_max = self.space.dimensions[i]
+        y_min, y_max = self.space.dimensions[j]
+
+        width = x_max - x_min
+        height = y_max - y_min
+
         self.s_default = (
             (180 / max(width, height)) ** 2 if width > 0 or height > 0 else 1
         )
@@ -535,24 +574,35 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
         x_padding = width / 20
         y_padding = height / 20
 
-        self.viz_xmin = self.space.x_min - x_padding
-        self.viz_xmax = self.space.x_max + x_padding
-        self.viz_ymin = self.space.y_min - y_padding
-        self.viz_ymax = self.space.y_max + y_padding
+        self.viz_xmin = x_min - x_padding
+        self.viz_xmax = x_max + x_padding
+        self.viz_ymin = y_min - y_padding
+        self.viz_ymax = y_max + y_padding
+
+    def project(self, position):
+        """Project an n-dimensional position onto the configured 2D plane."""
+        i, j = self.viz_dims
+        return position[i], position[j]
 
     def draw_matplotlib(self, ax=None, **draw_space_kwargs):
         """Draw the continuous space using matplotlib.
 
         Args:
-            ax: Matplotlib axes object to draw on
-            **draw_space_kwargs: Keyword arguments for styling the axis frame.
+            ax: Matplotlib axes object to draw on.
+            **draw_space_kwargs: Keyword arguments for styling the axis frame. You may
+                optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
+                n-dimensional space are projected to x/y.
 
         Examples:
                 linewidth=3, color="green"
 
         Returns:
-            The modified axes object
+            The modified axes object.
         """
+        viz_dims = draw_space_kwargs.pop("viz_dims", None)
+        if viz_dims is not None:
+            self.set_viz_dims(viz_dims)
+
         if ax is None:
             _, ax = plt.subplots()
 
@@ -572,14 +622,19 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
         """Draw the continuous space using Altair.
 
         Args:
-            chart_width: Width for the shown chart
-            chart_height: Height for the shown chart
+            chart_width: Width for the shown chart.
+            chart_height: Height for the shown chart.
             **draw_chart_kwargs: Keyword arguments for styling the chart's view properties.
-                            See Altair's documentation for `configure_view`.
+                You may optionally pass ``viz_dims=(i, j)`` to select which two dimensions of an
+                n-dimensional space are projected to x/y.
 
         Returns:
             An Altair Chart object representing the space.
         """
+        viz_dims = draw_chart_kwargs.pop("viz_dims", None)
+        if viz_dims is not None:
+            self.set_viz_dims(viz_dims)
+
         chart_props = {"width": chart_width, "height": chart_height}
         chart_props.update(draw_chart_kwargs)
 
@@ -606,11 +661,11 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
             space: The Voronoi grid space to draw
         """
         super().__init__(space)
-        if self.space.centroids_coordinates:
-            x_list = [i[0] for i in self.space.centroids_coordinates]
-            y_list = [i[1] for i in self.space.centroids_coordinates]
-            x_max, x_min = max(x_list), min(x_list)
-            y_max, y_min = max(y_list), min(y_list)
+        # Use the Cell.position property for calculations
+        positions = np.array([cell.position for cell in self.space.all_cells])
+        if len(positions) > 0:
+            x_min, y_min = positions.min(axis=0)
+            x_max, y_max = positions.max(axis=0)
         else:
             x_max, x_min, y_max, y_min = 1, 0, 1, 0
 
