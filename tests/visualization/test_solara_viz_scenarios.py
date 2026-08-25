@@ -150,8 +150,8 @@ def test_reset_with_scenario():
     assert kwargs["scenario"].width == 12
     assert kwargs["scenario"].height == 11
     assert (
-        kwargs["scenario"].initial_rng_state
-        == np.random.default_rng(42).bit_generator.state
+        kwargs["scenario"].seed_sequence.entropy
+        == np.random.default_rng(42).bit_generator.seed_seq.entropy
     )
 
 

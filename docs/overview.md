@@ -2,13 +2,13 @@
 
 Mesa is modular, meaning that its modeling, analysis and visualization components are kept separate but intended to work together. The modules are grouped into three categories:
 
-1. **Modeling:** Classes used to build the models themselves: a model and agent classes, space for them to move around in, and built-in functionality for managing agents.
+1. **Modeling:** Classes used to build the models themselves: a model and agent classes, space for them to move around in, and built-in features for managing agents.
 2. **Analysis:** Tools to collect data generated from your model, or to run it multiple times with different parameter values.
 3. **Visualization:** Classes to create and launch an interactive model visualization, using a browser-based interface.
 
 ### Modeling modules
 
-Most models consist of one class to represent the model itself and one or more classes for agents. Mesa provides built-in functionality for managing agents and their interactions. These are implemented in Mesa's modeling modules:
+Most models consist of one class to represent the model itself and one or more classes for agents. Mesa provides built-in support for managing agents and their interactions. These are implemented in Mesa's modeling modules:
 
 - [mesa.model](apis/model)
 - [mesa.agent](apis/agent)
@@ -181,7 +181,7 @@ for agent in model.agents:
     print(agent.unique_id)
 ```
 
-#### AgentSet Functionality
+#### AgentSet Features
 AgentSet offers several methods for efficient agent management:
 
 1. **Selecting**: Filter agents based on criteria.
@@ -267,7 +267,7 @@ class MyModel(Model):
         super().__init__()
         # Initialize the model with N agents
 ```
-The core functionality for building your own visualizations resides in the [`mesa.visualization`](apis/visualization) namespace.
+The core components for building your own visualizations reside in the [`mesa.visualization`](apis/visualization) namespace.
 
 Here's a basic example of how to set up a visualization:
 

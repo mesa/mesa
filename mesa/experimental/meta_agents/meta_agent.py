@@ -13,7 +13,7 @@ these multiple levels, where each level can have agents with constituting_agents
 To demonstrate meta-agents capability there are two examples:
 1 - Alliance formation which shows emergent meta-agent formation in
 advanced examples:
-https://github.com/mesa/mesa/tree/main/mesa/examples/advanced/alliance_formation
+https://github.com/mesa/mesa/tree/main/mesa/examples/experimental/alliance_formation
 2 - Warehouse model in the Mesa example's repository
 https://github.com/mesa/mesa-examples/tree/main/examples/warehouse
 
@@ -97,7 +97,6 @@ def find_combinations(
         evaluation_func: The function to evaluate combinations. Defaults to None.
         filter_func: Allows the user to specify how agents are filtered to form groups.
           Defaults to None.
-        List: The function to filter combinations. Defaults to None.
 
     Returns:
         List: The list of valuable combinations, in a tuple first agentset of valuable combination  and then the value of
@@ -162,19 +161,21 @@ def create_meta_agent(
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
-    Parameters:
-    model (Any): The model instance.
-    new_agent_class (str): The name of the new meta-agent class.
-    agents (Iterable[Any]): The agents to be included in the meta-agent.
-    meta_attributes (Dict[str, Any]): Attributes to be added to the meta-agent.
-    meta_methods (Dict[str, Callable]): Methods to be added to the meta-agent.
-    assume_constituting_agent_methods (bool): Whether to assume methods from
-    constituting_-agents as meta_agent methods.
-    assume_constituting_agent_attributes (bool): Whether to retain attributes
-    from constituting_-agents.
+    Args:
+        model: The model instance.
+        new_agent_class: The name of the new meta-agent class.
+        agents: The agents to be included in the meta-agent.
+        mesa_agent_type: The Mesa Agent (sub)class the new meta-agent should
+            inherit from. If falsy, defaults to Agent.
+        meta_attributes: Attributes to be added to the meta-agent.
+        meta_methods: Methods to be added to the meta-agent.
+        assume_constituting_agent_methods: Whether to assume methods from
+            constituting-agents as meta_agent methods.
+        assume_constituting_agent_attributes: Whether to retain attributes
+            from constituting-agents.
 
     Returns:
-        - MetaAgent Instance
+        MetaAgent instance
     """
     # Convert agents to dict, to ensure uniqueness,
     # we need a dict, not a set to keep stuff deterministic
