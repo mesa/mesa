@@ -197,10 +197,10 @@ class VoronoiGrid(DiscreteSpace):
 
         Args:
             centroids_coordinates: coordinates of centroids to build the tessellation space
-            capacity (int) : capacity of the cells in the discrete space
+            capacity (int | Callable): capacity of the cells in the discrete space, or a
+                callable computing the (int) capacity of a cell from its (float) polygon area
             random (Random): random number generator
             cell_klass (type[Cell]): type of cell class
-            capacity_function (Callable): function to compute (int) capacity according to (float) area
 
         """
         # Separate callable capacity from numeric capacity before passing to base class

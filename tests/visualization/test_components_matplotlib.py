@@ -1,6 +1,7 @@
 """tests for matplotlib components."""
 
 import networkx as nx
+import pytest
 from matplotlib.figure import Figure
 
 from mesa import Model
@@ -13,6 +14,7 @@ from mesa.discrete_space import (
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.mpl_space_drawing import (
+    collect_agent_data,
     draw_hex_grid,
     draw_network,
     draw_orthogonal_grid,
@@ -76,6 +78,23 @@ def test_draw_space():
     fig = Figure()
     ax = fig.add_subplot()
     draw_space(grid, my_portrayal, ax=ax)
+
+
+def test_collect_agent_data_warns_once_for_dict_portrayal():
+    """The dict portrayal FutureWarning is emitted once per call, not per agent."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((10, 10), torus=True, random=model.random, capacity=1)
+    for _ in range(10):
+        agent = CellAgent(model)
+        agent.cell = grid.select_random_empty_cell()
+
+    def dict_portrayal(agent):
+        return {"size": 10, "color": "tab:blue", "marker": "o"}
+
+    with pytest.warns(FutureWarning) as record:
+        collect_agent_data(grid, dict_portrayal)
+
+    assert len([w for w in record if issubclass(w.category, FutureWarning)]) == 1
 
 
 def test_draw_hex_grid():

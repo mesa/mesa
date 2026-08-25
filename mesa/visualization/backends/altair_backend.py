@@ -94,21 +94,26 @@ class AltairBackend(AbstractRenderer):
             "4": "triangle-right",
         }
 
+        # Warn only once per call instead of once per agent
+        dict_portrayal_warned = False
+
         for agent in space.agents:
             portray_input = agent_portrayal(agent)
             aps: AgentPortrayalStyle
 
             if isinstance(portray_input, dict):
-                warnings.warn(
-                    (
-                        "Returning a dict from agent_portrayal is deprecated and will be removed in Mesa 4.0. "
-                        "Please return an AgentPortrayalStyle instance instead. "
-                        "For more information, refer to the migration guide: "
-                        "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
-                    ),
-                    FutureWarning,
-                    stacklevel=2,
-                )
+                if not dict_portrayal_warned:
+                    warnings.warn(
+                        (
+                            "Returning a dict from agent_portrayal is deprecated and will be removed in Mesa 4.0. "
+                            "Please return an AgentPortrayalStyle instance instead. "
+                            "For more information, refer to the migration guide: "
+                            "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
+                        ),
+                        FutureWarning,
+                        stacklevel=2,
+                    )
+                    dict_portrayal_warned = True
                 dict_data = portray_input.copy()
                 agent_x, agent_y = self._get_agent_pos(agent, space)
 

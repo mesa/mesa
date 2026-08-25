@@ -123,15 +123,17 @@ nb_execution_raise_on_error = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "pydata_sphinx_theme"
-
+version_match = os.environ.get("READTHEDOCS_VERSION", release)
+if not version_match or version_match.isdigit():
+    version_match = "latest"
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
-        "json_url": "https://mesa.readthedocs.io/en/stable/_static/switcher.json",
-        "version_match": os.environ.get("READTHEDOCS_VERSION", release),
+        "json_url": "https://mesa.readthedocs.io/latest/_static/switcher.json",
+        "version_match": version_match,
     },
 }
 
@@ -321,27 +323,21 @@ def setup_examples_pages():
     # create md files for all examples
     # check what examples exist
     examples_folder = osp.abspath(osp.join(HERE, "..", "mesa", "examples"))
-    basic_examples = [
-        ("basic", f.path)
-        for f in os.scandir(osp.join(examples_folder, "basic"))
+    kinds = ("basic", "advanced", "experimental")
+    examples = [
+        (kind, f.path)
+        for kind in kinds
+        for f in os.scandir(osp.join(examples_folder, kind))
         if f.is_dir() and not f.name.startswith("__")
     ]
-    advanced_examples = [
-        ("advanced", f.path)
-        for f in os.scandir(osp.join(examples_folder, "advanced"))
-        if f.is_dir() and not f.name.startswith("__")
-    ]
-    examples = basic_examples + advanced_examples
 
     with open(os.path.join(HERE, "example_template.txt")) as fh:
         template = string.Template(fh.read())
 
     root_folder = pathlib.Path(os.path.join(HERE, "examples"))
     root_folder.mkdir(parents=True, exist_ok=True)
-    pathlib.Path(os.path.join(root_folder, "basic")).mkdir(parents=True, exist_ok=True)
-    pathlib.Path(os.path.join(root_folder, "advanced")).mkdir(
-        parents=True, exist_ok=True
-    )
+    for kind in kinds:
+        pathlib.Path(os.path.join(root_folder, kind)).mkdir(parents=True, exist_ok=True)
 
     examples_md = []
     for kind, example in examples:

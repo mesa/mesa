@@ -18,6 +18,7 @@ from mesa.discrete_space import (
     FixedAgent,
     Grid2DMovingAgent,
     HexGrid,
+    HexGridMovingAgent,
     Network,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
@@ -555,8 +556,17 @@ def test_empties_space():
     assert len(grid.empties) == n
 
     model = Model()
+    agents = []
     for i in range(8):
-        grid._cells[i].add_agent(CellAgent(model))
+        agent = CellAgent(model)
+        grid._cells[i].add_agent(agent)
+        agents.append(agent)
+
+    assert len(grid.empties) == n - 8
+
+    # Remove an agent and verify empties count updates
+    grid._cells[0].remove_agent(agents[0])
+    assert len(grid.empties) == n - 7
 
 
 def test_cell_missing_exception():
@@ -604,7 +614,7 @@ def test_grid_validate_parameters():
 
 
 def test_agents_property():
-    """Test empties method for Discrete Spaces."""
+    """Test agents property for Discrete Spaces."""
     n = 10
     m = 20
     rng = 42
@@ -1076,6 +1086,30 @@ def test_grid2DMovingAgent():  # noqa: D103
         agent.move("back")
 
 
+def test_hexGridMovingAgent():
+    """Test HexGridMovingAgent with 'even-r' (Even Row Shove) geometry."""
+    grid = HexGrid((10, 10), torus=False, random=random.Random(42))
+    model = Model()
+    agent = HexGridMovingAgent(model)
+
+    # 'nw' offset should be (0, -1).
+    agent.cell = grid[5, 2]
+    agent.move("nw")
+
+    assert agent.cell.coordinate == (5, 1)
+
+    # 'nw' offset should be (-1, -1)
+    agent.cell = grid[5, 1]  # Reset position to a known Odd row
+    agent.move("nw")
+
+    assert agent.cell.coordinate == (4, 0)
+
+    # West is (-1, 0) for both parities.
+    agent.cell = grid[5, 2]
+    agent.move("w")
+    assert agent.cell.coordinate == (4, 2)
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())
@@ -1103,9 +1137,6 @@ def test_copying_discrete_spaces():  # noqa: D103
         grid = OrthogonalMooreGrid((100, 100), random=random.Random(42))
         grid_copy = copy.deepcopy(grid)
 
-        c1 = grid[(5, 5)].connections
-        c2 = grid_copy[(5, 5)].connections
-
         for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
             for k, v in c1.connections.items():
                 assert v.coordinate == c2.connections[k].coordinate
@@ -1123,9 +1154,6 @@ def test_copying_discrete_spaces():  # noqa: D103
 
         grid = HexGrid((100, 100), random=random.Random(42))
         grid_copy = copy.deepcopy(grid)
-
-        c1 = grid[(5, 5)].connections
-        c2 = grid_copy[(5, 5)].connections
 
         for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
             for k, v in c1.connections.items():

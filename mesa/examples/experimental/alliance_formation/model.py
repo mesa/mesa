@@ -3,7 +3,7 @@ import numpy as np
 
 import mesa
 from mesa import Agent
-from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
+from mesa.examples.experimental.alliance_formation.agents import AllianceAgent
 from mesa.experimental.meta_agents.meta_agent import (
     create_meta_agent,
     find_combinations,

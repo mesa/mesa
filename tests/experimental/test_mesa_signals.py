@@ -1037,3 +1037,66 @@ def test_clear_all_class_subscriptions():
     DummyAgent.clear_all_class_subscriptions("state")
     agent1.state = "inactive"
     assert len(handler_calls) == 1
+
+
+def test_peek():
+    """Test that peek safely retrieves Observables, computed properties, and standard attributes."""
+
+    class PeekAgent(Agent, HasEmitters):
+        acceleration = Observable(fallback_value=2.0)
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.acceleration = 2.0
+            self.target_station = 100.0  # standard float
+
+        @computed_property
+        def speed(self):
+            return self.acceleration * 5.0
+
+        @computed_property
+        def tracked_state(self):
+            # Standard access registers a dependency
+            return self.speed
+
+        @computed_property
+        def untracked_state(self):
+            # Peek access should NOT register a dependency
+            return self.peek("speed")
+
+    model = Model(rng=42)
+    agent = PeekAgent(model)
+
+    # Case 1: Standard attribute lookup degrades gracefully
+    assert agent.peek("target_station") == 100.0
+
+    # Case 2: Standard Observable lookup works
+    assert agent.peek("acceleration") == 2.0
+
+    # Case 3: Computed Property natively evaluates through descriptor
+    assert agent.peek("speed") == 10.0
+
+    # Case 4: Verify Dependency Blinding
+    # Eagerly evaluate both properties to construct the dependency graph
+    _ = agent.tracked_state
+    _ = agent.untracked_state
+
+    # Access the internal ComputedState objects
+    tracked_comp_state = agent._computed_tracked_state
+    untracked_comp_state = agent._computed_untracked_state
+
+    # tracked_state should have 'speed' as a recorded parent
+    assert agent in tracked_comp_state.parents
+    assert "speed" in tracked_comp_state.parents[agent]
+
+    # untracked_state should have NO parents because peek suspended CURRENT_COMPUTED
+    assert not untracked_comp_state.parents
+
+    # Mutate the root dependency
+    agent.acceleration = 4.0
+
+    # tracked_state is flagged dirty because its dependency (speed) was updated
+    assert tracked_comp_state.is_dirty is True
+
+    # untracked_state remains clean because the framework does not know it looked at speed
+    assert untracked_comp_state.is_dirty is False
