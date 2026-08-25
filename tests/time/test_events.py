@@ -2,6 +2,7 @@
 # ruff: noqa: D101, D102
 
 import gc
+import pickle
 from collections.abc import Callable
 from functools import partial
 from unittest.mock import MagicMock
@@ -432,8 +433,20 @@ class TestEventListPop:
         assert execution == list(range(5, 10))
 
 
+def _picklable_handler():
+    """Module-level callback, so events holding it can be pickled."""
+
+
+def _recount(el):
+    """Count the canceled events actually on the heap."""
+    return sum(1 for e in el._events if e.CANCELED)
+
+
 class TestEventListCompact:
-    def test_compact_removes_canceled(self):
+    def test_compact_removes_canceled(self, monkeypatch):
+        # ratio 1.0 needs more dead events than the heap holds, so automatic
+        # compaction never fires and compact() can be exercised on its own
+        monkeypatch.setattr(EventList, "COMPACTION_RATIO", 1.0)
         el = EventList()
         fn = MagicMock()
 
@@ -455,6 +468,207 @@ class TestEventListCompact:
             remaining.append(el.pop_event().time)
 
         assert remaining == [6, 7, 8, 9]
+
+    def test_compacts_when_tombstones_dominate(self):
+        """Cancelling alone rebuilds the heap; no further push is needed."""
+        el = EventList()
+        fn = MagicMock()
+
+        events = [Event(i, fn) for i in range(10)]
+        for e in events:
+            el.add_event(e)
+        for e in events:
+            e.cancel()
+
+        assert len(el._events) < 10
+        assert len(el) == 0
+        assert el._n_canceled == _recount(el)
+
+    @pytest.mark.parametrize("ratio", [0.1, 0.25, 0.5])
+    def test_ratio_bounds_the_peak_heap(self, monkeypatch, ratio):
+        """The ratio caps the heap at L / (1 - ratio)."""
+        monkeypatch.setattr(EventList, "COMPACTION_RATIO", ratio)
+        el = EventList()
+        fn = MagicMock()
+
+        live = [Event(float(i), fn) for i in range(100)]
+        for event in live:
+            el.add_event(event)
+
+        peak = len(el._events)
+        for i in range(600):
+            live[i % 100].cancel()
+            replacement = Event(1000.0 + i, fn)
+            el.add_event(replacement)
+            live[i % 100] = replacement
+            peak = max(peak, len(el._events))
+
+        assert peak <= 100 / (1 - ratio) + 1
+
+    def test_compaction_preserves_ordering(self):
+        el = EventList()
+        fn = MagicMock()
+
+        events = [Event(float(i), fn) for i in range(12)]
+        for e in events:
+            el.add_event(e)
+        for e in events[:8]:
+            e.cancel()
+
+        el.add_event(Event(0.5, fn))
+
+        drained = []
+        while not el.is_empty():
+            drained.append(el.pop_event().time)
+
+        assert drained == [0.5, 8.0, 9.0, 10.0, 11.0]
+
+
+class TestEventListCancelCount:
+    @pytest.fixture(autouse=True)
+    def _no_automatic_compaction(self, monkeypatch):
+        """Observe the count itself; rebuilding is TestEventListCompact's job.
+
+        A ratio of 1.0 would need more canceled events than the heap holds, so
+        the trigger never fires and tombstones stay put to be counted.
+        """
+        monkeypatch.setattr(EventList, "COMPACTION_RATIO", 1.0)
+
+    def test_len_excludes_canceled(self):
+        el = EventList()
+        fn = MagicMock()
+        events = [Event(i, fn) for i in range(5)]
+        for e in events:
+            el.add_event(e)
+
+        events[0].cancel()
+        events[3].cancel()
+
+        assert len(el) == 3
+        assert len(el._events) == 5
+        assert el._n_canceled == _recount(el)
+
+    def test_count_tracks_mixed_operations(self):
+        el = EventList()
+        fn = MagicMock()
+        events = [Event(i, fn) for i in range(12)]
+        for e in events:
+            el.add_event(e)
+
+        events[1].cancel()
+        events[2].cancel()
+        assert el._n_canceled == _recount(el)
+
+        el.pop_event()  # event 0, discards nothing
+        assert el._n_canceled == _recount(el)
+
+        el.pop_event()  # skips tombstones 1 and 2, returns event 3
+        assert el._n_canceled == _recount(el)
+
+        events[7].cancel()
+        el.compact()
+        assert el._n_canceled == _recount(el) == 0
+        assert len(el) == len(el._events)
+
+    def test_repeated_cancel_counts_once(self):
+        el = EventList()
+        event = Event(1.0, MagicMock())
+        el.add_event(event)
+
+        event.cancel()
+        event.cancel()
+
+        assert el._n_canceled == 1
+        assert len(el) == 0
+
+    def test_adding_a_canceled_event_raises(self):
+        el = EventList()
+        event = Event(1.0, MagicMock())
+        event.cancel()
+
+        with pytest.raises(ValueError, match="Cannot add a canceled event"):
+            el.add_event(event)
+
+        assert len(el._events) == 0
+        assert el._n_canceled == 0
+
+    def test_cancel_after_pop_is_not_counted(self):
+        """A popped event has left the heap, so cancelling it must not count.
+
+        Model.schedule_event returns the Event to the caller, so cancelling one
+        that has already fired is reachable from user code.
+        """
+        el = EventList()
+        fn = MagicMock()
+        popped = Event(1.0, fn)
+        el.add_event(popped)
+        el.add_event(Event(2.0, fn))
+
+        assert el.pop_event() is popped
+        popped.cancel()
+
+        assert el._n_canceled == 0
+        assert len(el) == 1
+
+    def test_adding_popped_event_again_restores_counting(self):
+        el = EventList()
+        event = Event(1.0, MagicMock())
+        el.add_event(event)
+
+        el.pop_event()
+        el.add_event(event)
+        event.cancel()
+
+        assert el._n_canceled == 1
+        assert len(el) == 0
+
+    def test_clear_resets_count(self):
+        el = EventList()
+        event = Event(1.0, MagicMock())
+        el.add_event(event)
+        event.cancel()
+
+        el.clear()
+
+        assert el._n_canceled == 0
+        assert len(el) == 0
+
+    def test_is_empty_when_only_tombstones_remain(self):
+        el = EventList()
+        fn = MagicMock()
+        events = [Event(i, fn) for i in range(3)]
+        for e in events:
+            el.add_event(e)
+        for e in events:
+            e.cancel()
+
+        assert el.is_empty()
+        assert len(el._events) == 3
+
+    def test_cancel_after_list_is_collected(self):
+        el = EventList()
+        event = Event(1.0, MagicMock())
+        el.add_event(event)
+
+        del el
+        gc.collect()
+
+        event.cancel()  # must not raise
+        assert event.CANCELED
+
+    def test_pickle_roundtrip_keeps_counting(self):
+        el = EventList()
+        events = [Event(i, _picklable_handler) for i in range(4)]
+        for e in events:
+            el.add_event(e)
+        events[0].cancel()
+
+        restored = pickle.loads(pickle.dumps(el))  # noqa: S301
+
+        assert len(restored) == 3
+        live = next(e for e in restored._events if not e.CANCELED)
+        live.cancel()
+        assert restored._n_canceled == _recount(restored)
 
 
 # ---------------------------------------------------------------------------
