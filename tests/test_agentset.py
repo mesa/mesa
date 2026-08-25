@@ -467,6 +467,45 @@ def test_agentset_set_method():
         assert agent.status == "active"
 
 
+def test_agentset_set_element_wise():
+    """Test AgentSet.set element-wise vs broadcast, derived from the value."""
+
+    class TestAgent(Agent):
+        pass
+
+    model = Model()
+    agentset = AgentSet([TestAgent(model) for _ in range(5)])
+
+    # a sequence whose length matches the AgentSet is assigned element-wise,
+    # in the same order get uses
+    values = [10, 20, 30, 40, 50]
+    agentset.set("energy", values)
+    assert agentset.get("energy") == values
+
+    # a get -> transform -> set round-trip stays consistent
+    doubled = [e * 2 for e in agentset.get("energy")]
+    agentset.set("energy", doubled)
+    assert agentset.get("energy") == doubled
+
+    # numpy arrays and tuples of matching length are also element-wise
+    agentset.set("energy", np.arange(5))
+    assert agentset.get("energy") == list(range(5))
+    agentset.set("energy", (100, 200, 300, 400, 500))
+    assert agentset.get("energy") == [100, 200, 300, 400, 500]
+
+    # a scalar is broadcast to every agent
+    agentset.set("energy", 7)
+    assert agentset.get("energy") == [7] * len(agentset)
+
+    # a string is a scalar, not a per-character sequence
+    agentset.set("label", "abcde")
+    assert agentset.get("label") == ["abcde"] * len(agentset)
+
+    # a sequence whose length does not match is broadcast whole to every agent
+    agentset.set("energy", [1, 2, 3])
+    assert agentset.get("energy") == [[1, 2, 3]] * len(agentset)
+
+
 def test_agentset_map_str():
     """Test AgentSet.map with strings."""
     model = Model()

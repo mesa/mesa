@@ -17,6 +17,9 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
+import numpy as np
+import pandas as pd
+
 if TYPE_CHECKING:
     from mesa.agent import Agent
 
@@ -335,17 +338,39 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             )
 
     def set(self, attr_name: str, value: Any) -> AgentSet[A]:
-        """Set a specified attribute to a given value for all agents in the AgentSet.
+        """Set a specified attribute for the agents in the AgentSet.
+
+        The behavior is derived from ``value``, matching ``Agent.create_agents``:
+
+        - A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` whose
+          length equals the number of agents is assigned element-wise, in
+          iteration order (the same order ``get`` uses), so a
+          ``get -> transform -> set`` round-trip stays consistent.
+        - Any other value (a scalar, a string, or a sequence whose length does
+          not match) is broadcast: every agent receives the same value.
 
         Args:
             attr_name (str): The name of the attribute to set.
-            value (Any): The value to set the attribute to.
+            value (Any): The value(s) to assign. See above for how the shape of
+                ``value`` selects element-wise vs broadcast assignment.
 
         Returns:
             AgentSet: The AgentSet instance itself, after setting the attribute.
+
+        Notes:
+            As with ``create_agents``, a per-agent sequence is recognized only by
+            its length matching the number of agents. To broadcast a sequence
+            whose length happens to equal the number of agents, wrap it, e.g.
+            ``[shared_list] * len(agentset)``.
         """
-        for agent in self:
-            setattr(agent, attr_name, value)
+        if isinstance(value, (list, tuple, np.ndarray, pd.Series)) and len(
+            value
+        ) == len(self):
+            for agent, agent_value in zip(self, value):
+                setattr(agent, attr_name, agent_value)
+        else:
+            for agent in self:
+                setattr(agent, attr_name, value)
         return self
 
     def to_list(self) -> list[A]:
