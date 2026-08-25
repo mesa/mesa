@@ -324,7 +324,7 @@ class Grid(DiscreteSpace[T]):
         This is meaningfully different from :attr:`~DiscreteSpace.empties`:
         ``empties`` only includes cells with **zero** agents. If a cell has
         ``capacity=5`` and currently holds 3 agents it is **not** empty, but it
-        **is** still available. ``available_cells`` is therefore the correct
+        **is** still available. ``cells_with_capacity`` is therefore the correct
         API for models where agents share cells up to a finite limit.
 
         For cells with ``capacity=None`` (unlimited), every cell is always

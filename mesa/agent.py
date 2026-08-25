@@ -40,7 +40,7 @@ class Agent[M: Model]:
     _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action", "unique_id"}
 
     def __init_subclass__(cls, **kwargs):
-        """Called when DatasetTrackedAgent is subclassed."""
+        """Called when Agent is subclassed, giving each subclass its own dataset set."""
         super().__init_subclass__(**kwargs)
         # Each subclass gets its own dataset set
         # we use strings on this to avoid memory leaks

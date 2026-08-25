@@ -20,7 +20,7 @@ class ObservableSignals(SignalType):
         ...         super().__init__()
         ...         self._value = 0
         >>> model = MyModel()
-        >>> model.observe("value", ObservableSignals.CHANGED, lambda s: print(s.new))
+        >>> model.observe("value", ObservableSignals.CHANGED, lambda s: print(s.additional_kwargs["new"]))
         >>> model.value = 10
         10
 
@@ -59,7 +59,7 @@ class ListSignals(SignalType):
         ...         super().__init__()
         ...         self.items = []
         >>> model = MyModel()
-        >>> model.observe("items", ListSignals.INSERTED, lambda m: print(f"Inserted {m.kwargs['new']}"))
+        >>> model.observe("items", ListSignals.INSERTED, lambda m: print(f"Inserted {m.additional_kwargs['new']}"))
         >>> model.items.insert(0, "first")
         Inserted first
 
