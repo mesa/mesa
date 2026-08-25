@@ -43,9 +43,9 @@ jobs:
           #  python-version: 'pypy-3.8'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -63,15 +63,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - run: pip install uv
       - run: uv pip install --system .[dev]
       - run: playwright install chromium-headless-shell
       - run: python -Im pytest -p pytest_cov --cov --cov-report=xml --cov-report=markdown-append:"${GITHUB_STEP_SUMMARY}" --cov-context=test tests/
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -79,9 +79,9 @@ jobs:
   examples:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           allow-prereleases: true
@@ -91,7 +91,7 @@ jobs:
       - name: Install Mesa
         run: uv pip install --system .[examples]
       - name: Checkout mesa-examples
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: mesa/mesa-examples
           path: mesa-examples

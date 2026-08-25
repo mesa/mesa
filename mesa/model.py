@@ -54,7 +54,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
     Attributes:
         running: A boolean indicating if the model should continue running.
-        steps: the number of times `model.step()` has been called.
         time: the current simulation time.
         random: a seeded python.random number generator.
         rng: a seeded numpy.random.Generator

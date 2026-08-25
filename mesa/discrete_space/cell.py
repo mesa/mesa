@@ -104,6 +104,7 @@ class Cell:
         self._agents: list[
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        self._empty: bool = True  # a freshly created cell holds no agents
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object

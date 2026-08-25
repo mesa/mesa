@@ -33,7 +33,7 @@ To further explore Mesa and its features, we have the following resources availa
 - [Mesa best practices](best-practices): an overview of tips and guidelines for using MESA.
 
 ### API documentation
-- [Mesa API reference](apis): Detailed documentation of Mesa's classes and functions.
+- [Mesa API reference](apis/api_main.md): Detailed documentation of Mesa's classes and functions.
 
 ### Repository of models built using MESA
 - [Mesa Examples repository](https://github.com/mesa/mesa-examples): A collection of example models demonstrating various Mesa features and modeling techniques.
@@ -47,7 +47,7 @@ To further explore Mesa and its features, we have the following resources availa
 
 ### Community and support
 - [Mesa GitHub Discussions](https://github.com/mesa/mesa/discussions): Join discussions, ask questions, and connect with other Mesa users.
-- [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org): Real-time chat for quick questions and community interaction.
+- [Discord](https://discord.gg/UUGJvdtEJu): Real-time chat for quick questions and community interaction.
 
 Enjoy modelling with Mesa, and feel free to reach out!
 

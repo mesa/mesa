@@ -2,9 +2,10 @@
 This repository contains a curated set of classic agent-based models implemented using Mesa. These core examples are maintained by the Mesa development team and serve as both demonstrations of Mesa's capabilities and starting points for your own models.
 
 ## Overview
-The examples are categorized into two groups:
+The examples are categorized into three groups:
 1. **Basic Examples** - Simpler models that use only stable Mesa features; ideal for beginners
 2. **Advanced Examples** - More complex models that demonstrate additional concepts and may use some experimental features
+3. **Experimental Examples** - Models built on experimental Mesa APIs that may change without notice
 
 > **Note:** Looking for more examples? Visit the [mesa-examples](https://github.com/mesa/mesa-examples) repository for user-contributed models and showcases.
 
@@ -38,7 +39,20 @@ Joshua Epstein's [model](https://www.pnas.org/doi/10.1073/pnas.092080199) of how
 Grid-based demographic prisoner's dilemma model, demonstrating how simple rules can lead to the emergence of widespread cooperation -- and how a model activation regime can change its outcome.
 
 ### [Sugarscape Model with Traders](examples/advanced/sugarscape_g1mt)
-This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in Chapter four of *Growing Artificial Societies: Social Science from the Bottom Up (1996)*. The model shows how emergent price equilibrium can happen via decentralized dynamics.
+This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in
+<!-- vale Google.WordList = NO -->
+Chapter four of *Growing Artificial Societies: Social Science from the Bottom Up (1996)*.
+<!-- vale Google.WordList = YES -->
+The model shows how emergent price equilibrium can happen via decentralized dynamics.
 
 ### [Wolf-Sheep Predation Model](examples/advanced/wolf_sheep)
 Implementation of an ecological model of predation and reproduction, based on the NetLogo [Wolf Sheep Predation](http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation) model.
+
+## Experimental Examples
+The experimental examples are built on Mesa APIs that live under `mesa.experimental` and carry no semver guarantees. They show where Mesa is heading, but both the models and the APIs they use may change without notice.
+
+### [Alliance Formation Model](examples/experimental/alliance_formation)
+Demonstrates dynamic meta-agent creation: agents form alliances through a game-theoretic process, and the resulting alliances become meta-agents that can themselves form higher-level alliances.
+
+### [Tram Route Model](examples/experimental/tram_model)
+Demonstrates continuous states and thresholds: a tram accelerates, coasts, brakes and dwells its way along a route, with every transition solved for analytically and scheduled on the event queue rather than polled for on each tick.

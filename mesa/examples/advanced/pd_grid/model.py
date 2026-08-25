@@ -13,7 +13,7 @@ class PrisonersDilemmaScenario(Scenario):
     width: int = 50
     height: int = 50
     activation_order: Literal["Sequential", "Random", "Simultaneous"] = "Random"
-    payoff: None | dict[tuple[str, str], float] = None
+    payoff: dict[tuple[str, str], float] | None = None
     torus: bool = True
 
 

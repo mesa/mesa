@@ -18,6 +18,7 @@ from mesa.discrete_space import (
     FixedAgent,
     Grid2DMovingAgent,
     HexGrid,
+    HexGridMovingAgent,
     Network,
     OrthogonalMooreGrid,
     OrthogonalVonNeumannGrid,
@@ -555,8 +556,17 @@ def test_empties_space():
     assert len(grid.empties) == n
 
     model = Model()
+    agents = []
     for i in range(8):
-        grid._cells[i].add_agent(CellAgent(model))
+        agent = CellAgent(model)
+        grid._cells[i].add_agent(agent)
+        agents.append(agent)
+
+    assert len(grid.empties) == n - 8
+
+    # Remove an agent and verify empties count updates
+    grid._cells[0].remove_agent(agents[0])
+    assert len(grid.empties) == n - 7
 
 
 def test_cell_missing_exception():
@@ -604,7 +614,7 @@ def test_grid_validate_parameters():
 
 
 def test_agents_property():
-    """Test empties method for Discrete Spaces."""
+    """Test agents property for Discrete Spaces."""
     n = 10
     m = 20
     rng = 42
@@ -666,6 +676,30 @@ def test_cell():
     cell_zero = Cell((1,), capacity=0, random=random.Random())
     with pytest.raises(CellFullException):
         cell_zero.add_agent(CellAgent(model))
+
+
+def test_cell_empty_attribute_initialized():
+    """A freshly created Cell exposes `empty` without first adding/removing an agent.
+
+    Cells that are not grid cells (e.g. those in Network and VoronoiGrid) have no
+    `empty` property layer overriding the attribute, so reading `cell.empty` must
+    work straight after construction. Regression test for the uninitialized
+    `_empty` slot which raised AttributeError.
+    """
+    model = Model()
+    cell = Cell((0,), capacity=None, random=random.Random())
+
+    # readable immediately after construction, and consistent with is_empty
+    assert cell.empty is True
+    assert cell.empty == cell.is_empty
+
+    # tracks agent occupancy
+    agent = CellAgent(model)
+    cell.add_agent(agent)
+    assert cell.empty is False
+
+    cell.remove_agent(agent)
+    assert cell.empty is True
 
 
 def test_cell_deepcopy():
@@ -903,6 +937,29 @@ def test_copy_pickle_with_property_layers():
     assert grid2._cells[(0, 0)].empty == grid2.property_layers["empty"][0, 0]
 
 
+def test_read_only_property_layer_survives_pickle_and_deepcopy():
+    """A read-only property layer must stay read-only after pickling/deepcopy.
+
+    Previously Grid.__setstate__ rebuilt every property layer with a setter,
+    silently dropping the read_only restriction on the round trip.
+    """
+    grid = OrthogonalMooreGrid((3, 3), torus=False, random=random.Random(42))
+    grid.create_property_layer("protected", default_value=0.0, read_only=True)
+    grid.create_property_layer("sugar", default_value=1.0, read_only=False)
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        cell = restored._cells[(0, 0)]
+        # read-only layer must still reject writes
+        with pytest.raises(AttributeError):
+            cell.protected = 99.0
+        # read-write layer must still accept writes
+        cell.sugar = 5.0
+        assert cell.sugar == 5.0, label
+
+
 def test_multiple_property_layers():
     """Test initialization of DiscreteSpace with Property Layers."""
     dimensions = (5, 5)
@@ -1029,6 +1086,30 @@ def test_grid2DMovingAgent():  # noqa: D103
         agent.move("back")
 
 
+def test_hexGridMovingAgent():
+    """Test HexGridMovingAgent with 'even-r' (Even Row Shove) geometry."""
+    grid = HexGrid((10, 10), torus=False, random=random.Random(42))
+    model = Model()
+    agent = HexGridMovingAgent(model)
+
+    # 'nw' offset should be (0, -1).
+    agent.cell = grid[5, 2]
+    agent.move("nw")
+
+    assert agent.cell.coordinate == (5, 1)
+
+    # 'nw' offset should be (-1, -1)
+    agent.cell = grid[5, 1]  # Reset position to a known Odd row
+    agent.move("nw")
+
+    assert agent.cell.coordinate == (4, 0)
+
+    # West is (-1, 0) for both parities.
+    agent.cell = grid[5, 2]
+    agent.move("w")
+    assert agent.cell.coordinate == (4, 2)
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())
@@ -1056,9 +1137,6 @@ def test_copying_discrete_spaces():  # noqa: D103
         grid = OrthogonalMooreGrid((100, 100), random=random.Random(42))
         grid_copy = copy.deepcopy(grid)
 
-        c1 = grid[(5, 5)].connections
-        c2 = grid_copy[(5, 5)].connections
-
         for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
             for k, v in c1.connections.items():
                 assert v.coordinate == c2.connections[k].coordinate
@@ -1077,9 +1155,6 @@ def test_copying_discrete_spaces():  # noqa: D103
         grid = HexGrid((100, 100), random=random.Random(42))
         grid_copy = copy.deepcopy(grid)
 
-        c1 = grid[(5, 5)].connections
-        c2 = grid_copy[(5, 5)].connections
-
         for c1, c2 in zip(grid.all_cells, grid_copy.all_cells):
             for k, v in c1.connections.items():
                 assert v.coordinate == c2.connections[k].coordinate
@@ -1095,6 +1170,20 @@ def test_select_random_agent_empty_safe():
         empty_collection.select_random_agent()
     assert empty_collection.select_random_agent(default=None) is None
     assert empty_collection.select_random_agent(default="Empty") == "Empty"
+
+
+def test_select_random_cell_empty_safe():
+    """Test that select_random_cell raises LookupError on an empty collection and honors default."""
+    rng = random.Random(42)
+    empty_collection = CellCollection([], random=rng)
+    with pytest.raises(LookupError):
+        empty_collection.select_random_cell()
+    assert empty_collection.select_random_cell(default=None) is None
+    assert empty_collection.select_random_cell(default="Empty") == "Empty"
+
+    # A non-empty collection still returns a cell from the collection
+    collection = CellCollection([Cell((i,), random=rng) for i in range(5)], random=rng)
+    assert collection.select_random_cell() in collection
 
 
 def test_infinite_loop_on_full_grid():

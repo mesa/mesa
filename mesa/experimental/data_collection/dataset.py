@@ -237,19 +237,33 @@ class TableDataSet:
 
         Raises:
             RuntimeError: if the dataset has been closed
-            ValueError: if the row is missing required fields or contains unexpected fields
+            ValueError: if the row is empty
+            ValueError: if the row is missing required fields
+            ValueError: if the row contains unexpected fields
 
         """
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
 
-        try:
-            row_to_add = {k: row.pop(k) for k in self.fields}
-        except KeyError as e:
-            raise ValueError("row is missing fields") from e
+        row_keys = set(row)
+        fields_set = set(self.fields)
 
-        if len(row) > 0:
-            raise ValueError(f"Row contains unexpected fields: {row.keys()}")
+        # Value error if the row provided by the user is empty
+        if not row:
+            raise ValueError("row is empty")
+
+        # If the row user passed miss the value for required field
+        missing = fields_set - row_keys
+        if missing:
+            raise ValueError("row is missing fields")
+
+        # If the row user passed includes  the unexpected fields
+        unexpected = row_keys - fields_set
+        if unexpected:
+            raise ValueError(f"Row contains unexpected fields: {unexpected}")
+
+        # Adding the row to rows
+        row_to_add = {k: row[k] for k in self.fields}
         self.rows.append(row_to_add)
 
     @property

@@ -13,7 +13,7 @@ these multiple levels, where each level can have agents with constituting_agents
 To demonstrate meta-agents capability there are two examples:
 1 - Alliance formation which shows emergent meta-agent formation in
 advanced examples:
-https://github.com/mesa/mesa/tree/main/mesa/examples/advanced/alliance_formation
+https://github.com/mesa/mesa/tree/main/mesa/examples/experimental/alliance_formation
 2 - Warehouse model in the Mesa example's repository
 https://github.com/mesa/mesa-examples/tree/main/examples/warehouse
 
@@ -44,6 +44,17 @@ from types import MethodType
 from typing import Any
 
 from mesa.agent import Agent, AgentSet
+
+
+def _unique_id_sort_key(agent: Agent) -> tuple[bool, Any]:
+    """Return a deterministic, type-stable key for ordering agents by ``unique_id``.
+
+    Agents are ordered by ``unique_id``, with a ``None`` id sorting first so the key
+    never compares ``None`` against a real id. Unlike ``unique_id or 0``, this does not
+    inject an ``int`` into the key, so it also works for non-integer ids such as ``str``
+    or ``UUID`` without raising ``TypeError``.
+    """
+    return (agent.unique_id is not None, agent.unique_id)
 
 
 def evaluate_combination(
@@ -86,7 +97,6 @@ def find_combinations(
         evaluation_func: The function to evaluate combinations. Defaults to None.
         filter_func: Allows the user to specify how agents are filtered to form groups.
           Defaults to None.
-        List: The function to filter combinations. Defaults to None.
 
     Returns:
         List: The list of valuable combinations, in a tuple first agentset of valuable combination  and then the value of
@@ -94,10 +104,15 @@ def find_combinations(
     """
     combinations = []
     # Allow one size or range of sizes to be passed
-    size_range = (size, size + 1) if isinstance(size, int) else size
+    if isinstance(size, int):
+        size_range = range(size, size + 1)
+    else:
+        min_size, max_size = size
+        size_range = range(min_size, max_size + 1)
 
     for candidate_group in itertools.chain.from_iterable(
-        itertools.combinations(group, size) for size in range(*size_range)
+        itertools.combinations(group, combination_size)
+        for combination_size in size_range
     ):
         evaluation_result = evaluate_combination(
             candidate_group, model, evaluation_func
@@ -146,19 +161,21 @@ def create_meta_agent(
 ) -> Any | None:
     """Create a new meta-agent class and instantiate agents.
 
-    Parameters:
-    model (Any): The model instance.
-    new_agent_class (str): The name of the new meta-agent class.
-    agents (Iterable[Any]): The agents to be included in the meta-agent.
-    meta_attributes (Dict[str, Any]): Attributes to be added to the meta-agent.
-    meta_methods (Dict[str, Callable]): Methods to be added to the meta-agent.
-    assume_constituting_agent_methods (bool): Whether to assume methods from
-    constituting_-agents as meta_agent methods.
-    assume_constituting_agent_attributes (bool): Whether to retain attributes
-    from constituting_-agents.
+    Args:
+        model: The model instance.
+        new_agent_class: The name of the new meta-agent class.
+        agents: The agents to be included in the meta-agent.
+        mesa_agent_type: The Mesa Agent (sub)class the new meta-agent should
+            inherit from. If falsy, defaults to Agent.
+        meta_attributes: Attributes to be added to the meta-agent.
+        meta_methods: Methods to be added to the meta-agent.
+        assume_constituting_agent_methods: Whether to assume methods from
+            constituting-agents as meta_agent methods.
+        assume_constituting_agent_attributes: Whether to retain attributes
+            from constituting-agents.
 
     Returns:
-        - MetaAgent Instance
+        MetaAgent instance
     """
     # Convert agents to dict, to ensure uniqueness,
     # we need a dict, not a set to keep stuff deterministic
@@ -242,7 +259,7 @@ def create_meta_agent(
     existing_meta_agents = []
     for a in agents:
         if hasattr(a, "meta_agents"):
-            for ma in sorted(a.meta_agents, key=lambda x: x.unique_id or 0):
+            for ma in sorted(a.meta_agents, key=_unique_id_sort_key):
                 if (
                     ma.__class__.__name__ == new_agent_class
                     and ma not in existing_meta_agents
@@ -253,7 +270,7 @@ def create_meta_agent(
         # TODO: Add way for user to specify how agents join meta-agent
         # instead of random choice if there are multiple meta-agents of the same class
         meta_agent = (
-            sorted(existing_meta_agents, key=lambda x: x.unique_id)[0]
+            sorted(existing_meta_agents, key=_unique_id_sort_key)[0]
             if len(existing_meta_agents) > 1
             else existing_meta_agents[0]
         )
@@ -267,7 +284,12 @@ def create_meta_agent(
         agent_class = extract_class(model.agents_by_type, new_agent_class)
 
         if agent_class:
-            meta_agent_instance = agent_class(model, agents)
+            # Pass initial_attributes to __init__ to handle CellAgent and other
+            # descriptor-based parent classes correctly (initialize before super().__init__())
+            meta_agent_instance = agent_class(
+                model, agents, initial_attributes=meta_attributes
+            )
+            # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
             return meta_agent_instance
@@ -281,7 +303,12 @@ def create_meta_agent(
                     "_constituting_set": None,
                 },
             )
-            meta_agent_instance = meta_agent_class(model, agents)
+            # Pass initial_attributes to __init__ to handle CellAgent and other
+            # descriptor-based parent classes correctly (initialize before super().__init__())
+            meta_agent_instance = meta_agent_class(
+                model, agents, initial_attributes=meta_attributes
+            )
+            # add_attributes() will handle inferred attributes if needed
             add_attributes(meta_agent_instance, agents, meta_attributes)
             add_methods(meta_agent_instance, agents, meta_methods)
             return meta_agent_instance
@@ -291,7 +318,11 @@ class MetaAgent(Agent):
     """A MetaAgent is an agent that contains other agents as components."""
 
     def __init__(
-        self, model, agents: set[Agent] | None = None, name: str = "MetaAgent"
+        self,
+        model,
+        agents: set[Agent] | None = None,
+        name: str = "MetaAgent",
+        initial_attributes: dict[str, Any] | None = None,
     ):
         """Create a new MetaAgent.
 
@@ -300,7 +331,16 @@ class MetaAgent(Agent):
             agents (Optional[set[Agent]], optional): The set of agents to
             include in the MetaAgent. Defaults to None.
             name (str, optional): The name of the MetaAgent. Defaults to "MetaAgent".
+            initial_attributes (Optional[dict], optional): Attributes to set before
+            calling super().__init__(). This is important for CellAgent and other
+            descriptor-based parent classes. Defaults to None.
         """
+        # Apply initial attributes BEFORE calling super().__init__()
+        # This is important for CellAgent and other descriptors
+        if initial_attributes:
+            for key, value in initial_attributes.items():
+                object.__setattr__(self, key, value)
+
         super().__init__(model)
         self._constituting_set = AgentSet(agents or [], random=model.random)
         self.name = name
@@ -311,9 +351,7 @@ class MetaAgent(Agent):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
-            agent.meta_agent = sorted(
-                agent.meta_agents, key=lambda x: x.unique_id or 0
-            )[0]
+            agent.meta_agent = sorted(agent.meta_agents, key=_unique_id_sort_key)[0]
 
     def __len__(self) -> int:
         """Return the number of components."""
@@ -390,9 +428,7 @@ class MetaAgent(Agent):
                 agent.meta_agents = set()
             agent.meta_agents.add(self)
             # Maintain backward compatibility — always pick lowest unique_id
-            agent.meta_agent = sorted(
-                agent.meta_agents, key=lambda x: x.unique_id or 0
-            )[0]
+            agent.meta_agent = sorted(agent.meta_agents, key=_unique_id_sort_key)[0]
 
     def remove_constituting_agents(self, remove_agents: set[Agent]):
         """Remove agents as components.
@@ -407,7 +443,7 @@ class MetaAgent(Agent):
                 # Update backward compatibility attribute deterministically
                 if len(agent.meta_agents) > 0:
                     agent.meta_agent = sorted(
-                        agent.meta_agents, key=lambda x: x.unique_id or 0
+                        agent.meta_agents, key=_unique_id_sort_key
                     )[0]
                 else:
                     agent.meta_agent = None
