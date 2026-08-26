@@ -416,7 +416,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [gh actions build]: https://github.com/mesa/mesa/actions/workflows/build_lint.yml
 [google style guide]: https://google.github.io/styleguide/pyguide.html
 [license]: https://github.com/mesa/mesa/blob/main/LICENSE
-[discord]: https://discord.gg/9mhjwWCqD
+[discord]: https://discord.gg/UUGJvdtEJu
 [mesa discussions]: https://github.com/mesa/mesa/discussions
 [pep8]: https://www.python.org/dev/peps/pep-0008
 [pre-commit]: https://github.com/pre-commit/pre-commit

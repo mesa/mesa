@@ -308,3 +308,30 @@ def test_agent_repr_with_various_types():
     assert "count=42" in r
     assert "status=None" in r
     assert "items=[1, 2, 3]" in r
+
+
+def test_agent_remove_cleans_up_datasets():
+    """Test that remove() removes the agent from every dataset it belongs to."""
+
+    class DatasetAgent(AgentTest):
+        pass
+
+    model = Model()
+    dataset = model.data_registry.track_agents_numpy(
+        DatasetAgent, "my_dataset", fields="x"
+    )
+
+    agent = DatasetAgent(model)
+    assert agent in dataset.active_agents
+
+    agent.remove()
+
+    assert agent not in dataset.active_agents
+    assert len(dataset) == 0
+
+
+def test_agent_advance_is_noop():
+    """Test that advance() is a no-op."""
+    model = Model()
+    agent = AgentTest(model)
+    assert agent.advance() is None
