@@ -380,9 +380,9 @@ class NumpyAgentDataSet[A: Agent]:
         new_data[:current_size] = self._agent_data
         self._agent_data = new_data
 
-        new_data = np.zeros(new_size, dtype=self.dtype)
-        new_data[:current_size] = self._agent_ids
-        self._agent_ids = new_data
+        new_ids = np.zeros(new_size, dtype=int)
+        new_ids[:current_size] = self._agent_ids
+        self._agent_ids = new_ids
 
         # Reinstall properties to capture new array reference
         self._install_properties()
