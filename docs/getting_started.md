@@ -47,7 +47,7 @@ To further explore Mesa and its features, we have the following resources availa
 
 ### Community and support
 - [Mesa GitHub Discussions](https://github.com/mesa/mesa/discussions): Join discussions, ask questions, and connect with other Mesa users.
-- [Discord](https://discord.gg/9mhjwWCqD): Real-time chat for quick questions and community interaction.
+- [Discord](https://discord.gg/UUGJvdtEJu): Real-time chat for quick questions and community interaction.
 
 Enjoy modelling with Mesa, and feel free to reach out!
 

@@ -2,6 +2,7 @@
 
 import copy
 import pickle
+from random import Random
 
 import numpy as np
 import pytest
@@ -930,3 +931,243 @@ def test_hardkeyagentset_add_remove():
 
     with pytest.raises(KeyError):
         hard_set.remove(agent)
+
+
+def test_select_random_uniform():
+    """Test uniform random selection without replacement."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Sample n=5
+    sampled = agentset.select_random(5)
+    assert isinstance(sampled, AgentSet)
+    assert len(sampled) == 5
+    assert len(set(sampled)) == 5  # No duplicates
+
+    # Error when n > len(agentset) without replacement
+    with pytest.raises(ValueError, match=r"Sample size .* cannot exceed AgentSet size"):
+        agentset.select_random(50)
+
+    # Reproducibility with seed
+    model1 = Model()
+    model1.random = Random(123)
+    agents1 = [AgentTest(model1) for _ in range(20)]
+    s1 = AgentSet(agents1, random=model1.random).select_random(5)
+
+    model2 = Model()
+    model2.random = Random(123)
+    agents2 = [AgentTest(model2) for _ in range(20)]
+    s2 = AgentSet(agents2, random=model2.random).select_random(5)
+
+    assert [a.unique_id for a in s1] == [a.unique_id for a in s2]
+
+
+def test_select_random_with_replacement():
+    """Test uniform random selection with replacement."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Sample with replacement into an AgentSet (unique agents)
+    sampled = agentset.select_random(10, replace=True)
+    assert isinstance(sampled, AgentSet)
+    assert 1 <= len(sampled) <= 3
+    # Every sampled agent must be in the original agentset
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_fraction():
+    """Test fractional sampling."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # 0.25 of 20 = 5
+    sampled = agentset.select_random(0.25)
+    assert len(sampled) == 5
+
+    # 0.5 of 20 = 10
+    sampled_half = agentset.select_random(0.5)
+    assert len(sampled_half) == 10
+
+
+def test_select_random_inplace():
+    """Test inplace selection."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    res = agentset.select_random(5, inplace=True)
+    assert res is agentset
+    assert len(agentset) == 5
+
+
+def test_select_random_weighted_attribute():
+    """Test weighted selection using agent attribute name."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(4)]
+    # Set fitnesses: [1, 1, 1, 100]
+    agents[0].fitness = 1.0
+    agents[1].fitness = 1.0
+    agents[2].fitness = 1.0
+    agents[3].fitness = 100.0
+
+    agentset = AgentSet(agents, random=model.random)
+
+    # Draw 500 single samples with replacement
+    draws = [
+        agentset.select_random(1, weights="fitness", replace=True).to_list()[0]
+        for _ in range(500)
+    ]
+    # Agent 3 (fitness=100) should be drawn roughly 100/103 ~ 97% of the time
+    count_top = sum(1 for a in draws if a == agents[3])
+    assert count_top > 450
+
+
+def test_select_random_weighted_callable():
+    """Test weighted selection using a callable."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agents[0].energy = 2
+    agents[1].energy = 4
+    agents[2].energy = 8
+
+    agentset = AgentSet(agents, random=model.random)
+
+    sampled = agentset.select_random(2, weights=lambda a: a.energy**2, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_weighted_sequence():
+    """Test weighted selection using a numerical sequence."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    weights = [0.1, 0.1, 0.8]
+    sampled = agentset.select_random(2, weights=weights, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_weighted_without_replacement():
+    """Test weighted selection without replacement using Efraimidis-Spirakis."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(5)]
+    for i, a in enumerate(agents):
+        a.weight = float(i + 1)
+
+    agentset = AgentSet(agents, random=model.random)
+    sampled = agentset.select_random(3, weights="weight", replace=False)
+    assert len(sampled) == 3
+    assert len(set(sampled)) == 3  # Distinct agents
+
+
+def test_select_random_edge_cases_and_errors():
+    """Test edge cases and error handling."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Empty agentset
+    empty_set = AgentSet([], random=model.random)
+    with pytest.raises(ValueError, match="Cannot sample from an empty AgentSet"):
+        empty_set.select_random(5)
+
+    # n <= 0
+    with pytest.raises(ValueError, match="n must be a positive integer"):
+        agentset.select_random(0)
+    with pytest.raises(ValueError, match="n must be a positive integer"):
+        agentset.select_random(-1)
+
+    # Invalid fractional n
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(0.0)
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(-0.5)
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(1.5)
+
+    # Invalid type for n
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random("five")
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random(True)
+
+    # n > len(agentset) when replace=False
+    with pytest.raises(ValueError, match="cannot exceed AgentSet size"):
+        agentset.select_random(10, replace=False)
+
+    # Negative weights
+    agents[0].w = -5
+    agents[1].w = 10
+    agents[2].w = 10
+    with pytest.raises(ValueError, match="non-negative"):
+        agentset.select_random(2, weights="w")
+
+    # Sum of weights <= 0
+    agents[0].w = 0
+    agents[1].w = 0
+    agents[2].w = 0
+    with pytest.raises(ValueError, match="strictly positive"):
+        agentset.select_random(2, weights="w")
+
+    # Sequence length mismatch
+    with pytest.raises(ValueError, match="Length of weights"):
+        agentset.select_random(2, weights=[1.0, 2.0])
+
+    # Unsupported weights type
+    with pytest.raises(TypeError, match="Unsupported weights type"):
+        agentset.select_random(2, weights=12345)
+
+
+def test_select_random_realistic_abm_evolution_scenario():
+    """Test a realistic Agent-Based evolutionary selection scenario.
+
+    In this ABM scenario, a population of agents undergoes fitness-proportionate
+    reproduction across multiple generations. Fitter agents reproduce more often,
+    causing average population fitness to increase over generations.
+    """
+    model = Model()
+    model.random = Random(100)
+
+    # Initialize 50 agents with random fitness traits
+    agents = [AgentTest(model) for _ in range(50)]
+    for a in agents:
+        a.trait = model.random.uniform(1.0, 5.0)
+
+    population = AgentSet(agents, random=model.random)
+    initial_mean_fitness = population.agg("trait", sum) / len(population)
+
+    # Simulate 5 generations of evolutionary reproduction
+    for _ in range(5):
+        # Sample parents proportional to fitness trait
+        parents = population.select_random(
+            len(population), weights="trait", replace=True
+        )
+
+        # Offspring inherit parent trait with small mutation
+        offspring_agents = []
+        for p in parents:
+            child = AgentTest(model)
+            mutation = model.random.uniform(-0.1, 0.3)  # slight positive bias
+            child.trait = max(0.1, p.trait + mutation)
+            offspring_agents.append(child)
+
+        population = AgentSet(offspring_agents, random=model.random)
+
+    final_mean_fitness = population.agg("trait", sum) / len(population)
+
+    # Evolutionary pressure via weighted sampling increases population fitness
+    assert final_mean_fitness > initial_mean_fitness
