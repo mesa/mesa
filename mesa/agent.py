@@ -40,7 +40,7 @@ class Agent[M: Model]:
     _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action", "unique_id"}
 
     def __init_subclass__(cls, **kwargs):
-        """Called when DatasetTrackedAgent is subclassed."""
+        """Called when Agent is subclassed, giving each subclass its own dataset set."""
         super().__init_subclass__(**kwargs)
         # Each subclass gets its own dataset set
         # we use strings on this to avoid memory leaks
@@ -263,6 +263,10 @@ class Agent[M: Model]:
         The action must be in PENDING or INTERRUPTED state and the agent
         must not be currently performing another action.
 
+        If one of the action's start requirements does not hold, the action moves
+        to FAILED instead of starting and the agent stays idle. Check
+        action.has_failed rather than assuming the action is running.
+
         Args:
             action: The Action to perform. Must have been created with
                 this agent as its agent.
@@ -304,16 +308,23 @@ class Agent[M: Model]:
             new_action: The Action to perform instead.
 
         Returns:
-            True if the new action was started (either no current action,
-            or the current one was successfully interrupted). False if the
-            current action is non-interruptible.
+            True if the new action was started. False if the current action
+            refused to be interrupted, or if the new action failed its
+            start requirements.
+
+        Notes:
+            The two False cases differ in what they leave behind. A refused
+            interruption changes nothing. A failed requirement does not roll
+            the interruption back: the old action is already INTERRUPTED and
+            the agent is left idle, since whether to resume it is the model's
+            decision.
         """
         if self.current_action is not None and not self.current_action.interrupt():
             return False
             # interrupt() already cleared current_action
 
         self.start_action(new_action)
-        return True
+        return not new_action.has_failed
 
     def cancel_action(self) -> bool:
         """Cancel the current action, ignoring interruptible flag.
