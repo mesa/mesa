@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from mesa.experimental.actions import Action
     from mesa.model import Model
 
-from mesa.agentset import AgentSet
+from mesa.agentset import AgentSet, _resolve_per_agent_values
 
 
 class Agent[M: Model]:
@@ -129,17 +129,19 @@ class Agent[M: Model]:
             AgentSet containing the agents created.
 
         Warning:
-            A list, tuple, ndarray, or pandas Series argument whose length
-            equals n is always treated as one value per agent, even if you
-            intended it as a single shared value. This is especially easy
-            to hit with coordinate tuples: create_agents(model, 2, pos=(10,
-            20)) does NOT give both agents pos=(10, 20); it gives agent 0
-            pos=10 and agent 1 pos=20, since the tuple's length (2) matches
-            n (2).
+            A list, tuple, ndarray, or pandas Series argument is treated as one
+            value per agent and must have length n; a length mismatch raises
+            ValueError. This is especially easy to hit with coordinate tuples:
+            create_agents(model, 2, pos=(10, 20)) does NOT give both agents
+            pos=(10, 20); it gives agent 0 pos=10 and agent 1 pos=20, since the
+            tuple's length (2) matches n (2).
 
-            To share a value across all agents regardless of its length,
-            wrap it so its own length no longer matches n, e.g.:
+            To assign the same sequence value to every agent, broadcast it
+            explicitly as a length-n list of that value, e.g.:
             create_agents(model, 2, pos=[(10, 20)] * 2)
+
+        Raises:
+            ValueError: If a sequence argument's length does not match n.
 
         """
         agents = []
@@ -149,22 +151,13 @@ class Agent[M: Model]:
                 agents.append(cls(model))
             return AgentSet(agents, random=model.random)
 
-        # Prepare positional argument iterators
-        arg_iters = []
-        for arg in args:
-            if isinstance(arg, (list, np.ndarray, tuple, pd.Series)) and len(arg) == n:
-                arg_iters.append(arg)
-            else:
-                arg_iters.append(itertools.repeat(arg, n))
+        # Prepare positional argument iterators. A sequence must have length n
+        # (assigned per agent); anything else is broadcast.
+        arg_iters = [_resolve_per_agent_values(arg, n) for arg in args]
 
         # Prepare keyword argument iterators
         kw_keys = list(kwargs.keys())
-        kw_val_iters = []
-        for v in kwargs.values():
-            if isinstance(v, (list, np.ndarray, tuple, pd.Series)) and len(v) == n:
-                kw_val_iters.append(v)
-            else:
-                kw_val_iters.append(itertools.repeat(v, n))
+        kw_val_iters = [_resolve_per_agent_values(v, n) for v in kwargs.values()]
 
         # If arg_iters is empty, zip(*[]) returns nothing, so we use repeat(())
         pos_iter = zip(*arg_iters) if arg_iters else itertools.repeat(())

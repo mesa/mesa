@@ -501,9 +501,9 @@ def test_agentset_set_element_wise():
     agentset.set("label", "abcde")
     assert agentset.get("label") == ["abcde"] * len(agentset)
 
-    # a sequence whose length does not match is broadcast whole to every agent
-    agentset.set("energy", [1, 2, 3])
-    assert agentset.get("energy") == [[1, 2, 3]] * len(agentset)
+    # a sequence whose length does not match raises
+    with pytest.raises(ValueError, match="does not match the number of agents"):
+        agentset.set("energy", [1, 2, 3])
 
 
 def test_agentset_map_str():

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import itertools
 import operator
 import warnings
 import weakref
@@ -66,6 +67,33 @@ def _resolve_weights(
         raise ValueError("Sum of weights must be strictly positive.")
 
     return w
+
+
+def _resolve_per_agent_values(value: Any, n: int) -> Iterable:
+    """Resolve ``value`` into an iterable of ``n`` per-agent values.
+
+    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` is treated as
+    one value per agent and must have length ``n``. Any other value (a scalar, a
+    string, or any non-sequence) is broadcast to all ``n`` agents.
+
+    Args:
+        value: The value(s) to assign, either one per agent or broadcast.
+        n: The number of agents to produce values for.
+
+    Returns:
+        An iterable yielding exactly ``n`` values.
+
+    Raises:
+        ValueError: If ``value`` is a sequence whose length is not ``n``.
+    """
+    if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+        if len(value) != n:
+            raise ValueError(
+                f"sequence of length {len(value)} does not match the number "
+                f"of agents ({n})"
+            )
+        return value
+    return itertools.repeat(value, n)
 
 
 class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
@@ -342,12 +370,13 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         The behavior is derived from ``value``, matching ``Agent.create_agents``:
 
-        - A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` whose
-          length equals the number of agents is assigned element-wise, in
-          iteration order (the same order ``get`` uses), so a
-          ``get -> transform -> set`` round-trip stays consistent.
-        - Any other value (a scalar, a string, or a sequence whose length does
-          not match) is broadcast: every agent receives the same value.
+        - A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` is treated
+          as one value per agent and is assigned element-wise, in iteration order
+          (the same order ``get`` uses), so a ``get -> transform -> set``
+          round-trip stays consistent. It must have the same length as the
+          AgentSet; a length mismatch raises ``ValueError``.
+        - Any other value (a scalar, a string, or any non-sequence) is broadcast:
+          every agent receives the same value.
 
         Args:
             attr_name (str): The name of the attribute to set.
@@ -357,20 +386,20 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Returns:
             AgentSet: The AgentSet instance itself, after setting the attribute.
 
+        Raises:
+            ValueError: If ``value`` is a sequence whose length does not match the
+                number of agents in the AgentSet.
+
         Notes:
-            As with ``create_agents``, a per-agent sequence is recognized only by
-            its length matching the number of agents. To broadcast a sequence
-            whose length happens to equal the number of agents, wrap it, e.g.
-            ``[shared_list] * len(agentset)``.
+            A per-agent sequence is recognized by its type (list, tuple, ndarray,
+            Series). To assign a single sequence value to every agent, broadcast
+            it explicitly, e.g. ``[shared_list] * len(agentset)``. This mirrors
+            ``Agent.create_agents``.
         """
-        if isinstance(value, (list, tuple, np.ndarray, pd.Series)) and len(
-            value
-        ) == len(self):
-            for agent, agent_value in zip(self, value):
-                setattr(agent, attr_name, agent_value)
-        else:
-            for agent in self:
-                setattr(agent, attr_name, value)
+        for agent, agent_value in zip(
+            self, _resolve_per_agent_values(value, len(self))
+        ):
+            setattr(agent, attr_name, agent_value)
         return self
 
     def to_list(self) -> list[A]:

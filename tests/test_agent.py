@@ -95,12 +95,11 @@ def test_agent_create_with_pandas():
     for i, agent in enumerate(agents):
         assert agent.kw_series_attr == kw_series_data.iloc[i]
 
-    # Test pandas Series with length mismatch
+    # A sequence whose length does not match n now raises instead of
+    # broadcasting the whole sequence to every agent.
     short_series = pd.Series([1, 2])  # length 2, but n=5
-    agents = TestAgent.create_agents(model, n, short_series)
-    for agent in agents:
-        # Should repeat the entire series, not individual elements
-        assert agent.series_attr.equals(short_series)
+    with pytest.raises(ValueError, match="does not match the number of agents"):
+        TestAgent.create_agents(model, n, short_series)
 
 
 def test_agent_from_dataframe():
