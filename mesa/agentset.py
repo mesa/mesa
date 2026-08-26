@@ -69,30 +69,35 @@ def _resolve_weights(
     return w
 
 
-def _resolve_per_agent_values(value: Any, n: int) -> Iterable:
+def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Iterable:
     """Resolve ``value`` into an iterable of ``n`` per-agent values.
 
-    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` is treated as
-    one value per agent and must have length ``n``. Any other value (a scalar, a
-    string, or any non-sequence) is broadcast to all ``n`` agents.
+    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` of length ``n``
+    is treated as one value per agent. Any other value (a scalar, a string, or a
+    non-sequence) is broadcast to all ``n`` agents.
 
     Args:
         value: The value(s) to assign, either one per agent or broadcast.
         n: The number of agents to produce values for.
+        strict: If True (the default), a sequence whose length is not ``n`` raises
+            ValueError. If False, such a sequence is broadcast to every agent (the
+            whole sequence becomes each agent's value).
 
     Returns:
         An iterable yielding exactly ``n`` values.
 
     Raises:
-        ValueError: If ``value`` is a sequence whose length is not ``n``.
+        ValueError: If ``strict`` and ``value`` is a sequence whose length is
+            not ``n``.
     """
     if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
-        if len(value) != n:
+        if len(value) == n:
+            return value
+        if strict:
             raise ValueError(
                 f"sequence of length {len(value)} does not match the number "
                 f"of agents ({n})"
             )
-        return value
     return itertools.repeat(value, n)
 
 
@@ -368,7 +373,8 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
     def set(self, attr_name: str, value: Any) -> AgentSet[A]:
         """Set a specified attribute for the agents in the AgentSet.
 
-        The behavior is derived from ``value``, matching ``Agent.create_agents``:
+        The behavior is derived from ``value`` (the same value-based rule pandas
+        uses for column assignment):
 
         - A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` is treated
           as one value per agent and is assigned element-wise, in iteration order
@@ -393,8 +399,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Notes:
             A per-agent sequence is recognized by its type (list, tuple, ndarray,
             Series). To assign a single sequence value to every agent, broadcast
-            it explicitly, e.g. ``[shared_list] * len(agentset)``. This mirrors
-            ``Agent.create_agents``.
+            it explicitly, e.g. ``[shared_list] * len(agentset)``.
         """
         for agent, agent_value in zip(
             self, _resolve_per_agent_values(value, len(self))
