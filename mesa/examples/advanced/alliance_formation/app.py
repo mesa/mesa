@@ -3,7 +3,7 @@ import networkx as nx
 import solara
 from matplotlib.figure import Figure
 
-from mesa.examples.experimental.alliance_formation.model import (
+from mesa.examples.advanced.alliance_formation.model import (
     AllianceScenario,
     MultiLevelAllianceModel,
 )
@@ -24,6 +24,14 @@ model_params = {
         "max": 100,
         "step": 1,
     },
+    "std_dev": {
+        "type": "SliderFloat",
+        "value": 0.1,
+        "label": "Attribute variation:",
+        "min": 0.01,
+        "max": 0.4,
+        "step": 0.01,
+    },
 }
 
 # Create visualization elements. The visualization elements are solara components
@@ -37,12 +45,12 @@ model_params = {
 def plot_network(model):
     update_counter.get()
     g = model.network
-    pos = nx.fruchterman_reingold_layout(g)
+    pos = nx.multipartite_layout(g, subset_key="level", align="horizontal")
     fig = Figure()
     ax = fig.subplots()
     labels = {agent.unique_id: agent.unique_id for agent in model.agents}
     node_sizes = [g.nodes[node]["size"] for node in g.nodes]
-    node_colors = [g.nodes[node]["size"] for node in g.nodes()]
+    node_colors = [g.nodes[node]["level"] for node in g.nodes()]
 
     nx.draw(
         g,
@@ -53,6 +61,7 @@ def plot_network(model):
         labels=labels,
         ax=ax,
     )
+    ax.set_axis_off()
 
     solara.FigureMatplotlib(fig)
 

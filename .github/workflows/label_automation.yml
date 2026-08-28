@@ -1,0 +1,167 @@
+name: Label Automation
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, converted_to_draft, review_requested, review_request_removed, synchronize, closed]
+  issues:
+    types: [opened, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Backfill labels for which items?"
+        type: choice
+        options: [open, closed, all]
+        default: open
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: label-automation-${{ github.event.pull_request.number || github.event.issue.number || 'backfill' }}
+  cancel-in-progress: true
+
+jobs:
+  label-pr:
+    if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR(s) by changed files
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // Labels test(filename):
+            const pathRules = [
+              { label: "docs", test: (filename) => filename.startsWith("docs/") || filename.endsWith(".md") || filename.endsWith(".rst") },
+              { label: "testing", test: (filename) => filename.startsWith("tests/") || filename.includes("test_") || filename.includes("_test.") },
+              { label: "ci", test: (filename) => filename.startsWith(".github/workflows/") || filename.includes("ci") || filename.includes("build") },
+              { label: "packaging", test: (filename) => ["pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in"].includes(filename) },
+              { label: "example", test: (filename) => filename.startsWith("mesa/examples/") },
+              { label: "experimental", test: (filename) => filename.startsWith("mesa/experimental/") },
+              { label: "visualization", test: (filename) => filename.startsWith("mesa/visualization/") },
+            ];
+
+            // These labels are fully managed by pathRules: they're a deterministic
+            // function of the current diff, so it's safe to both add AND remove them
+            // as the set of changed files changes across pushes to the same PR.
+            const managedLabels = pathRules.map((rule) => rule.label);
+
+            async function labelPr(pr) {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 100,
+              });
+              const paths = files.map((file) => file.filename);
+
+              const toAdd = pathRules
+                .filter((rule) => paths.some((filename) => rule.test(filename)))
+                .map((rule) => rule.label);
+
+              const currentLabels = (pr.labels || []).map((l) => l.name);
+              const toRemove = managedLabels.filter(
+                (label) => currentLabels.includes(label) && !toAdd.includes(label)
+              );
+
+              if (toAdd.length) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: toAdd,
+                });
+              }
+
+              for (const label of toRemove) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    name: label,
+                  });
+                } catch (err) {
+                  // Already removed (e.g. by a maintainer) between our read and this call.
+                  if (err.status !== 404) throw err;
+                }
+              }
+            }
+
+            if (context.eventName === "workflow_dispatch") {
+              // Backfill: label PRs that predate (or were missed by) this workflow.
+              const state = context.payload.inputs?.state || "open";
+              const prs = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state,
+                per_page: 100,
+              });
+              for (const pr of prs) {
+                await labelPr(pr);
+              }
+            } else {
+              await labelPr(context.payload.pull_request);
+            }
+
+  label-issue:
+    if: github.event_name == 'issues' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label issue(s) by keywords
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // label regex: edit & add rules
+            //
+            // Intentionally add-only (unlike the PR path-rule job): these are
+            // keyword heuristics over free-text title/body, and maintainers
+            // routinely add/remove these same labels by hand after triage
+            // (e.g. tagging "good first issue" without the phrase appearing in
+            // the body). Auto-removing on a later "edited" event would fight
+            // that manual triage instead of just filling in what the heuristic
+            // missed.
+            const issueRules = [
+              { label: "docs", pattern: /\bdocs\b|documentation|readme|docstring|tutorial/i },
+              { label: "bug", pattern: /\berror\b|\bbug\b|\bfix\b|\bexception\b|traceback|crash|not working/i },
+              { label: "performance", pattern: /\bslow\b|\bperformance\b|\bbenchmark(ing)?\b/i },
+              { label: "visualization", pattern: /\bsolara\b|\bvisualization\b|\baltair\b|\bmatplotlib\b|space renderer/i },
+              { label: "enhancement", pattern: /\bfeature request\b|\benhancement\b|would be (nice|great) if/i },
+              { label: "good first issue", pattern: /good first issue|beginner-friendly|easy fix/i },
+            ];
+
+            async function labelIssue(issue) {
+              const text = `${issue.title}\n${issue.body || ""}`;
+              const toAdd = issueRules
+                .filter((rule) => rule.pattern.test(text))
+                .map((rule) => rule.label);
+
+              if (toAdd.length) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  labels: toAdd,
+                });
+              }
+            }
+
+            if (context.eventName === "workflow_dispatch") {
+              // Backfill: label issues that predate (or were missed by) this workflow.
+              // The issues.listForRepo endpoint also returns PRs, so skip those.
+              const state = context.payload.inputs?.state || "open";
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state,
+                per_page: 100,
+              });
+              for (const issue of issues) {
+                if (!issue.pull_request) {
+                  await labelIssue(issue);
+                }
+              }
+            } else {
+              await labelIssue(context.payload.issue);
+            }

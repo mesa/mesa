@@ -1,5 +1,6 @@
 """Tests for mesa_signals."""
 
+import doctest
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,8 +16,15 @@ from mesa.experimental.mesa_signals import (
     SignalType,
     computed_property,
     emit,
+    signal_types,
 )
 from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
+
+
+def test_signal_type_docstrings():
+    """Execute signal type examples in an isolated namespace."""
+    result = doctest.testmod(signal_types, globs={})
+    assert result.failed == 0
 
 
 def test_observables():

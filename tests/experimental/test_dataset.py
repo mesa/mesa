@@ -329,6 +329,14 @@ def test_numpy_agent_dataset_expand_storage():
     for i in range(20):
         assert dataset.data[i, 0] == float(i)
 
+    # Agent ids must stay integer-typed after expansion, independent of the data
+    # dtype. Regression: expansion previously recreated _agent_ids with the data
+    # dtype (here float), silently turning agent ids into floats.
+    assert np.issubdtype(dataset._agent_ids.dtype, np.integer)
+    assert list(dataset.agent_ids) == [
+        agent.unique_id for agent in dataset.active_agents
+    ]
+
 
 def test_numpy_agent_dataset_property_cleanup_on_close():
     """Test that properties are removed from agent class on close."""

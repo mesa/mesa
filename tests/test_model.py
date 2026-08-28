@@ -103,6 +103,20 @@ def test_agent_remove():
     assert len(model.agents) == 0
 
 
+def test_agent_removed_hook():
+    """Agent removal hooks run synchronously after deregistration."""
+    model = Model()
+    removed = []
+    model._register_agent_removed_hook(removed.append)
+
+    agent = Agent(model)
+    assert removed == []
+
+    agent.remove()
+    assert removed == [agent]
+    assert agent not in model.agents
+
+
 def test_agents_by_type_keeps_empty_bucket():
     """Removing all agents of a type keeps its empty bucket in agents_by_type.
 
