@@ -115,8 +115,9 @@ class FixedAgent(Agent, FixedCell):
         """Remove the agent from the model."""
         super().remove()
 
-        self.cell.remove_agent(self)
-        self._mesa_cell = None
+        if self._mesa_cell is not None:
+            self._mesa_cell.remove_agent(self)
+            self._mesa_cell = None
 
 
 class Grid2DMovingAgent(CellAgent):
