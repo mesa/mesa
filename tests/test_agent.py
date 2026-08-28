@@ -335,3 +335,15 @@ def test_agent_advance_is_noop():
     model = Model()
     agent = AgentTest(model)
     assert agent.advance() is None
+
+
+def test_fixed_agent_remove_without_cell():
+    """Test that FixedAgent.remove() succeeds when the agent has no cell."""
+    from mesa.discrete_space import FixedAgent
+
+    model = Model()
+    agent = FixedAgent(model)
+    assert agent in model.agents
+    agent.remove()
+    assert agent not in model.agents
+
