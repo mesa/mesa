@@ -346,4 +346,3 @@ def test_fixed_agent_remove_without_cell():
     assert agent in model.agents
     agent.remove()
     assert agent not in model.agents
-
