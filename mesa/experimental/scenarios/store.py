@@ -452,4 +452,3 @@ class InMemoryStore:
         return store
 
     from_disk = from_directory
-

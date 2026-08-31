@@ -781,7 +781,9 @@ def test_inmemory_store_to_and_from_directory_roundtrip(tmp_path):
     # s3: remains PENDING
 
     store_dir = tmp_path / "saved_store"
-    store.to_directory(store_dir, model_class=_DummyModel, extra_provenance={"run": "test"})
+    store.to_directory(
+        store_dir, model_class=_DummyModel, extra_provenance={"run": "test"}
+    )
 
     # Verify manifest files created on disk
     assert (store_dir / "store.json").exists()
@@ -802,7 +804,9 @@ def test_inmemory_store_to_and_from_directory_roundtrip(tmp_path):
         assert rest.x == orig.x
         assert rest.name == orig.name
         # Bit-exact RNG reproducibility
-        assert [orig.rng.random() for _ in range(5)] == [rest.rng.random() for _ in range(5)]
+        assert [orig.rng.random() for _ in range(5)] == [
+            rest.rng.random() for _ in range(5)
+        ]
 
     # Validate statuses
     assert restored.check_status(run_id_0) == Status.SUCCEEDED
@@ -846,7 +850,9 @@ def test_inmemory_store_to_disk_and_from_disk_aliases(tmp_path):
     scenarios = [Scenario(rng=1, a=10)]
     store.write_scenarios(scenarios)
     run_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
-    store.mark_succeeded(store.writer().to_reference(run_id, {"res": pd.DataFrame({"y": [100]})}))
+    store.mark_succeeded(
+        store.writer().to_reference(run_id, {"res": pd.DataFrame({"y": [100]})})
+    )
 
     store_path = tmp_path / "alias_store"
     store.to_disk(store_path)
@@ -873,6 +879,7 @@ def test_inmemory_store_to_directory_fails_if_already_exists(tmp_path):
 
 def test_inmemory_store_custom_scenario_class(tmp_path):
     """from_directory reconstructs custom Scenario subclasses when supplied."""
+
     class CustomScenario(Scenario):
         speed: float = 5.0
         label: str = "fast"
@@ -921,7 +928,6 @@ def test_inmemory_store_from_directory_version_check(tmp_path):
 
     with pytest.raises(ValueError, match="store format version 999"):
         InMemoryStore.from_directory(store_dir)
-
 
 
 # ============================================================
