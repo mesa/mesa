@@ -1,5 +1,6 @@
 """Scenarios module."""
 
+from . import store_metadata
 from .exceptions import (
     ModelInstantiationException,
     ScenarioAbortedException,
@@ -9,9 +10,19 @@ from .exceptions import (
 )
 from .runner import RunConfiguration, run_scenarios
 from .scenario import Scenario, rescale_samples
-from .store import RunId, RunRecord, Store
+from .store import (
+    InMemoryReference,
+    InMemoryStore,
+    InMemoryWriter,
+    RunId,
+    RunRecord,
+    Store,
+)
 
 __all__ = [
+    "InMemoryReference",
+    "InMemoryStore",
+    "InMemoryWriter",
     "ModelInstantiationException",
     "RunConfiguration",
     "RunId",
@@ -24,4 +35,5 @@ __all__ = [
     "Store",
     "rescale_samples",
     "run_scenarios",
+    "store_metadata",
 ]

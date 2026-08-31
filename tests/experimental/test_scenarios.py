@@ -1,5 +1,6 @@
 """Tests for mesa.experimental.scenarios."""
 
+import json
 import pickle
 from concurrent.futures import ProcessPoolExecutor
 
@@ -732,6 +733,195 @@ def test_store_aborted_filter(populated_store):
     assert set(store.aborted()) == {run_id_0}
     assert run_id_0 not in store.pending()
     assert run_id_2 in store.pending()
+
+
+def test_inmemory_store_to_and_from_directory_roundtrip(tmp_path):
+    """InMemoryStore serializes to disk and restores completely."""
+    scenarios = [
+        Scenario(rng=42, x=1.0, name="alpha"),
+        Scenario(rng=43, x=2.0, name="beta"),
+        Scenario(rng=44, x=3.0, name="gamma"),
+        Scenario(rng=45, x=4.0, name="delta"),
+    ]
+    s0, s1, s2, s3 = scenarios
+    run_id_0 = RunId(s0.scenario_id, s0.replication_id)
+    run_id_1 = RunId(s1.scenario_id, s1.replication_id)
+    run_id_2 = RunId(s2.scenario_id, s2.replication_id)
+    run_id_3 = RunId(s3.scenario_id, s3.replication_id)
+
+    store = InMemoryStore()
+    store.write_scenarios(scenarios)
+
+    # s0: succeeded with multiple output DataFrames
+    writer = store.writer()
+    outcomes = {
+        "model": pd.DataFrame({"step": [1, 2], "val": [10.5, 20.5]}),
+        "agents": pd.DataFrame({"agent_id": [1, 2], "wealth": [5, 10]}),
+    }
+    store.mark_succeeded(writer.to_reference(run_id_0, outcomes))
+
+    # s1: failed with FailureInfo
+    failure_1 = FailureInfo(
+        origin=FailureOrigin.RUNNING,
+        exception_type="ValueError",
+        message="bad input",
+        traceback="traceback string here",
+    )
+    store.mark_failed(run_id_1, failure_1)
+
+    # s2: aborted with FailureInfo
+    failure_2 = FailureInfo(
+        origin=FailureOrigin.ABORTED,
+        exception_type="BrokenProcessPool",
+        message="worker crash",
+        traceback="pool died",
+    )
+    store.mark_aborted(run_id_2, failure_2)
+
+    # s3: remains PENDING
+
+    store_dir = tmp_path / "saved_store"
+    store.to_directory(store_dir, model_class=_DummyModel, extra_provenance={"run": "test"})
+
+    # Verify manifest files created on disk
+    assert (store_dir / "store.json").exists()
+    assert (store_dir / "scenarios.json").exists()
+    assert (store_dir / "status.log").exists()
+    assert (store_dir / "outputs" / "model").exists()
+    assert (store_dir / "outputs" / "agents").exists()
+
+    # Load back from disk
+    restored = InMemoryStore.from_directory(store_dir)
+
+    # Validate scenarios
+    recovered_scenarios = restored.read_scenarios()
+    assert len(recovered_scenarios) == 4
+    for orig, rest in zip(scenarios, recovered_scenarios):
+        assert rest.scenario_id == orig.scenario_id
+        assert rest.replication_id == orig.replication_id
+        assert rest.x == orig.x
+        assert rest.name == orig.name
+        # Bit-exact RNG reproducibility
+        assert [orig.rng.random() for _ in range(5)] == [rest.rng.random() for _ in range(5)]
+
+    # Validate statuses
+    assert restored.check_status(run_id_0) == Status.SUCCEEDED
+    assert restored.check_status(run_id_1) == Status.FAILED
+    assert restored.check_status(run_id_2) == Status.ABORTED
+    assert restored.check_status(run_id_3) == Status.PENDING
+
+    assert set(restored.succeeded()) == {run_id_0}
+    assert set(restored.failed()) == {run_id_1}
+    assert set(restored.aborted()) == {run_id_2}
+    assert set(restored.pending()) == {run_id_3}
+
+    # Validate retrieved output DataFrames
+    output_0 = restored.retrieve_output(run_id_0)
+    assert set(output_0.keys()) == {"model", "agents"}
+    pd.testing.assert_frame_equal(output_0["model"], outcomes["model"])
+    pd.testing.assert_frame_equal(output_0["agents"], outcomes["agents"])
+
+    # Validate error branches on retrieve_output
+    with pytest.raises(ScenarioFailedException) as exc_info:
+        restored.retrieve_output(run_id_1)
+    assert exc_info.value.run_id == run_id_1
+    assert exc_info.value.failure == failure_1
+
+    with pytest.raises(ScenarioAbortedException) as exc_info:
+        restored.retrieve_output(run_id_2)
+    assert exc_info.value.run_id == run_id_2
+    assert exc_info.value.failure == failure_2
+
+    with pytest.raises(ScenarioNotReadyException) as exc_info:
+        restored.retrieve_output(run_id_3)
+    assert exc_info.value.run_id == run_id_3
+
+    # Validate status DataFrame
+    pd.testing.assert_frame_equal(restored.status(), store.status())
+
+
+def test_inmemory_store_to_disk_and_from_disk_aliases(tmp_path):
+    """to_disk and from_disk aliases work identically to to_directory/from_directory."""
+    store = InMemoryStore()
+    scenarios = [Scenario(rng=1, a=10)]
+    store.write_scenarios(scenarios)
+    run_id = RunId(scenarios[0].scenario_id, scenarios[0].replication_id)
+    store.mark_succeeded(store.writer().to_reference(run_id, {"res": pd.DataFrame({"y": [100]})}))
+
+    store_path = tmp_path / "alias_store"
+    store.to_disk(store_path)
+
+    restored = InMemoryStore.from_disk(store_path)
+    assert restored.check_status(run_id) == Status.SUCCEEDED
+    pd.testing.assert_frame_equal(
+        restored.retrieve_output(run_id)["res"],
+        pd.DataFrame({"y": [100]}),
+    )
+
+
+def test_inmemory_store_to_directory_fails_if_already_exists(tmp_path):
+    """to_directory fails if store.json already exists in target directory."""
+    store = InMemoryStore()
+    store.write_scenarios([Scenario(rng=1)])
+
+    target_dir = tmp_path / "exist_store"
+    store.to_directory(target_dir)
+
+    with pytest.raises(FileExistsError):
+        store.to_directory(target_dir)
+
+
+def test_inmemory_store_custom_scenario_class(tmp_path):
+    """from_directory reconstructs custom Scenario subclasses when supplied."""
+    class CustomScenario(Scenario):
+        speed: float = 5.0
+        label: str = "fast"
+
+    scenarios = [CustomScenario(rng=10, speed=8.0, label="ultra")]
+    store = InMemoryStore()
+    store.write_scenarios(scenarios)
+
+    store_dir = tmp_path / "custom_scenario_store"
+    store.to_directory(store_dir)
+
+    restored = InMemoryStore.from_directory(store_dir, scenario_class=CustomScenario)
+    [rec] = restored.read_scenarios()
+    assert isinstance(rec, CustomScenario)
+    assert rec.speed == 8.0
+    assert rec.label == "ultra"
+
+
+def test_inmemory_store_empty_store_persistence(tmp_path):
+    """Empty InMemoryStore serializes and restores cleanly."""
+    store = InMemoryStore()
+    store.write_scenarios([])
+
+    store_dir = tmp_path / "empty_store"
+    store.to_directory(store_dir)
+
+    restored = InMemoryStore.from_directory(store_dir)
+    assert len(restored.read_scenarios()) == 0
+    assert len(restored.succeeded()) == 0
+    assert len(restored.failed()) == 0
+    assert len(restored.pending()) == 0
+
+
+def test_inmemory_store_from_directory_version_check(tmp_path):
+    """from_directory raises ValueError if store format version mismatches."""
+    store = InMemoryStore()
+    store.write_scenarios([Scenario(rng=1)])
+    store_dir = tmp_path / "version_check_store"
+    store.to_directory(store_dir)
+
+    # Alter store_format_version in store.json
+    manifest_path = store_dir / "store.json"
+    data = json.loads(manifest_path.read_text())
+    data["store_format_version"] = 999
+    manifest_path.write_text(json.dumps(data))
+
+    with pytest.raises(ValueError, match="store format version 999"):
+        InMemoryStore.from_directory(store_dir)
+
 
 
 # ============================================================

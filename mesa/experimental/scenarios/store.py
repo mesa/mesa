@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import astuple, dataclass, fields
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import pandas as pd
@@ -18,6 +19,7 @@ from mesa.experimental.scenarios.exceptions import (
 if TYPE_CHECKING:
     from mesa.experimental.scenarios.exceptions import FailureInfo
     from mesa.experimental.scenarios.scenario import Scenario
+    from mesa.model import Model
 
 
 class Status(Enum):
@@ -196,8 +198,13 @@ class InMemoryStore:
             raise ScenarioNotReadyException(run_id)
         return record.output
 
-    def write_scenarios(self, scenarios: list[Scenario]) -> None:
-        """Record the full ensemble of scenarios before dispatch."""
+    def write_scenarios(
+        self, scenarios: list[Scenario], config: Any | None = None
+    ) -> None:
+        """Record the full ensemble of scenarios before dispatch.
+
+        ``config`` is accepted for Store protocol compatibility and unused.
+        """
         for scenario in scenarios:
             key = RunId(scenario.scenario_id, scenario.replication_id)
             self._runs[key] = RunRecord(scenario=scenario)
@@ -255,3 +262,194 @@ class InMemoryStore:
     def aborted(self) -> dict[RunId, RunRecord]:
         """Return all aborted runs."""
         return {rid: r for rid, r in self._runs.items() if r.status == Status.ABORTED}
+
+    def to_directory(
+        self,
+        store_dir: str | Path,
+        *,
+        model_class: type[Model] | None = None,
+        extra_provenance: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist the in-memory store to disk.
+
+        Writes store metadata (manifest, scenarios, status log) and all
+        succeeded run outcomes to the specified directory.
+
+        Layout::
+
+            store_dir/
+            ├── store.json
+            ├── scenarios.json
+            ├── status.log
+            └── outputs/
+                └── {output_name}/
+                    └── data.arrow
+
+        Args:
+            store_dir: root directory of the store. Created if it does not exist.
+            model_class: optional Model class to derive git provenance from.
+            extra_provenance: optional extra provenance metadata to record in store.json.
+
+        Raises:
+            FileExistsError: if store.json already exists in store_dir.
+        """
+        import uuid  # noqa: PLC0415
+        from pathlib import Path  # noqa: PLC0415
+
+        import pyarrow as pa  # noqa: PLC0415
+        import pyarrow.ipc as pa_ipc  # noqa: PLC0415
+
+        from mesa.experimental.scenarios import store_metadata  # noqa: PLC0415
+
+        store_dir = Path(store_dir)
+        store_dir.mkdir(parents=True, exist_ok=True)
+        outputs_dir = store_dir / "outputs"
+        outputs_dir.mkdir(exist_ok=True)
+
+        session = uuid.uuid4().hex[:12]
+        provenance = store_metadata.collect_provenance(
+            model_class=model_class, extra=extra_provenance
+        )
+        store_metadata.write_store_manifest(
+            store_dir, session=session, provenance=provenance
+        )
+        store_metadata.write_scenarios_manifest(store_dir, self.read_scenarios())
+
+        for run_id, record in self._runs.items():
+            if record.status != Status.PENDING:
+                store_metadata.append_status(
+                    store_dir, run_id, record.status, record.failure
+                )
+
+        output_names: set[str] = set()
+        for record in self.succeeded().values():
+            if record.output:
+                output_names.update(record.output.keys())
+
+        for output_name in sorted(output_names):
+            out_dir = outputs_dir / output_name
+            out_dir.mkdir(exist_ok=True)
+
+            tables = []
+            for run_id, record in self.succeeded().items():
+                if record.output and output_name in record.output:
+                    df = record.output[output_name]
+                    if not isinstance(df, pd.DataFrame):
+                        df = pd.DataFrame(df)
+                    tagged_df = df.assign(
+                        scenario_id=run_id.scenario_id,
+                        replication_id=run_id.replication_id,
+                    )
+                    table = pa.Table.from_pandas(tagged_df, preserve_index=False)
+                    tables.append(table)
+
+            if tables:
+                unified_table = pa.concat_tables(tables, promote_options="permissive")
+                arrow_path = out_dir / f"worker-{session}-inmemory.arrow"
+                with (
+                    pa.OSFile(str(arrow_path), "wb") as sink,
+                    pa_ipc.new_stream(sink, unified_table.schema) as writer,
+                ):
+                    writer.write_table(unified_table)
+
+    to_disk = to_directory
+
+    @classmethod
+    def from_directory(
+        cls,
+        store_dir: str | Path,
+        scenario_class: type[Scenario] | None = None,
+    ) -> InMemoryStore:
+        """Reconstruct an InMemoryStore from a persisted store directory.
+
+        Reads manifests, replays the status log, and loads output DataFrames
+        from outputs/ Arrow files back into memory.
+
+        Args:
+            store_dir: root directory of the store.
+            scenario_class: the concrete Scenario subclass to instantiate.
+                Defaults to Scenario.
+
+        Returns:
+            A populated InMemoryStore instance.
+        """
+        from pathlib import Path  # noqa: PLC0415
+
+        import pyarrow as pa  # noqa: PLC0415
+        import pyarrow.compute as pc  # noqa: PLC0415
+        import pyarrow.ipc as pa_ipc  # noqa: PLC0415
+
+        from mesa.experimental.scenarios import store_metadata  # noqa: PLC0415
+        from mesa.experimental.scenarios.scenario import Scenario  # noqa: PLC0415
+
+        if scenario_class is None:
+            scenario_class = Scenario
+
+        store_dir = Path(store_dir)
+        manifest = store_metadata.read_store_manifest(store_dir)
+        if manifest["store_format_version"] != store_metadata.STORE_FORMAT_VERSION:
+            raise ValueError(
+                f"store format version {manifest['store_format_version']} != "
+                f"supported {store_metadata.STORE_FORMAT_VERSION}"
+            )
+
+        scenarios = store_metadata.read_scenarios_manifest(store_dir, scenario_class)
+        statuses = store_metadata.read_status(store_dir)
+
+        outputs_dir = store_dir / "outputs"
+        output_tables: dict[str, pa.Table] = {}
+        if outputs_dir.exists():
+            for output_folder in sorted(outputs_dir.iterdir()):
+                if output_folder.is_dir():
+                    output_name = output_folder.name
+                    tables = []
+                    for path in sorted(output_folder.glob("*.arrow")):
+                        try:
+                            with pa.OSFile(str(path), "rb") as source:
+                                reader = pa_ipc.open_stream(source)
+                                batches = []
+                                try:
+                                    for batch in reader:
+                                        batches.append(batch)
+                                except pa.ArrowInvalid:
+                                    pass
+                                if batches:
+                                    tables.append(pa.Table.from_batches(batches))
+                        except (pa.ArrowInvalid, OSError):
+                            pass
+                    if tables:
+                        output_tables[output_name] = pa.concat_tables(
+                            tables, promote_options="permissive"
+                        )
+
+        store = cls()
+        for scenario in scenarios:
+            run_id = RunId(scenario.scenario_id, scenario.replication_id)
+            status, failure = statuses.get(run_id, (Status.PENDING, None))
+            output = None
+            if status == Status.SUCCEEDED:
+                output = {}
+                for output_name, table in output_tables.items():
+                    mask = pc.and_(
+                        pc.equal(table["scenario_id"], run_id.scenario_id),
+                        pc.equal(table["replication_id"], run_id.replication_id),
+                    )
+                    filtered_table = table.filter(mask)
+                    cols_to_drop = [
+                        c
+                        for c in ["scenario_id", "replication_id"]
+                        if c in filtered_table.column_names
+                    ]
+                    df = filtered_table.drop(cols_to_drop).to_pandas()
+                    output[output_name] = df
+
+            store._runs[run_id] = RunRecord(
+                scenario=scenario,
+                status=status,
+                output=output,
+                failure=failure,
+            )
+        return store
+
+    from_disk = from_directory
+
