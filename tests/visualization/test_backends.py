@@ -95,6 +95,34 @@ def test_matplotlib_backend_collects_agent_data():
     assert "loc" in data and data["loc"].shape[0] == 1
 
 
+@pytest.mark.parametrize("edgecolor", ["black", (1.0, 0.0, 0.0, 1.0)])
+def test_matplotlib_backend_collects_partial_edgecolors(edgecolor):
+    """Collecting agent data preserves edgecolor alignment across agents."""
+    mb = MatplotlibBackend(space_drawer=MagicMock())
+
+    class DummyAgent:
+        position = (0, 0)
+        cell = types.SimpleNamespace(coordinate=(0, 0))
+
+        def __init__(self, kind):
+            self.kind = kind
+
+    class DummySpace:
+        agents: ClassVar[list] = [DummyAgent(0), DummyAgent(1)]
+
+    def agent_portrayal(agent):
+        portrayal = {"size": 5, "color": "red", "marker": "o"}
+        if agent.kind == 0:
+            portrayal["edgecolors"] = edgecolor
+        return portrayal
+
+    with pytest.warns(FutureWarning):
+        data = mb.collect_agent_data(DummySpace(), agent_portrayal)
+
+    assert data["edgecolors"].tolist() == [edgecolor, "none"]
+    assert len(data["edgecolors"]) == data["loc"].shape[0]
+
+
 def test_matplotlib_backend_draw_agents():
     """Test drawing agents."""
     mb = MatplotlibBackend(space_drawer=MagicMock())
