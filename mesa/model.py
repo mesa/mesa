@@ -148,6 +148,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         )  # an agenset with all agents
 
         # Internal callbacks invoked after agent lifecycle events
+        self._agent_added_hooks: list[Callable[[A], None]] = []
         self._agent_removed_hooks: list[Callable[[A], None]] = []
 
         self.data_registry = DataRegistry()
@@ -280,6 +281,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             f"registered {agent.__class__.__name__} with agent_id {agent.unique_id}"
         )
 
+        for hook in self._agent_added_hooks:
+            hook(agent)
+
     @emit("agents", ModelSignals.AGENT_REMOVED)
     def deregister_agent(self, agent: A):
         """Deregister the agent with the model.
@@ -298,6 +302,19 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         for hook in self._agent_removed_hooks:
             hook(agent)
+
+    def _register_agent_added_hook(self, hook: Callable[[A], None]) -> None:
+        """Register an internal callback invoked after an agent is registered.
+
+        The hook receives the newly registered agent and runs synchronously at the
+        end of ``register_agent``, after the agent has been assigned a unique_id
+        and added to all agent sets.
+
+        Args:
+            hook: Callback taking the added agent as its only argument.
+
+        """
+        self._agent_added_hooks.append(hook)
 
     def _register_agent_removed_hook(self, hook: Callable[[A], None]) -> None:
         """Register an internal callback invoked after an agent is deregistered.

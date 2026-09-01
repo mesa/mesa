@@ -144,3 +144,16 @@ def test_agents_by_type_keeps_empty_bucket():
     assert Prey in model.agent_types
     assert len(model.agents_by_type[Prey]) == 0
     assert len(model.agents_by_type[Predator]) == 3
+
+
+def test_agent_added_hook():
+    """Agent addition hooks run synchronously after registration."""
+    model = Model()
+    added = []
+    model._register_agent_added_hook(added.append)
+
+    agent_1 = Agent(model)
+    agent_2 = Agent(model)
+    assert added == [agent_1, agent_2]
+    assert agent_1 in model.agents
+    assert agent_2 in model.agents

@@ -78,10 +78,28 @@ class MetaAgents:
         self.backend = backend or MembershipBackend()
         model.meta_agents = self
 
-        self.model._register_agent_removed_hook(self._on_agent_removed)
+        self._live_entity_cache: dict[Hashable, Any] = {}
+        for entity in self.model.agents:
+            entity_id = getattr(entity, "unique_id", None)
+            if entity_id is not None:
+                self._live_entity_cache[entity_id] = entity
 
-    def _on_agent_removed(self, agent) -> None:
-        """Deactivate memberships when a live agent leaves the model."""
+        if hasattr(self.model, "_register_agent_added_hook"):
+            self.model._register_agent_added_hook(self._on_agent_added)
+        if hasattr(self.model, "_register_agent_removed_hook"):
+            self.model._register_agent_removed_hook(self._on_agent_removed)
+
+    def _on_agent_added(self, agent: Any) -> None:
+        """Cache live agent object when added to the model."""
+        entity_id = getattr(agent, "unique_id", None)
+        if entity_id is not None:
+            self._live_entity_cache[entity_id] = agent
+
+    def _on_agent_removed(self, agent: Any) -> None:
+        """Deactivate memberships and purge cache when a live agent leaves the model."""
+        entity_id = getattr(agent, "unique_id", None)
+        if entity_id is not None:
+            self._live_entity_cache.pop(entity_id, None)
         self.deactivate(agent)
 
     def _entity_id(self, entity: Hashable) -> Hashable:
@@ -89,17 +107,8 @@ class MetaAgents:
         return getattr(entity, "unique_id", entity)
 
     def _live_entity_lookup(self) -> dict[Hashable, Any]:
-        """Build a lookup from backend ids back to live model objects."""
-        # TODO(perf): This rebuilds an O(N) mapping over every model agent on
-        # each call. Cache the lookup instead and only rebuild it on agent add
-        # or remove calls (e.g. via the model's agent lifecycle hooks, seeding
-        # once in ``__init__``). Future optimization: bulk adds and removes.
-        lookup: dict[Hashable, Any] = {}
-        for entity in self.model.agents:
-            entity_id = getattr(entity, "unique_id", None)
-            if entity_id is not None:
-                lookup[entity_id] = entity
-        return lookup
+        """Return a cached lookup from backend ids back to live model objects."""
+        return self._live_entity_cache
 
     def _resolve_entity(self, entity_id: Hashable) -> Any:
         """Resolve a backend id back to a live object when possible."""
@@ -115,7 +124,7 @@ class MetaAgents:
             matches = list(
                 dict.fromkeys(
                     entity
-                    for entity in self.model.agents
+                    for entity in lookup.values()
                     if getattr(entity, "name", None) == group
                     or entity.__class__.__name__ == group
                 )
