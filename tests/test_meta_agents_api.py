@@ -379,3 +379,34 @@ def test_at_level_cyclic_membership_terminates():
     assert set(meta_agents.at_level(0, root=a)) == {a}
     assert set(meta_agents.at_level(1, root=a)) == {b}
     assert set(meta_agents.at_level(2, root=a)) == set()
+
+
+def test_live_entity_cache_lifecycle_synchronization():
+    """MetaAgents live entity cache should track additions, removals, and pre-existing agents."""
+    model = Model()
+    early_agent = Agent(model)
+
+    # 1. Initialize MetaAgents after early_agent was created
+    meta_agents = MetaAgents(model)
+    assert early_agent.unique_id in meta_agents._live_entity_cache
+    assert meta_agents._live_entity_cache[early_agent.unique_id] is early_agent
+
+    # 2. Add dynamic agent after MetaAgents was created
+    dynamic_agent = Agent(model)
+    assert dynamic_agent.unique_id in meta_agents._live_entity_cache
+    assert meta_agents._live_entity_cache[dynamic_agent.unique_id] is dynamic_agent
+
+    # 3. Create a group (which registers a MetaAgent)
+    group = meta_agents.create("Squad", [early_agent, dynamic_agent])
+    assert group.unique_id in meta_agents._live_entity_cache
+    assert meta_agents._live_entity_cache[group.unique_id] is group
+    assert set(meta_agents.members_of(group)) == {early_agent, dynamic_agent}
+
+    # 4. Remove an agent and check cache purge
+    dynamic_agent.remove()
+    assert dynamic_agent.unique_id not in meta_agents._live_entity_cache
+    assert set(meta_agents.members_of(group)) == {early_agent}
+
+    # 5. Dissolve group and check group purge
+    meta_agents.dissolve(group)
+    assert group.unique_id not in meta_agents._live_entity_cache
