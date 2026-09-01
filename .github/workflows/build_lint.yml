@@ -28,15 +28,17 @@ jobs:
       fail-fast: False
       matrix:
         os: [windows, ubuntu, macos]
-        python-version: ["3.14"]
+        python-version: ["3.15"]
         pip-pre: [""]
         include:
+          - os: ubuntu
+            python-version: "3.14"
           - os: ubuntu
             python-version: "3.13"
           - os: ubuntu
             python-version: "3.12"
           - os: ubuntu
-            python-version: "3.14"
+            python-version: "3.15"
             pip-pre: "--pre"
           # Disabled for now. See https://github.com/mesa/mesa/issues/1253
           #- os: ubuntu
@@ -66,7 +68,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - run: pip install uv
       - run: uv pip install --system .[dev]
       - run: playwright install chromium-headless-shell
@@ -83,7 +85,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.15"
           allow-prereleases: true
           cache: "pip"
       - name: Install uv
