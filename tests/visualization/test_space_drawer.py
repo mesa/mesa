@@ -228,6 +228,62 @@ class TestContinuousSpaceDrawer:
         assert drawer.viz_ymin == expected_ymin
         assert drawer.viz_ymax == expected_ymax
 
+    def test_viz_dims_projection_updates_bounds(self):  # noqa: D102
+        space = ContinuousSpace(
+            ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
+        )
+        drawer = ContinuousSpaceDrawer(space, viz_dims=(0, 2))
+
+        assert drawer.viz_xmin == pytest.approx(-0.5)
+        assert drawer.viz_xmax == pytest.approx(10.5)
+        assert drawer.viz_ymin == pytest.approx(-5.0)
+        assert drawer.viz_ymax == pytest.approx(105.0)
+
+        assert drawer.project([1, 2, 3]) == (1, 3)
+
+    @patch("matplotlib.pyplot.subplots")
+    def test_draw_matplotlib_accepts_viz_dims_kwarg(self, mock_subplots):  # noqa: D102
+        mock_ax = MagicMock()
+        mock_fig = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_ax)
+
+        space = ContinuousSpace(
+            ((0, 10), (0, 20), (0, 100)), torus=False, random=random.Random(42)
+        )
+        drawer = ContinuousSpaceDrawer(space)
+
+        ax = drawer.draw_matplotlib(ax=mock_ax, viz_dims=(1, 2))
+        assert ax == mock_ax
+        assert drawer.viz_dims == (1, 2)
+
+        mock_ax.set_xlim.assert_called_with(drawer.viz_xmin, drawer.viz_xmax)
+        mock_ax.set_ylim.assert_called_with(drawer.viz_ymin, drawer.viz_ymax)
+
+    def test_drawer_rejects_1d_space(self):  # noqa: D102
+        space = ContinuousSpace(((0, 1),), torus=False, random=random.Random(42))
+        with pytest.raises(ValueError, match="at least 2 dimensions"):
+            ContinuousSpaceDrawer(space)
+
+    @pytest.mark.parametrize("viz_dims", [(0,), (0, 1, 2), (0, 0)])
+    def test_viz_dims_must_be_two_distinct_indices(self, viz_dims):  # noqa: D102
+        space = ContinuousSpace(
+            ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
+        )
+        drawer = ContinuousSpaceDrawer(space)
+        with pytest.raises(
+            ValueError, match="viz_dims must contain exactly two distinct dimensions"
+        ):
+            drawer.set_viz_dims(viz_dims)
+
+    @pytest.mark.parametrize("viz_dims", [(0, 3), (-1, 1)])
+    def test_viz_dims_must_be_in_range(self, viz_dims):  # noqa: D102
+        space = ContinuousSpace(
+            ((0, 1), (0, 1), (0, 1)), torus=False, random=random.Random(42)
+        )
+        drawer = ContinuousSpaceDrawer(space)
+        with pytest.raises(ValueError, match=r"viz_dims must be within"):
+            drawer.set_viz_dims(viz_dims)
+
 
 class TestVoronoiSpaceDrawer:
     """Test cases for VoronoiSpaceDrawer class."""

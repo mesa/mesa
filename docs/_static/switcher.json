@@ -1,0 +1,12 @@
+[
+    {
+        "name": "latest",
+        "version": "latest",
+        "url": "https://mesa.readthedocs.io/latest/"
+    },
+    {
+        "name": "v3.5.1",
+        "version": "v3.5.1",
+        "url": "https://mesa.readthedocs.io/v3.5.1/"
+    }
+]

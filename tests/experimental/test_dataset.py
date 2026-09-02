@@ -331,6 +331,14 @@ def test_numpy_agent_dataset_expand_storage():
     for i in range(20):
         assert dataset.data[i, 0] == float(i)
 
+    # Agent ids must stay integer-typed after expansion, independent of the data
+    # dtype. Regression: expansion previously recreated _agent_ids with the data
+    # dtype (here float), silently turning agent ids into floats.
+    assert np.issubdtype(dataset._agent_ids.dtype, np.integer)
+    assert list(dataset.agent_ids) == [
+        agent.unique_id for agent in dataset.active_agents
+    ]
+
 
 def test_numpy_agent_dataset_property_cleanup_on_close():
     """Test that properties are removed from agent class on close."""
@@ -441,6 +449,33 @@ def test_table_dataset():
 
     with pytest.raises(RuntimeError, match="has been closed"):
         _ = dataset.data
+
+    dataset = TableDataSet("new", fields=["a", "b", "c"])
+    with pytest.raises(ValueError, match="row is empty"):
+        dataset.add_row({})
+
+
+def test_add_row_does_not_mutate_input():
+    """add_row should not mutate the user's input."""
+    dataset = TableDataSet("test", fields=["a", "b", "c"])
+    row = {"a": 1, "b": 2, "c": 3}
+    original = row.copy()
+    dataset.add_row(row)
+    assert row == original
+
+
+def test_add_row_reuse_same_dict():
+    """Tests for resuablity of add_row."""
+    dataset = TableDataSet("t", fields=["a", "b"])
+
+    row = {"a": 1, "b": 2}
+
+    for i in range(1, 11):
+        row["a"] = row["a"] * i
+        row["b"] = row["b"] * i
+        dataset.add_row(row)  # should not raise any error
+
+    assert len(dataset.rows) == 10
 
 
 def test_agent_dataset_dirty_flag():

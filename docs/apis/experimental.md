@@ -1,14 +1,6 @@
 # Experimental
 This namespace contains experimental features. These are under development, and their API is not necessarily stable.
 
-
-## Devs
-
-```{eval-rst}
-.. automodule:: experimental.devs.simulator
-   :members:
-```
-
 ## Continuous Space
 
 ```{eval-rst}
@@ -41,6 +33,6 @@ This namespace contains experimental features. These are under development, and 
 ```
 
 ```{eval-rst}
-.. automodule:: experimental.scenarios.model_with_scenario
+.. automodule:: experimental.scenarios.runner
    :members:
 ```

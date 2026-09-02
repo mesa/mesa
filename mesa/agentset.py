@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import itertools
 import operator
 import warnings
 import weakref
@@ -17,8 +18,87 @@ from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, 
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
+import numpy as np
+import pandas as pd
+
 if TYPE_CHECKING:
     from mesa.agent import Agent
+
+
+_MISSING = object()
+
+
+def _resolve_weights(
+    agents: Sequence[Agent],
+    weights: str | Callable[[Agent], float] | Sequence[float],
+) -> list[float]:
+    """Extract and validate numerical weights for a sequence of agents.
+
+    Args:
+        agents: The sequence of agents to extract weights for.
+        weights: Agent attribute name (str), weight callable, or sequence of floats.
+
+    Returns:
+        list[float]: Validated list of non-negative weights with positive sum.
+
+    Raises:
+        TypeError: If weights is of an unsupported type.
+        ValueError: If sequence length does not match, if any weight is negative, or if total sum <= 0.
+    """
+    if isinstance(weights, str):
+        w = [getattr(agent, weights) for agent in agents]
+    elif callable(weights):
+        w = [weights(agent) for agent in agents]
+    elif isinstance(weights, Sequence):
+        if len(weights) != len(agents):
+            raise ValueError(
+                f"Length of weights ({len(weights)}) does not match AgentSet length ({len(agents)})"
+            )
+        w = list(weights)
+    else:
+        raise TypeError(
+            f"Unsupported weights type: {type(weights).__name__}. "
+            "Expected str, Callable, Sequence[float], or None."
+        )
+
+    if any(x < 0 for x in w):
+        raise ValueError("All weights must be non-negative.")
+    if sum(w) <= 0:
+        raise ValueError("Sum of weights must be strictly positive.")
+
+    return w
+
+
+def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Iterable:
+    """Resolve ``value`` into an iterable of ``n`` per-agent values.
+
+    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` of length ``n``
+    is treated as one value per agent. Any other value (a scalar, a string, or a
+    non-sequence) is broadcast to all ``n`` agents.
+
+    Args:
+        value: The value(s) to assign, either one per agent or broadcast.
+        n: The number of agents to produce values for.
+        strict: If True (the default), a sequence whose length is not ``n`` raises
+            ValueError. If False, such a sequence is broadcast to every agent (the
+            whole sequence becomes each agent's value).
+
+    Returns:
+        An iterable yielding exactly ``n`` values.
+
+    Raises:
+        ValueError: If ``strict`` and ``value`` is a sequence whose length is
+            not ``n``.
+    """
+    if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+        if len(value) == n:
+            return value
+        if strict:
+            raise ValueError(
+                f"sequence of length {len(value)} does not match the number "
+                f"of agents ({n})"
+            )
+    return itertools.repeat(value, n)
 
 
 class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
@@ -51,6 +131,14 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
     def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
         """Update the AbstractAgentSet A with new set of agents."""
         ...
+
+    def __repr__(self) -> str:
+        """Return a concise, programmer-facing representation of the AbstractAgentSet."""
+        return f"<{type(self).__name__} ({len(self)} agents)>"
+
+    def __str__(self) -> str:
+        """Return a user-facing description of the AbstractAgentSet."""
+        return f"{type(self).__name__} with {len(self)} agents"
 
     def select(
         self,
@@ -104,6 +192,87 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
         # Use type(self) to ensure we return the correct subclass (AgentSet vs StrongAgentSet)
         return self._update(agents) if inplace else type(self)(agents, self.random)
+
+    def select_random(
+        self,
+        n: int | float = 1,
+        *,
+        weights: str | Callable[[A], float] | Sequence[float] | None = None,
+        replace: bool = False,
+        inplace: bool = False,
+    ) -> AbstractAgentSet[A]:
+        """Select a random or weighted sample of agents from the AbstractAgentSet.
+
+        Args:
+            n (int | float, optional): The number or fraction of agents to select. Defaults to 1.
+                - If an integer >= 1, the number of agents to select.
+                - If a float in (0, 1], the fraction of agents to select.
+            weights (str | Callable[[Agent], float] | Sequence[float] | None, optional): Weights for selection.
+                - If a str: uses the specified agent attribute name.
+                - If a Callable: calls the function on each agent to compute its weight.
+                - If a Sequence: a sequence of numerical weights of the same length as the AgentSet.
+                - If None: uniform random selection. Defaults to None.
+            replace (bool, optional): Whether to sample with replacement. Defaults to False.
+            inplace (bool, optional): If True, modifies the current AbstractAgentSet; otherwise, returns a new AbstractAgentSet. Defaults to False.
+
+        Returns:
+            AbstractAgentSet: A new or updated AbstractAgentSet containing the sampled agents.
+
+        Raises:
+            ValueError: If the AgentSet is empty, n <= 0, n > len(self) when replace=False, weights are negative, total weight <= 0, or length of weights sequence does not match the AgentSet.
+            TypeError: If n or weights is of an unsupported type.
+        """
+        if len(self) == 0:
+            raise ValueError("Cannot sample from an empty AgentSet.")
+
+        if isinstance(n, bool) or not isinstance(n, (int, float)):
+            raise TypeError(f"n must be an integer or float, got {type(n).__name__}.")
+
+        if isinstance(n, int):
+            if n <= 0:
+                raise ValueError(f"n must be a positive integer, got {n}.")
+            sample_size = n
+        else:  # float
+            if not (0.0 < n <= 1.0):
+                raise ValueError(
+                    f"Fractional sample size n must be in the range (0.0, 1.0], got {n}."
+                )
+            sample_size = int(len(self) * n)
+
+        if not replace and sample_size > len(self):
+            raise ValueError(
+                f"Sample size ({sample_size}) cannot exceed AgentSet size ({len(self)}) when replace=False."
+            )
+
+        if sample_size == 0:
+            return self._update([]) if inplace else type(self)([], self.random)
+
+        items = self.to_list()
+
+        if weights is None:
+            if replace:
+                chosen = self.random.choices(items, k=sample_size)
+            else:
+                chosen = self.random.sample(items, k=sample_size)
+        else:
+            w = _resolve_weights(items, weights)
+
+            if replace:
+                chosen = self.random.choices(items, weights=w, k=sample_size)
+            else:
+                # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
+                keys = []
+                for agent, wi in zip(items, w):
+                    if wi > 0:
+                        u = self.random.random()
+                        key = u ** (1.0 / wi)
+                    else:
+                        key = 0.0
+                    keys.append((key, agent))
+                keys.sort(key=lambda x: x[0], reverse=True)
+                chosen = [agent for _, agent in keys[:sample_size]]
+
+        return self._update(chosen) if inplace else type(self)(chosen, self.random)
 
     def agg(
         self, attribute: str, func: Callable | Iterable[Callable]
@@ -202,17 +371,40 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             )
 
     def set(self, attr_name: str, value: Any) -> AgentSet[A]:
-        """Set a specified attribute to a given value for all agents in the AgentSet.
+        """Set a specified attribute for the agents in the AgentSet.
+
+        The behavior is derived from ``value`` (the same value-based rule pandas
+        uses for column assignment):
+
+        - A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` is treated
+          as one value per agent and is assigned element-wise, in iteration order
+          (the same order ``get`` uses), so a ``get -> transform -> set``
+          round-trip stays consistent. It must have the same length as the
+          AgentSet; a length mismatch raises ``ValueError``.
+        - Any other value (a scalar, a string, or any non-sequence) is broadcast:
+          every agent receives the same value.
 
         Args:
             attr_name (str): The name of the attribute to set.
-            value (Any): The value to set the attribute to.
+            value (Any): The value(s) to assign. See above for how the shape of
+                ``value`` selects element-wise vs broadcast assignment.
 
         Returns:
             AgentSet: The AgentSet instance itself, after setting the attribute.
+
+        Raises:
+            ValueError: If ``value`` is a sequence whose length does not match the
+                number of agents in the AgentSet.
+
+        Notes:
+            A per-agent sequence is recognized by its type (list, tuple, ndarray,
+            Series). To assign a single sequence value to every agent, broadcast
+            it explicitly, e.g. ``[shared_list] * len(agentset)``.
         """
-        for agent in self:
-            setattr(agent, attr_name, value)
+        for agent, agent_value in zip(
+            self, _resolve_per_agent_values(value, len(self))
+        ):
+            setattr(agent, attr_name, agent_value)
         return self
 
     def to_list(self) -> list[A]:
@@ -838,7 +1030,26 @@ class GroupBy:
             groups (dict): A dictionary with the group_name as key and group as values
 
         """
-        self.groups: dict[Any, list | AbstractAgentSet] = groups
+        self.groups: dict[Any, list | AbstractAgentSet] = dict(groups)
+
+    def get_group(
+        self, name: Hashable, default: Any = _MISSING
+    ) -> list | AbstractAgentSet | Any:
+        """Return the group for the given name.
+
+        Args:
+            name (Hashable): The group name to retrieve.
+            default (Any, optional): Value to return when the group is missing.
+
+        Raises:
+            KeyError: If the group does not exist and no default is provided.
+        """
+        try:
+            return self.groups[name]
+        except KeyError as err:
+            if default is not _MISSING:
+                return default
+            raise KeyError(f"No group found with name: {name}") from err
 
     def map(self, method: Callable | str, *args, **kwargs) -> dict[Any, Any]:
         """Apply the specified callable to each group and return the results.
@@ -926,3 +1137,8 @@ class GroupBy:
 
     def __len__(self):  # noqa: D105
         return len(self.groups)
+
+    def __repr__(self) -> str:
+        """Return a representation showing each group's identifier and size."""
+        sizes = {name: len(group) for name, group in self.groups.items()}
+        return f"{type(self).__name__}({len(self)} groups: {sizes})"

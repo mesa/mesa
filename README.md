@@ -1,4 +1,5 @@
-<p align="center"><em>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide</em></p>
+<p align="center"><em>Mesa 4 is in active development! Checkout our latest <a href="https://github.com/mesa/mesa/releases">pre-releases</a> and <a href="https://github.com/mesa/mesa/issues/3132">issue tracker</a>.
+<br>For GSoC, checkout our <a href="https://github.com/projectmesa/mesa/wiki/Google-Summer-of-Code-2026">Google Summer of Code 2026</a> guide.</em></p>
 
 # Mesa: Agent-based modeling in Python
 
@@ -7,7 +8,7 @@
 | CI/CD   | [![GitHub Actions build status](https://github.com/mesa/mesa/workflows/build/badge.svg)](https://github.com/mesa/mesa/actions) [![Coverage status](https://codecov.io/gh/mesa/mesa/branch/main/graph/badge.svg)](https://codecov.io/gh/mesa/mesa) |
 | Package | [![PyPI - Version](https://img.shields.io/pypi/v/mesa.svg?logo=pypi&label=PyPI&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/mesa.svg?color=blue&label=Downloads&logo=pypi&logoColor=gold)](https://pypi.org/project/Mesa/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mesa.svg?logo=python&label=Python&logoColor=gold)](https://pypi.org/project/Mesa/) |
 | Meta    | [![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black) [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch) [![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/) |
-| Chat    | [![chat](https://img.shields.io/matrix/project-mesa:matrix.org?label=chat&logo=Matrix)](https://matrix.to/#/#project-mesa:matrix.org) |
+| Chat    | [![chat](https://img.shields.io/badge/chat-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/UUGJvdtEJu) |
 | Cite    | [![DOI](https://joss.theoj.org/papers/10.21105/joss.07668/status.svg)](https://doi.org/10.21105/joss.07668) |
 
 Mesa allows users to quickly create agent-based models using built-in
@@ -30,11 +31,14 @@ can be displayed in browser windows or Jupyter. An online demo is [available her
 -   Example model library
 
 ## Using Mesa
+To install our latest stable Mesa 3 release, run:
 
-To install our latest stable release, run:
-
-``` bash
+```bash
 pip install -U mesa
+```
+Development of Mesa 4 has started. To install our latest Mesa 4 pre-release, use:
+```bash
+pip install -U --pre mesa
 ```
 
 Starting with Mesa 3.0, we don't install all our dependencies anymore by default.
@@ -70,7 +74,7 @@ For resources or help on using Mesa, check out the following:
 -   [Docs](http://mesa.readthedocs.org/) (Mesa's documentation, API and useful snippets)
     -   [Development version docs](https://mesa.readthedocs.io/latest/) (the latest version docs if you're using a pre-release Mesa version)
 -   [Discussions](https://github.com/mesa/mesa/discussions) (GitHub threaded discussions about Mesa)
--   [Matrix Chat](https://matrix.to/#/#project-mesa:matrix.org) (Chat Forum via Matrix to talk about Mesa)
+-   [Discord](https://discord.gg/UUGJvdtEJu) (Chat Forum via Discord to talk about Mesa)
 
 ## Running Mesa in Docker
 
@@ -115,7 +119,7 @@ accessible from `localhost:8765`.
 Want to join the Mesa team or just curious about what is happening with
 Mesa? You can\...
 
-> -   Join our [Matrix chat room](https://matrix.to/#/#project-mesa:matrix.org) in which questions, issues, and
+> -   Join our [Discord server](https://discord.gg/UUGJvdtEJu) in which questions, issues, and
 >     ideas can be (informally) discussed.
 > -   Come to a monthly dev session (you can find dev session times,
 >     agendas and notes on [Mesa discussions](https://github.com/mesa/mesa/discussions)).

@@ -13,7 +13,7 @@ class PrisonersDilemmaScenario(Scenario):
     width: int = 50
     height: int = 50
     activation_order: Literal["Sequential", "Random", "Simultaneous"] = "Random"
-    payoff: None | dict[tuple[str, str], float] = None
+    payoff: dict[tuple[str, str], float] | None = None
     torus: bool = True
 
 
@@ -38,7 +38,7 @@ class PdGrid(mesa.Model):
 
     def __init__(
         self,
-        scenario=None,
+        scenario: PrisonersDilemmaScenario = PrisonersDilemmaScenario,
     ):
         """
         Create a new Spatial Prisoners' Dilemma Model.
@@ -49,9 +49,6 @@ class PdGrid(mesa.Model):
                            Determines the agent activation regime.
             payoffs: (optional) Dictionary of (move, neighbor_move) payoffs.
         """
-        if scenario is None:
-            scenario = PrisonersDilemmaScenario()
-
         super().__init__(scenario=scenario)
         self.activation_order = scenario.activation_order
         self.grid = OrthogonalMooreGrid(

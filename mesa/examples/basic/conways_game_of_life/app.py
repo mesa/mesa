@@ -56,9 +56,7 @@ model_params = {
 model1 = ConwaysGameOfLife()
 
 renderer = SpaceRenderer(model1, backend="matplotlib").setup_agents(agent_portrayal)
-# In this case the renderer only draws the agents because we just want to observe
-# the state of the agents, not the structure of the grid.
-renderer.draw_agents()
+renderer.render()
 renderer.post_process = post_process
 
 # Create the SolaraViz page. This will automatically create a server and display the

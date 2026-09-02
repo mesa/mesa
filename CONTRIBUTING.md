@@ -4,7 +4,7 @@ _For candidates interested in participating in the Google Summer of Code (GSoC),
 
 As an open source project, Mesa welcomes contributions of many forms, and from beginners to experts. If you are
 curious or just want to see what is happening, we post our development session agendas
-and development session notes on [Mesa discussions]. We also have a threaded discussion forum on [Matrix]
+and development session notes on [Mesa discussions]. We also have a chat server on [Discord]
 for casual conversation.
 
 In no particular order, examples include:
@@ -16,7 +16,7 @@ In no particular order, examples include:
 - Tutorials
 
 No contribution is too small. Although, contributions can be too big, so let's
-discuss via [Matrix] OR via [an issue].
+discuss via [Discord] OR via [an issue].
 
 **To submit a contribution**
 
@@ -53,7 +53,7 @@ First step is to install some proper tools, if you haven't already.
 Learn the tools, talk to us about what you want to change, and open a small PR once direction is clear. For enhancements/new features, get maintainer approval in an issue/discussion first. Or update an [example model](https://github.com/mesa/mesa-examples) (check open [issues](https://github.com/mesa/mesa-examples/issues))!
 
 ### I'm a developer (but not a modeller)
-Awesome! You have the basics of open-source software development (if not check above), but not much modelling experience.
+Awesome! You have the basics of open source software development (if not check above), but not much modelling experience.
 
 First step is to start thinking like a modeller. To understand the fine details about our library and contribute meaningfully, get some modelling experience:
 - Go though our series of introductory tutorials at [Getting Started](https://mesa.readthedocs.io/latest/getting_started.html). While going through them, dive into the source code to really see what everything does.
@@ -309,7 +309,7 @@ To create a new release, follow these steps:
 4. Use the _Generate release notes_ button to automatically create release notes. Review them carefully for accuracy, and update labels and edit PR titles if necessary (step 1).
 5. Write a _Highlights_ section summarizing the most important features or changes in this release.
 6. Copy the release notes and save them by clicking the grey _Save draft_ button.
-7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md).
+7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md). For stable releases, `docs/_static/switcher.json` is updated automatically when the release tag is pushed.
 8. Once this PR is merged, return to the _Releases_ section and publish the draft release.
 9. The [`release.yml`](https://github.com/mesa/mesa/blob/main/.github/workflows/release.yml) CI workflow should automatically create and upload the package to PyPI. Verify this on [PyPI.org](https://pypi.org/project/mesa/).
 10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).
@@ -416,7 +416,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [gh actions build]: https://github.com/mesa/mesa/actions/workflows/build_lint.yml
 [google style guide]: https://google.github.io/styleguide/pyguide.html
 [license]: https://github.com/mesa/mesa/blob/main/LICENSE
-[matrix]: https://matrix.to/#/#project-mesa:matrix.org`
+[discord]: https://discord.gg/UUGJvdtEJu
 [mesa discussions]: https://github.com/mesa/mesa/discussions
 [pep8]: https://www.python.org/dev/peps/pep-0008
 [pre-commit]: https://github.com/pre-commit/pre-commit

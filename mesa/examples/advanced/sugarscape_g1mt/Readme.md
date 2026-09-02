@@ -2,8 +2,11 @@
 
 ## Summary
 
-This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in Chapter four of
-*Growing Artificial Societies: Social Science from the Bottom Up (1996)*. The model shows an emergent price equilibrium can happen via a decentralized dynamics.
+This is Epstein & Axtell's Sugarscape model with Traders, a detailed description is in
+<!-- vale Google.WordList = NO -->
+Chapter four of *Growing Artificial Societies: Social Science from the Bottom Up (1996)*.
+<!-- vale Google.WordList = YES -->
+The model shows an emergent price equilibrium can happen via a decentralized dynamics.
 
 This code generally matches the code in the Complexity Explorer Tutorial, but in `.py` instead of `.ipynb` format.
 
@@ -43,11 +46,16 @@ The model demonstrates several Mesa concepts and features:
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Install Mesa with recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+Then run the example:
+
+solara run app.py
+
+Open the displayed local URL in your browser.
+
 
 ## Files
 

@@ -2,13 +2,9 @@ import networkx as nx
 import numpy as np
 
 import mesa
-from mesa import Agent
 from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
-from mesa.experimental.meta_agents.meta_agent import (
-    create_meta_agent,
-    find_combinations,
-)
 from mesa.experimental.scenarios import Scenario
+from mesa.meta_agents import MetaAgents
 
 
 class AllianceScenario(Scenario):
@@ -24,7 +20,7 @@ class MultiLevelAllianceModel(mesa.Model):
     Model for simulating multi-level alliances among agents.
     """
 
-    def __init__(self, scenario: AllianceScenario = None):
+    def __init__(self, scenario: AllianceScenario = AllianceScenario):
         """
         Initialize the model.
 
@@ -34,12 +30,11 @@ class MultiLevelAllianceModel(mesa.Model):
             std_dev (float): Standard deviation for normal distribution.
             rng (int): Random rng.
         """
-        if scenario is None:
-            scenario = AllianceScenario()
-
         super().__init__(scenario=scenario)
         self.network = nx.Graph()  # Initialize the network
         self.datacollector = mesa.DataCollector(model_reporters={"Network": "network"})
+        self.meta_agents = MetaAgents(self)
+        self.membership_backend = self.meta_agents.backend
 
         # Create Agents
         power = self.rng.normal(scenario.mean, scenario.std_dev, scenario.n)
@@ -157,18 +152,19 @@ class MultiLevelAllianceModel(mesa.Model):
         """
         Execute one step of the model.
         """
-        # Get all other agents of the same type
-        agent_types = list(self.agents_by_type.keys())
+        # Agents at the same hierarchy level can form an alliance. Meta-agents
+        # use dynamically generated classes, so grouping by concrete type would
+        # isolate every meta-agent and prevent higher-level alliances.
+        agents_by_level = {}
+        for agent in self.agents:
+            agents_by_level.setdefault(agent.level, []).append(agent)
 
-        for agent_type in agent_types:
-            similar_agents = self.agents_by_type[agent_type]
-
+        for similar_agents in agents_by_level.values():
             # Find the best combinations using find_combinations
             if (
                 len(similar_agents) > 1
             ):  # only form alliances if there are more than 1 agent
-                combinations = find_combinations(
-                    self,
+                combinations = self.meta_agents.find_combinations(
                     similar_agents,
                     size=2,
                     evaluation_func=self.calculate_shapley_value,
@@ -176,12 +172,16 @@ class MultiLevelAllianceModel(mesa.Model):
                 )
 
                 for alliance, attributes in combinations:
-                    class_name = f"MetaAgentLevel{attributes[2]}"
-                    meta = create_meta_agent(
-                        self,
+                    alliance_members = tuple(
+                        sorted(alliance, key=lambda agent: agent.unique_id)
+                    )
+                    alliance_signature = "_".join(
+                        str(agent.unique_id) for agent in alliance_members
+                    )
+                    class_name = f"MetaAgentLevel{attributes[2]}_{alliance_signature}"
+                    meta = self.meta_agents.create(
                         class_name,
-                        alliance,
-                        Agent,
+                        alliance_members,
                         meta_attributes={
                             "level": attributes[2],
                             "power": attributes[0],
@@ -196,4 +196,4 @@ class MultiLevelAllianceModel(mesa.Model):
                             size=(meta.level + 1) * 300,
                             level=meta.level,
                         )
-                        self.add_link(meta, meta.agents)
+                        self.add_link(meta, alliance_members)

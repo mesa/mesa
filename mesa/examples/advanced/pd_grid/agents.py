@@ -23,7 +23,7 @@ class PDAgent(CellAgent):
         self.next_move = None
 
     @property
-    def is_cooroperating(self):
+    def is_cooperating(self):
         return self.move == "C"
 
     def step(self):

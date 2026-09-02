@@ -8,6 +8,7 @@ simulation events in chronological order while respecting event priorities. Key 
 - Weak references to prevent memory leaks from canceled events
 - Efficient event insertion and removal using a heap queue
 - Support for event cancellation without breaking the heap structure
+- Adaptive compaction, so repeated cancellation does not grow the heap without bound
 
 The module contains three main components:
 - Priority: An enumeration defining event priority levels (HIGH, DEFAULT, LOW)
@@ -122,6 +123,9 @@ class Event:
         self.function_args = function_args if function_args else []
         self.function_kwargs = function_kwargs if function_kwargs else {}
 
+        # Set by EventList.add_event, so cancel() can update the list's count.
+        self._owner: ReferenceType[EventList] | None = None
+
     def execute(self) -> None:
         """Execute this event."""
         if not self._canceled:
@@ -131,10 +135,18 @@ class Event:
 
     def cancel(self) -> None:
         """Cancel this event."""
+        if self._canceled:
+            return
+
         self._canceled = True
         self.fn = None
         self.function_args = []
         self.function_kwargs = {}
+
+        if self._owner is not None:
+            owner = self._owner()
+            if owner is not None:
+                owner._on_cancellation()
 
     def __lt__(self, other: Event) -> bool:
         """Define a total ordering for events to be used by the heapq."""
@@ -151,12 +163,14 @@ class Event:
         fn = self.fn() if self.fn is not None else None
         state["_fn_strong"] = fn
         state["fn"] = None  # Don't pickle the weak reference
+        state["_owner"] = None  # Weak references cannot be pickled
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state after unpickling."""
         fn = state.pop("_fn_strong")
         self.__dict__.update(state)
+        self._owner = None
         # Recreate callable reference strategy.
         if fn is not None:
             self.fn = _create_callable_reference(fn)
@@ -238,6 +252,7 @@ class EventGenerator:
         self.priority = priority
 
         self._active: bool = False
+        self._paused: bool = False
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
@@ -262,7 +277,7 @@ class EventGenerator:
         """Get the next interval value."""
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
-            if interval < 0:
+            if interval <= 0:
                 raise ValueError(f"Interval must be > 0, got {interval}")
             return interval
         return self.schedule.interval
@@ -276,7 +291,7 @@ class EventGenerator:
 
     def _execute_and_reschedule(self) -> None:
         """Execute the function and schedule the next event."""
-        if not self._active:
+        if not self._active or self._paused:
             return
 
         # Check weakref HERE (execution time), not in property getter
@@ -332,10 +347,41 @@ class EventGenerator:
     def stop(self) -> None:
         """Stop the event generator immediately."""
         self._active = False
+        self._paused = False
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
         self.model._event_generators.discard(self)
+
+    def pause(self) -> None:
+        """Pause the event generator temporarily.
+
+        This cancels the currently scheduled event but keeps the generator
+        active in the model. Execution can be resumed later using resume().
+        """
+        if not self._active or self._paused:
+            return
+
+        self._paused = True
+
+        if self._current_event is not None:
+            self._current_event.cancel()
+            self._current_event = None
+
+    def resume(self) -> None:
+        """Resume a paused event generator."""
+        if not self._active or not self._paused:
+            return
+
+        self._paused = False
+
+        next_time = self.model.time + self._get_interval()
+
+        if not self._should_stop(next_time):
+            self._schedule_next(next_time)
+        else:
+            self._active = False
+            self.model._event_generators.discard(self)
 
     def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
@@ -370,13 +416,47 @@ class EventList:
     appropriate data structure. Events are sorted based on their time stamp, their priority, and their unique_id
     as a tie-breaker, guaranteeing a complete ordering.
 
+    Canceling an event leaves it on the heap so the heap invariant is not broken.
+    Models that repeatedly cancel and reschedule an event would therefore grow the
+    heap without bound, so the list counts the canceled events it holds and rebuilds
+    itself once they dominate. That count also makes len() an O(1) operation.
+
+    Attributes:
+        COMPACTION_RATIO (float): Fraction of canceled events above which the heap is
+            rebuilt, which also bounds the peak heap at L / (1 - COMPACTION_RATIO)
+
+    Notes:
+        An event belongs to one event list at a time. Adding the same event to a
+        second list hands ownership over, and the first list's count goes stale.
 
     """
+
+    COMPACTION_RATIO: float = 0.25
 
     def __init__(self):
         """Initialize an event list."""
         self._events: list[Event] = []
+        self._n_canceled: int = 0
+        # Built once and handed to every event, since creating it per push is costly.
+        self._self_ref: ReferenceType[EventList] = ref(self)
         heapify(self._events)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Prepare state for pickling."""
+        state = self.__dict__.copy()
+        state["_self_ref"] = None  # Weak references cannot be pickled
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore state after unpickling.
+
+        Events drop their weak reference to this list when pickled, so it has to
+        be re-established or later cancellations would go uncounted.
+        """
+        self.__dict__.update(state)
+        self._self_ref = ref(self)
+        for event in self._events:
+            event._owner = self._self_ref
 
     def add_event(self, event: Event):
         """Add the event to the event list.
@@ -384,8 +464,31 @@ class EventList:
         Args:
             event (Event): The event to be added
 
+        Raises:
+            ValueError: If the event has already been canceled. Cancellation is
+                terminal, so such an event could never execute.
+
         """
+        if event.CANCELED:
+            raise ValueError(
+                "Cannot add a canceled event to an event list. Cancellation is "
+                "terminal, so the event would never execute."
+            )
+
+        event._owner = self._self_ref
         heappush(self._events, event)
+
+    def _on_cancellation(self) -> None:
+        """Record a canceled event, compacting the heap once they dominate it.
+
+        Only cancellation raises the share of canceled events, since adding an
+        event grows the heap and popping one discards a tombstone. So this is
+        the single place where compaction can become worthwhile.
+        """
+        self._n_canceled += 1
+
+        if self._n_canceled > len(self._events) * self.COMPACTION_RATIO:
+            self.compact()
 
     def peek_ahead(self, n: int = 1) -> list[Event]:
         """Look at the first n non-canceled event in the event list.
@@ -417,7 +520,11 @@ class EventList:
             event = heappop(self._events)
 
             if not event.CANCELED:
+                # No longer on the heap, so a later cancel() must not be counted here.
+                event._owner = None
                 return event
+
+            self._n_canceled -= 1
 
         raise IndexError("Event list is empty")
 
@@ -427,6 +534,7 @@ class EventList:
         If there are many canceled events, compaction can speed up performance substantially.
         """
         self._events = [e for e in self._events if not e.CANCELED]
+        self._n_canceled = 0
         heapify(self._events)
 
     def is_empty(self) -> bool:
@@ -439,7 +547,7 @@ class EventList:
         return event in self._events
 
     def __len__(self) -> int:  # noqa
-        return len([e for e in self._events if not e.CANCELED])
+        return len(self._events) - self._n_canceled
 
     def __repr__(self) -> str:
         """Return a string representation of the event list."""
@@ -469,3 +577,4 @@ class EventList:
     def clear(self) -> None:
         """Clear the event list."""
         self._events.clear()
+        self._n_canceled = 0

@@ -2,6 +2,8 @@
 import gc
 import weakref
 
+import pytest
+
 from mesa.examples import (
     BoidFlockers,
     BoltzmannWealth,
@@ -11,6 +13,7 @@ from mesa.examples import (
     PdGrid,
     Schelling,
     SugarscapeG1mt,
+    TransitSystem,
     VirusOnNetwork,
     WolfSheep,
 )
@@ -20,6 +23,7 @@ from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.examples.basic.schelling.model import SchellingScenario
+from mesa.examples.experimental.tram_model.model import TramScenario
 
 
 def test_boltzmann_model():  # noqa: D103
@@ -77,7 +81,7 @@ def test_schelling_model():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = Schelling(scenario=None)
+    _model = Schelling()
     model = Schelling(scenario=SchellingScenario(rng=42))
     ref = weakref.ref(model)
 
@@ -110,7 +114,7 @@ def test_boid_flockers():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = BoidFlockers(scenario=None)
+    _model = BoidFlockers()
 
     model = BoidFlockers(scenario=BoidsScenario(rng=42))
     ref = weakref.ref(model)
@@ -179,7 +183,7 @@ def test_wolf_sheep():  # noqa: D103
 
     app.page  # noqa: B018
 
-    _model = WolfSheep(scenario=None)
+    _model = WolfSheep()
 
     model = WolfSheep(scenario=WolfSheepScenario(rng=42))
     ref = weakref.ref(model)
@@ -192,6 +196,18 @@ def test_wolf_sheep():  # noqa: D103
     assert ref() is None
 
 
+def test_wolf_sheep_grass_disabled():
+    """Regression test for #3597: grass=False must not raise StopIteration."""
+    model = WolfSheep(scenario=WolfSheepScenario(grass=False, rng=42))
+    for _ in range(10):
+        model.step()
+    df = model.datacollector.get_model_vars_dataframe()
+    assert df.shape[0] == 11
+    assert "Grass" not in df.columns
+    assert "Wolves" in df.columns
+    assert "Sheep" in df.columns
+
+
 def test_alliance_formation_model():  # noqa: D103
     from mesa.examples.advanced.alliance_formation import app  # noqa: PLC0415
 
@@ -202,6 +218,76 @@ def test_alliance_formation_model():  # noqa: D103
 
     model.run_for(10)
     assert len(model.agents) == len(model.network.nodes)
+
+    model.remove_all_agents()
+
+    del model
+    gc.collect()
+    assert ref() is None
+
+
+def test_tram_model_reaches_every_stop_across_parameters():
+    """The tram must stop exactly on each station for any app slider setting.
+
+    Guards two failures: a cruise speed the thresholds ignored, and a brake
+    point computed from cruise speed that falls outside a short segment, so
+    the rising threshold never fires and the tram runs away.
+    """
+    for cruise_speed, acceleration, deceleration, spacing in [
+        (5.0, 2.0, 3.0, 200.0),
+        (30.0, 2.0, 3.0, 200.0),
+        (15.0, 0.5, 0.5, 100.0),
+        (15.0, 5.0, 0.5, 100.0),
+        (30.0, 0.5, 0.5, 100.0),
+    ]:
+        scenario = TramScenario(
+            n_stations=4,
+            station_spacing=spacing,
+            cruise_speed=cruise_speed,
+            acceleration_rate=acceleration,
+            deceleration_rate=deceleration,
+        )
+        model = TransitSystem(scenario=scenario)
+        model.run_until(5000.0)
+
+        assert model.tram.route_complete
+        assert model.tram.position == pytest.approx(model.route[-1])
+        assert model.tram.speed == pytest.approx(0.0)
+
+        peak = model.datacollector.get_model_vars_dataframe()["Speed"].max()
+        assert peak <= cruise_speed + 1e-9
+
+
+def test_tram_model():  # noqa: D103
+    from mesa.examples.experimental.tram_model import app  # noqa: PLC0415
+
+    app.page  # noqa: B018
+
+    scenario = TramScenario(n_stations=4, station_spacing=200.0, rng=42)
+    model = TransitSystem(scenario=scenario)
+    ref = weakref.ref(model)
+
+    model.run_until(500.0)
+
+    # Every station is reached exactly, and the tram ends the route at rest.
+    assert model.tram.route_complete
+    assert model.tram.position == pytest.approx(model.route[-1])
+    assert model.tram.speed == pytest.approx(0.0)
+
+    df = model.datacollector.get_model_vars_dataframe()
+    assert list(df.columns) == ["Position", "Speed", "Acceleration"]
+    assert df["Speed"].max() <= scenario.cruise_speed + 1e-9
+
+    recorded = model.recorder.get_table_dataframe("tram_data")
+    assert list(recorded.columns) == [
+        "unique_id",
+        "position",
+        "speed",
+        "acceleration",
+        "time",
+    ]
+    assert (recorded["unique_id"] == model.tram.unique_id).all()
+    assert recorded["position"].iloc[-1] == pytest.approx(model.route[-1])
 
     model.remove_all_agents()
 

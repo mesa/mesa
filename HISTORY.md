@@ -3,6 +3,155 @@
 ---
 title: Release History
 ---
+# 4.0.0a0 (2026-03-14)
+## Highlights
+Mesa 4.0 alpha 0 is the first pre-release of the next major version of Mesa. It removes long-deprecated APIs, cleans up the core architecture, and introduces experimental timed actions for agents. This is an alpha release intended for early testing , expect rough edges and further breaking changes before the stable 4.0 release.
+
+### Breaking changes: deprecated APIs removed
+Mesa 4.0 follows through on deprecations announced in Mesa 3.x by removing several legacy components:
+
+- **`seed` parameter removed** (#3318): The `seed` keyword argument to `Model.__init__()`, deprecated since Mesa 3.4, is gone. Use `rng` instead (or pass it through a `Scenario`). `reset_rng` has also been updated to reset `model.random` alongside the NumPy generator.
+- **`model.steps` removed** (#3328): The step counter has been replaced by `model.time`, completing the shift to a time-centric simulation model. All internal usages now reference `model.time`, and the step-wrapping machinery has been simplified accordingly.
+- **`batch_run` removed** (#3325): The `batch_run` function and all associated files have been removed. Users should manage experiment execution through `Scenario` and direct model control (see #3134 for background).
+- **`mesa.space` removed** (#3337): The legacy space module and `agent.pos` have been removed. Use `mesa.discrete_space` for grid-based and network models.
+- **`PropertyLayer` and `HasPropertyLayers` mixin removed** (#3340, #3432): The standalone `PropertyLayer` class is replaced by raw NumPy arrays stored directly on the grid as `property_layers`. Property access on cells now uses native property closures on a dynamic `GridCell` class, simplifying the internals.
+- **Simulator classes removed** (#3530): The `Simulator`, `ABMSimulator`, and `DEVSimulator` classes and the entire `mesa.experimental.devs` package have been removed, completing the deprecation cycle started in Mesa 3.5.0. Their functionality is covered by `model.run_for()`, `model.run_until()`, `model.schedule_event()`, and `model.schedule_recurring()`. Note that the core event system remains fully functional in `mesa.time`.
+
+### Experimental: Timed agent actions
+Mesa 4.0a0 introduces an experimental `Action` system (#3461), giving agents a built-in concept of *doing something over time*. Actions integrate with Mesa's event scheduling for precise timing, support interruption with progress tracking, and can be resumed.
+
+```python
+from mesa.experimental.actions import Action
+
+class Forage(Action):
+    def __init__(self, sheep):
+        super().__init__(sheep, duration=5.0)
+
+    def on_complete(self):
+        self.agent.energy += 30
+
+    def on_interrupt(self, progress):
+        self.agent.energy += 30 * progress  # Partial credit
+
+sheep.start_action(Forage(sheep))
+```
+
+Key features include:
+- Subclassable with `on_start()`, `on_resume()`, `on_complete()`, and `on_interrupt(progress)` hooks
+- Live-computed `progress`, `remaining_time`, and `elapsed_time` properties
+- Callable duration and priority for state-dependent values (e.g., `duration=lambda a: a.distance / a.speed`)
+- Interrupted actions remember progress and can be resumed, scheduling only the remaining duration
+- Agent integration via `agent.start_action()`, `agent.interrupt_for()`, `agent.cancel_action()`, and `agent.is_busy`
+
+This is an experimental feature and may change in future releases. See the [PR description](https://github.com/mesa/mesa/pull/3461) for the full API reference and design rationale.
+
+### Event system improvements
+The event scheduling system introduced in Mesa 3.5 receives several enhancements:
+- `EventGenerator` now supports `pause()` and `resume()` for temporarily suspending recurring events without terminating the generator (#3431)
+- A `next_scheduled_time` property on `EventGenerator` exposes the time of the next scheduled execution (#3423)
+- `EventList` gains a `compact()` method to clean up cancelled events and improve performance under heavy cancellation (#3359)
+- Event scheduling now enforces monotonic time, scheduling events in the past raises a clear error (#3343)
+- Memory leak from `EventGenerator` holding strong references is fixed via weak references (#3360)
+
+### Architecture and internals
+- **Exception hierarchy** (#3197): A new `mesa.errors` module introduces a base `MesaError` class with specific exceptions like `CellNotEmptyError`, replacing generic `Exception` usage. Related PRs tighten exception types across the codebase (#3380).
+- **`DiscreteSpace` is now an abstract base class** (#3387): Subclasses must implement spatial hooks like `find_nearest_cell` and `_connect_cells`, enforcing a consistent spatial API contract.
+- **`HasObservables` renamed to `HasEmitters`** (#3367): The reactive programming mixin now uses more precise terminology reflecting its role as a generic event emitter system.
+- **Tooltip support in Altair backend** (#3392): Agent data can now be shown on hover in Altair-based visualizations.
+
+### Performance improvements
+Several targeted optimizations improve simulation performance:
+- `Event.__lt__` avoids tuple allocation (#3336)
+- `EventList.peek_ahead` uses a generator instead of list allocation (#3413)
+- `EventList.__len__` avoids temporary list allocation (#3512)
+- Continuous space agent removal is optimized (#3491)
+
+## What's Changed
+### ⚠️ Breaking changes
+* Remove seed kwarg by @quaquel in #3318
+* remove model.steps by @quaquel in #3328
+* Remove batch_run.py by @quaquel in #3325
+* Remove mesa.space by @quaquel in #3337
+* Remove PropertyLayer and HasPropertyLayers mixin  by @codebreaker32 in #3340
+* Delete property_layer.py by @codebreaker32 in #3432
+* Remove deprecated `mesa.experimental.devs` simulator module by @EwoutH in #3530
+### 🧪 Experimental
+* Refactor: Rename HasObservables to HasEmitters by @Nithurshen in #3367
+* FEAT: Add class-level subscribe to HasEmitters by @Nithurshen in #3368
+* Add time column to empty dataframe in `datarecorder` by @codebreaker32 in #3408
+* Add explicit `RUN_ENDED` signal for terminal data handling in `DataRecorder` by @codebreaker32 in #3424
+* Add Actions: event-driven timed agent behavior (v2) by @EwoutH in #3461
+* Remove ContinuousSpaceAgent.pos property by @satharyasin-hub in #3528
+* Updating Scenario in preparation for replacing batch runner by @quaquel in #3493
+### 🛠 Enhancements made
+* Use scenario for all examples in benchmarks by @codebreaker32 in #3314
+* Fix Schedule validation for start > end by @souro26 in #3326
+* Event fixes by @quaquel in #3331
+* Modify Space Drawers to use explicit Cell positions by @codebreaker32 in #3323
+* Enforce default physical layout for Network spaces by @codebreaker32 in #3355
+* Add manual dirty flag optimization to AgentDataSet by @souro26 in #3346
+* Update `Network` to use `Cell.position` and `layout` for Visualisation by @codebreaker32 in #3345
+* Fail fast on unsupported lambda/partial callbacks in schedule_event by @falloficarus22 in #3320
+* fix: use weakref in EventGenerator to prevent memory leak by @Krishsharma179 in #3360
+* POC: Exception Hierarchy for Mesa 4.0 by @Nithurshen in #3197
+* Convert DiscreteSpace to an Abstract Base Class by @codebreaker32 in #3387
+* Tighten exception types and wrap missing-cell lookups by @falloficarus22 in #3380
+* Add compaction method to Eventlist to reduce performance degradation under heavy cancellation by @souro26 in #3359
+* Add type hints to internal generator in AgentSet.select by @Tushar1733 in #3410
+* Add tooltip support to Altair backend by @annapurna-gupta in #3392
+* add next_scheduled_time property to EventGenerator by @souro26 in #3423
+* Update mesa.examples models to use scenario by @quaquel in #3363
+* add pause and resume to EventGenerator by @souro26 in #3431
+* Add static dependency injection to `@computed_property` for `@emit` support by @codebreaker32 in #3462
+* fix: prevent IndexError and add clear error message in select_random_empty_cell() when grid is full by @BEASTSHRIRAM in #3500
+### 🐛 Bugs fixed
+* Fix unbounded growth of `Model._event_generators` by @EwoutH in #3317
+* fix: prevent time rewind in _advance_time by adding early return by @Krishsharma179 in #3329
+* Remove `model.steps` usage from solara_viz by @codebreaker32 in #3344
+* Enforce monotonic time invariant in event scheduling by @souro26 in #3343
+* Fix inconsistent state when assigning CellAgent to full cell by @souro26 in #3374
+* Fix: Enforce strict layout validation in Network space by @Nithurshen in #3386
+* fix: FixedCell setter atomically adds agent before updating reference (fixes #3411) by @Rishav23av in #3415
+* Fix checkout of untrusted code in benchmark.yml by @jackiekazil in #3438
+* Fixes a cache-invalidation bug for `SignalingList` by @codebreaker32 in #3486
+* Fix incorrect warnings and exception types in `model.py` and `datacollection.py` by @codebyNJ in #3434
+* Fix sliding window eviction crash in ModelDataSet by @ShreyasN707 in #3389
+* fix: InputText widget returns string seed causing model reset to fail by @R1patil in #3518
+### ⚡ Performance improvements
+* Optimize `Event.__lt__` to avoid tuple allocation by @souro26 in #3336
+* Use generator in peek_ahead instead of list allocation by @souro26 in #3413
+* avoid temporary list allocation in EventList.__len__ by @souro26 in #3512
+* Optimise `_remove_agent` in Continuous Space by @codebreaker32 in #3491
+### 🔍 Examples updated
+* Clean up pd_grid example activation logic by @EwoutH in #3349
+* Optimise Wolf-sheep performance by @PietroMondini in #3503
+### 📜 Documentation improvements
+* Add AgentSet to docs by @EwoutH in #3316
+* add general exception handling guidance to CONTRIBUTING.md by @falloficarus22 in #3394
+* docs: clarify proposal-first contribution flow and update PR/issue templates by @wang-boyu in #3395
+* Improve type annotations in mesa.time.event by @Tushar1733 in #3419
+* document the duplicate coordinate  by @Krishsharma179 in #3473
+### 🔧 Maintenance
+* Add tests for execution ordering and cancellation invariants for EventList by @souro26 in #3353
+* Fix: Pin starlette<1.0 to unblock CI / solara tests by @Nithurshen in #3370
+* Add sugarscape for benchmarking by @quaquel in #3348
+* Fix benchmark workflow permissions for fork PRs by @EwoutH in #3459
+* Use model-specific scenario classes in benchmarks by @EwoutH in #3350
+* Reorganize and deduplicate event-related tests by @EwoutH in #3529
+* Update benchmarks to use the new Scenario API by @quaquel in #3531
+
+## New Contributors
+* @Krishsharma179 made their first contribution in #3329
+* @Tushar1733 made their first contribution in #3410
+* @annapurna-gupta made their first contribution in #3392
+* @Rishav23av made their first contribution in #3415
+* @BEASTSHRIRAM made their first contribution in #3500
+* @PietroMondini made their first contribution in #3503
+* @satharyasin-hub made their first contribution in #3528
+* @R1patil made their first contribution in #3518
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.0...v4.0.0a0
+
 # 3.5.0 (2026-02-15)
 ## Highlights
 Mesa 3.5.0 is a major feature release that introduces a public event scheduling API, stabilizes the event system, and lays the groundwork for Mesa 4.0 by deprecating several legacy patterns.

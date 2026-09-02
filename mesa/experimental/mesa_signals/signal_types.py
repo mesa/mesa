@@ -13,14 +13,16 @@ class ObservableSignals(SignalType):
         CHANGED: Emitted when an observable's value changes.
 
     Examples:
-        >>> from mesa.experimental.mesa_signals import Observable, HasEmitters, SignalType
+        >>> from mesa.experimental.mesa_signals import Observable, HasEmitters, ObservableSignals
         >>> class MyModel(HasEmitters):
         ...     value = Observable()
         ...     def __init__(self):
         ...         super().__init__()
         ...         self._value = 0
         >>> model = MyModel()
-        >>> model.observe("value", ObservableSignals.CHANGED, lambda s: print(s.new))
+        >>> def handler(signal):
+        ...     print(signal.additional_kwargs["new"])
+        >>> model.observe("value", ObservableSignals.CHANGED, handler)
         >>> model.value = 10
         10
 
@@ -59,7 +61,9 @@ class ListSignals(SignalType):
         ...         super().__init__()
         ...         self.items = []
         >>> model = MyModel()
-        >>> model.observe("items", ListSignals.INSERTED, lambda m: print(f"Inserted {m.kwargs['new']}"))
+        >>> def handler(message):
+        ...     print(f"Inserted {message.additional_kwargs['new']}")
+        >>> model.observe("items", ListSignals.INSERTED, handler)
         >>> model.items.insert(0, "first")
         Inserted first
 
