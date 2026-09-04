@@ -875,13 +875,18 @@ class TestActionFailure:
         assert action.progress == 0.0
         assert not agent.is_busy
 
-    def test_start_failure_schedules_nothing(self):
+    def test_start_failure_schedules_no_completion(self):
         model, agent = make_model_and_agent()
         before = len(model._event_list)
 
-        agent.start_action(TrackedAction(agent, start_requirements=lambda a: False))
+        action = TrackedAction(agent, start_requirements=lambda a: False)
+        agent.start_action(action)
 
-        assert len(model._event_list) == before
+        # Exactly one new event: the agent's idle wake, never a completion.
+        assert len(model._event_list) == before + 1
+        model.run_for(10)
+        assert action.start_count == 0
+        assert not action.completed
 
     def test_failed_action_cannot_be_restarted(self):
         _model, agent = make_model_and_agent()
@@ -1305,3 +1310,172 @@ class TestRealisticScenarios:
 
         assert trade.state is ActionState.FAILED
         assert not trader.filled
+
+
+# --- Wake contract (on_idle) ---
+
+
+class IdleRecorder(Agent):
+    """Agent that records every on_idle wake with the state it saw."""
+
+    def __init__(self, model):
+        super().__init__(model)
+        self.wakes = []
+
+    def on_idle(self, previous):
+        state = previous.state if previous is not None else None
+        self.wakes.append((self.model.time, previous, state))
+
+
+class TestOnIdle:
+    def make_recorder(self):
+        model = Model()
+        return model, IdleRecorder(model)
+
+    def test_wake_fires_after_completion(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent, duration=5.0)
+        agent.start_action(action)
+
+        model.run_for(6)
+
+        assert agent.wakes == [(5.0, action, ActionState.COMPLETED)]
+
+    def test_wake_is_deferred_not_synchronous(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent)
+        agent.start_action(action)
+        agent.cancel_action()
+
+        # The release only queued the wake; nothing has fired yet.
+        assert agent.wakes == []
+
+        model.run_for(1)
+        assert agent.wakes == [(0.0, action, ActionState.INTERRUPTED)]
+
+    def test_wake_fires_for_interrupt(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent, duration=5.0)
+        agent.start_action(action)
+        model.run_for(2)
+
+        assert action.interrupt()
+        model.run_for(1)
+
+        assert agent.wakes == [(2.0, action, ActionState.INTERRUPTED)]
+
+    def test_wake_fires_for_start_failure(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent, start_requirements=lambda a: False)
+        agent.start_action(action)
+
+        model.run_for(1)
+
+        assert agent.wakes == [(0.0, action, ActionState.FAILED)]
+
+    def test_wake_fires_for_completion_failure(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(
+            agent, duration=3.0, completion_requirements=lambda a: False
+        )
+        agent.start_action(action)
+
+        model.run_for(4)
+
+        assert agent.wakes == [(3.0, action, ActionState.FAILED)]
+
+    def test_no_wake_when_interrupt_for_refills_the_slot(self):
+        model, agent = self.make_recorder()
+        first = TrackedAction(agent, duration=5.0, priority=1.0)
+        second = TrackedAction(agent, duration=3.0, priority=2.0)
+        agent.start_action(first)
+
+        assert agent.interrupt_for(second)
+        model.run_for(4)
+
+        # No idle gap ever existed at t=0; the only wake is second's end.
+        assert agent.wakes == [(3.0, second, ActionState.COMPLETED)]
+
+    def test_coalesced_wake_reports_latest_action(self):
+        model, agent = self.make_recorder()
+        first = TrackedAction(agent)
+        agent.start_action(first)
+        agent.cancel_action()
+        second = TrackedAction(agent, duration=0.0)
+        agent.start_action(second)  # completes instantly, wake still pending
+
+        model.run_for(1)
+
+        assert agent.wakes == [(0.0, second, ActionState.COMPLETED)]
+
+    def test_zero_duration_chain_wakes_once_per_time(self):
+        # Without the once-per-time guard this recurses forever: the test
+        # hangs rather than fails.
+        model = Model()
+
+        class Chain(Agent):
+            def __init__(self, model):
+                super().__init__(model)
+                self.idle_calls = 0
+
+            def on_idle(self, previous):
+                self.idle_calls += 1
+                self.start_action(Action(self, duration=0.0))
+
+        agent = Chain(model)
+        agent.start_action(Action(agent, duration=0.0))
+        model.run_for(1)
+
+        assert agent.idle_calls == 1
+
+    def test_agent_chains_actions_across_time(self):
+        model = Model()
+
+        class Worker(Agent):
+            def __init__(self, model):
+                super().__init__(model)
+                self.done = 0
+
+            def on_idle(self, previous):
+                self.done += 1
+                self.start_action(Action(self, duration=1.0))
+
+        agent = Worker(model)
+        agent.start_action(Action(agent, duration=1.0))
+        model.run_for(3.5)
+
+        # Completions at t=1, 2, 3; each wake starts the next task.
+        assert agent.done == 3
+
+    def test_wake_runs_after_all_completions_at_that_time(self):
+        model = Model()
+        observed = []
+        other = TrackedAction(Agent(model), duration=5.0)
+
+        class Nosy(Agent):
+            def on_idle(self, previous):
+                observed.append(other.state)
+
+        nosy = Nosy(model)
+        mine = TrackedAction(nosy, duration=5.0)
+        nosy.start_action(mine)
+        other.agent.start_action(other)
+
+        model.run_for(6)
+
+        # Both actions end at t=5. The wake is Priority.LOW, so it runs
+        # after the other agent's completion even though that completion
+        # was queued later.
+        assert observed == [ActionState.COMPLETED]
+
+    def test_remove_cancels_pending_wake(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent)
+        agent.start_action(action)
+        agent.cancel_action()
+
+        agent.remove()
+        model.run_for(1)
+
+        assert agent.wakes == []
+        assert agent._wake_event is None

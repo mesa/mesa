@@ -5,7 +5,9 @@ Mesa's event scheduling system for precise timing and supports interruption
 with progress tracking and optional resumption.
 
 Actions are subclassable: override on_start(), on_complete(),
-on_interrupt(), and on_fail() to define behavior.
+on_interrupt(), and on_fail() to define behavior. When an action ends,
+the agent's Agent.on_idle() hook fires; decisions about what to do
+next -- chain another action, resume an interrupted one -- belong there.
 
 Example::
 
@@ -348,10 +350,7 @@ class Action:
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
-
-        if self.agent.current_action is self:
-            self.agent.current_action = None
-
+        self._release_agent()
         self.on_interrupt(self._progress)
         return True
 
@@ -372,10 +371,7 @@ class Action:
         self._cancel_event()
 
         self.state = ActionState.INTERRUPTED
-
-        if self.agent.current_action is self:
-            self.agent.current_action = None
-
+        self._release_agent()
         self.on_interrupt(self._progress)
         return True
 
@@ -396,6 +392,20 @@ class Action:
         if self._event is not None:
             self._event.cancel()
             self._event = None
+
+    def _release_agent(self) -> None:
+        """Clear the agent's slot and schedule its idle wake.
+
+        Completion, interruption, cancellation, and failure all funnel
+        through here, so the wake contract has a single path. An action
+        that never held the slot (started directly, without
+        Agent.start_action) wakes nobody. Agent.remove() is the one end
+        that does not come through here: it abandons the action, and a
+        dying agent must not wake.
+        """
+        if self.agent.current_action is self:
+            self.agent.current_action = None
+            self.agent._schedule_wake(self)
 
     def _resolve_priority(self) -> None:
         """Resolve the priority spec against the agent, at most once.
@@ -421,10 +431,7 @@ class Action:
     def _fail(self) -> None:
         """Move to FAILED, release the agent, and fire on_fail()."""
         self.state = ActionState.FAILED
-
-        if self.agent.current_action is self:
-            self.agent.current_action = None
-
+        self._release_agent()
         self.on_fail()
 
     def _do_complete(self) -> None:
@@ -442,11 +449,7 @@ class Action:
             return
 
         self.state = ActionState.COMPLETED
-
-        # Clear agent's reference so it's no longer busy
-        if self.agent.current_action is self:
-            self.agent.current_action = None
-
+        self._release_agent()
         self.on_complete()
 
     def __repr__(self) -> str:

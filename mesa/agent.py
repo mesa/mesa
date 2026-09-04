@@ -17,8 +17,10 @@ import pandas as pd
 if TYPE_CHECKING:
     from mesa.experimental.actions import Action
     from mesa.model import Model
+    from mesa.time import Event
 
 from mesa.agentset import AgentSet, _resolve_per_agent_values
+from mesa.time import Priority
 
 
 class Agent[M: Model]:
@@ -65,6 +67,9 @@ class Agent[M: Model]:
         self.model: M = model
         self.unique_id = None
         self.current_action: Action | None = None
+        self._wake_event: Event | None = None
+        self._wake_previous: Action | None = None
+        self._last_wake_time: float = float("-inf")
         self.model.register_agent(self)
 
         for dataset in self._datasets:
@@ -77,7 +82,8 @@ class Agent[M: Model]:
         scheduled completion event is cancelled silently. The action's
         on_interrupt() callback is NOT fired, because the agent is being
         destroyed — not making a behavioral decision. The action moves
-        to no defined end state; it is simply abandoned.
+        to no defined end state; it is simply abandoned. A pending
+        on_idle wake is cancelled as well: a removed agent never wakes.
 
         If your action holds external resources (e.g., a Resource slot,
         a reservation, a lock), override Agent.remove() and call
@@ -97,6 +103,11 @@ class Agent[M: Model]:
         if self.current_action is not None:
             self.current_action._cancel_event()  # Silent cleanup, no callback
             self.current_action = None
+
+        if self._wake_event is not None:
+            self._wake_event.cancel()
+            self._wake_event = None
+            self._wake_previous = None
 
         with contextlib.suppress(KeyError):
             self.model.deregister_agent(self)
@@ -364,3 +375,56 @@ class Agent[M: Model]:
     def is_busy(self) -> bool:
         """Whether the agent is currently performing an action."""
         return self.current_action is not None
+
+    def on_idle(self, previous: Action | None) -> None:
+        """Called when the agent's action has ended and nothing replaced it.
+
+        Override it to choose what to do next, typically by starting or
+        resuming an action. The default does nothing, and nothing is
+        resumed automatically: an interrupted action stays interrupted
+        unless this hook (or other model code) restarts it.
+
+        Args:
+            previous: The action that just ended, in its final state
+                (COMPLETED, INTERRUPTED, or FAILED). None is reserved for
+                wakes not caused by an action ending; no built-in trigger
+                sends it today.
+
+        Notes:
+            At most one wake fires per agent per model time, so a
+            zero-duration action started here cannot re-trigger the hook
+            in the same instant. The wake is skipped when the agent is
+            busy again by the time the event runs -- interrupt_for()
+            refills the slot synchronously, so no idle gap ever existed.
+            If several actions end before the wake runs, they coalesce
+            into one call and ``previous`` is the latest of them.
+        """
+
+    def _schedule_wake(self, previous: Action | None) -> None:
+        """Queue the deferred on_idle event, coalescing repeats.
+
+        Called by Action._release_agent whenever this agent's slot is
+        cleared. If a wake is already pending, or one already fired at
+        the current model time, no second event is queued -- only
+        ``previous`` is brought up to date.
+        """
+        self._wake_previous = previous
+        if self._wake_event is not None:
+            return
+        if self._last_wake_time == self.model.time:
+            return
+        self._wake_event = self.model.schedule_event(
+            self._fire_wake, after=0.0, priority=Priority.LOW
+        )
+
+    def _fire_wake(self) -> None:
+        """Run the pending wake: call on_idle if the agent is still free."""
+        previous = self._wake_previous
+        self._wake_event = None
+        self._wake_previous = None
+        if self.current_action is not None:
+            return
+        # Recorded only when on_idle actually runs, so a busy skip does not
+        # suppress a later release at the same model time.
+        self._last_wake_time = self.model.time
+        self.on_idle(previous)
