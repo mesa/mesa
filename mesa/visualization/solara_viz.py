@@ -752,12 +752,13 @@ def _check_model_params(model_or_func, model_params):
 
     model_parameters = inspect.signature(init_func).parameters
 
-    has_var_positional = any(
-        param.kind == inspect.Parameter.VAR_POSITIONAL
+    has_positional_only = any(
+        param.kind
+        in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL)
         for param in model_parameters.values()
     )
 
-    if has_var_positional:
+    if has_positional_only:
         raise ValueError(
             "Mesa's visualization requires the use of keyword arguments to ensure the parameters are passed to Solara correctly. Please ensure all model parameters are of form param=value"
         )
