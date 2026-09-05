@@ -244,9 +244,12 @@ def test_model_param_checks():
             pass
 
     with pytest.raises(
-        ValueError, match=re.escape("Mesa's visualization requires the use of keyword arguments")
+        ValueError,
+        match=re.escape("Mesa's visualization requires the use of keyword arguments"),
     ):
-        _check_model_params(ModelWithPositionalOnly.__init__, {"param1": 1, "param2": 10})
+        _check_model_params(
+            ModelWithPositionalOnly.__init__, {"param1": 1, "param2": 10}
+        )
 
     # Test var-positional (*args) parameters raise ValueError
     class ModelWithVarPositional:
@@ -254,7 +257,8 @@ def test_model_param_checks():
             pass
 
     with pytest.raises(
-        ValueError, match=re.escape("Mesa's visualization requires the use of keyword arguments")
+        ValueError,
+        match=re.escape("Mesa's visualization requires the use of keyword arguments"),
     ):
         _check_model_params(ModelWithVarPositional.__init__, {"param1": 1})
 

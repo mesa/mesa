@@ -753,7 +753,8 @@ def _check_model_params(model_or_func, model_params):
     model_parameters = inspect.signature(init_func).parameters
 
     has_positional_only = any(
-        param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL)
+        param.kind
+        in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL)
         for param in model_parameters.values()
     )
 
