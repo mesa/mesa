@@ -379,3 +379,119 @@ def test_at_level_cyclic_membership_terminates():
     assert set(meta_agents.at_level(0, root=a)) == {a}
     assert set(meta_agents.at_level(1, root=a)) == {b}
     assert set(meta_agents.at_level(2, root=a)) == set()
+
+
+def test_create_without_approval_funcs_behaves_as_before():
+    """Groups created without approval funcs gate nothing (unchanged behavior)."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    recruit = Agent(model)
+    group = meta_agents.create("Group", [agent])
+
+    meta_agents.add_member(group, recruit)
+    assert recruit in meta_agents.members_of(group)
+
+    meta_agents.remove_member(group, recruit)
+    assert recruit not in meta_agents.members_of(group)
+
+
+def test_join_approval_func_rejects_add_member():
+    """A join_approval_func returning False blocks add_member."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    recruit = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent], join_approval_func=lambda member, group: False
+    )
+
+    view = meta_agents.add_member(group, recruit)
+
+    assert recruit not in meta_agents.members_of(group)
+    assert group not in view.groups
+    assert meta_agents.backend.as_triplets() == {
+        (agent.unique_id, group.unique_id, "member"),
+    }
+
+
+def test_join_approval_func_approves_add_member():
+    """A join_approval_func returning True allows add_member as normal."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    recruit = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent], join_approval_func=lambda member, group: True
+    )
+
+    view = meta_agents.add_member(group, recruit)
+
+    assert recruit in meta_agents.members_of(group)
+    assert group in view.groups
+
+
+def test_leave_approval_func_rejects_remove_member():
+    """A leave_approval_func returning False blocks remove_member."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    other = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent, other], leave_approval_func=lambda member, group: False
+    )
+
+    view = meta_agents.remove_member(group, agent)
+
+    assert agent in meta_agents.members_of(group)
+    assert group in view.groups
+
+
+def test_leave_approval_func_approves_remove_member():
+    """A leave_approval_func returning True allows remove_member as normal."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    other = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent, other], leave_approval_func=lambda member, group: True
+    )
+
+    view = meta_agents.remove_member(group, agent)
+
+    assert agent not in meta_agents.members_of(group)
+    assert group not in view.groups
+
+
+def test_approval_funcs_persist_across_multiple_add_member_calls():
+    """An approval func set at create() applies to every later add_member call."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    recruit_1 = Agent(model)
+    recruit_2 = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent], join_approval_func=lambda member, group: False
+    )
+
+    meta_agents.add_member(group, recruit_1)
+    meta_agents.add_member(group, recruit_2)
+
+    assert set(meta_agents.members_of(group)) == {agent}
+
+
+def test_create_reuse_preserves_existing_approval_func():
+    """Reusing a group via create() without passing funcs keeps the original."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    recruit = Agent(model)
+    group = meta_agents.create(
+        "Squad", [agent], join_approval_func=lambda member, group: False
+    )
+
+    reused = meta_agents.create("Squad", [recruit, agent])
+
+    assert reused is group
+    meta_agents.add_member(group, Agent(model))
+    assert len(meta_agents.members_of(group)) == 2

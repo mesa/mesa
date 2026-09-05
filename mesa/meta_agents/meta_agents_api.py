@@ -170,6 +170,8 @@ class MetaAgents:
         meta_methods: dict[str, Callable] | None = None,
         relation: RelationKey = "member",
         memberships: Iterable[tuple[Any, RelationKey]] | None = None,
+        join_approval_func: Callable[[Any, Any], bool] | None = None,
+        leave_approval_func: Callable[[Any, Any], bool] | None = None,
     ) -> Any:
         """Create a meta-agent group and record its memberships.
 
@@ -207,6 +209,17 @@ class MetaAgents:
                 ``(member, relation)`` tuples so each member can get its own
                 relation label. When given, ``agents`` and ``relation`` are
                 ignored.
+            join_approval_func: Optional callable ``(member, group) -> bool``
+                checked before a member is added via ``add_member``. Stored on
+                the returned group and applied to every future ``add_member``
+                call on it, not just the initial ``agents``. When it returns
+                ``False``, the member is not added. Defaults to ``None``
+                (no gating).
+            leave_approval_func: Optional callable ``(member, group) -> bool``
+                checked before a member is removed via ``remove_member``.
+                Stored on the returned group and applied to every future
+                ``remove_member`` call on it. When it returns ``False``, the
+                member is not removed. Defaults to ``None`` (no gating).
 
         Returns:
             The group agent (newly created or existing).
@@ -258,6 +271,11 @@ class MetaAgents:
             _membership_api=self,
         )
 
+        if join_approval_func is not None:
+            meta_agent._join_approval_func = join_approval_func
+        if leave_approval_func is not None:
+            meta_agent._leave_approval_func = leave_approval_func
+
         if member_relations is None:
             member_relations = [(agent, relation) for agent in agents]
 
@@ -278,6 +296,10 @@ class MetaAgents:
         member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
 
+        join_approval_func = getattr(group, "_join_approval_func", None)
+        if join_approval_func is not None and not join_approval_func(member, group):
+            return self.query_memberships(member)
+
         self.backend.add_membership(member, group, relation)
         return self.query_memberships(member)
 
@@ -291,6 +313,10 @@ class MetaAgents:
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
+
+        leave_approval_func = getattr(group, "_leave_approval_func", None)
+        if leave_approval_func is not None and not leave_approval_func(member, group):
+            return self.query_memberships(member)
 
         self.backend.remove_membership(member, group, relation)
         return self.query_memberships(member)
