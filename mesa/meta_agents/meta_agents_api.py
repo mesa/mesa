@@ -12,6 +12,7 @@ from mesa.agent import Agent, AgentSet
 
 from .backend import MembershipBackend, RelationKey, Triplet
 from .meta_agent import (
+    MetaAgent,
     _create_meta_agent_instance,
     _deduplicate_preserving_order,
 )
@@ -277,6 +278,11 @@ class MetaAgents:
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
+
+        if not isinstance(group, MetaAgent):
+            raise TypeError(
+                f"Expected group to be a MetaAgent instance or valid group ID, but got {type(group).__name__}. "
+            )
 
         self.backend.add_membership(member, group, relation)
         return self.query_memberships(member)
