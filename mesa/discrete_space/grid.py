@@ -200,6 +200,14 @@ class Grid(DiscreteSpace[T]):
             raise ValueError(
                 f"property_layer name '{name}' clashes with existing slot '{name}'."
             )
+
+        cell_attrs = set(
+            chain.from_iterable(c.__dict__ for c in self.cell_klass.__mro__)
+        )
+        if name != "empty" and name in cell_attrs:
+            raise ValueError(
+                f"property_layer '{name}' conflicts with an existing Cell attribute."
+            )
         self.property_layers[name] = array
         setattr(self, name, array)
 
