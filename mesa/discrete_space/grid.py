@@ -204,9 +204,12 @@ class Grid(DiscreteSpace[T]):
         cell_attrs = set(
             chain.from_iterable(c.__dict__ for c in self.cell_klass.__mro__)
         )
+        # "empty" is exempt because Grid.__init__ itself installs it as a
+        # property layer backing Cell.empty; every other name must be free.
         if name != "empty" and name in cell_attrs:
             raise ValueError(
-                f"property_layer '{name}' conflicts with an existing Cell attribute."
+                f"property_layer '{name}' conflicts with an existing "
+                f"{self.cell_klass.__name__} attribute."
             )
         self.property_layers[name] = array
         setattr(self, name, array)
