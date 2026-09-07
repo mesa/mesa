@@ -191,21 +191,15 @@ class Grid(DiscreteSpace[T]):
         if name in self.property_layers:
             raise ValueError(f"property_layer '{name}' already exists.")
 
-        slots = set(
-            chain.from_iterable(
-                getattr(cls, "__slots__", []) for cls in self.cell_klass.__mro__
-            )
-        )
-        if name in slots:
-            raise ValueError(
-                f"property_layer name '{name}' clashes with existing slot '{name}'."
-            )
-
+        # Attaching a layer installs an accessor on cell_klass via setattr, so any
+        # name already defined on that class would be silently shadowed. Walking
+        # __mro__ __dict__ covers @property accessors, methods, plain class vars,
+        # and __slots__ members alike (a slot is a member_descriptor living in the
+        # class __dict__). "empty" is exempt: Grid.__init__ itself installs it as
+        # a property layer backing Cell.empty.
         cell_attrs = set(
             chain.from_iterable(c.__dict__ for c in self.cell_klass.__mro__)
         )
-        # "empty" is exempt because Grid.__init__ itself installs it as a
-        # property layer backing Cell.empty; every other name must be free.
         if name != "empty" and name in cell_attrs:
             raise ValueError(
                 f"property_layer '{name}' conflicts with an existing "
