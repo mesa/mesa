@@ -12,6 +12,7 @@ from mesa.agent import Agent, AgentSet
 
 from .backend import MembershipBackend, RelationKey, Triplet
 from .meta_agent import (
+    MetaAgent,
     _create_meta_agent_instance,
     _deduplicate_preserving_order,
 )
@@ -126,6 +127,13 @@ class MetaAgents:
                 raise ValueError(f"No group named {group!r}")
             raise ValueError(f"Ambiguous group name {group!r}")
         return group
+
+    def _validate_meta_agent(self, group: Any) -> None:
+        """Validate that the resolved group is a MetaAgent instance."""
+        if not isinstance(group, MetaAgent):
+            raise TypeError(
+                f"Expected group to be a MetaAgent instance or valid group ID, but got {type(group).__name__}."
+            )
 
     def _resolve_view(
         self, entity: Hashable, triplets: Iterable[Triplet]
@@ -277,6 +285,7 @@ class MetaAgents:
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
+        self._validate_meta_agent(group)
 
         self.backend.add_membership(member, group, relation)
         return self.query_memberships(member)
@@ -291,6 +300,7 @@ class MetaAgents:
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
+        self._validate_meta_agent(group)
 
         self.backend.remove_membership(member, group, relation)
         return self.query_memberships(member)

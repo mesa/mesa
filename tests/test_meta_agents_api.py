@@ -166,6 +166,48 @@ def test_add_and_remove_member_by_unique_id():
     assert meta_agents.backend.groups_of(member) == set()
 
 
+def test_add_and_remove_member_reject_inverted_arguments():
+    """add_member and remove_member reject inverted (agent, group) calls."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    alice = Agent(model)
+    group = meta_agents.create("Team", [])
+
+    with pytest.raises(TypeError, match="Expected group to be a MetaAgent instance"):
+        meta_agents.add_member(alice, group)
+
+    with pytest.raises(TypeError, match="Expected group to be a MetaAgent instance"):
+        meta_agents.remove_member(alice, group)
+
+
+def test_add_and_remove_member_accept_group_representations():
+    """add_member and remove_member accept live group objects, unique_ids, and names."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    alice = Agent(model)
+    bob = Agent(model)
+    carol = Agent(model)
+    group = meta_agents.create("Team", [])
+
+    # 1. Live MetaAgent object
+    meta_agents.add_member(group, alice)
+    assert alice in meta_agents.members_of(group)
+    meta_agents.remove_member(group, alice)
+    assert alice not in meta_agents.members_of(group)
+
+    # 2. unique_id
+    meta_agents.add_member(group.unique_id, bob)
+    assert bob in meta_agents.members_of(group)
+    meta_agents.remove_member(group.unique_id, bob)
+    assert bob not in meta_agents.members_of(group)
+
+    # 3. String name
+    meta_agents.add_member("Team", carol)
+    assert carol in meta_agents.members_of(group)
+    meta_agents.remove_member("Team", carol)
+    assert carol not in meta_agents.members_of(group)
+
+
 def test_remove_member_preserves_overlapping_memberships():
     """Removing one relation should keep unrelated memberships intact."""
     model = Model()
