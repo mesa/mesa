@@ -1112,6 +1112,18 @@ def test_select_random_weighted_without_replacement():
     assert len(set(sampled)) == 3  # Distinct agents
 
 
+def test_select_random_weighted_without_replacement_rejects_zero_weight_fill():
+    """Zero-weight agents cannot fill a weighted sample."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(
+        ValueError, match="cannot exceed the number of agents with positive weights"
+    ):
+        agentset.select_random(2, weights=[1.0, 0.0, 0.0], replace=False)
+
+
 def test_select_random_edge_cases_and_errors():
     """Test edge cases and error handling."""
     model = Model()

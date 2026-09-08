@@ -219,7 +219,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             AbstractAgentSet: A new or updated AbstractAgentSet containing the sampled agents.
 
         Raises:
-            ValueError: If the AgentSet is empty, n <= 0, n > len(self) when replace=False, weights are negative, total weight <= 0, or length of weights sequence does not match the AgentSet.
+            ValueError: If the AgentSet is empty, n <= 0, n > len(self) when replace=False, n exceeds the number of positive weights when sampling without replacement, weights are negative, total weight <= 0, or length of weights sequence does not match the AgentSet.
             TypeError: If n or weights is of an unsupported type.
         """
         if len(self) == 0:
@@ -260,6 +260,13 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             if replace:
                 chosen = self.random.choices(items, weights=w, k=sample_size)
             else:
+                positive_weights = sum(weight > 0 for weight in w)
+                if sample_size > positive_weights:
+                    raise ValueError(
+                        f"Sample size ({sample_size}) cannot exceed the number of "
+                        f"agents with positive weights ({positive_weights}) when "
+                        "replace=False."
+                    )
                 # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
                 keys = []
                 for agent, wi in zip(items, w):
