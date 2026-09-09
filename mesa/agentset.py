@@ -260,22 +260,21 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             if replace:
                 chosen = self.random.choices(items, weights=w, k=sample_size)
             else:
-                positive_weights = sum(weight > 0 for weight in w)
-                if sample_size > positive_weights:
-                    raise ValueError(
-                        f"Sample size ({sample_size}) cannot exceed the number of "
-                        f"agents with positive weights ({positive_weights}) when "
-                        "replace=False."
-                    )
                 # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
                 keys = []
                 for agent, wi in zip(items, w):
                     if wi > 0:
                         u = self.random.random()
                         key = u ** (1.0 / wi)
-                    else:
-                        key = 0.0
-                    keys.append((key, agent))
+                        keys.append((key, agent))
+
+                positive_weight_count = len(keys)
+                if sample_size > positive_weight_count:
+                    raise ValueError(
+                        f"Sample size ({sample_size}) cannot exceed the number of "
+                        f"agents with positive weights ({positive_weight_count}) when "
+                        "replace=False."
+                    )
                 keys.sort(key=lambda x: x[0], reverse=True)
                 chosen = [agent for _, agent in keys[:sample_size]]
 
