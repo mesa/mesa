@@ -1098,6 +1098,17 @@ def test_select_random_weighted_sequence():
     assert all(a in agentset for a in sampled)
 
 
+@pytest.mark.parametrize("invalid_weight", [np.nan, np.inf])
+def test_select_random_rejects_nonfinite_weights(invalid_weight):
+    """Weighted sampling rejects values that cannot define probabilities."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(ValueError, match="All weights must be finite"):
+        agentset.select_random(1, weights=[invalid_weight, 1.0], replace=False)
+
+
 def test_select_random_weighted_without_replacement():
     """Test weighted selection without replacement using Efraimidis-Spirakis."""
     model = Model()

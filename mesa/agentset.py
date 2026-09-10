@@ -61,6 +61,8 @@ def _resolve_weights(
             "Expected str, Callable, Sequence[float], or None."
         )
 
+    if any(not np.isfinite(x) for x in w):
+        raise ValueError("All weights must be finite.")
     if any(x < 0 for x in w):
         raise ValueError("All weights must be non-negative.")
     if sum(w) <= 0:
