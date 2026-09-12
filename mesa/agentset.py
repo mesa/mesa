@@ -161,6 +161,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Returns:
             AbstractAgentSet: A new AbstractAgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
 
+        Raises:
+            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
             - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
@@ -170,7 +173,11 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             return self if inplace else copy.copy(self)
 
         # Check if at_most is of type float
-        if at_most <= 1.0 and isinstance(at_most, float):
+        if isinstance(at_most, float) and at_most != inf:
+            if not (0.0 < at_most <= 1.0):
+                raise ValueError(
+                    f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
+                )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
 
         def agent_generator(
