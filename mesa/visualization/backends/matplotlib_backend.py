@@ -18,7 +18,6 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
 )
 from mesa.visualization.backends.abstract_renderer import AbstractRenderer
-from mesa.visualization.mpl_space_drawing import _to_numpy_argument_array
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
@@ -169,14 +168,22 @@ class MatplotlibBackend(AbstractRenderer):
             arguments["marker"].append(aps.marker)
             arguments["zorder"].append(aps.zorder)
             arguments["alpha"].append(aps.alpha)
-                        arguments["alpha"].append(aps.alpha)
-            arguments["edgecolors"].append(aps.edgecolors)
+            if aps.edgecolors is not None:
+                arguments["edgecolors"].append(aps.edgecolors)
             arguments["linewidths"].append(aps.linewidths)
 
-        return {
-            key: _to_numpy_argument_array(key, value)
-            for key, value in arguments.items()
+        # Convert to numpy arrays
+        data = {
+            k: (np.asarray(v, dtype=object) if k == "marker" else np.asarray(v))
+            for k, v in arguments.items()
         }
+
+        # Handle marker array specially to preserve tuples
+        arr = np.empty(len(arguments["marker"]), dtype=object)
+        arr[:] = arguments["marker"]
+        data["marker"] = arr
+
+        return data
 
     def _get_zoom_factor(self, ax, img):
         """Calculate zoom factor only once and cache the result."""

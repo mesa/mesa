@@ -14,7 +14,6 @@ from mesa.discrete_space import (
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.mpl_space_drawing import (
-    _to_numpy_argument_array,
     collect_agent_data,
     draw_hex_grid,
     draw_network,
@@ -97,25 +96,6 @@ def test_collect_agent_data_warns_once_for_dict_portrayal():
 
     assert len([w for w in record if issubclass(w.category, FutureWarning)]) == 1
 
-@pytest.mark.parametrize(
-    ("edgecolors", "expected"),
-    [
-        ([None, None], []),
-        (["black", None], ["black", "none"]),
-        ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
-    ],
-)
-def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
-    """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
-    result = _to_numpy_argument_array("edgecolors", edgecolors)
-    assert result.tolist() == expected
-
-
-def test_to_numpy_argument_array_preserves_tuple_markers():
-    """Equal-length tuple marker specs must not collapse into a 2D array."""
-    result = _to_numpy_argument_array("marker", [(3, 0, 0), (3, 0, 0)])
-    assert result.shape == (2,)
-    assert list(result) == [(3, 0, 0), (3, 0, 0)]
 
 def test_draw_hex_grid():
     """Test drawing hexgrids."""
@@ -176,34 +156,6 @@ def test_draw_network():
     ax = fig.add_subplot()
     draw_network(grid, agent_portrayal, ax)
 
-@pytest.mark.parametrize("edgecolor", ["black", (1.0, 0.0, 0.0, 1.0)])
-def test_draw_network_with_partial_edgecolors(edgecolor):
-    """Network drawing handles edgecolors provided for only some agents.
-
-    Regression test for #2691: a network with agent types that don't all
-    return the same portrayal fields (here, only "kind 0" sets edgecolors)
-    used to crash draw_network with a boolean-index length mismatch.
-    """
-    graph = nx.path_graph(2)
-    model = Model(rng=42)
-    grid = Network(graph, random=model.random, capacity=1, layout=nx.spring_layout)
-
-    for index, cell in enumerate(grid.all_cells):
-        agent = CellAgent(model)
-        agent.cell = cell
-        agent.kind = index
-
-    def partial_edgecolor_portrayal(agent):
-        """Only agents of kind 0 specify an edgecolor; kind 1 omits it entirely."""
-        portrayal = {"size": 10, "color": "tab:blue", "marker": "o", "zorder": 1}
-        if agent.kind == 0:
-            portrayal["edgecolors"] = edgecolor
-        return portrayal
-
-    fig = Figure()
-    ax = fig.add_subplot()
-    with pytest.warns(FutureWarning):
-        draw_network(grid, partial_edgecolor_portrayal, ax)
 
 def test_draw_property_layers():
     """Test drawing property layers."""

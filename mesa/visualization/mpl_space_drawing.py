@@ -42,41 +42,6 @@ OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
 
-def _to_numpy_argument_array(key: str, value: list) -> np.ndarray:
-    """Convert a per-agent argument list into a NumPy array for Matplotlib.
-
-    This is shared by both matplotlib-based ``collect_agent_data`` implementations
-    (this module and ``MatplotlibBackend``) so the array-construction rules for
-    "tricky" arguments only need to be maintained in one place.
-
-    Args:
-        key: the argument name (e.g. "marker", "edgecolors", "s", "c", ...).
-        value: the list of per-agent values collected for that argument, with
-            exactly one entry per agent so positions stay aligned.
-
-    Returns:
-        A NumPy array suitable for passing to Matplotlib's scatter call.
-    """
-    if key == "marker":
-        arr = np.empty(len(value), dtype=object)
-        arr[:] = value
-        return arr
-
-    if key == "edgecolors":
-        if not any(edgecolor is not None for edgecolor in value):
-            return np.asarray([])
-
-        normalized = [
-            edgecolor if edgecolor is not None else "none" for edgecolor in value
-        ]
-        try:
-            return np.asarray(normalized)
-        except ValueError:
-            arr = np.empty(len(normalized), dtype=object)
-            arr[:] = normalized
-            return arr
-
-    return np.asarray(value)
 
 def collect_agent_data(
     space: OrthogonalGrid | HexGrid | Network | ContinuousSpace | VoronoiGrid,
