@@ -14,6 +14,7 @@ from mesa.discrete_space import (
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.mpl_space_drawing import (
+    _get_hexmesh,
     collect_agent_data,
     draw_hex_grid,
     draw_network,
@@ -170,3 +171,31 @@ def test_draw_property_layers():
     fig = Figure()
     ax = fig.add_subplot()
     draw_property_layers(grid, property_layer_portrayal, ax)
+
+
+def test_get_hexmesh_returns_immutable_shared_safe_mesh():
+    """_get_hexmesh must return an immutable, non-poisonable cached mesh.
+
+    Regression test: the function is decorated with ``lru_cache`` and returns
+    the same object on repeated calls with identical arguments. If that object
+    were a mutable list, a caller mutating it would corrupt the shared cache for
+    every other same-sized grid. The result must therefore be nested tuples.
+    """
+    mesh = _get_hexmesh(3, 4)
+
+    # One entry per cell, each a hexagon of six vertices, all immutable tuples.
+    assert isinstance(mesh, tuple)
+    assert len(mesh) == 3 * 4
+    for hexagon in mesh:
+        assert isinstance(hexagon, tuple)
+        assert len(hexagon) == 6
+        for vertex in hexagon:
+            assert isinstance(vertex, tuple)
+            assert len(vertex) == 2
+
+    # Cached object is shared across calls but cannot be mutated in place.
+    assert _get_hexmesh(3, 4) is mesh
+    with pytest.raises(AttributeError):
+        mesh.append(("x", "y"))  # tuples have no append
+    with pytest.raises(TypeError):
+        mesh[0][0] = (0.0, 0.0)  # nested tuples are immutable too
