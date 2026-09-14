@@ -106,8 +106,13 @@ class MetaAgents:
         """Resolve a backend id back to a live object when possible."""
         return self._live_entity_lookup().get(entity_id, entity_id)
 
-    def _resolve_group(self, group: Hashable) -> Any:
-        """Resolve a group from a live object, unique id, or group name."""
+    def _resolve_group(self, group: Hashable, *, require_live: bool = False) -> Any:
+        """Resolve a group from an Agent, unique ID, or group class name.
+
+        If an ID is not found, ``require_live=True`` raises ``ValueError``;
+        otherwise, the ID is returned unchanged. Missing or duplicate group
+        names always raise ``ValueError``.
+        """
         lookup = self._live_entity_lookup()
         entity_id = self._entity_id(group)
         if entity_id in lookup:
@@ -126,13 +131,16 @@ class MetaAgents:
             if not matches:
                 raise ValueError(f"No group named {group!r}")
             raise ValueError(f"Ambiguous group name {group!r}")
+        if require_live:
+            raise ValueError(f"No group with unique ID {entity_id!r}")
         return group
 
     def _validate_meta_agent(self, group: Any) -> None:
         """Validate that the resolved group is a MetaAgent instance."""
         if not isinstance(group, MetaAgent):
             raise TypeError(
-                f"Expected group to be a MetaAgent instance or valid group ID, but got {type(group).__name__}."
+                f"Expected group to be a MetaAgent instance, but got {type(group).__name__}. "
+                "Did you swap the group and member arguments?"
             )
 
     def _resolve_view(
@@ -281,10 +289,23 @@ class MetaAgents:
         member: Hashable,
         relation: RelationKey = "member",
     ) -> MembershipView:
-        """Add one member to one group."""
+        """Add an Agent to a MetaAgent.
+
+        Args:
+            group: A ``MetaAgent`` in this ``Model``, its
+                ``unique_id``, or its group class name.
+            member: An ``Agent`` or ``MetaAgent``, or its ``unique_id``.
+            relation: Membership label, such as ``"member"``.
+
+        Raises:
+            ValueError: The group ID or name was not found, or more than
+                one agent has that name.
+            TypeError: The group is an ``Agent`` but not a ``MetaAgent``.
+                Check that ``group`` and ``member`` are in the right order.
+        """
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
-        group = self._resolve_group(group)
+        group = self._resolve_group(group, require_live=True)
         self._validate_meta_agent(group)
 
         self.backend.add_membership(member, group, relation)
@@ -296,10 +317,23 @@ class MetaAgents:
         member: Hashable,
         relation: RelationKey = "member",
     ) -> MembershipView:
-        """Remove one member from one group."""
+        """Remove an Agent from a MetaAgent.
+
+        Args:
+            group: A ``MetaAgent`` in this ``Model``, its
+                ``unique_id``, or its group class name.
+            member: An ``Agent`` or ``MetaAgent``, or its ``unique_id``.
+            relation: Membership label, such as ``"member"``.
+
+        Raises:
+            ValueError: The group ID or name was not found, or more than
+                one agent has that name.
+            TypeError: The group is an ``Agent`` but not a ``MetaAgent``.
+                Check that ``group`` and ``member`` are in the right order.
+        """
         lookup = self._live_entity_lookup()
         member = lookup.get(self._entity_id(member), member)
-        group = self._resolve_group(group)
+        group = self._resolve_group(group, require_live=True)
         self._validate_meta_agent(group)
 
         self.backend.remove_membership(member, group, relation)

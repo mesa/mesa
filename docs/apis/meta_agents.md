@@ -50,6 +50,17 @@ model.meta_agents.dissolve(team)                      # dissolve a group
 model.meta_agents.find_combinations([alice, bob], evaluation_func=score)  # candidate groups
 ```
 
+## Adding and removing members
+
+Use `add_member(group, member)` to add an agent to a group and
+`remove_member(group, member)` to remove it. Pass the group first: a
+`MetaAgent` in the `Model`, its `unique_id`, or its group class name
+(for example, `"Team"`). The member can be an `Agent` or another `MetaAgent`.
+
+Mesa raises `ValueError` if it cannot find the group ID or name, or if more
+than one agent has that name. If the group is an `Agent` but not a
+`MetaAgent`, Mesa raises `TypeError` and asks you to check the argument order.
+
 ## Group creation and reuse
 
 Groups are identified by their class name. `create` reuses an existing group

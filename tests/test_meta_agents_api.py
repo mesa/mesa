@@ -167,21 +167,61 @@ def test_add_and_remove_member_by_unique_id():
 
 
 def test_add_and_remove_member_reject_inverted_arguments():
-    """add_member and remove_member reject inverted (agent, group) calls."""
+    """Rejected inverted calls leave every existing backend edge unchanged."""
     model = Model()
     meta_agents = MetaAgents(model)
     alice = Agent(model)
-    group = meta_agents.create("Team", [])
+    bob = Agent(model)
+    group = meta_agents.create("Team", [bob])
 
-    with pytest.raises(TypeError, match="Expected group to be a MetaAgent instance"):
+    triplets_before_add = meta_agents.backend.as_triplets()
+    with pytest.raises(TypeError, match="Did you swap the group and member arguments"):
         meta_agents.add_member(alice, group)
+    assert meta_agents.backend.as_triplets() == triplets_before_add
 
-    with pytest.raises(TypeError, match="Expected group to be a MetaAgent instance"):
+    # Seed the exact inverted edge that an unguarded remove call would delete.
+    meta_agents.backend.add_membership(group, alice, "member")
+    triplets_before_remove = meta_agents.backend.as_triplets()
+    with pytest.raises(TypeError, match="Did you swap the group and member arguments"):
         meta_agents.remove_member(alice, group)
+    assert meta_agents.backend.as_triplets() == triplets_before_remove
+
+
+def test_add_and_remove_member_reject_unknown_group_ids():
+    """Rejected unknown group IDs leave every existing backend edge unchanged."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    unknown_group_id = -1
+
+    triplets_before_add = meta_agents.backend.as_triplets()
+    with pytest.raises(ValueError, match="No group with unique ID"):
+        meta_agents.add_member(unknown_group_id, member)
+    assert meta_agents.backend.as_triplets() == triplets_before_add
+
+    # Seed the exact edge that an unguarded remove call would delete.
+    meta_agents.backend.add_membership(member, unknown_group_id, "member")
+    triplets_before_remove = meta_agents.backend.as_triplets()
+    with pytest.raises(ValueError, match="No group with unique ID"):
+        meta_agents.remove_member(unknown_group_id, member)
+    assert meta_agents.backend.as_triplets() == triplets_before_remove
+
+
+def test_members_of_accepts_unknown_group_id():
+    """Reading memberships by a raw group ID does not require a live group."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    group_id = -1
+
+    assert not meta_agents.members_of(group_id)
+
+    meta_agents.backend.add_membership(member, group_id, "member")
+    assert set(meta_agents.members_of(group_id)) == {member}
 
 
 def test_add_and_remove_member_accept_group_representations():
-    """add_member and remove_member accept live group objects, unique_ids, and names."""
+    """Both methods accept live groups, IDs, names, and meta-agent members."""
     model = Model()
     meta_agents = MetaAgents(model)
     alice = Agent(model)
@@ -206,6 +246,13 @@ def test_add_and_remove_member_accept_group_representations():
     assert carol in meta_agents.members_of(group)
     meta_agents.remove_member("Team", carol)
     assert carol not in meta_agents.members_of(group)
+
+    # 4. MetaAgent member
+    child_group = meta_agents.create("ChildTeam", [])
+    meta_agents.add_member(group, child_group)
+    assert child_group in meta_agents.members_of(group)
+    meta_agents.remove_member(group, child_group)
+    assert child_group not in meta_agents.members_of(group)
 
 
 def test_remove_member_preserves_overlapping_memberships():
