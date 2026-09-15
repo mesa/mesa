@@ -163,6 +163,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Returns:
             AbstractAgentSet: A new AbstractAgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
 
+        Raises:
+            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
             - at_most is an upper limit. When specifying other criteria, the number of agents returned can be smaller.
@@ -172,7 +175,11 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             return self if inplace else copy.copy(self)
 
         # Check if at_most is of type float
-        if at_most <= 1.0 and isinstance(at_most, float):
+        if isinstance(at_most, float) and at_most != inf:
+            if not (0.0 < at_most <= 1.0):
+                raise ValueError(
+                    f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
+                )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
 
         def agent_generator(
@@ -221,7 +228,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             AbstractAgentSet: A new or updated AbstractAgentSet containing the sampled agents.
 
         Raises:
-            ValueError: If the AgentSet is empty, n <= 0, n > len(self) when replace=False, weights are negative, total weight <= 0, or length of weights sequence does not match the AgentSet.
+            ValueError: If the AgentSet is empty, n <= 0, n > len(self) when replace=False, n exceeds the number of positive weights when sampling without replacement, weights are negative, total weight <= 0, or length of weights sequence does not match the AgentSet.
             TypeError: If n or weights is of an unsupported type.
         """
         if len(self) == 0:
@@ -268,9 +275,15 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                     if wi > 0:
                         u = self.random.random()
                         key = u ** (1.0 / wi)
-                    else:
-                        key = 0.0
-                    keys.append((key, agent))
+                        keys.append((key, agent))
+
+                positive_weight_count = len(keys)
+                if sample_size > positive_weight_count:
+                    raise ValueError(
+                        f"Sample size ({sample_size}) cannot exceed the number of "
+                        f"agents with positive weights ({positive_weight_count}) when "
+                        "replace=False."
+                    )
                 keys.sort(key=lambda x: x[0], reverse=True)
                 chosen = [agent for _, agent in keys[:sample_size]]
 

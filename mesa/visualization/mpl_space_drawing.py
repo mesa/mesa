@@ -230,22 +230,28 @@ def draw_space(
 @lru_cache(maxsize=1024, typed=True)
 def _get_hexmesh(
     width: int, height: int, size: float = 1.0
-) -> list[tuple[float, float]]:
-    """Generate hexagon vertices for the mesh. Yields list of vertex coordinates for each hexagon."""
+) -> tuple[tuple[tuple[float, float], ...], ...]:
+    """Generate hexagon vertices for the mesh.
+
+    Returns one entry per hexagon, each being the tuple of its six vertex
+    coordinates. The result is cached and returned as nested immutable tuples so
+    the shared cached object cannot be mutated by callers (which would poison the
+    cache for every other same-sized grid).
+    """
 
     # Helper function for getting the vertices of a hexagon given the center and size
     def _get_hex_vertices(
         center_x: float, center_y: float, size: float = 1.0
-    ) -> list[tuple[float, float]]:
+    ) -> tuple[tuple[float, float], ...]:
         """Get vertices for a hexagon centered at (center_x, center_y)."""
-        vertices = [
+        vertices = (
             (center_x, center_y + size),  # top
             (center_x + size * np.sqrt(3) / 2, center_y + size / 2),  # top right
             (center_x + size * np.sqrt(3) / 2, center_y - size / 2),  # bottom right
             (center_x, center_y - size),  # bottom
             (center_x - size * np.sqrt(3) / 2, center_y - size / 2),  # bottom left
             (center_x - size * np.sqrt(3) / 2, center_y + size / 2),  # top left
-        ]
+        )
         return vertices
 
     x_spacing = np.sqrt(3) * size
@@ -258,7 +264,7 @@ def _get_hexmesh(
         y = row * y_spacing
         hexagons.append(_get_hex_vertices(x, y, size))
 
-    return hexagons
+    return tuple(hexagons)
 
 
 def draw_property_layers(
