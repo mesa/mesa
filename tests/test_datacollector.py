@@ -897,6 +897,32 @@ def test_add_table_row_missing_column():
         dc.add_table_row("mytable", {"col_a": 1})
 
 
+@pytest.mark.parametrize("missing_column", ["col_a", "col_b", "col_c"])
+@pytest.mark.parametrize("with_existing_row", [False, True])
+def test_add_table_row_missing_column_leaves_table_unchanged(
+    missing_column, with_existing_row
+):
+    """Reject incomplete rows without corrupting existing or future table data."""
+    dc = DataCollector(tables={"events": ["col_a", "col_b", "col_c"]})
+    existing_row = {"col_a": 10, "col_b": 20, "col_c": 30}
+    if with_existing_row:
+        dc.add_table_row("events", existing_row)
+    before = dc.get_table_dataframe("events").copy(deep=True)
+
+    complete_row = {"col_a": 1, "col_b": 2, "col_c": 3}
+    incomplete_row = complete_row.copy()
+    del incomplete_row[missing_column]
+    with pytest.raises(ValueError, match=f"missing column '{missing_column}'"):
+        dc.add_table_row("events", incomplete_row)
+
+    pd.testing.assert_frame_equal(dc.get_table_dataframe("events"), before)
+    dc.add_table_row("events", complete_row)
+    expected_rows = (
+        [existing_row, complete_row] if with_existing_row else [complete_row]
+    )
+    assert dc.get_table_dataframe("events").to_dict("records") == expected_rows
+
+
 def test_get_table_dataframe_nonexistent():
     """Test that get_table_dataframe raises TableMissingException for nonexistent table."""
     dc = DataCollector()
