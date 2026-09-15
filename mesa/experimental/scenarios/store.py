@@ -17,6 +17,7 @@ from mesa.experimental.scenarios.exceptions import (
 
 if TYPE_CHECKING:
     from mesa.experimental.scenarios.exceptions import FailureInfo
+    from mesa.experimental.scenarios.runner import RunConfiguration
     from mesa.experimental.scenarios.scenario import Scenario
 
 
@@ -72,11 +73,19 @@ class Store(Protocol):
         """Resolve a reference back to its outcome."""
         ...
 
-    def write_scenarios(self, scenarios: list[Scenario]) -> None:
+    def write_scenarios(
+        self, scenarios: list[Scenario], config: RunConfiguration
+    ) -> None:
         """Record the full ensemble of scenarios before dispatch.
 
         It is critical that this method is called prior to executing any runs, because mark_succeeded and mark_failed
         will check against the registered runs.
+
+        ``config`` is the ``RunConfiguration`` that will actually execute these
+        scenarios. Implementations that record provenance (e.g. ``DiskStore``)
+        derive it from this object rather than from a separately supplied model
+        class, so recorded provenance can never diverge from the config that
+        actually ran.
 
         """
         ...
@@ -196,8 +205,15 @@ class InMemoryStore:
             raise ScenarioNotReadyException(run_id)
         return record.output
 
-    def write_scenarios(self, scenarios: list[Scenario]) -> None:
-        """Record the full ensemble of scenarios before dispatch."""
+    def write_scenarios(
+        self, scenarios: list[Scenario], config: RunConfiguration
+    ) -> None:
+        """Record the full ensemble of scenarios before dispatch.
+
+        ``config`` is unused: the in-memory store records nothing durable and
+        so has no provenance to derive from it. Accepted only to satisfy the
+        ``Store`` protocol.
+        """
         for scenario in scenarios:
             key = RunId(scenario.scenario_id, scenario.replication_id)
             self._runs[key] = RunRecord(scenario=scenario)
