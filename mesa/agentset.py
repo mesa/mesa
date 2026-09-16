@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import copy
 import itertools
+import math
 import operator
 import warnings
 import weakref
@@ -61,7 +62,7 @@ def _resolve_weights(
             "Expected str, Callable, Sequence[float], or None."
         )
 
-    if any(not np.isfinite(x) for x in w):
+    if not all(map(math.isfinite, w)):
         raise ValueError("All weights must be finite.")
     if any(x < 0 for x in w):
         raise ValueError("All weights must be non-negative.")
