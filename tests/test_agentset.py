@@ -79,6 +79,10 @@ def test_agentset():
     assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
     assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
 
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+        with pytest.raises(ValueError):
+            agentset.select(at_most=bad_at_most)
+
     assert len(agentset.select(test_function)) == 5
     assert len(agentset.select(test_function, at_most=2)) == 2
     assert len(agentset.select(test_function, inplace=True)) == 5
@@ -1110,6 +1114,30 @@ def test_select_random_weighted_without_replacement():
     sampled = agentset.select_random(3, weights="weight", replace=False)
     assert len(sampled) == 3
     assert len(set(sampled)) == 3  # Distinct agents
+
+
+def test_select_random_weighted_without_replacement_rejects_zero_weight_fill():
+    """Zero-weight agents cannot fill a weighted sample."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(
+        ValueError, match="cannot exceed the number of agents with positive weights"
+    ):
+        agentset.select_random(2, weights=[1.0, 0.0, 0.0], replace=False)
+
+
+def test_select_random_weighted_without_replacement_excludes_zero_weights():
+    """Zero-weight agents are excluded when enough positive weights exist."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(4)]
+    agentset = AgentSet(agents, random=model.random)
+
+    sampled = agentset.select_random(3, weights=[1.0, 2.0, 3.0, 0.0], replace=False)
+
+    assert len(sampled) == 3
+    assert agents[3] not in sampled
 
 
 def test_select_random_edge_cases_and_errors():
