@@ -113,6 +113,10 @@ class Grid(DiscreteSpace[T]):
         # Track which property layers are read-only so the constraint survives
         # pickling and deepcopy (see __getstate__/__setstate__).
         self._read_only_layers: set[str] = set()
+        self._empty_cell_count = math.prod(self.dimensions)
+        self._empty_cells: list[T] = []
+        self._empty_cell_indices: dict[tuple[int, ...], int] = {}
+        self._maintain_empty_cells = False
 
         # we register the pickle_gridcell helper function
         copyreg.pickle(self.cell_klass, pickle_gridcell)
@@ -207,6 +211,13 @@ class Grid(DiscreteSpace[T]):
             return array[self_cell.coordinate]
 
         def setter(self_cell, value):
+            if name == "empty":
+                old_value = bool(array[self_cell.coordinate])
+                new_value = bool(value)
+                if old_value != new_value:
+                    self._empty_cell_count += 1 if new_value else -1
+                    if self._maintain_empty_cells:
+                        self._update_empty_cell_index(self_cell, new_value)
             array[self_cell.coordinate] = value
 
         accessor = (
@@ -218,6 +229,27 @@ class Grid(DiscreteSpace[T]):
         self.cell_klass.property_layers.add(name)
         if read_only:
             self._read_only_layers.add(name)
+
+    def _update_empty_cell_index(self, cell: T, is_empty: bool) -> None:
+        """Keep the random-access empty-cell collection synchronized."""
+        coordinate = cell.coordinate
+        if is_empty:
+            self._empty_cell_indices[coordinate] = len(self._empty_cells)
+            self._empty_cells.append(cell)
+            return
+
+        index = self._empty_cell_indices.pop(coordinate)
+        last_cell = self._empty_cells.pop()
+        if last_cell is not cell:
+            self._empty_cells[index] = last_cell
+            self._empty_cell_indices[last_cell.coordinate] = index
+
+    def _start_empty_cell_maintenance(self) -> None:
+        self._empty_cells = [cell for cell in self._celllist if cell.is_empty]
+        self._empty_cell_indices = {
+            cell.coordinate: index for index, cell in enumerate(self._empty_cells)
+        }
+        self._maintain_empty_cells = True
 
     def get_neighborhood_mask(
         self, coordinate, include_center: bool = True, radius: int = 1
@@ -286,34 +318,37 @@ class Grid(DiscreteSpace[T]):
             raise TypeError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
-        # Use a heuristic: try random sampling first for performance (O(1))
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
-        # This method is based on Agents.jl's random_empty() implementation. See
-        # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/mesa/mesa/issues/1052 and
-        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
-        # is the break-even comparison with the time taken in the else branching point.
         random = self.random
         cells = self._celllist
 
+        if (
+            not self._maintain_empty_cells
+            and self._empty_cell_count <= len(cells) * 0.1
+        ):
+            self._start_empty_cell_maintenance()
+
+        if self._maintain_empty_cells:
+            if not self._empty_cells:
+                raise ValueError(
+                    "Grid is completely full. No empty cells available. "
+                    "Cannot select a random empty cell."
+                )
+            return random.choice(self._empty_cells)
+
         if self._try_random:
-            # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.property_layers["empty"])
-        try:
-            random_coord = self.random.choice(empty_coords)
-        except IndexError as e:
+        if self._empty_cell_count == 0:
             raise ValueError(
                 "Grid is completely full. No empty cells available. "
                 "Cannot select a random empty cell."
-            ) from e
-        return self._cells[tuple(random_coord)]
+            )
+
+        self._start_empty_cell_maintenance()
+        return random.choice(self._empty_cells)
 
     @property
     def cells_with_capacity(self) -> CellCollection[T]:

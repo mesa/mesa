@@ -1239,6 +1239,32 @@ def test_select_random_empty_cell_fallback():
     assert not grid.property_layers["empty"][0, 0]
 
 
+def test_select_random_empty_cell_maintains_empty_cells():
+    """Test that dense grids maintain an up-to-date empty-cell collection."""
+    model = Model()
+    grid = OrthogonalMooreGrid((10, 10), random=model.random)
+    target_empty = {(x, 0) for x in range(10)}
+
+    for coordinate, cell in grid._cells.items():
+        if coordinate not in target_empty:
+            cell.add_agent(CellAgent(model))
+
+    selected_cell = grid.select_random_empty_cell()
+
+    assert grid._maintain_empty_cells
+    assert len(grid._empty_cells) == 10
+    assert selected_cell.coordinate in target_empty
+
+    agent = CellAgent(model)
+    selected_cell.add_agent(agent)
+    assert len(grid._empty_cells) == 9
+    assert selected_cell.coordinate not in grid._empty_cell_indices
+
+    selected_cell.remove_agent(agent)
+    assert len(grid._empty_cells) == 10
+    assert selected_cell.coordinate in grid._empty_cell_indices
+
+
 def test_fixed_agent_removal_state():
     """Test that a FixedAgent's cell is None after removal."""
     model = Model()
