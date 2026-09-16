@@ -923,6 +923,41 @@ def test_property_layer_integration():
         grid.create_property_layer("width")
 
 
+@pytest.mark.parametrize(
+    "reserved",
+    ["is_empty", "is_full", "neighborhood", "position", "coordinate", "connections"],
+)
+def test_property_layer_rejects_cell_attribute_collision(reserved):
+    """A property_layer name must not shadow an existing Cell attribute.
+
+    Regression test for a bug where creating a property layer named e.g.
+    "is_empty" or "is_full" silently replaced the live Cell.is_empty /
+    Cell.is_full properties with a static array-backed accessor, corrupting
+    DiscreteSpace.empties and Grid.cells_with_capacity with no error raised.
+    The check also covers __slots__ members ("coordinate", "connections"),
+    since a slot is a descriptor in the class __dict__.
+    """
+    grid = OrthogonalMooreGrid((3, 3), torus=False, capacity=1, random=random.Random(1))
+
+    with pytest.raises(ValueError):
+        grid.create_property_layer(reserved, default_value=False, dtype=bool)
+    assert reserved not in grid.property_layers
+
+    # occupancy must still be computed correctly after the rejection
+    model = Model(rng=1)
+    assert len(grid.empties) == 9
+    cell = grid._cells[(1, 1)]
+    CellAgent(model).cell = cell
+    assert cell.is_full is True
+    assert len(list(grid.cells_with_capacity)) == 8
+
+
+def test_property_layer_empty_bootstrap_is_not_blocked():
+    """The internal "empty" property layer created by Grid.__init__ must still work."""
+    grid = OrthogonalMooreGrid((3, 3), torus=False, random=random.Random(1))
+    assert "empty" in grid.property_layers
+
+
 def test_copy_pickle_with_property_layers():
     """Test deepcopy and pickle with dynamically created GridClass."""
     dimensions = (10, 10)
