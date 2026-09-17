@@ -29,21 +29,22 @@ class AgentPortrayalStyle:
 
     Example:
         >>> def agent_portrayal(agent):
-        >>>     return AgentPortrayalStyle(
-        >>>         x=agent.cell.coordinate[0],
-        >>>         y=agent.cell.coordinate[1],
-        >>>         color="red",
-        >>>         marker="o",
-        >>>         size=20,
-        >>>         zorder=2,
-        >>>         alpha=0.8,
-        >>>         edgecolors="black",
-        >>>         linewidths=1.5
-        >>>     )
-        >>>
-        >>> # or for a default agent portrayal
+        ...     return AgentPortrayalStyle(
+        ...         x=agent.cell.coordinate[0],
+        ...         y=agent.cell.coordinate[1],
+        ...         color="red",
+        ...         marker="o",
+        ...         size=20,
+        ...         zorder=2,
+        ...         alpha=0.8,
+        ...         edgecolors="black",
+        ...         linewidths=1.5
+        ...     )
+
+        Or for a default agent portrayal:
+
         >>> def agent_portrayal(agent):
-        >>>     return AgentPortrayalStyle()
+        ...     return AgentPortrayalStyle()
     """
 
     x: float | None = None
@@ -62,10 +63,10 @@ class AgentPortrayalStyle:
 
         Example:
             >>> def agent_portrayal(agent):
-            >>>     primary_style = AgentPortrayalStyle(color="blue", marker="^", size=10, x=agent.pos[0], y=agent.pos[1])
-            >>>     if agent.type == 1:
-            >>>         primary_style.update(("color", "red"), ("size", 30))
-            >>>     return primary_style
+            ...     primary_style = AgentPortrayalStyle(color="blue", marker="^", size=10, x=agent.pos[0], y=agent.pos[1])
+            ...     if agent.type == 1:
+            ...         primary_style.update(("color", "red"), ("size", 30))
+            ...     return primary_style
         """
         for field_to_change, field_to_change_to in updates_fields:
             if hasattr(self, field_to_change):
@@ -100,10 +101,12 @@ class PropertyLayerStyle:
 
     Example:
         >>> def property_layer_portrayal(layer):
-        >>>     return PropertyLayerStyle(colormap="viridis", vmin=0, vmax=100, alpha=0.5, colorbar=True)
-        >>> # or for a uniform color layer
+        ...     return PropertyLayerStyle(colormap="viridis", vmin=0, vmax=100, alpha=0.5, colorbar=True)
+
+        Or for a uniform color layer:
+
         >>> def property_layer_portrayal(layer):
-        >>>     return PropertyLayerStyle(color="lightblue", alpha=0.8, colorbar=False)
+        ...     return PropertyLayerStyle(color="lightblue", alpha=0.8, colorbar=False)
     """
 
     colormap: str | None = None
