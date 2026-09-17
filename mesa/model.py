@@ -143,6 +143,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self._agents_by_type: dict[
             type[A], _HardKeyAgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
+        self._agents_by_id: dict[int, A] = {}  # a dict mapping unique_id to agent
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
             [], random=self.random
         )  # an agenset with all agents
@@ -249,6 +250,28 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         return self._agents_by_type
 
+    @property
+    def agents_by_id(self) -> dict[int, A]:
+        """A dictionary mapping agent unique_ids to agent instances.
+
+        Returns:
+            dict[int, A]: Dictionary mapping unique_id to the corresponding agent.
+
+        Warning:
+            This dictionary is built dynamically from the current set of agents.
+
+            **Do not use this dictionary to add or remove agents**. Instead:
+
+            - Use ``Agent()`` to create new agents (automatically registers them)
+            - Use ``agent.remove()`` to remove agents (automatically deregisters them)
+
+        Notes:
+            This is a convenience accessor built from Mesa's core agent registration
+            system. All agents are automatically registered when created via
+            ``Agent.__init__``.
+        """
+        return self._agents_by_id
+
     @emit("agents", ModelSignals.AGENT_ADDED)
     def register_agent(self, agent: A):
         """Register the agent with the model.
@@ -265,6 +288,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self._all_agents.add(agent)
         agent.unique_id = self.agent_id_counter
         self.agent_id_counter += 1
+
+        # Add to id lookup
+        self._agents_by_id[agent.unique_id] = agent
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled
@@ -292,6 +318,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         """
         self._agents_by_type[type(agent)].remove(agent)
+        del self._agents_by_id[agent.unique_id]
         self._all_agents.remove(agent)
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
