@@ -43,6 +43,43 @@ HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
 
 
+def _to_numpy_argument_array(key: str, value: list) -> np.ndarray:
+    """Convert a per-agent argument list into a NumPy array for Matplotlib.
+
+    This is shared by both matplotlib-based ``collect_agent_data`` implementations
+    (this module and ``MatplotlibBackend``) so the array-construction rules for
+    "tricky" arguments only need to be maintained in one place.
+
+    Args:
+        key: the argument name (e.g. "marker", "edgecolors", "s", "c", ...).
+        value: the list of per-agent values collected for that argument, with
+            exactly one entry per agent so positions stay aligned.
+
+    Returns:
+        A NumPy array suitable for passing to Matplotlib's scatter call.
+    """
+    if key == "marker":
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
+
+    if key == "edgecolors":
+        if not any(edgecolor is not None for edgecolor in value):
+            return np.asarray([])
+
+        normalized = [
+            edgecolor if edgecolor is not None else "none" for edgecolor in value
+        ]
+        try:
+            return np.asarray(normalized)
+        except ValueError:
+            arr = np.empty(len(normalized), dtype=object)
+            arr[:] = normalized
+            return arr
+
+    return np.asarray(value)
+
+
 def collect_agent_data(
     space: OrthogonalGrid | HexGrid | Network | ContinuousSpace | VoronoiGrid,
     agent_portrayal: Callable,
@@ -164,19 +201,12 @@ def collect_agent_data(
         arguments["marker"].append(aps.marker)
         arguments["zorder"].append(aps.zorder)
         arguments["alpha"].append(aps.alpha)
-        if aps.edgecolors is not None:
-            arguments["edgecolors"].append(aps.edgecolors)
+        arguments["edgecolors"].append(aps.edgecolors)
         arguments["linewidths"].append(aps.linewidths)
 
-    data = {
-        k: (np.asarray(v, dtype=object) if k == "marker" else np.asarray(v))
-        for k, v in arguments.items()
+    return {
+        key: _to_numpy_argument_array(key, value) for key, value in arguments.items()
     }
-    # ensures that the tuples in marker dont get converted by numpy to an array resulting in a 2D array
-    arr = np.empty(len(arguments["marker"]), dtype=object)
-    arr[:] = arguments["marker"]
-    data["marker"] = arr
-    return data
 
 
 def draw_space(
