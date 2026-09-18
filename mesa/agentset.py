@@ -165,7 +165,8 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             AbstractAgentSet: A new AbstractAgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
 
         Raises:
-            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+            TypeError: If at_most is not an integer or float, or is a boolean.
+            ValueError: If at_most is a negative integer, or a float not in the range (0.0, 1.0].
 
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
@@ -175,8 +176,17 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if filter_func is None and agent_type is None and at_most == inf:
             return self if inplace else copy.copy(self)
 
-        # Check if at_most is of type float
-        if isinstance(at_most, float) and at_most != inf:
+        if isinstance(at_most, bool) or not isinstance(at_most, (int, float)):
+            raise TypeError(
+                f"at_most must be an integer or float, got {type(at_most).__name__}."
+            )
+
+        if isinstance(at_most, int):
+            if at_most < 0:
+                raise ValueError(
+                    f"Integer at_most must be non-negative, got {at_most}."
+                )
+        elif at_most != inf:
             if not (0.0 < at_most <= 1.0):
                 raise ValueError(
                     f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."

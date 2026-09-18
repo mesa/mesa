@@ -830,9 +830,13 @@ def test_cell_collection():
     cells = collection.select(at_most=0.5)
     assert len(cells) == 5
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             collection.select(at_most=bad_at_most)
+
+    for bad_type in (False, True, "1", [1], None):
+        with pytest.raises(TypeError, match="must be an integer or float"):
+            collection.select(at_most=bad_type)
 
     cells = collection.select()
     assert len(cells) == len(collection)
