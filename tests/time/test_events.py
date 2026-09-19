@@ -786,6 +786,45 @@ class TestEventGeneratorStartStop:
         model.run_for(5.0)
         fn.assert_not_called()
 
+    def test_stop_from_within_callback(self, setup):
+        """Stopping from the callback must not reschedule a next event."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            gen.stop()
+
+        gen = EventGenerator(model, cb, Schedule(interval=1.0, start=1.0))
+        gen.start()
+        model.run_for(5.0)
+
+        assert calls == [1.0]
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+
+    def test_pause_from_within_callback(self, setup):
+        """Pausing from the callback must not reschedule until resume."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            if len(calls) == 1:
+                gen.pause()
+
+        gen = EventGenerator(model, cb, Schedule(interval=1.0, start=1.0))
+        gen.start()
+        model.run_for(5.0)
+        assert calls == [1.0]
+        assert gen.next_scheduled_time is None
+
+        gen.resume()
+        model.run_for(2.0)
+        assert calls == [1.0, 6.0, 7.0]
+
 
 class TestEventGeneratorExecution:
     def test_recurring_execution(self, setup):
