@@ -569,6 +569,29 @@ def test_parquet_recorder_buffer_and_flush():
         assert filepath.exists()
 
 
+def test_numpy_recorder_agent_id_stays_integer():
+    """agent_id must stay an integer column in numpy-dataset output, not float."""
+    # In-memory DataRecorder
+    model = MockModel(n=3)
+    recorder = DataRecorder(model, {"numpy_data": DatasetConfig()})
+    model.step()
+    df = recorder.get_table_dataframe("numpy_data")
+    assert df["agent_id"].dtype.kind == "i"
+    assert list(df["agent_id"]) == [1, 2, 3]
+
+    # Parquet recorder
+    pytest.importorskip("pyarrow")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = MockModel(n=3)
+        recorder = ParquetDataRecorder(
+            model, {"numpy_data": DatasetConfig()}, output_dir=temp_dir
+        )
+        model.step()
+        df = recorder.get_table_dataframe("numpy_data")
+        assert df["agent_id"].dtype.kind == "i"
+        assert list(df["agent_id"]) == [1, 2, 3]
+
+
 def test_parquet_recorder_empty_buffer_flush():
     """Test flushing empty buffer does nothing."""
     pytest.importorskip("pyarrow")
