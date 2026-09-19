@@ -17,8 +17,8 @@ def test_meta_agents_create_records_memberships():
     meta_agent = meta_agents.create("Group", [agent_1, agent_2])
 
     assert meta_agents.backend.as_triplets() == {
-        (agent_1.unique_id, meta_agent.unique_id, "member"),
-        (agent_2.unique_id, meta_agent.unique_id, "member"),
+        (agent_1, meta_agent, "member"),
+        (agent_2, meta_agent, "member"),
     }
 
     view = meta_agents.query_memberships(agent_1)
@@ -42,7 +42,7 @@ def test_meta_agents_create_defaults_mesa_agent_type_to_agent():
 
     assert isinstance(meta_agent, Agent)
     assert meta_agents.backend.as_triplets() == {
-        (agent.unique_id, meta_agent.unique_id, "member"),
+        (agent, meta_agent, "member"),
     }
 
 
@@ -93,9 +93,7 @@ def test_create_memberships_overrides_agents_list():
     assert actual in meta_agents.members_of(group)
     assert group in meta_agents.groups_of(actual)
     assert group not in meta_agents.groups_of(listed)
-    assert meta_agents.backend.as_triplets() == {
-        (actual.unique_id, group.unique_id, "member")
-    }
+    assert meta_agents.backend.as_triplets() == {(actual, group, "member")}
 
 
 def test_member_remove_deactivates_memberships():
@@ -159,7 +157,7 @@ def test_add_and_remove_member_by_unique_id():
     meta_agents.add_member(group, member.unique_id)
     assert member in meta_agents.members_of(group)
     assert group in meta_agents.groups_of(member)
-    assert meta_agents.backend.groups_of(member) == {group.unique_id}
+    assert meta_agents.backend.groups_of(member) == {group}
     meta_agents.remove_member(group.unique_id, member.unique_id)
     assert member not in meta_agents.members_of(group)
     assert group not in meta_agents.groups_of(member)
@@ -180,7 +178,7 @@ def test_remove_member_preserves_overlapping_memberships():
     view = meta_agents.remove_member(group_one, agent)
 
     assert view.as_triplets() == {(agent, group_two, "member")}
-    assert meta_agents.backend.groups_of(agent) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent) == {group_two}
     assert group_one not in meta_agents.groups_of(agent)
     assert group_two in meta_agents.groups_of(agent)
     assert set(meta_agents.groups_of(partner)) == {group_one}
@@ -202,9 +200,9 @@ def test_dissolve_cleans_only_target_group():
         (agent_1, group_one, "member"),
         (agent_2, group_one, "member"),
     }
-    assert meta_agents.backend.groups_of(agent_1) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent_1) == {group_two}
     assert meta_agents.backend.groups_of(agent_2) == set()
-    assert meta_agents.backend.groups_of(agent_3) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent_3) == {group_two}
     assert group_one not in model.agents
     assert group_two in model.agents
     assert group_one not in meta_agents.groups_of(agent_1)

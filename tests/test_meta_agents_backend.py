@@ -95,16 +95,14 @@ def test_non_string_relation_key():
     backend.assert_invariants()
 
 
-def test_backend_uses_unique_ids_for_mesa_agents():
-    """Membership bookkeeping should use unique_id values."""
+def test_backend_stores_agent_objects():
+    """Membership bookkeeping should use agent objects directly."""
     model = Model()
     meta_agents = MetaAgents(model)
     agent = Agent(model)
     group = meta_agents.create("Group", [agent])
 
-    assert meta_agents.backend.as_triplets() == {
-        (agent.unique_id, group.unique_id, "member")
-    }
-    assert meta_agents.backend.groups_of(agent) == {group.unique_id}
-    assert meta_agents.backend.agents_of(group) == {agent.unique_id}
+    assert meta_agents.backend.as_triplets() == {(agent, group, "member")}
+    assert meta_agents.backend.groups_of(agent) == {group}
+    assert meta_agents.backend.agents_of(group) == {agent}
     meta_agents.backend.assert_invariants()
