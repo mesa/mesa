@@ -319,7 +319,7 @@ class DataCollector:
         """Record agents data in a mapping of functions and agents."""
         rep_funcs = self.agent_reporters.values()
         # Immutable types that don't need deepcopy
-        python_immutable_types = (str, int, bool, float, tuple)
+        python_immutable_types = (str, int, bool, float)
 
         def get_reports(agent):
             _prefix = (agent.model.time, agent.unique_id)
@@ -340,7 +340,7 @@ class DataCollector:
         """Record agent-type data in a mapping of functions and agents."""
         rep_funcs = self.agenttype_reporters[agent_type].values()
         # Immutable types that don't need deepcopy
-        python_immutable_types = (str, int, bool, float, tuple)
+        python_immutable_types = (str, int, bool, float)
 
         def get_reports(agent):
             _prefix = (agent.model.time, agent.unique_id)
