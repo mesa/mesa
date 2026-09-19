@@ -36,12 +36,12 @@ def test_alliance_model_records_overlapping_memberships(monkeypatch):
     assert backend is model.meta_agents.backend
     groups = model.meta_agents.groups_of(agent_0)
     assert len(groups) == 2
-    assert backend.groups_of(agent_0) == {meta.unique_id for meta in groups}
+    assert backend.groups_of(agent_0) == set(groups)
 
     expected_triplets = set()
     for agent in agents:
         for meta in model.meta_agents.groups_of(agent):
-            expected_triplets.add((agent.unique_id, meta.unique_id, "member"))
+            expected_triplets.add((agent, meta, "member"))
 
     assert backend.as_triplets() == expected_triplets
     backend.assert_invariants()
