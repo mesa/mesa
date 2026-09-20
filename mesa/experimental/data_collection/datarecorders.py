@@ -273,28 +273,16 @@ class NumpyJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         """Convert Numpy types to native Python types."""
-        if isinstance(
-            obj,
-            (
-                np.int_,
-                np.intc,
-                np.intp,
-                np.int8,
-                np.int16,
-                np.int32,
-                np.int64,
-                np.uint8,
-                np.uint16,
-                np.uint32,
-                np.uint64,
-            ),
-        ):
+        # np.integer and np.floating cover every int and float width (e.g.
+        # int8..int64, uint*, float16/float32/float64), so narrower dtypes are
+        # not missed.
+        if isinstance(obj, np.integer):
             return int(obj)
-        elif isinstance(obj, (np.float64)):
+        elif isinstance(obj, np.floating):
             return float(obj)
-        elif isinstance(obj, (np.bool_)):
+        elif isinstance(obj, np.bool_):
             return bool(obj)
-        elif isinstance(obj, (np.ndarray,)):
+        elif isinstance(obj, np.ndarray):
             return obj.tolist()
         return super().default(obj)
 
