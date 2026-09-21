@@ -181,17 +181,16 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                 f"at_most must be an integer or float, got {type(at_most).__name__}."
             )
 
-        if isinstance(at_most, int):
-            if at_most < 0:
-                raise ValueError(
-                    f"Integer at_most must be non-negative, got {at_most}."
-                )
-        elif at_most != inf:
+        if isinstance(at_most, float) and at_most != inf:
             if not (0.0 < at_most <= 1.0):
                 raise ValueError(
                     f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
                 )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
+        elif isinstance(at_most, int) and at_most < 0:
+            raise ValueError(
+                f"Integer at_most must be non-negative, got {at_most}."
+            )
 
         def agent_generator(
             filter_func: Callable[[A], bool] | None,
