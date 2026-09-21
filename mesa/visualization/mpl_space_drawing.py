@@ -70,14 +70,27 @@ def _to_numpy_argument_array(key: str, value: list) -> np.ndarray:
         normalized = [
             edgecolor if edgecolor is not None else "none" for edgecolor in value
         ]
-        try:
-            return np.asarray(normalized)
-        except ValueError:
-            arr = np.empty(len(normalized), dtype=object)
-            arr[:] = normalized
-            return arr
+        return _coerce_color_array(normalized)
 
+    if key == "c":
+        return _coerce_color_array(value)
     return np.asarray(value)
+
+
+def _coerce_color_array(value: list) -> np.ndarray:
+    """Try a normal array first; fall back to a manual 1D object array.
+
+    Color-like argument lists can freely mix plain color-name strings, RGBA/RGB tuples,
+    and (for edge colors) the "none" sentinel. When every entry has a consistent shape, and (for edgecolors) the "none" sentinel.
+    When every entry has a consistent shape, we can use np.asarray() does the right thing on its own. When it doesn't
+    e.g. a string next to a 4 tuple -- it raises ValueError, and we build the array by hand instead so each entry stays intact as one element.
+    """
+    try:
+        return np.asarray(value)
+    except ValueError:
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
 
 
 def collect_agent_data(
