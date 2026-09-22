@@ -306,6 +306,10 @@ class EventGenerator:
         fn()
         self._execution_count += 1
 
+        # The callback may have stopped or paused this generator.
+        if not self._active or self._paused:
+            return
+
         # Schedule next event if we shouldn't stop
         next_time = self.model.time + self._get_interval()
         if not self._should_stop(next_time):
