@@ -73,13 +73,10 @@ jobs:
         working-directory: benchmarks
         run: python compare_timings.py > benchmark_output.txt
 
-      # Save PR number and results for the comment workflow
-      - name: Save PR number
-        run: echo "${{ github.event.pull_request.number }}" > benchmarks/pr_number.txt
+      # Save benchmark results for the comment workflow
       - name: Upload benchmark comparison
         uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
             benchmarks/benchmark_output.txt
-            benchmarks/pr_number.txt
