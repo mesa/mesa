@@ -2,9 +2,17 @@ name: Label Automation
 
 on:
   pull_request_target:
-    types: [opened, reopened, ready_for_review, converted_to_draft, review_requested, review_request_removed, synchronize, closed]
-  issues:
-    types: [opened, reopened, edited]
+    types:
+      [
+        opened,
+        reopened,
+        ready_for_review,
+        converted_to_draft,
+        review_requested,
+        review_request_removed,
+        synchronize,
+        closed,
+      ]
   workflow_dispatch:
     inputs:
       state:
@@ -16,7 +24,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  issues: write
 
 concurrency:
   group: label-automation-${{ github.event.pull_request.number || github.event.issue.number || 'backfill' }}
@@ -103,65 +110,4 @@ jobs:
               }
             } else {
               await labelPr(context.payload.pull_request);
-            }
-
-  label-issue:
-    if: github.event_name == 'issues' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Label issue(s) by keywords
-        uses: actions/github-script@v9
-        with:
-          script: |
-            // label regex: edit & add rules
-            //
-            // Intentionally add-only (unlike the PR path-rule job): these are
-            // keyword heuristics over free-text title/body, and maintainers
-            // routinely add/remove these same labels by hand after triage
-            // (e.g. tagging "good first issue" without the phrase appearing in
-            // the body). Auto-removing on a later "edited" event would fight
-            // that manual triage instead of just filling in what the heuristic
-            // missed.
-            const issueRules = [
-              { label: "docs", pattern: /\bdocs\b|documentation|readme|docstring|tutorial/i },
-              { label: "bug", pattern: /\berror\b|\bbug\b|\bfix\b|\bexception\b|traceback|crash|not working/i },
-              { label: "performance", pattern: /\bslow\b|\bperformance\b|\bbenchmark(ing)?\b/i },
-              { label: "visualization", pattern: /\bsolara\b|\bvisualization\b|\baltair\b|\bmatplotlib\b|space renderer/i },
-              { label: "enhancement", pattern: /\bfeature request\b|\benhancement\b|would be (nice|great) if/i },
-              { label: "good first issue", pattern: /good first issue|beginner-friendly|easy fix/i },
-            ];
-
-            async function labelIssue(issue) {
-              const text = `${issue.title}\n${issue.body || ""}`;
-              const toAdd = issueRules
-                .filter((rule) => rule.pattern.test(text))
-                .map((rule) => rule.label);
-
-              if (toAdd.length) {
-                await github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  labels: toAdd,
-                });
-              }
-            }
-
-            if (context.eventName === "workflow_dispatch") {
-              // Backfill: label issues that predate (or were missed by) this workflow.
-              // The issues.listForRepo endpoint also returns PRs, so skip those.
-              const state = context.payload.inputs?.state || "open";
-              const issues = await github.paginate(github.rest.issues.listForRepo, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state,
-                per_page: 100,
-              });
-              for (const issue of issues) {
-                if (!issue.pull_request) {
-                  await labelIssue(issue);
-                }
-              }
-            } else {
-              await labelIssue(context.payload.issue);
             }

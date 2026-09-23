@@ -410,6 +410,8 @@ class DataCollector:
     def add_table_row(self, table_name, row, ignore_missing=False):
         """Add a row dictionary to a specific table.
 
+        A row with missing required columns leaves the table unchanged.
+
         Args:
             table_name: Name of the table to append a row to.
             row: A dictionary of the form {column_name: value...}
@@ -419,13 +421,16 @@ class DataCollector:
         if table_name not in self.tables:
             raise TableMissingException(table_name)
 
-        for column in self.tables[table_name]:
-            if column in row:
-                self.tables[table_name][column].append(row[column])
-            elif ignore_missing:
-                self.tables[table_name][column].append(None)
-            else:
-                raise ValueError(f"Could not insert row with missing column '{column}'")
+        table = self.tables[table_name]
+        if not ignore_missing:
+            for column in table:
+                if column not in row:
+                    raise ValueError(
+                        f"Could not insert row with missing column '{column}'"
+                    )
+
+        for column, values in table.items():
+            values.append(row.get(column))
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.

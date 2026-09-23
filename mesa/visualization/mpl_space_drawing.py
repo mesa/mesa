@@ -43,6 +43,56 @@ HexGrid = mesa.discrete_space.HexGrid
 Network = mesa.discrete_space.Network
 
 
+def _to_numpy_argument_array(key: str, value: list) -> np.ndarray:
+    """Convert a per-agent argument list into a NumPy array for Matplotlib.
+
+    This is shared by both matplotlib-based ``collect_agent_data`` implementations
+    (this module and ``MatplotlibBackend``) so the array-construction rules for
+    "tricky" arguments only need to be maintained in one place.
+
+    Args:
+        key: the argument name (e.g. "marker", "edgecolors", "s", "c", ...).
+        value: the list of per-agent values collected for that argument, with
+            exactly one entry per agent so positions stay aligned.
+
+    Returns:
+        A NumPy array suitable for passing to Matplotlib's scatter call.
+    """
+    if key == "marker":
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
+
+    if key == "edgecolors":
+        if not any(edgecolor is not None for edgecolor in value):
+            return np.asarray([])
+
+        normalized = [
+            edgecolor if edgecolor is not None else "none" for edgecolor in value
+        ]
+        return _coerce_color_array(normalized)
+
+    if key == "c":
+        return _coerce_color_array(value)
+    return np.asarray(value)
+
+
+def _coerce_color_array(value: list) -> np.ndarray:
+    """Try a normal array first; fall back to a manual 1D object array.
+
+    Color-like argument lists can freely mix plain color-name strings, RGBA/RGB tuples,
+    and (for edge colors) the "none" sentinel. When every entry has a consistent shape, and (for edgecolors) the "none" sentinel.
+    When every entry has a consistent shape, we can use np.asarray() does the right thing on its own. When it doesn't
+    e.g. a string next to a 4 tuple -- it raises ValueError, and we build the array by hand instead so each entry stays intact as one element.
+    """
+    try:
+        return np.asarray(value)
+    except ValueError:
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
+
+
 def collect_agent_data(
     space: OrthogonalGrid | HexGrid | Network | ContinuousSpace | VoronoiGrid,
     agent_portrayal: Callable,
@@ -164,19 +214,12 @@ def collect_agent_data(
         arguments["marker"].append(aps.marker)
         arguments["zorder"].append(aps.zorder)
         arguments["alpha"].append(aps.alpha)
-        if aps.edgecolors is not None:
-            arguments["edgecolors"].append(aps.edgecolors)
+        arguments["edgecolors"].append(aps.edgecolors)
         arguments["linewidths"].append(aps.linewidths)
 
-    data = {
-        k: (np.asarray(v, dtype=object) if k == "marker" else np.asarray(v))
-        for k, v in arguments.items()
+    return {
+        key: _to_numpy_argument_array(key, value) for key, value in arguments.items()
     }
-    # ensures that the tuples in marker dont get converted by numpy to an array resulting in a 2D array
-    arr = np.empty(len(arguments["marker"]), dtype=object)
-    arr[:] = arguments["marker"]
-    data["marker"] = arr
-    return data
 
 
 def draw_space(
@@ -230,22 +273,28 @@ def draw_space(
 @lru_cache(maxsize=1024, typed=True)
 def _get_hexmesh(
     width: int, height: int, size: float = 1.0
-) -> list[tuple[float, float]]:
-    """Generate hexagon vertices for the mesh. Yields list of vertex coordinates for each hexagon."""
+) -> tuple[tuple[tuple[float, float], ...], ...]:
+    """Generate hexagon vertices for the mesh.
+
+    Returns one entry per hexagon, each being the tuple of its six vertex
+    coordinates. The result is cached and returned as nested immutable tuples so
+    the shared cached object cannot be mutated by callers (which would poison the
+    cache for every other same-sized grid).
+    """
 
     # Helper function for getting the vertices of a hexagon given the center and size
     def _get_hex_vertices(
         center_x: float, center_y: float, size: float = 1.0
-    ) -> list[tuple[float, float]]:
+    ) -> tuple[tuple[float, float], ...]:
         """Get vertices for a hexagon centered at (center_x, center_y)."""
-        vertices = [
+        vertices = (
             (center_x, center_y + size),  # top
             (center_x + size * np.sqrt(3) / 2, center_y + size / 2),  # top right
             (center_x + size * np.sqrt(3) / 2, center_y - size / 2),  # bottom right
             (center_x, center_y - size),  # bottom
             (center_x - size * np.sqrt(3) / 2, center_y - size / 2),  # bottom left
             (center_x - size * np.sqrt(3) / 2, center_y + size / 2),  # top left
-        ]
+        )
         return vertices
 
     x_spacing = np.sqrt(3) * size
@@ -258,7 +307,7 @@ def _get_hexmesh(
         y = row * y_spacing
         hexagons.append(_get_hex_vertices(x, y, size))
 
-    return hexagons
+    return tuple(hexagons)
 
 
 def draw_property_layers(

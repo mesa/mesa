@@ -6,9 +6,13 @@ import logging
 import pytest
 
 from mesa import Agent, Model
-from mesa.experimental.actions import Action, ActionState
+from mesa.experimental.actions import Action, ActionState, HasActions
 
 # --- Helpers ---
+
+
+class ActionAgent(HasActions, Agent):
+    """Agent with action support, as models combine it."""
 
 
 class TrackedAction(Action):
@@ -42,7 +46,7 @@ class TrackedAction(Action):
 
 def make_model_and_agent():
     model = Model()
-    agent = Agent(model)
+    agent = ActionAgent(model)
     return model, agent
 
 
@@ -546,7 +550,7 @@ class TestErrorHandling:
 
     def test_start_wrong_agent_raises(self):
         model, agent1 = make_model_and_agent()
-        agent2 = Agent(model)
+        agent2 = ActionAgent(model)
         action = TrackedAction(agent1, duration=5.0)
 
         with pytest.raises(ValueError, match="does not match"):
@@ -571,6 +575,33 @@ class TestErrorHandling:
     def test_cancel_idle_returns_false(self):
         _model, agent = make_model_and_agent()
         assert agent.cancel_action() is False
+
+    def test_action_requires_has_actions_agent(self):
+        """A plain Agent without the mixin is rejected up front."""
+        model = Model()
+        plain = Agent(model)
+
+        with pytest.raises(TypeError, match="HasActions"):
+            Action(plain)
+
+    def test_mixin_combines_with_other_agent_bases(self):
+        """Cooperative __init__ lets the mixin ride any Agent subclass."""
+        from mesa.discrete_space import CellAgent, OrthogonalMooreGrid  # noqa: PLC0415
+
+        class Grazer(HasActions, CellAgent):
+            pass
+
+        model = Model()
+        grid = OrthogonalMooreGrid((3, 3), random=model.random)
+        agent = Grazer(model)
+        agent.cell = grid[(1, 1)]
+
+        action = agent.start_action(TrackedAction(agent, duration=2.0))
+        model.run_for(2)
+
+        assert action.completed
+        assert not agent.is_busy
+        assert agent.cell is grid[(1, 1)]
 
 
 # --- Callable duration and priority ---
@@ -692,7 +723,7 @@ class TestAgentRemoval:
     def test_remove_with_explicit_cleanup(self):
         """Users can opt into on_interrupt by calling cancel_action first."""
         model = Model()
-        agent = Agent(model)
+        agent = ActionAgent(model)
         action = TrackedAction(agent, duration=10.0)
 
         agent.start_action(action)
@@ -1065,7 +1096,7 @@ class TestShouldInterrupt:
         _model, agent = make_model_and_agent()
         consulted = []
 
-        class Watcher(Agent):
+        class Watcher(ActionAgent):
             def should_interrupt(self, current, incoming):
                 consulted.append((current, incoming))
                 return super().should_interrupt(current, incoming)
@@ -1081,7 +1112,7 @@ class TestShouldInterrupt:
         """A subclass can ignore priorities entirely."""
         model = Model()
 
-        class Stubborn(Agent):
+        class Stubborn(ActionAgent):
             def should_interrupt(self, current, incoming):
                 return incoming.name == "Flee"
 
@@ -1095,7 +1126,7 @@ class TestShouldInterrupt:
         """Returning True attempts the interruption; the flag still refuses."""
         model = Model()
 
-        class Pushy(Agent):
+        class Pushy(ActionAgent):
             def should_interrupt(self, current, incoming):
                 return True
 
@@ -1114,7 +1145,7 @@ class TestRealisticScenarios:
     def test_sheep_forage_flee_resume(self):
         """Sheep forages, flees from predator, resumes foraging."""
         model = Model()
-        sheep = Agent(model)
+        sheep = ActionAgent(model)
         sheep.energy = 50.0
         sheep.alive = True
 
@@ -1167,7 +1198,7 @@ class TestRealisticScenarios:
     def test_sequential_actions(self):
         """Agent performs multiple actions in sequence."""
         model = Model()
-        agent = Agent(model)
+        agent = ActionAgent(model)
         agent.log = []
 
         class LogAction(Action):
@@ -1188,7 +1219,7 @@ class TestRealisticScenarios:
     def test_flee_non_interruptible_protects(self):
         """A fleeing agent can't be interrupted."""
         model = Model()
-        agent = Agent(model)
+        agent = ActionAgent(model)
 
         flee = Action(agent, duration=3.0, interruptible=False)
         distraction = TrackedAction(agent, duration=1.0)
@@ -1205,7 +1236,7 @@ class TestRealisticScenarios:
     def test_worker_interrupted_resumes_task(self):
         """Worker on a task, interrupted by meeting, resumes task."""
         model = Model()
-        worker = Agent(model)
+        worker = ActionAgent(model)
         worker.log = []
 
         class Task(Action):
@@ -1255,7 +1286,7 @@ class TestRealisticScenarios:
         """
         model = Model()
         patch = {"servings": 1}
-        first, second = Agent(model), Agent(model)
+        first, second = ActionAgent(model), ActionAgent(model)
         first.energy = second.energy = 0.0
         second.looked_elsewhere = False
 
@@ -1290,7 +1321,7 @@ class TestRealisticScenarios:
     def test_completion_requirement_for_a_condition_nobody_can_claim(self):
         """Market hours cannot be reserved, so the check belongs at completion."""
         model = Model()
-        trader = Agent(model)
+        trader = ActionAgent(model)
         trader.filled = False
         market = {"open": True}
 
@@ -1317,7 +1348,7 @@ class TestRealisticScenarios:
 # --- Wake contract (on_idle) ---
 
 
-class IdleRecorder(Agent):
+class IdleRecorder(ActionAgent):
     """Agent that records every on_idle wake with the state it saw."""
 
     def __init__(self, model):
@@ -1415,7 +1446,7 @@ class TestOnIdle:
         # hangs rather than fails.
         model = Model()
 
-        class Chain(Agent):
+        class Chain(ActionAgent):
             def __init__(self, model):
                 super().__init__(model)
                 self.idle_calls = 0
@@ -1433,13 +1464,15 @@ class TestOnIdle:
     def test_suppressed_wake_is_logged_at_debug(self, caplog):
         model = Model()
 
-        class Chain(Agent):
+        class Chain(ActionAgent):
             def on_idle(self, previous):
                 self.start_action(Action(self, duration=0.0))
 
         agent = Chain(model)
         agent.start_action(Action(agent, duration=0.0))
-        with caplog.at_level(logging.DEBUG, logger="MESA.mesa.agent"):
+        with caplog.at_level(
+            logging.DEBUG, logger="MESA.mesa.experimental.actions.actions"
+        ):
             model.run_for(1)
 
         assert "suppressed repeat on_idle wake" in caplog.text
@@ -1448,7 +1481,7 @@ class TestOnIdle:
     def test_agent_chains_actions_across_time(self):
         model = Model()
 
-        class Worker(Agent):
+        class Worker(ActionAgent):
             def __init__(self, model):
                 super().__init__(model)
                 self.done = 0
@@ -1467,9 +1500,9 @@ class TestOnIdle:
     def test_wake_runs_after_all_completions_at_that_time(self):
         model = Model()
         observed = []
-        other = TrackedAction(Agent(model), duration=5.0)
+        other = TrackedAction(ActionAgent(model), duration=5.0)
 
-        class Nosy(Agent):
+        class Nosy(ActionAgent):
             def on_idle(self, previous):
                 observed.append(other.state)
 
