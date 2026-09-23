@@ -931,5 +931,64 @@ def test_get_table_dataframe_nonexistent():
         dc.get_table_dataframe("nonexistent")
 
 
+def test_add_table_row_mutable_values_copied():
+    """Ensure mutable values added to a table are copied, preserving historical row data."""
+    dc = DataCollector(tables={"events": ["step", "payload"]})
+    payload = {"status": "ok", "items": [1, 2]}
+
+    dc.add_table_row("events", {"step": 1, "payload": payload})
+
+    # Mutate payload after adding row
+    payload["status"] = "error"
+    payload["items"].append(3)
+
+    df = dc.get_table_dataframe("events")
+    assert df.loc[0, "payload"] == {"status": "ok", "items": [1, 2]}
+
+
+def test_add_table_row_tuple_with_mutable_values_copied():
+    """Ensure tuples containing mutable objects added to a table are deepcopied."""
+    dc = DataCollector(tables={"events": ["step", "items"]})
+    mutable_list = [10, 20]
+    data_tuple = (mutable_list,)
+
+    dc.add_table_row("events", {"step": 1, "items": data_tuple})
+
+    # Mutate nested list inside tuple after adding row
+    mutable_list.append(30)
+
+    df = dc.get_table_dataframe("events")
+    assert df.loc[0, "items"] == ([10, 20],)
+
+
+def test_add_table_row_none_handled():
+    """Ensure None values in rows (explicit or via ignore_missing) are preserved directly."""
+    dc = DataCollector(tables={"events": ["step", "extra"]})
+    dc.add_table_row("events", {"step": 1, "extra": None})
+    dc.add_table_row("events", {"step": 2}, ignore_missing=True)
+
+    df = dc.get_table_dataframe("events")
+    assert df.loc[0, "extra"] is None
+    assert df.loc[1, "extra"] is None
+
+
+def test_add_table_row_deepcopy_failure_leaves_table_unchanged():
+    """Ensure that if an object fails to deepcopy, the table remains untouched and uncorrupted."""
+
+    class UncopyableObject:
+        def __deepcopy__(self, memo):
+            raise TypeError("Cannot copy this object")
+
+    dc = DataCollector(tables={"events": ["step", "bad_obj"]})
+    dc.add_table_row("events", {"step": 1, "bad_obj": "clean"})
+    before = dc.get_table_dataframe("events").copy(deep=True)
+
+    with pytest.raises(TypeError, match="Cannot copy this object"):
+        dc.add_table_row("events", {"step": 2, "bad_obj": UncopyableObject()})
+
+    # Table columns must remain in sync and unaffected
+    pd.testing.assert_frame_equal(dc.get_table_dataframe("events"), before)
+
+
 if __name__ == "__main__":
     unittest.main()
