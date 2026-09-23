@@ -53,6 +53,10 @@ if TYPE_CHECKING:
 _mesa_logger = create_module_logger()
 
 _SUPPORTED_MODEL_PARAM_TYPES = (UserParam, dict, int, float, bool, str)
+_NON_KEYWORD_PARAM_KINDS = (
+    inspect.Parameter.POSITIONAL_ONLY,
+    inspect.Parameter.VAR_POSITIONAL,
+)
 
 
 def _validate_model_params(model_params: dict) -> None:
@@ -752,12 +756,11 @@ def _check_model_params(model_or_func, model_params):
 
     model_parameters = inspect.signature(init_func).parameters
 
-    has_var_positional = any(
-        param.kind == inspect.Parameter.VAR_POSITIONAL
-        for param in model_parameters.values()
+    has_non_keyword_param = any(
+        param.kind in _NON_KEYWORD_PARAM_KINDS for param in model_parameters.values()
     )
 
-    if has_var_positional:
+    if has_non_keyword_param:
         raise ValueError(
             "Mesa's visualization requires the use of keyword arguments to ensure the parameters are passed to Solara correctly. Please ensure all model parameters are of form param=value"
         )
