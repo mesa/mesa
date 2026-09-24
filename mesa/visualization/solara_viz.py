@@ -113,16 +113,16 @@ def SolaraViz(
             Currently supported arguments:
             - additional_imports: Dictionary of names to objects to import into the command console.
                 - Example:
-                    >>> console_kwargs = {"additional_imports": {"numpy": np}}
-                    >>> SolaraViz(model, console_kwargs=console_kwargs)
+                    >>> console_kwargs = {"additional_imports": {"numpy": np}}  # doctest: +SKIP
+                    >>> SolaraViz(model, console_kwargs=console_kwargs)  # doctest: +SKIP
 
     Returns:
         solara.component: A Solara component that renders the visualization interface for the model.
 
     Example:
-        >>> model = MyModel()
-        >>> page = SolaraViz(model)
-        >>> page
+        >>> model = MyModel()  # doctest: +SKIP
+        >>> page = SolaraViz(model)  # doctest: +SKIP
+        >>> page  # doctest: +SKIP
 
     Notes:
         - The `model` argument can be either a direct model instance or a reactive model. If a direct
@@ -694,13 +694,13 @@ def ModelCreator(
         solara.component: A Solara component that renders the model creation and management interface.
 
     Example:
-        >>> model = solara.reactive(MyModel())
+        >>> model = solara.reactive(MyModel())  # doctest: +SKIP
         >>> model_params = {
-        >>>     "param1": {"type": "slider", "value": 10, "min": 0, "max": 100},
-        >>>     "param2": {"type": "slider", "value": 5, "min": 1, "max": 10},
-        >>> }
-        >>> creator = ModelCreator(model, model_params)
-        >>> creator
+        ...     "param1": {"type": "slider", "value": 10, "min": 0, "max": 100},
+        ...     "param2": {"type": "slider", "value": 5, "min": 1, "max": 10},
+        ... }
+        >>> creator = ModelCreator(model, model_params)  # doctest: +SKIP
+        >>> creator  # doctest: +SKIP
 
     Notes:
         - The `model_params` argument should be a dictionary where keys are parameter names and values either fixed values
