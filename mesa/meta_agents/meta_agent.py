@@ -41,10 +41,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
     agent_type_names = {
         agent_type.__name__: agent_type for agent_type in agents_by_type
     }
-    agent_type = agent_type_names.get(new_agent_class)
-    if agent_type is None:
-        return None
-    return type(next(iter(agents_by_type[agent_type])))
+    return agent_type_names.get(new_agent_class)
 
 
 def _apply_meta_attributes(
