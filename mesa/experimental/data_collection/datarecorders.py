@@ -209,6 +209,9 @@ class DataRecorder(BaseDataRecorder):
         combined_array = np.vstack(arrays)
         df_cols = ["agent_id", *columns]
         df = pd.DataFrame(combined_array, columns=df_cols)
+        # agent_id is stacked into the float data array above, which upcasts it.
+        # Restore it to an integer column so ids stay whole numbers.
+        df["agent_id"] = df["agent_id"].astype(int)
         df["time"] = times
         return df
 
@@ -437,6 +440,9 @@ class ParquetDataRecorder(BaseDataRecorder):
                 columns = ["agent_id", *columns]
 
                 df = pd.DataFrame(data_to_store, columns=columns)
+                # hstack above upcasts the integer ids to the float data dtype,
+                # so restore agent_id to an integer column.
+                df["agent_id"] = df["agent_id"].astype(int)
                 df["time"] = time
                 buffer.extend(df.to_dict("records"))
 
