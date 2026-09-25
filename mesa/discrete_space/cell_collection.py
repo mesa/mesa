@@ -157,11 +157,17 @@ class CellCollection[T: Cell]:
             CellCollection
 
         Raises:
-            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+            TypeError: If at_most is not an integer or float, or is a boolean.
+            ValueError: If at_most is a negative integer, or a float not in the range (0.0, 1.0].
 
         """
         if filter_func is None and at_most == float("inf"):
             return self
+
+        if isinstance(at_most, bool) or not isinstance(at_most, (int, float)):
+            raise TypeError(
+                f"at_most must be an integer or float, got {type(at_most).__name__}."
+            )
 
         if isinstance(at_most, float) and at_most != float("inf"):
             if not (0.0 < at_most <= 1.0):
@@ -169,6 +175,8 @@ class CellCollection[T: Cell]:
                     f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
                 )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
+        elif isinstance(at_most, int) and at_most < 0:
+            raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
 
         def cell_generator(filter_func, at_most):
             count = 0
