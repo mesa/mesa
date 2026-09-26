@@ -17,8 +17,8 @@ def test_meta_agents_create_records_memberships():
     meta_agent = meta_agents.create("Group", [agent_1, agent_2])
 
     assert meta_agents.backend.as_triplets() == {
-        (agent_1.unique_id, meta_agent.unique_id, "member"),
-        (agent_2.unique_id, meta_agent.unique_id, "member"),
+        (agent_1, meta_agent, "member"),
+        (agent_2, meta_agent, "member"),
     }
 
     view = meta_agents.query_memberships(agent_1)
@@ -42,7 +42,7 @@ def test_meta_agents_create_defaults_mesa_agent_type_to_agent():
 
     assert isinstance(meta_agent, Agent)
     assert meta_agents.backend.as_triplets() == {
-        (agent.unique_id, meta_agent.unique_id, "member"),
+        (agent, meta_agent, "member"),
     }
 
 
@@ -93,9 +93,7 @@ def test_create_memberships_overrides_agents_list():
     assert actual in meta_agents.members_of(group)
     assert group in meta_agents.groups_of(actual)
     assert group not in meta_agents.groups_of(listed)
-    assert meta_agents.backend.as_triplets() == {
-        (actual.unique_id, group.unique_id, "member")
-    }
+    assert meta_agents.backend.as_triplets() == {(actual, group, "member")}
 
 
 def test_member_remove_deactivates_memberships():
@@ -150,22 +148,6 @@ def test_add_and_remove_member_by_group_name():
         meta_agents.add_member("Team", carol)
 
 
-def test_add_and_remove_member_by_unique_id():
-    """add_member/remove_member resolve unique_ids to live objects."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    member = Agent(model)
-    group = meta_agents.create("Group", [])
-    meta_agents.add_member(group, member.unique_id)
-    assert member in meta_agents.members_of(group)
-    assert group in meta_agents.groups_of(member)
-    assert meta_agents.backend.groups_of(member) == {group.unique_id}
-    meta_agents.remove_member(group.unique_id, member.unique_id)
-    assert member not in meta_agents.members_of(group)
-    assert group not in meta_agents.groups_of(member)
-    assert meta_agents.backend.groups_of(member) == set()
-
-
 def test_remove_member_preserves_overlapping_memberships():
     """Removing one relation should keep unrelated memberships intact."""
     model = Model()
@@ -180,7 +162,7 @@ def test_remove_member_preserves_overlapping_memberships():
     view = meta_agents.remove_member(group_one, agent)
 
     assert view.as_triplets() == {(agent, group_two, "member")}
-    assert meta_agents.backend.groups_of(agent) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent) == {group_two}
     assert group_one not in meta_agents.groups_of(agent)
     assert group_two in meta_agents.groups_of(agent)
     assert set(meta_agents.groups_of(partner)) == {group_one}
@@ -202,9 +184,9 @@ def test_dissolve_cleans_only_target_group():
         (agent_1, group_one, "member"),
         (agent_2, group_one, "member"),
     }
-    assert meta_agents.backend.groups_of(agent_1) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent_1) == {group_two}
     assert meta_agents.backend.groups_of(agent_2) == set()
-    assert meta_agents.backend.groups_of(agent_3) == {group_two.unique_id}
+    assert meta_agents.backend.groups_of(agent_3) == {group_two}
     assert group_one not in model.agents
     assert group_two in model.agents
     assert group_one not in meta_agents.groups_of(agent_1)
@@ -379,3 +361,281 @@ def test_at_level_cyclic_membership_terminates():
     assert set(meta_agents.at_level(0, root=a)) == {a}
     assert set(meta_agents.at_level(1, root=a)) == {b}
     assert set(meta_agents.at_level(2, root=a)) == set()
+
+
+# ── coverage for _resolve_group branches ──
+
+
+def test_resolve_group_fallback_for_non_string_non_agent():
+    """_resolve_group returns an unknown non-string entity unchanged."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    sentinel = object()
+    # Should not raise, just return the sentinel as-is
+    result = meta_agents._resolve_group(sentinel)
+    assert result is sentinel
+
+
+def test_query_memberships_with_agent_object():
+    """query_memberships returns correct view when given agent objects."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group_a = meta_agents.create("A", [agent])
+    group_b = meta_agents.create("B", [agent])
+
+    view = meta_agents.query_memberships(agent)
+    triplets = view.as_triplets()
+    assert (agent, group_a, "member") in triplets
+    assert (agent, group_b, "member") in triplets
+    assert len(triplets) == 2
+
+
+def test_dissolve_with_agent_object():
+    """Dissolve works directly with the group agent object."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("Team", [agent])
+
+    snapshot = meta_agents.dissolve(group)
+    assert snapshot.as_triplets() == {(agent, group, "member")}
+    assert group not in model.agents
+    assert meta_agents.backend.as_triplets() == set()
+
+
+# ── coverage for MembershipView helpers ──
+
+
+def test_membership_view_iter():
+    """MembershipView supports direct iteration over edges."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("G", [agent])
+
+    view = meta_agents.query_memberships(agent)
+    edges = list(view)
+    assert len(edges) == 1
+    assert edges[0].agent is agent
+    assert edges[0].group is group
+
+
+def test_membership_view_agents_groups_relations_properties():
+    """MembershipView.agents, .groups, and .relations return correct sets."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    alice = Agent(model)
+    bob = Agent(model)
+    group = meta_agents.create("G", [alice, bob])
+
+    view = meta_agents.query_memberships(group)
+    assert view.agents == {alice, bob}
+    assert view.groups == {group, group}  # both edges point to the same group
+    assert view.groups == {group}
+    assert view.relations == {"member"}
+
+
+def test_membership_view_properties_with_multiple_relations():
+    """MembershipView properties report distinct relations and groups."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group_a = meta_agents.create("A", [agent])
+    group_b = meta_agents.create("B", [], memberships=[(agent, "ally")])
+
+    view = meta_agents.query_memberships(agent)
+    assert view.agents == {agent}
+    assert view.groups == {group_a, group_b}
+    assert view.relations == {"member", "ally"}
+
+
+# ── coverage for dissolve fallback (entity without _remove_from_model) ──
+
+
+def test_dissolve_entity_with_only_remove():
+    """Dissolve falls back to .remove() when _remove_from_model is absent."""
+
+    class SimpleRemovable:
+        """A non-Agent entity that only has .remove()."""
+
+        def __init__(self):
+            self.removed = False
+
+        def remove(self):
+            self.removed = True
+
+        def __hash__(self):
+            return id(self)
+
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    entity = SimpleRemovable()
+
+    # Manually register a membership with a non-agent group
+    meta_agents.backend.add_membership(agent, entity, "member")
+
+    snapshot = meta_agents.dissolve(entity)
+    assert entity.removed
+    assert len(snapshot) == 1
+
+
+def test_dissolve_entity_without_remove():
+    """Dissolve gracefully handles entities that have neither remove method."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    sentinel = object()
+
+    meta_agents.backend.add_membership(agent, sentinel, "member")
+
+    # Should not raise even though sentinel has no remove
+    snapshot = meta_agents.dissolve(sentinel)
+    assert len(snapshot) == 1
+
+
+# ── coverage for evaluate_combination ──
+
+
+def test_evaluate_combination_with_none_func():
+    """evaluate_combination returns None when no function is given."""
+    result = MetaAgents.evaluate_combination((), None)
+    assert result is None
+
+
+def test_evaluate_combination_with_func():
+    """evaluate_combination returns (group, score) tuple."""
+    model = Model()
+    a = Agent(model)
+    b = Agent(model)
+    group = (a, b)
+    result = MetaAgents.evaluate_combination(group, lambda g: len(g) * 1.5)
+    assert result == (group, 3.0)
+
+
+# ── coverage for find_combinations ──
+
+
+def test_find_combinations_with_int_size():
+    """find_combinations accepts an integer size instead of a tuple."""
+    model = Model()
+    agents = [Agent(model) for _ in range(4)]
+
+    combos = MetaAgents.find_combinations(
+        agents,
+        size=3,
+        evaluation_func=lambda g: sum(1 for _ in g),
+    )
+    # C(4,3) = 4 combinations, each scoring 3
+    assert len(combos) == 4
+    for group, score in combos:
+        assert len(group) == 3
+        assert score == 3
+
+
+def test_find_combinations_with_filter_func():
+    """find_combinations applies filter_func to reduce results."""
+    model = Model()
+    agents = [Agent(model) for _ in range(4)]
+
+    def keep_best(combos):
+        """Keep only the highest-scoring combination."""
+        return [max(combos, key=lambda x: x[1])]
+
+    combos = MetaAgents.find_combinations(
+        agents,
+        size=2,
+        evaluation_func=lambda g: g[0].unique_id + g[1].unique_id,
+        filter_func=keep_best,
+    )
+    assert len(combos) == 1
+
+
+def test_find_combinations_no_evaluation_func():
+    """find_combinations with no evaluation_func returns empty list."""
+    model = Model()
+    agents = [Agent(model) for _ in range(3)]
+
+    combos = MetaAgents.find_combinations(agents, size=2)
+    assert combos == []
+
+
+def test_find_combinations_evaluation_returns_none():
+    """find_combinations skips groups where evaluation returns None."""
+    model = Model()
+    agents = [Agent(model) for _ in range(3)]
+
+    def sometimes_none(group):
+        """Return a score only for the first pair."""
+        if group[0].unique_id < group[1].unique_id:
+            return 1.0
+        return None
+
+    combos = MetaAgents.find_combinations(
+        agents,
+        size=2,
+        evaluation_func=sometimes_none,
+    )
+    # Some combos pass, others return None and are skipped
+    assert all(score is not None for _, score in combos)
+
+
+def test_find_combinations_with_range_size():
+    """find_combinations with tuple size generates combinations across range."""
+    model = Model()
+    agents = [Agent(model) for _ in range(4)]
+
+    combos = MetaAgents.find_combinations(
+        agents,
+        size=(2, 3),
+        evaluation_func=lambda g: float(len(g)),
+    )
+    sizes = {len(group) for group, _ in combos}
+    assert sizes == {2, 3}
+    # C(4,2) + C(4,3) = 6 + 4 = 10
+    assert len(combos) == 10
+
+
+# ── coverage for at_level BFS depth-skip branch ──
+
+
+def test_at_level_deep_hierarchy_exercises_bfs_depth_skip():
+    """at_level with a 3-level hierarchy exercises the depth >= level continue."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+
+    # Build: root -> mid -> leaf
+    leaf = Agent(model)
+    mid = meta_agents.create("Mid", [leaf])
+    root = meta_agents.create("Root", [mid])
+
+    # Level 1 should return mid (and BFS should skip going deeper from mid
+    # at depth=1 when level=1 triggers depth >= level continue for queued items)
+    assert set(meta_agents.at_level(1, root=root)) == {mid}
+    assert set(meta_agents.at_level(2, root=root)) == {leaf}
+    # Level 3 has nothing
+    assert set(meta_agents.at_level(3, root=root)) == set()
+
+
+def test_query_memberships_filters_by_relation():
+    """query_memberships with a relation kwarg returns only matching edges."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("G", [], memberships=[(agent, "leader")])
+    meta_agents.add_member(group, agent, relation="member")
+
+    # Filter to leader only
+    view = meta_agents.query_memberships(agent, relation="leader")
+    assert len(view) == 1
+    assert view.relations == {"leader"}
+
+    # Filter to member only
+    view_member = meta_agents.query_memberships(agent, relation="member")
+    assert len(view_member) == 1
+    assert view_member.relations == {"member"}
+
+    # No filter returns both
+    view_all = meta_agents.query_memberships(agent)
+    assert len(view_all) == 2
