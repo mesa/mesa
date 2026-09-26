@@ -84,7 +84,6 @@ class MetaAgents:
         """Deactivate memberships when a live agent leaves the model."""
         self.deactivate(agent)
 
-
     def _resolve_group(self, group: Hashable) -> Any:
         """Resolve a group from a live object or group name."""
         if group in self.model.agents:

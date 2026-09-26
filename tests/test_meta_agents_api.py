@@ -148,7 +148,6 @@ def test_add_and_remove_member_by_group_name():
         meta_agents.add_member("Team", carol)
 
 
-
 def test_remove_member_preserves_overlapping_memberships():
     """Removing one relation should keep unrelated memberships intact."""
     model = Model()
