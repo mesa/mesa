@@ -922,15 +922,17 @@ def test_add_table_row_missing_column_leaves_table_unchanged(
     )
     assert dc.get_table_dataframe("events").to_dict("records") == expected_rows
 
+
 def test_add_table_row_copies_mutable_values():
-     """Mutating a value after add_table_row should not change the stored row."""
-     dc = DataCollector(tables={"events": ["value"]})
+    """Mutating a value after add_table_row should not change the stored row."""
+    dc = DataCollector(tables={"events": ["value"]})
 
-     payload = []
-     dc.add_table_row("events", {"value": payload})
-     payload.append("changed after logging")
+    payload = []
+    dc.add_table_row("events", {"value": payload})
+    payload.append("changed after logging")
 
-     assert dc.get_table_dataframe("events").loc[0, "value"] == []
+    assert dc.get_table_dataframe("events").loc[0, "value"] == []
+
 
 def test_get_table_dataframe_nonexistent():
     """Test that get_table_dataframe raises TableMissingException for nonexistent table."""
