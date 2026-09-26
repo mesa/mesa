@@ -148,21 +148,6 @@ def test_add_and_remove_member_by_group_name():
         meta_agents.add_member("Team", carol)
 
 
-def test_add_and_remove_member_by_unique_id():
-    """add_member/remove_member resolve unique_ids to live objects."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    member = Agent(model)
-    group = meta_agents.create("Group", [])
-    meta_agents.add_member(group, member.unique_id)
-    assert member in meta_agents.members_of(group)
-    assert group in meta_agents.groups_of(member)
-    assert meta_agents.backend.groups_of(member) == {group}
-    meta_agents.remove_member(group.unique_id, member.unique_id)
-    assert member not in meta_agents.members_of(group)
-    assert group not in meta_agents.groups_of(member)
-    assert meta_agents.backend.groups_of(member) == set()
-
 
 def test_remove_member_preserves_overlapping_memberships():
     """Removing one relation should keep unrelated memberships intact."""
@@ -379,39 +364,7 @@ def test_at_level_cyclic_membership_terminates():
     assert set(meta_agents.at_level(2, root=a)) == set()
 
 
-# ── coverage for _resolve_to_agent and _resolve_group branches ──
-
-
-def test_resolve_to_agent_passthrough():
-    """An agent object already in the model is returned as-is."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    agent = Agent(model)
-    group = meta_agents.create("G", [])
-
-    meta_agents.add_member(group, agent)
-    assert agent in meta_agents.members_of(group)
-
-
-def test_resolve_to_agent_unknown_entity_passthrough():
-    """An entity that is neither an agent nor a unique_id is returned unchanged."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    # _resolve_to_agent should return a sentinel string unchanged
-    result = meta_agents._resolve_to_agent("not-an-agent")
-    assert result == "not-an-agent"
-
-
-def test_resolve_group_by_unique_id():
-    """_resolve_group finds a group via its unique_id."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    agent = Agent(model)
-    group = meta_agents.create("G", [agent])
-
-    # Use the group's unique_id to look up members
-    resolved_members = set(meta_agents.members_of(group.unique_id))
-    assert resolved_members == {agent}
+# ── coverage for _resolve_group branches ──
 
 
 def test_resolve_group_fallback_for_non_string_non_agent():
@@ -439,27 +392,6 @@ def test_query_memberships_with_agent_object():
     assert len(triplets) == 2
 
 
-def test_members_of_with_unique_id():
-    """members_of resolves a group unique_id to its members."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    alice = Agent(model)
-    bob = Agent(model)
-    group = meta_agents.create("Team", [alice, bob])
-
-    assert set(meta_agents.members_of(group.unique_id)) == {alice, bob}
-
-
-def test_groups_of_with_unique_id():
-    """groups_of resolves a member unique_id to its groups."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    agent = Agent(model)
-    group = meta_agents.create("Team", [agent])
-
-    assert set(meta_agents.groups_of(agent.unique_id)) == {group}
-
-
 def test_dissolve_with_agent_object():
     """Dissolve works directly with the group agent object."""
     model = Model()
@@ -470,16 +402,4 @@ def test_dissolve_with_agent_object():
     snapshot = meta_agents.dissolve(group)
     assert snapshot.as_triplets() == {(agent, group, "member")}
     assert group not in model.agents
-    assert meta_agents.backend.as_triplets() == set()
-
-
-def test_remove_member_by_group_unique_id_and_agent_object():
-    """remove_member with group unique_id and agent object."""
-    model = Model()
-    meta_agents = MetaAgents(model)
-    agent = Agent(model)
-    group = meta_agents.create("G", [agent])
-
-    meta_agents.remove_member(group.unique_id, agent)
-    assert agent not in meta_agents.members_of(group)
     assert meta_agents.backend.as_triplets() == set()

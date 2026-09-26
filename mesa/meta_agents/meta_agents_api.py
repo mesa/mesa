@@ -84,29 +84,11 @@ class MetaAgents:
         """Deactivate memberships when a live agent leaves the model."""
         self.deactivate(agent)
 
-    def _resolve_to_agent(self, entity: Hashable) -> Any:
-        """Resolve an entity to a live agent object for backward compatibility.
-
-        If ``entity`` is already a registered agent, return it as-is.
-        If ``entity`` is a ``unique_id`` (int), look up the corresponding agent.
-        Otherwise return ``entity`` unchanged.
-        """
-        if entity in self.model.agents:
-            return entity
-        # Backward compat: accept unique_id and resolve to the agent object.
-        for agent in self.model.agents:
-            if getattr(agent, "unique_id", None) == entity:
-                return agent
-        return entity
 
     def _resolve_group(self, group: Hashable) -> Any:
-        """Resolve a group from a live object, unique id, or group name."""
+        """Resolve a group from a live object or group name."""
         if group in self.model.agents:
             return group
-        # Try unique_id lookup for backward compat.
-        for agent in self.model.agents:
-            if getattr(agent, "unique_id", None) == group:
-                return agent
         # Try string name resolution.
         if isinstance(group, str):
             matches = list(
@@ -268,7 +250,6 @@ class MetaAgents:
         relation: RelationKey = "member",
     ) -> MembershipView:
         """Add one member to one group."""
-        member = self._resolve_to_agent(member)
         group = self._resolve_group(group)
 
         self.backend.add_membership(member, group, relation)
@@ -281,7 +262,6 @@ class MetaAgents:
         relation: RelationKey = "member",
     ) -> MembershipView:
         """Remove one member from one group."""
-        member = self._resolve_to_agent(member)
         group = self._resolve_group(group)
 
         self.backend.remove_membership(member, group, relation)
@@ -299,7 +279,6 @@ class MetaAgents:
         self, agent: Hashable, relation: RelationKey | None = None
     ) -> AgentSet:
         """Return the live groups that contain one agent as an AgentSet."""
-        agent = self._resolve_to_agent(agent)
         groups = sorted(self.backend.groups_of(agent, relation=relation), key=str)
         return AgentSet(groups, random=self.model.random)
 
@@ -307,7 +286,6 @@ class MetaAgents:
         self, entity: Hashable, relation: RelationKey | None = None
     ) -> MembershipView:
         """Return a resolved, read-only snapshot of one entity's memberships."""
-        entity = self._resolve_to_agent(entity)
         triplets = (
             triplet
             for triplet in self.backend.as_triplets()
@@ -370,7 +348,6 @@ class MetaAgents:
         if level < 0:
             raise ValueError(f"level must be non-negative, got {level}")
 
-        root = self._resolve_to_agent(root)
         if root not in self.model.agents:
             raise ValueError(f"root {root!r} is not registered in the model")
 
