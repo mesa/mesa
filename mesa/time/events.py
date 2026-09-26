@@ -343,6 +343,10 @@ class EventGenerator:
             # Default: start at next interval from now
             start_time = self.model.time + self._get_interval()
 
+        # Without an explicit start, the first run can already fall after end
+        if self.schedule.end is not None and start_time > self.schedule.end:
+            return self
+
         self._active = True
         self.model._event_generators.add(self)
         self._schedule_next(start_time)
