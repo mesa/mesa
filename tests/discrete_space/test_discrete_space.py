@@ -1658,3 +1658,21 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
     a1.move_to(cell)
     with pytest.raises(CellFullException):
         a2.move_to(cell)
+
+def test_cell_neighborhood_self_loop_bug_3885():
+    """Verifying radius=1 neighborhood excludes self on self-connected cells when include_center=False (#3885)."""
+    import random
+    import networkx as nx
+    from mesa.discrete_space import Network, OrthogonalVonNeumannGrid
+
+    # 1. Torus Grid (1xN ring wrapping around)
+    grid = OrthogonalVonNeumannGrid((5, 1), torus=True, random=random.Random(42))
+    cell = grid._cells[(2, 0)]
+    neighborhood = [c.coordinate for c in cell.get_neighborhood(radius=1, include_center=False)]
+    assert cell.coordinate not in neighborhood, f"Cell {cell.coordinate} found in its own neighborhood!"
+
+    # 2. Network with a self-loop
+    net = Network(nx.Graph([(0, 1), (1, 1), (1, 2)]), random=random.Random(42))
+    net_cell = net._cells[1]
+    net_neighborhood = [c.coordinate for c in net_cell.get_neighborhood(radius=1, include_center=False)]
+    assert net_cell.coordinate not in net_neighborhood, f"Node {net_cell.coordinate} found in its own neighborhood!"
