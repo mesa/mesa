@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 
 from mesa import Model
+from mesa.agent import AgentSet
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
-from mesa.agent import AgentSet
 
 def test_continuous_space():
     """Test ContinuousSpace class."""
