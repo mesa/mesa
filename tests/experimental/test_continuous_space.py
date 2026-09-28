@@ -558,6 +558,7 @@ def test_continuous_space_k_exact():
 
 def test_continuous_space_generics():
     """Test PEP 695 generic typing preservation in ContinuousSpace."""
+
     class CustomAgent(ContinuousSpaceAgent):
         pass
 
