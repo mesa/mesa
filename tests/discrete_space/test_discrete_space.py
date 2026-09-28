@@ -1662,11 +1662,6 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
 
 def test_cell_neighborhood_self_loop_bug_3885():
     """Verifying radius=1 neighborhood excludes self on self-connected cells when include_center=False (#3885)."""
-    import random
-
-    import networkx as nx
-
-    from mesa.discrete_space import Network, OrthogonalVonNeumannGrid
 
     # 1. Torus Grid (1xN ring wrapping around)
     grid = OrthogonalVonNeumannGrid((5, 1), torus=True, random=random.Random(42))
