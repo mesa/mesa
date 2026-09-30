@@ -3,8 +3,8 @@ import numpy as np
 
 import mesa
 from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
+from mesa.experimental.meta_agents import MetaAgents
 from mesa.experimental.scenarios import Scenario
-from mesa.meta_agents import MetaAgents
 
 
 class AllianceScenario(Scenario):
