@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from mesa import Model
+from mesa.agent import AgentSet
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
 
@@ -553,3 +554,30 @@ def test_continuous_space_k_exact():
 
     assert len(agents) == 2
     assert len(dists) == 2
+
+
+def test_continuous_space_generics():
+    """Test PEP 695 generic typing preservation in ContinuousSpace."""
+
+    class CustomAgent(ContinuousSpaceAgent):
+        pass
+
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 10], [0, 10]])
+    space = ContinuousSpace[CustomAgent](dimensions, torus=False, random=model.random)
+
+    agent = CustomAgent(space, model)
+    agent.position = [1.0, 1.0]
+
+    # Verify return types statically & dynamically
+    agents: AgentSet[CustomAgent] = space.agents
+    assert len(agents) == 1
+    assert isinstance(agents.to_list()[0], CustomAgent)
+
+    in_radius, _ = space.get_agents_in_radius([1.0, 1.0], radius=2.0)
+    assert len(in_radius) == 1
+    assert isinstance(in_radius[0], CustomAgent)
+
+    k_nearest, _ = space.get_k_nearest_agents([1.0, 1.0], k=1)
+    assert len(k_nearest) == 1
+    assert isinstance(k_nearest[0], CustomAgent)
