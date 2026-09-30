@@ -22,16 +22,16 @@ To avoid errors, it is recommended to define your model constructor with keyword
 
 ```python
 class MyModel(Model):
-    def __init__(self, *, width, height, seed=None):
+    def __init__(self, *, width, height, rng=None):
         ...
 ```
 
 
 For detailed tutorials, please refer to:
 
-- [Basic Visualization](../tutorials/4_visualization_basic)
-- [Dynamic Agent Visualization](../tutorials/5_visualization_dynamic_agents)
-- [Custom Agent Visualization](../tutorials/6_visualization_custom)
+- [Basic Visualization](../tutorials/6_visualization_basic)
+- [Dynamic Agent Visualization](../tutorials/7_visualization_dynamic_agents)
+- [Custom Visualization Components](../tutorials/10_visualization_custom)
 
 
 ## Jupyter Visualization

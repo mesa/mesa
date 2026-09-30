@@ -36,8 +36,8 @@ class AwesomeModel(Model):
 
 class AwesomeAgent(Agent):
   # ...
-  def __init__(self, unique_id, model, ...):
-    super().__init__(unique_id, model)
+  def __init__(self, model, ...):
+    super().__init__(model)
     # ...
 
   def my_method(self):
@@ -50,29 +50,27 @@ instances, you have to pass `random` explicitly. Typically, you can simply do, i
 number generator as the rest of the model.
 
 
-When a model object is created, its random property is automatically seeded
-with the current time. The seed determines the sequence of random numbers; if
-you instantiate a model with the same seed, you will get the same results.
-To allow you to set the seed, make sure your model has a `seed` argument in its
-`__init__`.
+Models also expose `self.rng`, a NumPy `Generator`, which is useful for vectorized random draws.
+
+When a model object is created without a seed, its random number generators are
+seeded from fresh operating system entropy, so every run differs. The seed determines
+the sequence of random numbers; if you instantiate a model with the same seed, you will
+get the same results. To allow you to set the seed, make sure your model has an `rng`
+argument in its `__init__` and passes it on to `super().__init__()`.
 
 ```python
 class AwesomeModel(Model):
 
-  def __init__(self, seed=None):
-    super().__init__(seed=seed)
+  def __init__(self, rng=None):
+    super().__init__(rng=rng)
     ...
 
   def cool_method(self):
     interesting_number = self.random.random()
     print(interesting_number)
 
->>> model0 = AwesomeModel(seed=0)
->>> model0._seed
-0
->>> model0.cool_method()
-0.8444218515250481
->>> model1 = AwesomeModel(seed=0)
->>> model1.cool_method()
-0.8444218515250481
+>>> model0 = AwesomeModel(rng=0)
+>>> model1 = AwesomeModel(rng=0)
+>>> model0.random.random() == model1.random.random()
+True
 ```
