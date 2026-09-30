@@ -1,8 +1,8 @@
 """Tests for membership storage."""
 
 from mesa import Agent, Model
-from mesa.meta_agents import MetaAgents
-from mesa.meta_agents.backend import MembershipBackend
+from mesa.experimental.meta_agents import MetaAgents
+from mesa.experimental.meta_agents.backend import MembershipBackend
 
 
 def test_add_and_query():

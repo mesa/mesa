@@ -1,6 +1,11 @@
-"""Meta-agents: agents composed of other agents."""
+"""Compatibility shim - meta-agents now live in mesa.experimental.meta_agents.
 
-from .meta_agents_api import MembershipEdge, MembershipView, MetaAgents
+This module re-exports the public API so that existing ``from mesa.meta_agents``
+imports continue to work.  New code should import from
+``mesa.experimental.meta_agents`` instead.
+"""
+
+from mesa.experimental.meta_agents import MembershipEdge, MembershipView, MetaAgents
 
 __all__ = [
     "MembershipEdge",

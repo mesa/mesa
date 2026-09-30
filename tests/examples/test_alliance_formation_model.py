@@ -6,7 +6,7 @@ from mesa.examples.advanced.alliance_formation.model import (
     AllianceScenario,
     MultiLevelAllianceModel,
 )
-from mesa.meta_agents import MetaAgents
+from mesa.experimental.meta_agents import MetaAgents
 
 
 def test_alliance_model_records_overlapping_memberships(monkeypatch):
@@ -24,7 +24,7 @@ def test_alliance_model_records_overlapping_memberships(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        "mesa.meta_agents.MetaAgents.find_combinations",
+        "mesa.experimental.meta_agents.MetaAgents.find_combinations",
         fake_find_combinations,
     )
 

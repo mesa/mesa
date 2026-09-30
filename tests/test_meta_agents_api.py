@@ -4,7 +4,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.agent import AgentSet
-from mesa.meta_agents import MembershipEdge, MembershipView, MetaAgents
+from mesa.experimental.meta_agents import MembershipEdge, MembershipView, MetaAgents
 
 
 def test_meta_agents_create_records_memberships():

@@ -5,8 +5,8 @@ import pytest
 from mesa import Agent, Model
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.grid import OrthogonalMooreGrid
-from mesa.meta_agents import MetaAgents
-from mesa.meta_agents.meta_agent import MetaAgent
+from mesa.experimental.meta_agents import MetaAgents
+from mesa.experimental.meta_agents.meta_agent import MetaAgent
 
 
 class CustomAgent(Agent):
