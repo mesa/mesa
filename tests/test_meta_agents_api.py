@@ -1,6 +1,9 @@
 """Tests for the meta-agents membership manager."""
 
 import pytest
+from mesa.meta_agents import MembershipEdge as ShimEdge
+from mesa.meta_agents import MembershipView as ShimView
+from mesa.meta_agents import MetaAgents as ShimMeta
 
 from mesa import Agent, Model
 from mesa.agent import AgentSet
@@ -10,9 +13,6 @@ from mesa.experimental.meta_agents.meta_agent import (
     _create_meta_agent_instance,
     _normalize_agent_bases,
 )
-from mesa.meta_agents import MembershipEdge as ShimEdge
-from mesa.meta_agents import MembershipView as ShimView
-from mesa.meta_agents import MetaAgents as ShimMeta
 
 
 def test_meta_agents_create_records_memberships():
