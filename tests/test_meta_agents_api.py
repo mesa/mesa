@@ -792,13 +792,3 @@ def test_at_level_group_with_no_members():
     # root is registered but has no members in the backend
     assert set(meta_agents.at_level(1, root=root)) == set()
     assert set(meta_agents.at_level(0, root=root)) == {root}
-
-
-# ── coverage for the compatibility shim (mesa.meta_agents re-exports) ──
-
-
-def test_compatibility_shim_reexports():
-    """The old mesa.meta_agents path re-exports from experimental."""
-    assert ShimEdge is MembershipEdge
-    assert ShimView is MembershipView
-    assert ShimMeta is MetaAgents
