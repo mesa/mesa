@@ -87,5 +87,7 @@ class ContinuousSpaceAgent(Agent):
         # return includes self, so we need to get k+1
         agents, dists = self.space.get_k_nearest_agents(self.position, k=k + 1)
         logical = np.asarray([agent is not self for agent in agents])
-        agents = list(compress(agents, logical))
-        return agents, dists[logical]
+        # if more than k other agents share our position, self may not be among
+        # the k+1 nearest, so truncate to k. All k+1 are then at distance 0.
+        agents = list(compress(agents, logical))[:k]
+        return agents, dists[logical][:k]

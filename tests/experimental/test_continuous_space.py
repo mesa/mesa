@@ -432,6 +432,28 @@ def test_get_neighbor_methos():  # noqa: D103
     assert np.allclose(distances, [0.2, 0.2])
 
 
+def test_get_nearest_neighbors_colocated_agents():
+    """Test that get_nearest_neighbors returns at most k agents when agents share a position.
+
+    If more than k other agents sit at the same position as the querying agent, the
+    querying agent itself may not be among the k + 1 nearest, so filtering out self
+    must not leave k + 1 neighbors.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(5)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+
+    for agent in agents:
+        for k in (1, 2, 3):
+            neighbors, distances = agent.get_nearest_neighbors(k=k)
+            assert len(neighbors) == k
+            assert len(distances) == k
+            assert agent not in neighbors
+            assert np.allclose(distances, 0)
+
+
 def test_agent_removal_no_ghost_entries():
     """Test that removing an agent doesn't leave ghost entries in _index_to_agent.
 
