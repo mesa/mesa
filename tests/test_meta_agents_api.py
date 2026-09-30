@@ -689,15 +689,11 @@ def test_create_reuses_meta_agent_rejects_different_manager():
     model_2 = Model()
     api_2 = MetaAgents(model_2)
 
-
-
     # Forcibly set the group's _membership_api to api_2 so it mismatches api_1
     group._membership_api = api_2
     # Now ask api_1 to reuse this group - it should detect the mismatch
     with pytest.raises(RuntimeError, match="bound to a different membership manager"):
-        _create_meta_agent_instance(
-            model, "Team", [agent], None, _membership_api=api_1
-        )
+        _create_meta_agent_instance(model, "Team", [agent], None, _membership_api=api_1)
 
 
 # ── coverage for MetaAgent.__init__ with mismatched manager ──
@@ -712,7 +708,8 @@ def test_meta_agent_init_rejects_mismatched_manager():
     api_2 = MetaAgents(model_2)
 
     with pytest.raises(
-        RuntimeError, match="Meta-agent must be created by its model's membership manager"
+        RuntimeError,
+        match="Meta-agent must be created by its model's membership manager",
     ):
         MetaAgent(model, _membership_api=api_2)
 
