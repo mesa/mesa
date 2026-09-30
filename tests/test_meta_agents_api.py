@@ -1,9 +1,6 @@
 """Tests for the meta-agents membership manager."""
 
 import pytest
-from mesa.meta_agents import MembershipEdge as ShimEdge
-from mesa.meta_agents import MembershipView as ShimView
-from mesa.meta_agents import MetaAgents as ShimMeta
 
 from mesa import Agent, Model
 from mesa.agent import AgentSet
