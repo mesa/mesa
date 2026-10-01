@@ -846,6 +846,18 @@ class TestEventGeneratorExecution:
         assert fn.call_count == 3  # t=0, 1, 2
         assert not gen.is_active
 
+    def test_schedule_end_before_first_execution(self, setup):
+        """Test no execution when the first run would already be past schedule.end."""
+        model, fn = setup
+        model.run_for(10.0)
+        gen = EventGenerator(model, fn, Schedule(interval=5.0, end=12.0))
+        gen.start()
+
+        model.run_for(10.0)
+        assert fn.call_count == 0
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+
     def test_schedule_count(self, setup):
         """Test schedule.count limits executions."""
         model, fn = setup
