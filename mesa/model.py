@@ -401,11 +401,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         Raises:
             ValueError: If the schedule start time is in the past.
         """
-        if schedule.start is not None and schedule.start < self.time:
-            raise ValueError(
-                f"Cannot start recurring schedule in the past. "
-                f"Start time is {schedule.start}, current time is {self.time}"
-            )
         generator = EventGenerator(self, function, schedule, priority)
         generator.start()
         return generator

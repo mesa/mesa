@@ -333,9 +333,19 @@ class EventGenerator:
 
         Returns:
             Self for method chaining
+
+        Raises:
+            ValueError: If schedule.start is in the past, e.g. when restarting
+                a stopped generator after its start time has passed.
         """
         if self._active:
             return self
+
+        if self.schedule.start is not None and self.schedule.start < self.model.time:
+            raise ValueError(
+                f"Cannot start recurring schedule in the past. "
+                f"Start time is {self.schedule.start}, current time is {self.model.time}"
+            )
 
         if self.schedule.start is not None:
             start_time = self.schedule.start

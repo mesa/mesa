@@ -767,6 +767,32 @@ class TestEventGeneratorStartStop:
         model.run_for(0.1)
         fn.assert_called_once()
 
+    def test_start_with_schedule_start_in_past_raises(self, setup):
+        """Starting a generator whose schedule.start has passed must not rewind time."""
+        model, fn = setup
+        model.run_until(5.0)
+        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=1.0))
+
+        with pytest.raises(ValueError, match="in the past"):
+            gen.start()
+        assert not gen.is_active
+        assert gen not in model._event_generators
+
+    def test_restart_after_schedule_start_passed_raises(self, setup):
+        """Restarting a stopped generator with a past schedule.start must not replay old events."""
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=1.0))
+        model.run_until(5.0)
+        gen.stop()
+        fn.reset_mock()
+
+        with pytest.raises(ValueError, match="in the past"):
+            gen.start()
+
+        model.run_for(3.0)
+        fn.assert_not_called()
+        assert model.time == 8.0
+
     def test_start_when_active_is_noop(self, setup):
         """Test that starting when active does nothing."""
         model, fn = setup
