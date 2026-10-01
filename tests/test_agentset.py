@@ -1210,6 +1210,27 @@ def test_select_random_edge_cases_and_errors():
         agentset.select_random(2, weights=12345)
 
 
+@pytest.mark.parametrize(
+    "n", [np.int64(2), np.int32(2), np.uint8(2), np.float64(0.5), np.float32(0.5)]
+)
+def test_select_random_accepts_numpy_numbers(n):
+    """Test that numpy integer and float scalars are accepted for n."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(4)]
+    agentset = AgentSet(agents, random=model.random)
+
+    assert len(agentset.select_random(n)) == 2
+
+
+def test_select_random_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random(np.True_)
+
+
 def test_select_random_realistic_abm_evolution_scenario():
     """Test a realistic Agent-Based evolutionary selection scenario.
 

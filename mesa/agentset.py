@@ -10,6 +10,7 @@ import contextlib
 import copy
 import itertools
 import math
+import numbers
 import operator
 import warnings
 import weakref
@@ -235,10 +236,12 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if len(self) == 0:
             raise ValueError("Cannot sample from an empty AgentSet.")
 
-        if isinstance(n, bool) or not isinstance(n, (int, float)):
+        # numbers.Integral / numbers.Real also cover numpy scalars such as np.int64
+        if isinstance(n, (bool, np.bool_)) or not isinstance(n, numbers.Real):
             raise TypeError(f"n must be an integer or float, got {type(n).__name__}.")
 
-        if isinstance(n, int):
+        if isinstance(n, numbers.Integral):
+            n = int(n)
             if n <= 0:
                 raise ValueError(f"n must be a positive integer, got {n}.")
             sample_size = n
