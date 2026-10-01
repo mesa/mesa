@@ -212,6 +212,14 @@ class MetaAgents:
             The group agent (newly created or existing).
 
         Examples:
+            Install the membership manager on a model and create a few agents:
+
+            >>> from mesa import Agent, Model
+            >>> from mesa.meta_agents import MetaAgents
+            >>> model = Model()
+            >>> model.meta_agents = MetaAgents(model)
+            >>> alice, bob, carol, dave = (Agent(model) for _ in range(4))
+
             Create a new team with two members (the group agent defaults to a
             plain ``Agent`` subclass):
 
@@ -226,7 +234,7 @@ class MetaAgents:
             This is the same as adding carol using ``add_member`` (more
             explicit):
 
-            >>> model.meta_agents.add_member("Team", carol)
+            >>> _ = model.meta_agents.add_member("Team", carol)
             >>> assert carol in model.meta_agents.members_of("Team")
 
             With the same class name but no overlapping members, a second,
@@ -237,8 +245,9 @@ class MetaAgents:
 
             Force new groups by using unique names:
 
-            >>> team_a = model.meta_agents.create("Team_2026_A", [...])
-            >>> team_b = model.meta_agents.create("Team_2026_B", [...])
+            >>> team_a = model.meta_agents.create("Team_2026_A", [alice])
+            >>> team_b = model.meta_agents.create("Team_2026_B", [dave])
+            >>> assert team_a is not team_b
         """
         member_relations = list(memberships) if memberships is not None else None
         if member_relations is not None:
@@ -387,7 +396,22 @@ class MetaAgents:
 
         Examples:
         --------
-        >>> model.meta_agents.at_level(4, root=world)
+        A two-level hierarchy: ``team`` contains ``squad`` and ``carol``, and
+        ``squad`` contains ``alice`` and ``bob``:
+
+        >>> from mesa import Agent, Model
+        >>> from mesa.meta_agents import MetaAgents
+        >>> model = Model()
+        >>> model.meta_agents = MetaAgents(model)
+        >>> alice, bob, carol = (Agent(model) for _ in range(3))
+        >>> squad = model.meta_agents.create("Squad", [alice, bob])
+        >>> team = model.meta_agents.create("Team", [squad, carol])
+        >>> set(model.meta_agents.at_level(1, root=team)) == {squad, carol}
+        True
+        >>> set(model.meta_agents.at_level(2, root=team)) == {alice, bob}
+        True
+        >>> len(model.meta_agents.at_level(3, root=team))
+        0
         """
         if level < 0:
             raise ValueError(f"level must be non-negative, got {level}")
