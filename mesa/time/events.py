@@ -580,5 +580,8 @@ class EventList:
 
     def clear(self) -> None:
         """Clear the event list."""
+        # Detach the events, so a later cancel() is not counted against this list.
+        for event in self._events:
+            event._owner = None
         self._events.clear()
         self._n_canceled = 0
