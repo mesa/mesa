@@ -13,6 +13,24 @@ Notes:
     - Features graduate from experimental status once their APIs are stabilized
 """
 
+from typing import Any
+
 from mesa.experimental import actions, continuous_space, mesa_signals
 
 __all__ = ["actions", "continuous_space", "mesa_signals"]
+
+_LAZY_SUBMODULES = frozenset({"actions", "continous_space"})
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_SUBMODULES:
+        import importlib
+
+        module = importlib.import_module(f"mesa.experimental.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) + _LAZY_SUBMODULES)
