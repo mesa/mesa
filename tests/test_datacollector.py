@@ -12,6 +12,35 @@ from mesa.datacollection import DataCollector
 from mesa.exceptions import TableMissingException
 
 
+@pytest.mark.parametrize("collect_first", [False, True])
+def test_failed_model_reporter_preserves_collected_rows(collect_first):
+    """A failed reporter must not append a partial model row or timestamp."""
+    model = Model()
+    model.fail = False
+
+    def report(model):
+        if model.fail:
+            raise ValueError("reporter failed")
+        return 2
+
+    collector = DataCollector(model_reporters={"first": lambda m: 1, "second": report})
+    if collect_first:
+        collector.collect(model)
+    expected = collector.get_model_vars_dataframe().copy()
+    expected_steps = list(collector._collection_steps)
+
+    model.fail = True
+    with pytest.raises((ValueError, RuntimeError), match="reporter failed"):
+        collector.collect(model)
+
+    assert collector._collection_steps == expected_steps
+    pd.testing.assert_frame_equal(collector.get_model_vars_dataframe(), expected)
+
+    model.fail = False
+    collector.collect(model)
+    assert len(collector.get_model_vars_dataframe()) == len(expected) + 1
+
+
 class MockAgent(Agent):
     """Minimalistic agent for testing purposes."""
 
