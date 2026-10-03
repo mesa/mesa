@@ -931,5 +931,22 @@ def test_get_table_dataframe_nonexistent():
         dc.get_table_dataframe("nonexistent")
 
 
+def test_add_table_row_mutable_values_deepcopied():
+    """Test that add_table_row deepcopies mutable values to avoid reference mutation."""
+    dc = DataCollector(tables={"events": ["agent_id", "payload"]})
+    payload = {"status": "active", "items": [1, 2, 3]}
+    dc.add_table_row("events", {"agent_id": 1, "payload": payload})
+
+    # Mutate payload after adding row
+    payload["status"] = "inactive"
+    payload["items"].append(4)
+
+    df = dc.get_table_dataframe("events")
+    stored_payload = df.loc[0, "payload"]
+    assert stored_payload == {"status": "active", "items": [1, 2, 3]}
+    assert stored_payload["status"] == "active"
+    assert stored_payload["items"] == [1, 2, 3]
+
+
 if __name__ == "__main__":
     unittest.main()
