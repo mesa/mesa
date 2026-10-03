@@ -79,9 +79,13 @@ def test_agentset():
     assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
     assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             agentset.select(at_most=bad_at_most)
+
+    for bad_type in (False, True, "1", [1], None):
+        with pytest.raises(TypeError, match="must be an integer or float"):
+            agentset.select(at_most=bad_type)
 
     assert len(agentset.select(test_function)) == 5
     assert len(agentset.select(test_function, at_most=2)) == 2
