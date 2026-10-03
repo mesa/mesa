@@ -37,14 +37,13 @@ def pickle_gridcell(obj):
 
 
 def unpickle_gridcell(parent, fields):
-    """Helper function for unpickling GridCell instances."""
-    # since the class is dynamically created, we recreate it here
-    cell_klass = type(
-        "GridCell",
-        (parent,),
-        {"property_layers": set(), "__slots__": ()},
-    )
-    instance = cell_klass(
+    """Helper function for unpickling GridCell instances.
+
+    The cell is restored as an instance of ``parent``, the base cell class of the
+    grid. ``Grid.__setstate__`` then moves all restored cells to a single, freshly
+    created GridCell class and re-attaches the property_layer accessors to it.
+    """
+    instance = parent(
         (0, 0)
     )  # we use a default coordinate and overwrite it with the correct value next
 
@@ -405,17 +404,34 @@ class Grid(DiscreteSpace[T]):
 
     def __getstate__(self) -> dict[str, Any]:
         """Custom __getstate__ for handling dynamic GridCell class and property_layer accessors."""
-        state = super().__getstate__()
-        state = {k: v for k, v in state.items() if k != "cell_klass"}
+        state = dict(super().__getstate__())
+        # GridCell is created dynamically, so it cannot be pickled by reference. Store
+        # its base class instead; __setstate__ recreates GridCell from it.
+        state["cell_klass"] = self.cell_klass.__bases__[0]
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state and re-attach property_layer accessors to the cell class.
 
-        Read-only layers (tracked in ``_read_only_layers``) are restored without a
-        setter so the read-only constraint survives the round trip.
+        ``unpickle_gridcell`` restores every cell as an instance of the base cell
+        class, so a single GridCell class is recreated here, exactly as in
+        ``__init__``, and all cells are moved to it before the accessors are
+        attached. Read-only layers (tracked in ``_read_only_layers``) are restored
+        without a setter so the read-only constraint survives the round trip.
         """
         super().__setstate__(state)
+        base_klass = self.cell_klass
+        self.cell_klass = type(
+            "GridCell",
+            (base_klass,),
+            {"property_layers": set(), "__slots__": ()},
+        )
+        copyreg.pickle(self.cell_klass, pickle_gridcell)
+        for cell in self._cells.values():
+            # cells of other classes added at runtime are left untouched
+            if type(cell) is base_klass:
+                cell.__class__ = self.cell_klass
+
         # Older pickles may predate _read_only_layers; default to no read-only layers.
         read_only_layers = getattr(self, "_read_only_layers", set())
         self._read_only_layers = read_only_layers
@@ -434,6 +450,7 @@ class Grid(DiscreteSpace[T]):
                     doc=f"property_layer '{name}'",
                 )
             setattr(self.cell_klass, name, accessor)
+            self.cell_klass.property_layers.add(name)
 
 
 class OrthogonalMooreGrid(Grid[T]):
