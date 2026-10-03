@@ -1,5 +1,6 @@
 """Scenarios module."""
 
+from .disk_store import DiskStore
 from .exceptions import (
     ModelInstantiationException,
     ScenarioAbortedException,
@@ -12,6 +13,7 @@ from .scenario import Scenario, rescale_samples
 from .store import RunId, RunRecord, Store
 
 __all__ = [
+    "DiskStore",
     "ModelInstantiationException",
     "RunConfiguration",
     "RunId",
