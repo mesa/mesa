@@ -57,6 +57,7 @@ viz = [
   "solara",
   "altair",
   "starlette<1.0",
+  "pydantic",
 ]
 # Dev and CI stuff
 dev = [
