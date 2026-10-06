@@ -10,6 +10,7 @@ import contextlib
 import copy
 import itertools
 import math
+import numbers
 import operator
 import warnings
 import weakref
@@ -235,10 +236,12 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if len(self) == 0:
             raise ValueError("Cannot sample from an empty AgentSet.")
 
-        if isinstance(n, bool) or not isinstance(n, (int, float)):
+        # numbers.Integral / numbers.Real also cover numpy scalars such as np.int64
+        if isinstance(n, (bool, np.bool_)) or not isinstance(n, numbers.Real):
             raise TypeError(f"n must be an integer or float, got {type(n).__name__}.")
 
-        if isinstance(n, int):
+        if isinstance(n, numbers.Integral):
+            n = int(n)
             if n <= 0:
                 raise ValueError(f"n must be a positive integer, got {n}.")
             sample_size = n
@@ -683,14 +686,16 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         Returns:
             AgentSet: The AgentSet instance itself.
         """
-        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
+        # Snapshot keyrefs so we can safely iterate while agents may be removed.
+        # Re-check membership: an earlier agent's call may have removed this agent
+        # from the set before we reach it (mirrors _HardKeyAgentSet behaviour).
         if isinstance(method, str):
             for agentref in self._agents.keyrefs():
-                if (agent := agentref()) is not None:
+                if (agent := agentref()) is not None and agent in self._agents:
                     getattr(agent, method)(*args, **kwargs)
         else:
             for agentref in self._agents.keyrefs():
-                if (agent := agentref()) is not None:
+                if (agent := agentref()) is not None and agent in self._agents:
                     method(agent, *args, **kwargs)
 
         return self
@@ -705,11 +710,11 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         if isinstance(method, str):
             for ref in weakrefs:
-                if (agent := ref()) is not None:
+                if (agent := ref()) is not None and agent in self._agents:
                     getattr(agent, method)(*args, **kwargs)
         else:
             for ref in weakrefs:
-                if (agent := ref()) is not None:
+                if (agent := ref()) is not None and agent in self._agents:
                     method(agent, *args, **kwargs)
 
         return self
@@ -729,18 +734,19 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         Returns:
            list[Any]: The results of the callable calls
         """
-        # we iterate over the actual weakref keys and check if weakref is alive before calling the method
+        # Re-check membership after resolving the weakref: an earlier agent's
+        # call may have removed this agent from the set (mirrors _HardKeyAgentSet).
         if isinstance(method, str):
             res = [
                 getattr(agent, method)(*args, **kwargs)
                 for agentref in self._agents.keyrefs()
-                if (agent := agentref()) is not None
+                if (agent := agentref()) is not None and agent in self._agents
             ]
         else:
             res = [
                 method(agent, *args, **kwargs)
                 for agentref in self._agents.keyrefs()
-                if (agent := agentref()) is not None
+                if (agent := agentref()) is not None and agent in self._agents
             ]
 
         return res
