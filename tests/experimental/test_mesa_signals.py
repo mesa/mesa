@@ -958,6 +958,39 @@ def test_observable_list_mutation():
     assert value is None
 
 
+def test_observable_list_set_signal_new_value():
+    """Test that the SET signal carries the assigned values, also for one-shot iterables.
+
+    Previously ``new`` was the raw assigned object; for a generator, SignalingList
+    had already consumed it, so subscribers received an exhausted generator.
+    """
+
+    class ListAgent(Agent, HasEmitters):
+        inventory = ObservableList()
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.inventory = []
+
+    model = Model(rng=42)
+    agent = ListAgent(model)
+    handler = Mock()
+    agent.observe("inventory", ListSignals.SET, handler)
+
+    agent.inventory = (x * 2 for x in range(3))
+
+    handler.assert_called_once()
+    message = handler.call_args.args[0]
+    assert list(message.additional_kwargs["new"]) == [0, 2, 4]
+    assert list(agent.inventory) == [0, 2, 4]
+
+    # The payload is a snapshot: later mutations of the source do not leak into it.
+    source = [1, 2]
+    agent.inventory = source
+    source.append(3)
+    assert handler.call_args.args[0].additional_kwargs["new"] == [1, 2]
+
+
 def test_all_sentinel():
     """Test the ALL sentinel."""
     import pickle  # noqa: PLC0415
