@@ -430,7 +430,12 @@ class DataCollector:
                     )
 
         for column, values in table.items():
-            values.append(row.get(column))
+            val = row.get(column)
+            # Only deepcopy mutable types to avoid performance overhead while preventing reference mutation
+            if isinstance(val, (str, int, bool, float, bytes, type(None))):
+                values.append(val)
+            else:
+                values.append(deepcopy(val))
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
