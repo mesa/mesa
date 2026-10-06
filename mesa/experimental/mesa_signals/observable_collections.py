@@ -110,6 +110,8 @@ class SignalingList(MutableSequence[Any]):
         else:
             if index < 0:
                 index += len(self.data)
+            if not 0 <= index < len(self.data):
+                raise IndexError("list assignment index out of range")
             old_value = self.data[index]
             self.data[index] = value
             self.owner.notify(
@@ -131,6 +133,8 @@ class SignalingList(MutableSequence[Any]):
         else:
             if index < 0:
                 index += len(self.data)
+            if not 0 <= index < len(self.data):
+                raise IndexError("list assignment index out of range")
             old_value = self.data[index]
         del self.data[index]
         self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
