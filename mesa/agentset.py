@@ -112,19 +112,20 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
     return itertools.repeat(value, n)
 
 
-def _warn_if_object_shared_between_agents(values: Iterable) -> None:
-    """Warn once if a per-agent sequence assigns the same mutable object to several agents.
+_MUTABLE_CONTAINERS = (list, dict, set, bytearray)
 
-    Scalars are skipped: they're immutable, so sharing one is harmless. Elements
-    produced by iterating a numpy array or pandas Series are also skipped, since
-    those are fresh objects on every access and comparing their identities would
-    compare essentially random ids, not whether the caller's own data is shared.
+
+def _warn_if_object_shared_between_agents(values: Iterable) -> None:
+    """Warn once if a per-agent sequence gives the same mutable container to several agents.
+
+    Only builtin containers are checked. Other shared objects, such as a cell or
+    any other location or model reference, are often meant to be shared, so they
+    are left alone. Scalars and numpy scalars are skipped too: their identities
+    are not caller data.
     """
     seen_ids = set()
     for item in values:
-        if isinstance(
-            item, (int, float, complex, str, bytes, bool, type(None), np.generic)
-        ):
+        if not isinstance(item, _MUTABLE_CONTAINERS):
             continue
         if id(item) in seen_ids:
             warnings.warn(

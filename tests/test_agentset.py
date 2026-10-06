@@ -542,6 +542,9 @@ def test_set_warns_when_one_mutable_object_is_shared_by_agents():
         agentset.set("label", ["a", "a", "a", "a", "a"])
         # a broadcast scalar or dict is not a per-agent sequence
         agentset.set("config", {"mode": "fast"})
+        # agents sharing a non-container object (e.g. a location) is intended
+        location = TestAgent(model)
+        agentset.set("cell", [location] * 5)
 
 
 def test_agentset_map_str():
