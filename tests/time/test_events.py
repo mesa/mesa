@@ -633,6 +633,23 @@ class TestEventListCancelCount:
         assert el._n_canceled == 0
         assert len(el) == 0
 
+    def test_cancel_after_clear_does_not_corrupt_count(self):
+        """Canceling an event that was removed by clear() must not affect the list."""
+        el = EventList()
+        fn = MagicMock()
+        stale = Event(1.0, fn)
+        el.add_event(stale)
+        el.clear()
+
+        live = [Event(float(i), fn) for i in range(10)]
+        for e in live:
+            el.add_event(e)
+
+        stale.cancel()
+
+        assert el._n_canceled == 0
+        assert len(el) == 10
+
     def test_is_empty_when_only_tombstones_remain(self):
         el = EventList()
         fn = MagicMock()
