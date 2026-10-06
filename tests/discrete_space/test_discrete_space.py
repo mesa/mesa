@@ -999,6 +999,108 @@ def test_read_only_property_layer_survives_pickle_and_deepcopy():
         assert cell.sugar == 5.0, label
 
 
+def test_property_layer_accessors_survive_copy_on_all_cells():
+    """Every cell, not just the first one, keeps its property_layer accessors after a round trip.
+
+    Previously unpickle_gridcell created a separate GridCell class for every cell
+    and Grid.__setstate__ re-attached the accessors only to the class of the first
+    cell. As a result cell.sugar raised AttributeError on all other cells,
+    cell.empty no longer tracked the "empty" layer, and pickling the restored
+    grid a second time failed.
+    """
+    grid = OrthogonalMooreGrid((3, 3), torus=False, random=random.Random(42))
+    grid.create_property_layer("sugar", default_value=1.0)
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # all cells share one class, and it is the grid's cell_klass
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass.property_layers == {"empty", "sugar"}, label
+
+        for cell in restored.all_cells:
+            assert cell.sugar == 1.0, label
+            cell.sugar = 5.0
+            assert restored.property_layers["sugar"][cell.coordinate] == 5.0, label
+
+        cell = restored._cells[(2, 2)]
+        cell.empty = False
+        assert not restored.property_layers["empty"][2, 2], label
+
+        # layers created after the round trip reach every cell as well
+        restored.create_property_layer("water", default_value=2.0)
+        assert all(cell.water == 2.0 for cell in restored.all_cells), label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert all(cell.sugar == 5.0 for cell in twice.all_cells), label
+        assert all(cell.water == 2.0 for cell in twice.all_cells), label
+
+
+class SlottedCustomCell(Cell):
+    """A user cell class with an extra slot, as the tutorials recommend."""
+
+    __slots__ = ("temperature",)
+
+    def __init__(self, coordinate, capacity=None, random=None):
+        """Create the cell with a default temperature."""
+        super().__init__(coordinate, capacity=capacity, random=random)
+        self.temperature = 20.0
+
+
+class DictCustomCell(Cell):
+    """A user cell class without __slots__, so its instances carry a __dict__."""
+
+
+@pytest.mark.parametrize("cell_klass", [SlottedCustomCell, DictCustomCell])
+def test_custom_cell_klass_survives_copy_and_pickle(cell_klass):
+    """A grid built on a user-supplied cell class survives deepcopy and pickle.
+
+    The restored cells keep the user's class as their base, their own attributes
+    (in a slot or in __dict__) and the property_layer accessors.
+    """
+    grid = OrthogonalMooreGrid(
+        (3, 3), torus=False, random=random.Random(42), cell_klass=cell_klass
+    )
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid._cells[(1, 1)].temperature = 99.0
+    grid._cells[(1, 1)].sugar = 3.0
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # one GridCell class, derived from the user's class
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass.__bases__ == (cell_klass,), label
+        assert all(isinstance(cell, cell_klass) for cell in restored.all_cells), label
+
+        # the cells' own attributes survive, whether stored in a slot or in __dict__
+        assert restored._cells[(1, 1)].temperature == 99.0, label
+        if cell_klass is SlottedCustomCell:
+            assert restored._cells[(0, 0)].temperature == 20.0, label
+
+        # property layers work on every cell and write through to the array
+        assert restored._cells[(1, 1)].sugar == 3.0, label
+        for cell in restored.all_cells:
+            cell.sugar += 1.0
+        assert (
+            restored.property_layers["sugar"] == grid.property_layers["sugar"] + 1
+        ).all(), label
+        restored._cells[(2, 2)].empty = False
+        assert not restored.property_layers["empty"][2, 2], label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert twice._cells[(1, 1)].temperature == 99.0, label
+        assert twice._cells[(1, 1)].sugar == 4.0, label
+
+
 def test_multiple_property_layers():
     """Test initialization of DiscreteSpace with Property Layers."""
     dimensions = (5, 5)
