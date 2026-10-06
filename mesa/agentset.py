@@ -80,6 +80,12 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
     is treated as one value per agent. Any other value (a scalar, a string, or a
     non-sequence) is broadcast to all ``n`` agents.
 
+    Per-agent values are assigned by reference, not copied. If the same mutable
+    object (a list, dict, or similar) appears at more than one position, every
+    agent that receives it shares that one object, and a warning is issued; wrap
+    it yourself (e.g. with ``copy.deepcopy``) if each agent needs an independent
+    copy.
+
     Args:
         value: The value(s) to assign, either one per agent or broadcast.
         n: The number of agents to produce values for.
@@ -96,6 +102,7 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
     """
     if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
         if len(value) == n:
+            _warn_if_object_shared_between_agents(value)
             return value
         if strict:
             raise ValueError(
@@ -103,6 +110,32 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
                 f"of agents ({n})"
             )
     return itertools.repeat(value, n)
+
+
+def _warn_if_object_shared_between_agents(values: Iterable) -> None:
+    """Warn once if a per-agent sequence assigns the same mutable object to several agents.
+
+    Scalars are skipped: they're immutable, so sharing one is harmless. Elements
+    produced by iterating a numpy array or pandas Series are also skipped, since
+    those are fresh objects on every access and comparing their identities would
+    compare essentially random ids, not whether the caller's own data is shared.
+    """
+    seen_ids = set()
+    for item in values:
+        if isinstance(
+            item, (int, float, complex, str, bytes, bool, type(None), np.generic)
+        ):
+            continue
+        if id(item) in seen_ids:
+            warnings.warn(
+                "The same object was assigned to more than one agent. Mutating "
+                "it on one agent will change it for every agent that shares it; "
+                "pass a separate copy per agent if that is not what you want.",
+                UserWarning,
+                stacklevel=4,
+            )
+            return
+        seen_ids.add(id(item))
 
 
 class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
@@ -425,7 +458,10 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Notes:
             A per-agent sequence is recognized by its type (list, tuple, ndarray,
             Series). To assign a single sequence value to every agent, broadcast
-            it explicitly, e.g. ``[shared_list] * len(agentset)``.
+            it explicitly, e.g. ``[value] * len(agentset)``. Elements are assigned
+            by reference, so a mutable element repeated this way is shared by all
+            those agents and triggers a warning; give each agent its own copy if
+            that is not intended.
         """
         for agent, agent_value in zip(
             self, _resolve_per_agent_values(value, len(self))
