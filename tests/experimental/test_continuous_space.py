@@ -452,13 +452,13 @@ def test_get_nearest_neighbors_colocated_agents():
             assert len(distances) == k
             assert agent not in neighbors
             assert np.allclose(distances, 0)
-            # ties are broken on insertion order, so the result is deterministic
+            # ties are broken on internal index (insertion order here), so the result is deterministic
             others = [a for a in agents if a is not agent]
             assert neighbors == others[:k]
 
 
 def test_get_k_nearest_agents_ties_deterministic():
-    """Test that get_k_nearest_agents breaks ties on insertion order and sorts by distance."""
+    """Test that get_k_nearest_agents breaks ties on internal index and sorts by distance."""
     model = Model(rng=42)
     space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
     agents = [ContinuousSpaceAgent(space, model) for _ in range(30)]

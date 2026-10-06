@@ -89,6 +89,6 @@ class ContinuousSpaceAgent(Agent):
         logical = np.asarray([agent is not self for agent in agents])
         # if more than k other agents share our position, self may not be among
         # the k+1 nearest. Results are sorted by distance with ties broken on
-        # insertion order, so dropping the last one keeps the k nearest others.
+        # internal index, so dropping the last one keeps the k nearest others.
         agents = list(compress(agents, logical))[:k]
         return agents, dists[logical][:k]

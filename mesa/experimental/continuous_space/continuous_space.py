@@ -252,8 +252,10 @@ class ContinuousSpace:
         """Return the k nearest agents and their distances to the point.
 
         Notes:
-            This method returns exactly k agents, sorted by distance. In case of ties, the
-            earlier an agent is inserted the higher it will rank.
+            This method returns exactly k agents, sorted by distance. Ties are broken on the agent's
+            internal index: lower index ranks higher. This follows insertion order
+            unless agents have been removed, since removal moves the last agent into
+            the freed slot.
 
             If fewer than k agents are present in the space, all agents are returned
             and a UserWarning is emitted to indicate that the requested k could not be
@@ -278,12 +280,12 @@ class ContinuousSpace:
             k = n
 
         # np.argpartition does not resolve ties deterministically, so we find the k-th
-        # smallest distance and break ties at that distance on insertion index
+        # smallest distance and break ties at that distance on internal index
         kth = np.partition(dists, k - 1)[k - 1]
         closer = np.flatnonzero(dists < kth)
         tied = np.flatnonzero(dists == kth)[: k - closer.size]
         indices = np.concatenate([closer, tied])
-        # sort by distance, with insertion index as tie-breaker
+        # sort by distance, with internal index as tie-breaker
         indices = indices[np.argsort(dists[indices], kind="stable")]
         agents = [agents[i] for i in indices]
         return agents, dists[indices]
