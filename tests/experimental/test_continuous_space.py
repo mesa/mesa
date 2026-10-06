@@ -452,6 +452,28 @@ def test_get_nearest_neighbors_colocated_agents():
             assert len(distances) == k
             assert agent not in neighbors
             assert np.allclose(distances, 0)
+            # ties are broken on insertion order, so the result is deterministic
+            others = [a for a in agents if a is not agent]
+            assert neighbors == others[:k]
+
+
+def test_get_k_nearest_agents_ties_deterministic():
+    """Test that get_k_nearest_agents breaks ties on insertion order and sorts by distance."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(30)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+    agents[20].position = (5.0, 5.5)
+    agents[25].position = (5.0, 6.0)
+
+    found, distances = space.get_k_nearest_agents([5.0, 5.0], k=10)
+    assert found == agents[:10]
+    assert np.allclose(distances, 0)
+
+    found, distances = space.get_k_nearest_agents([5.0, 5.5], k=3)
+    assert found == [agents[20], *agents[:2]]
+    assert np.allclose(distances, [0, 0.5, 0.5])
 
 
 def test_agent_removal_no_ghost_entries():
