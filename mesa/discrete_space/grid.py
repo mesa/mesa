@@ -47,8 +47,11 @@ def unpickle_gridcell(parent, fields):
         (0, 0)
     )  # we use a default coordinate and overwrite it with the correct value next
 
-    # __gestate__ returns a tuple with dict and slots, but slots contains the dict so we can just use the
-    # second item only
+    # __getstate__ returns a (dict, slots) tuple. The slots part holds Cell's own
+    # attributes; the dict part is only non-empty for a user-supplied cell class
+    # without __slots__, whose instance attributes would otherwise be lost.
+    if fields[0]:
+        instance.__dict__.update(fields[0])
     for k, v in fields[1].items():
         setattr(instance, k, v)
 
