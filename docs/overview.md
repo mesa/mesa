@@ -94,14 +94,17 @@ high_ground = grid.property_layers["elevation"] > 50
 For models requiring continuous movement:
 
 ```python
-# Create a continuous space
-space = mesa.space.ContinuousSpace(x_max, y_max, torus=True)
+from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
-# Move an agent to specific coordinates
-space.move_agent(agent, (new_x, new_y))
+# Create a continuous space
+space = ContinuousSpace([[0, x_max], [0, y_max]], torus=True, random=model.random)
+
+# Place an agent in the space and move it to specific coordinates
+agent = ContinuousSpaceAgent(space, model)
+agent.position = (new_x, new_y)
 ```
 
-> **Note:** The legacy `mesa.space` module (including `MultiGrid`, `SingleGrid`, etc.) is in maintenance-only mode. For new projects, use `mesa.discrete_space` and `mesa.experimental.continuous_space` instead.
+> **Note:** The legacy `mesa.space` module (including `MultiGrid`, `SingleGrid`, `ContinuousSpace`, etc.) has been removed. Use `mesa.discrete_space` and `mesa.experimental.continuous_space` instead.
 
 ### Time Advancement and Agent Activation
 
@@ -207,7 +210,7 @@ AgentSet offers several methods for efficient agent management:
    grouped_agents = model.agents.groupby("species")
 
    for _, agent_group in grouped_agents:
-      agent_group.shuffle_do()
+      agent_group.shuffle_do("step")
    species_counts = grouped_agents.count()
    mean_age_by_group = grouped_agents.agg("age", np.mean)
    ```
@@ -272,7 +275,8 @@ The core components for building your own visualizations reside in the [`mesa.vi
 Here's a basic example of how to set up a visualization:
 
 ```python
-from mesa.visualization import SolaraViz, make_space_component, make_plot_component
+from mesa.visualization import Slider, SolaraViz, make_space_component, make_plot_component
+from mesa.visualization.components import AgentPortrayalStyle
 
 
 def agent_portrayal(agent):
