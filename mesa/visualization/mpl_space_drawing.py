@@ -846,7 +846,7 @@ def _scatter(ax: Axes, arguments, **kwargs):
             # ordinary markers
             mask_marker = [m == mark for m in list(marker)]
             for z_order in np.unique(zorder[mask_marker]):
-                zorder_mask = z_order == zorder & mask_marker
+                zorder_mask = (z_order == zorder) & mask_marker
                 ax.scatter(
                     loc_x[zorder_mask],
                     loc_y[zorder_mask],
