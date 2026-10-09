@@ -370,30 +370,33 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object."""
         if self.model_reporters:
-            if hasattr(self, "_collection_steps"):
-                self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
 
+            # Evaluate the whole model row before updating stored columns.
+            model_values = {}
             for var, reporter in self.model_reporters.items():
                 # Check if lambda or partial function
                 if isinstance(reporter, types.LambdaType | partial):
                     # Use deepcopy to store a copy of the data,
                     # preventing references from being updated across steps.
-                    self.model_vars[var].append(deepcopy(reporter(model)))
+                    model_values[var] = deepcopy(reporter(model))
                 # Check if model attribute
                 elif isinstance(reporter, str):
-                    self.model_vars[var].append(
-                        deepcopy(getattr(model, reporter, None))
-                    )
+                    model_values[var] = deepcopy(getattr(model, reporter, None))
                 # Check if function with arguments
                 elif isinstance(reporter, list):
                     self._check_list_reporter(var, reporter)
-                    self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
+                    model_values[var] = deepcopy(reporter[0](*reporter[1]))
                 # Assume it's a callable otherwise (e.g., method)
                 else:
-                    self.model_vars[var].append(deepcopy(reporter()))
+                    model_values[var] = deepcopy(reporter())
+
+            for var, value in model_values.items():
+                self.model_vars[var].append(value)
+            if hasattr(self, "_collection_steps"):
+                self._collection_steps.append(model.time)
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
