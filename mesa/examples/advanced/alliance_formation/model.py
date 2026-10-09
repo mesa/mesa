@@ -2,12 +2,17 @@ import networkx as nx
 import numpy as np
 
 import mesa
-from mesa import Agent
 from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
-from mesa.experimental.meta_agents.meta_agent import (
-    create_meta_agent,
-    find_combinations,
-)
+from mesa.experimental.scenarios import Scenario
+from mesa.meta_agents import MetaAgents
+
+
+class AllianceScenario(Scenario):
+    """Scenario for the Alliance model."""
+
+    n: int = 50
+    mean: float = 0.5
+    std_dev: float = 0.1
 
 
 class MultiLevelAllianceModel(mesa.Model):
@@ -15,7 +20,7 @@ class MultiLevelAllianceModel(mesa.Model):
     Model for simulating multi-level alliances among agents.
     """
 
-    def __init__(self, n=50, mean=0.5, std_dev=0.1, seed=42):
+    def __init__(self, scenario: AllianceScenario = AllianceScenario):
         """
         Initialize the model.
 
@@ -23,19 +28,20 @@ class MultiLevelAllianceModel(mesa.Model):
             n (int): Number of agents.
             mean (float): Mean value for normal distribution.
             std_dev (float): Standard deviation for normal distribution.
-            seed (int): Random seed.
+            rng (int): Random rng.
         """
-        super().__init__(seed=seed)
-        self.population = n
+        super().__init__(scenario=scenario)
         self.network = nx.Graph()  # Initialize the network
         self.datacollector = mesa.DataCollector(model_reporters={"Network": "network"})
+        self.meta_agents = MetaAgents(self)
+        self.membership_backend = self.meta_agents.backend
 
         # Create Agents
-        power = self.rng.normal(mean, std_dev, n)
+        power = self.rng.normal(scenario.mean, scenario.std_dev, scenario.n)
         power = np.clip(power, 0, 1)
-        position = self.rng.normal(mean, std_dev, n)
+        position = self.rng.normal(scenario.mean, scenario.std_dev, scenario.n)
         position = np.clip(position, 0, 1)
-        AllianceAgent.create_agents(self, n, power, position)
+        AllianceAgent.create_agents(self, scenario.n, power, position)
         agent_ids = [
             (agent.unique_id, {"size": 300, "level": 0}) for agent in self.agents
         ]
@@ -57,17 +63,18 @@ class MultiLevelAllianceModel(mesa.Model):
         Calculate the Shapley value of the two agents.
 
         Args:
-            agents (list): List of agents.
+            agents: Pair of agents.
 
         Returns:
             tuple: Potential utility, new position, and level.
         """
-        agent_0 = agents[0]
-        agent_1 = agents[1]
+        agent_0, agent_1 = agents
 
-        positions = agents.get("position")
-        new_position = 1 - (max(positions) - min(positions))
-        potential_utility = agents.agg("power", sum) * 1.2 * new_position
+        new_position = 1 - (
+            max(agent_0.position, agent_1.position)
+            - min(agent_0.position, agent_1.position)
+        )
+        potential_utility = (agent_0.power + agent_1.power) * 1.2 * new_position
 
         value_0 = 0.5 * agent_0.power + 0.5 * (potential_utility - agent_1.power)
         value_1 = 0.5 * agent_1.power + 0.5 * (potential_utility - agent_0.power)
@@ -95,7 +102,7 @@ class MultiLevelAllianceModel(mesa.Model):
         best = {}
         # Determine best option for EACH agent
         for group, value in combinations:
-            agent_ids = sorted(group.get("unique_id"))  # by default is bilateral
+            agent_ids = sorted(a.unique_id for a in group)
             # Deal with all possibilities
             if (
                 agent_ids[0] not in best and agent_ids[1] not in best
@@ -145,18 +152,19 @@ class MultiLevelAllianceModel(mesa.Model):
         """
         Execute one step of the model.
         """
-        # Get all other agents of the same type
-        agent_types = list(self.agents_by_type.keys())
+        # Agents at the same hierarchy level can form an alliance. Meta-agents
+        # use dynamically generated classes, so grouping by concrete type would
+        # isolate every meta-agent and prevent higher-level alliances.
+        agents_by_level = {}
+        for agent in self.agents:
+            agents_by_level.setdefault(agent.level, []).append(agent)
 
-        for agent_type in agent_types:
-            similar_agents = self.agents_by_type[agent_type]
-
+        for similar_agents in agents_by_level.values():
             # Find the best combinations using find_combinations
             if (
                 len(similar_agents) > 1
             ):  # only form alliances if there are more than 1 agent
-                combinations = find_combinations(
-                    self,
+                combinations = self.meta_agents.find_combinations(
                     similar_agents,
                     size=2,
                     evaluation_func=self.calculate_shapley_value,
@@ -164,12 +172,16 @@ class MultiLevelAllianceModel(mesa.Model):
                 )
 
                 for alliance, attributes in combinations:
-                    class_name = f"MetaAgentLevel{attributes[2]}"
-                    meta = create_meta_agent(
-                        self,
+                    alliance_members = tuple(
+                        sorted(alliance, key=lambda agent: agent.unique_id)
+                    )
+                    alliance_signature = "_".join(
+                        str(agent.unique_id) for agent in alliance_members
+                    )
+                    class_name = f"MetaAgentLevel{attributes[2]}_{alliance_signature}"
+                    meta = self.meta_agents.create(
                         class_name,
-                        alliance,
-                        Agent,
+                        alliance_members,
                         meta_attributes={
                             "level": attributes[2],
                             "power": attributes[0],
@@ -184,4 +196,4 @@ class MultiLevelAllianceModel(mesa.Model):
                             size=(meta.level + 1) * 300,
                             level=meta.level,
                         )
-                        self.add_link(meta, meta.agents)
+                        self.add_link(meta, alliance_members)

@@ -156,13 +156,19 @@ def get_rootlogger():
     return _rootlogger
 
 
-def log_to_stderr(level: int | None = None, pass_root_logger_level: bool = False):
+def log_to_stderr(
+    level: int | None = None,
+    pass_root_logger_level: bool = False,
+    propagate: bool = False,
+):
     """Turn on logging and add a handler which prints to stderr.
 
     Args:
         level: minimum level of the messages that will be logged
         pass_root_logger_level: bool, optional. Default False
                 if True, all module loggers will be set to the same logging level as the root logger.
+        propagate: bool, optional. Default False
+                if True, all module loggers will continue propagating records to ancestor loggers.
 
     """
     if not level:
@@ -182,7 +188,7 @@ def log_to_stderr(level: int | None = None, pass_root_logger_level: bool = False
     handler.setLevel(level)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    logger.propagate = False
+    logger.propagate = propagate
 
     if pass_root_logger_level:
         for _, mod_logger in _module_loggers.items():

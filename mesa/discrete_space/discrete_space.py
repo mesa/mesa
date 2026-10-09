@@ -1,9 +1,9 @@
-"""Base class for building cell-based spatial environments.
+"""Abstract Base class for building cell-based spatial environments.
 
 DiscreteSpace provides the core functionality needed by all cell-based spaces:
 - Cell creation and tracking
 - Agent-cell relationship management
-- Property layer support
+- Property Layer support
 - Random selection capabilities
 - Capacity management
 
@@ -16,18 +16,22 @@ inherit from this class.
 from __future__ import annotations
 
 import warnings
+from abc import ABC, abstractmethod
 from functools import cached_property
 from random import Random
 from typing import TypeVar
 
+import numpy as np
+
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.exceptions import CellMissingException
 
 T = TypeVar("T", bound=Cell)
 
 
-class DiscreteSpace[T: Cell]:
+class DiscreteSpace[T: Cell](ABC):
     """Base class for all discrete spaces.
 
     Attributes:
@@ -36,7 +40,7 @@ class DiscreteSpace[T: Cell]:
         random (Random): The random number generator
         cell_klass (Type) : the type of cell class
         empties (CellCollection) : collection of all cells that are empty
-        property_layers (dict[str, PropertyLayer]): the property layers of the discrete space
+        property_layers (dict[str, np.ndarray]): property_layer of the discrete space
 
     Notes:
         A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly
@@ -82,8 +86,12 @@ class DiscreteSpace[T: Cell]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.all_cells.agents, random=self.random)
 
-    def _connect_cells(self): ...
-    def _connect_single_cell(self, cell: T): ...
+    @abstractmethod
+    def _connect_cells(self) -> None: ...
+
+    @abstractmethod
+    def find_nearest_cell(self, position: np.ndarray) -> T:
+        """Find the cell at or nearest to the given position."""
 
     def add_cell(self, cell: T):
         """Add a cell to the space.
@@ -97,6 +105,12 @@ class DiscreteSpace[T: Cell]:
             if you rely on getting neighborhoods of cells with a radius higher than 1, these might not be cleared
             correctly if you are adding or removing cells and connections at runtime.
 
+        Warning:
+            Coordinate Collision: If a cell already exists at the specified
+            coordinates (e.g., cell1), it will be overwritten silently by the
+            new cell (cell2).
+
+            Ensure the target coordinates are vacant before calling this method.
         """
         self.__dict__.pop("all_cells", None)
         self._cells[cell.coordinate] = cell
@@ -113,7 +127,12 @@ class DiscreteSpace[T: Cell]:
 
         """
         neighbors = cell.neighborhood
-        self._cells.pop(cell.coordinate)
+
+        try:
+            self._cells.pop(cell.coordinate)
+        except KeyError as e:
+            raise CellMissingException(cell.coordinate) from e
+
         self.__dict__.pop("all_cells", None)
 
         # iterate over all neighbors
@@ -158,7 +177,10 @@ class DiscreteSpace[T: Cell]:
         return iter(self._cells.values())
 
     def __getitem__(self, key: tuple[int, ...]) -> T:  # noqa: D105
-        return self._cells[key]
+        try:
+            return self._cells[key]
+        except KeyError as e:
+            raise CellMissingException(key) from e
 
     @property
     def empties(self) -> CellCollection[T]:
@@ -172,4 +194,11 @@ class DiscreteSpace[T: Cell]:
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""
         self.__dict__ = state
-        self._connect_cells()
+
+        if self._cells:
+            self.cell_klass = type(next(iter(self._cells.values())))
+
+        for cell in self._cells.values():
+            cell.connections = {
+                key: self._cells[coord] for key, coord in cell.connections.items()
+            }

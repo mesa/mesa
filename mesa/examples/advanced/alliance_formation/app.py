@@ -3,12 +3,15 @@ import networkx as nx
 import solara
 from matplotlib.figure import Figure
 
-from mesa.examples.advanced.alliance_formation.model import MultiLevelAllianceModel
+from mesa.examples.advanced.alliance_formation.model import (
+    AllianceScenario,
+    MultiLevelAllianceModel,
+)
 from mesa.visualization import SolaraViz
 from mesa.visualization.utils import update_counter
 
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",
@@ -20,6 +23,14 @@ model_params = {
         "min": 10,
         "max": 100,
         "step": 1,
+    },
+    "std_dev": {
+        "type": "SliderFloat",
+        "value": 0.1,
+        "label": "Attribute variation:",
+        "min": 0.01,
+        "max": 0.4,
+        "step": 0.01,
     },
 }
 
@@ -34,12 +45,12 @@ model_params = {
 def plot_network(model):
     update_counter.get()
     g = model.network
-    pos = nx.fruchterman_reingold_layout(g)
+    pos = nx.multipartite_layout(g, subset_key="level", align="horizontal")
     fig = Figure()
     ax = fig.subplots()
     labels = {agent.unique_id: agent.unique_id for agent in model.agents}
     node_sizes = [g.nodes[node]["size"] for node in g.nodes]
-    node_colors = [g.nodes[node]["size"] for node in g.nodes()]
+    node_colors = [g.nodes[node]["level"] for node in g.nodes()]
 
     nx.draw(
         g,
@@ -50,12 +61,13 @@ def plot_network(model):
         labels=labels,
         ax=ax,
     )
+    ax.set_axis_off()
 
     solara.FigureMatplotlib(fig)
 
 
 # Create initial model instance
-model = MultiLevelAllianceModel(50)
+model = MultiLevelAllianceModel(scenario=AllianceScenario(n=50, rng=42))
 
 # Create the SolaraViz page. This will automatically create a server and display the
 # visualization elements in a web browser.

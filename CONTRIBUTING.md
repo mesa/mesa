@@ -4,7 +4,7 @@ _For candidates interested in participating in the Google Summer of Code (GSoC),
 
 As an open source project, Mesa welcomes contributions of many forms, and from beginners to experts. If you are
 curious or just want to see what is happening, we post our development session agendas
-and development session notes on [Mesa discussions]. We also have a threaded discussion forum on [Matrix]
+and development session notes on [Mesa discussions]. We also have a chat server on [Discord]
 for casual conversation.
 
 In no particular order, examples include:
@@ -16,11 +16,12 @@ In no particular order, examples include:
 - Tutorials
 
 No contribution is too small. Although, contributions can be too big, so let's
-discuss via [Matrix] OR via [an issue].
+discuss via [Discord] OR via [an issue].
 
 **To submit a contribution**
 
-- Create a ticket for the item that you are working on.
+- For enhancements or new features, open an [issue](https://github.com/mesa/mesa/issues) or [discussion](https://github.com/mesa/mesa/discussions) first and wait for maintainer approval before opening a PR.
+- For clear bug fixes, a direct PR is generally acceptable (opening an issue first is still encouraged for larger or unclear bugs).
 - Fork the Mesa repository.
 - [Clone your repository] from Github to your machine.
 - Create a new branch in your fork: `git checkout -b BRANCH_NAME`
@@ -49,10 +50,10 @@ First step is to install some proper tools, if you haven't already.
 - Dive into Git and GitHub. Watch some videos, this takes some time to click. [GitHub Desktop](https://desktop.github.com/) is great.
 - [`https://github.dev/mesa/mesa`](https://github.dev/mesa/mesa) is great for small changes (to docs).
 
-Learn the tools, talk to us about what you want to change, and open a small PR. Or update an [example model](https://github.com/mesa/mesa-examples) (check open [issues](https://github.com/mesa/mesa-examples/issues))!
+Learn the tools, talk to us about what you want to change, and open a small PR once direction is clear. For enhancements/new features, get maintainer approval in an issue/discussion first. Or update an [example model](https://github.com/mesa/mesa-examples) (check open [issues](https://github.com/mesa/mesa-examples/issues))!
 
 ### I'm a developer (but not a modeller)
-Awesome! You have the basics of open-source software development (if not check above), but not much modelling experience.
+Awesome! You have the basics of open source software development (if not check above), but not much modelling experience.
 
 First step is to start thinking like a modeller. To understand the fine details about our library and contribute meaningfully, get some modelling experience:
 - Go though our series of introductory tutorials at [Getting Started](https://mesa.readthedocs.io/latest/getting_started.html). While going through them, dive into the source code to really see what everything does.
@@ -61,16 +62,85 @@ First step is to start thinking like a modeller. To understand the fine details 
   - This MOOC on practical ABM modelling: [Agent-Based Models with Python: An Introduction to Mesa](https://www.complexityexplorer.org/courses/172-agent-based-models-with-python-an-introduction-to-mesa)
 - Go though multiple of our [examples](https://github.com/mesa/mesa-examples). Play with them, modify things and get a feel for Mesa and ABMs.
   - Check our open [issues](https://github.com/mesa/mesa-examples/issues) for the examples.
-  - If you see anything you want to improve, feel free to open a (small) PR!
+  - If you see anything you want to improve, feel free to open a (small) PR for bug fixes/docs. For enhancements/new features, discuss first and wait for maintainer approval.
 - If you have a feel for Mesa, check our [discussions](https://github.com/mesa/mesa/discussions) and [issues](https://github.com/mesa/mesa/issues).
   - Also go through our [release notes](https://github.com/mesa/mesa/releases) to see what we recently have been working on, and see some examples of successful PRs.
 - Once you found or thought of a nice idea, comment on the issue/discussion (or open a new one) and get to work!
 
 ### I'm both
-That's great! You can just start working on things, reach out to us. Skim to the list above if you feel you're missing anything. Start small but don't be afraid to dream big!
+That's great! You can start with bug fixes, docs, or tests right away. For enhancements/new features, align in an issue/discussion and wait for maintainer approval before opening a PR. Reach out to us anytime, start small but don't be afraid to dream big!
 
 ### I'm neither
 Start with creating your own models, for fun. Once you have some experience, move to the topics above.
+
+## Mesa development process
+Mesa is a library that aims to provide elegant, scalable, flexible, and powerful building blocks to a wide audience of agent-based modellers. When contributing, it helps to understand our development philosophy and process.
+
+### When to open what
+- **Bug fixes**: For clear, scoped bugs, opening a PR directly is usually fine. For larger or uncertain bug fixes, open an issue or discussion first.
+- **Enhancements and new features**: Open an issue or discussion first, agree on direction with maintainers, and wait for explicit approval before opening a PR.
+- **No prior approval for feature/enhancement work**: PRs may be closed until there is maintainer alignment and approval to proceed.
+- **When in doubt**: Start with a Discussion. It's always easier to move from discussion to implementation than to rework a large PR.
+
+### Our development process
+For significant features, we typically follow a three-stage process. While not always linear, this flow helps ensure we build the right thing the right way.
+
+#### Stage 1: Problem alignment
+Before jumping into solutions, we first align on the problem:
+
+- **Target audience**: Who is this feature for? What's their experience level and context?
+- **Use cases**: When and why would someone use this? What are they trying to accomplish?
+- **Existing solutions**: What do other libraries offer? What can we learn from or connect to?
+- **Gap analysis**: Given existing solutions (both in Mesa and elsewhere), where are the gaps?
+
+This stage answers the fundamental question: *Is this problem worth solving, and are we the right ones to solve it?*
+
+#### Stage 2: Conceptual/high-level design
+Once we agree on the problem, we design the solution at a high level:
+
+- **User API**: What will the interface look like from a user's perspective? How will modellers interact with this feature?
+- **Core architecture**: What data structures and patterns will we use internally?
+- **Integration**: How does this fit with existing Mesa components?
+
+The goal is to wrap our heads around the conceptual approach before diving into code.
+
+Sometimes the answer is that we just need better documentation. Python itself is a powerful tool and there are many existing libraries in the ecosystem to leverage.
+
+#### Stage 3: Implementation
+With alignment on both problem and design, implementation can proceed. For enhancements or new features, this stage starts only after maintainers confirm they are open to a PR:
+
+- Write the code following Mesa's standards
+- Include/update tests and and check test coverage
+- Include/update documentation and check Readthedocs rendering
+- Open a PR for review
+
+And if needed:
+- Update relevant examples
+- Update/extend the tutorial
+- Write a section for the [migration guide](docs/migration_guide.md)
+
+### Pathfinding PRs
+For complex features where feasibility or proportionality is uncertain, we sometimes use *pathfinding PRs*. These are exploratory implementations meant to:
+
+- Test whether an approach is technically viable
+- Understand the true complexity and scope
+- Gather concrete data (e.g., micro-benchmarks) to inform design decisions
+- Spark discussion with working code rather than abstract ideas
+
+Pathfinding PRs aren't expected to be merge-ready. They're tools for learning and discussion. If you're exploring a complex feature, consider posting initial results and ideas in a Discussion before opening a full PR.
+
+### Example workflow
+Here's how this process might look in practice:
+
+1. **Discussion opened**: "I'd think feature X should be in Mesa"
+2. **Problem alignment**: Community discusses target users, use cases, existing solutions, and identifies gaps
+3. **Conceptual design**: Proposals for user API and architecture are shared and refined
+4. **Pathfinding** (if needed): A quick prototype tests feasibility and gathers data
+5. **Implementation PR**: Full implementation with tests, docs, and examples
+6. **Review and iteration**: Community feedback leads to refinements
+7. **Merge**: Feature becomes part of Mesa
+
+Figuring out the right direction is often as valuable as implementing a predefined solution. Don't hesitate to ask questions and propose ideas early in the process!
 
 ## Testing and Code Standards
 
@@ -92,6 +162,19 @@ If you're changing previous Mesa features, please make sure of the following:
 - Additional features or rewrites of current features are accompanied by tests.
 - New features are demonstrated in a model, so folks can understand more easily.
 
+### Exception handling guidance
+
+Across Mesa, prefer clear and predictable exception behavior:
+
+- Avoid raising generic `Exception`; use a specific built-in or Mesa-specific exception instead.
+- For standard validation and input errors, prefer the most appropriate Python built-in exception.
+- Use Mesa-specific exceptions when they add meaningful domain context or hide internal implementation details from callers.
+- Follow the existing Mesa exception hierarchy: use the most specific `MesaException` subclass that fits the failure before introducing a new one.
+- Always check with the maintainers as part of a PR or issue when you think you need a new exception.
+- When wrapping internal exceptions, use `raise ... from ...` to preserve the original cause.
+- Write exception messages that are actionable — users should immediately understand what went wrong and how to fix it.
+
+When changing exception behavior, update or add tests to assert the expected exception type and message.
 To ensure that your submission will not break the build, you will need to install Ruff and pytest.
 
 ```bash
@@ -226,7 +309,7 @@ To create a new release, follow these steps:
 4. Use the _Generate release notes_ button to automatically create release notes. Review them carefully for accuracy, and update labels and edit PR titles if necessary (step 1).
 5. Write a _Highlights_ section summarizing the most important features or changes in this release.
 6. Copy the release notes and save them by clicking the grey _Save draft_ button.
-7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md).
+7. Open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) and add the copied release notes to the [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md). For stable releases, `docs/_static/switcher.json` is updated automatically when the release tag is pushed.
 8. Once this PR is merged, return to the _Releases_ section and publish the draft release.
 9. The [`release.yml`](https://github.com/mesa/mesa/blob/main/.github/workflows/release.yml) CI workflow should automatically create and upload the package to PyPI. Verify this on [PyPI.org](https://pypi.org/project/mesa/).
 10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).
@@ -333,7 +416,7 @@ A special thanks to the following projects who offered inspiration for this cont
 [gh actions build]: https://github.com/mesa/mesa/actions/workflows/build_lint.yml
 [google style guide]: https://google.github.io/styleguide/pyguide.html
 [license]: https://github.com/mesa/mesa/blob/main/LICENSE
-[matrix]: https://matrix.to/#/#project-mesa:matrix.org`
+[discord]: https://discord.gg/UUGJvdtEJu
 [mesa discussions]: https://github.com/mesa/mesa/discussions
 [pep8]: https://www.python.org/dev/peps/pep-0008
 [pre-commit]: https://github.com/pre-commit/pre-commit

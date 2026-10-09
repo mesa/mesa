@@ -1,0 +1,1379 @@
+"""AgentSet.py related tests."""
+
+import copy
+import pickle
+from random import Random
+
+import numpy as np
+import pytest
+
+from mesa.agent import Agent
+from mesa.agentset import AgentSet, _HardKeyAgentSet
+from mesa.model import Model
+
+
+class AgentTest(Agent):
+    """Agent class for testing."""
+
+    def get_unique_identifier(self):
+        """Return unique identifier for this agent."""
+        return self.unique_id
+
+
+class AgentDoTest(Agent):
+    """Agent class for testing."""
+
+    def __init__(
+        self,
+        model,
+    ):
+        """Initialize an Agent.
+
+        Args:
+            model (Model): the model to which the agent belongs
+
+        """
+        super().__init__(model)
+        self.agent_set = None
+
+    def get_unique_identifier(self):  # noqa: D102
+        return self.unique_id
+
+    def do_add(self):  # noqa: D102
+        agent = AgentDoTest(self.model)
+        self.agent_set.add(agent)
+
+    def do_remove(self):  # noqa: D102
+        self.agent_set.remove(self)
+
+
+class OtherAgentType(Agent):
+    """Another Agent class for testing."""
+
+    def get_unique_identifier(self):
+        """Return unique identifier."""
+        return self.unique_id
+
+
+def test_agentset():
+    """Test agentset class."""
+    # create agentset
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+
+    agentset = AgentSet(agents)
+
+    assert agents[0] in agentset
+    assert len(agentset) == len(agents)
+    assert all(a1 == a2 for a1, a2 in zip(agentset.to_list()[0:5], agents[0:5]))
+
+    for a1, a2 in zip(agentset, agents):
+        assert a1 == a2
+
+    def test_function(agent):
+        return agent.unique_id > 5
+
+    assert len(agentset.select(at_most=0.2)) == 2  # Select 20% of agents
+    assert len(agentset.select(at_most=0.549)) == 5  # Select 50% of agents
+    assert len(agentset.select(at_most=0.09)) == 0  # Select 0% of agents
+    assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
+    assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
+
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+        with pytest.raises(ValueError):
+            agentset.select(at_most=bad_at_most)
+
+    assert len(agentset.select(test_function)) == 5
+    assert len(agentset.select(test_function, at_most=2)) == 2
+    assert len(agentset.select(test_function, inplace=True)) == 5
+    assert agentset.select(inplace=True) == agentset
+    assert all(a1 == a2 for a1, a2 in zip(agentset.select(), agentset))
+    assert all(
+        a1 == a2 for a1, a2 in zip(agentset.select(at_most=5), agentset.to_list()[:5])
+    )
+
+    assert len(agentset.shuffle(inplace=False).select(at_most=5)) == 5
+
+    def test_function(agent):
+        return agent.unique_id
+
+    assert all(
+        a1 == a2
+        for a1, a2 in zip(
+            agentset.sort(test_function, ascending=False), agentset.to_list()[::-1]
+        )
+    )
+    assert all(
+        a1 == a2
+        for a1, a2 in zip(
+            agentset.sort("unique_id", ascending=False), agentset.to_list()[::-1]
+        )
+    )
+
+    assert all(
+        a1 == a2.unique_id for a1, a2 in zip(agentset.get("unique_id"), agentset)
+    )
+    assert agentset == agentset.do("get_unique_identifier")
+
+    agentset.discard(agents[0])
+    assert agents[0] not in agentset
+    agentset.discard(agents[0])  # check if no error is raised on discard
+
+    with pytest.raises(KeyError):
+        agentset.remove(agents[0])
+
+    agentset.add(agents[0])
+    assert agents[0] in agentset
+
+    # because AgentSet uses weakrefs, we need hard refs as well....
+    other_agents, another_set = pickle.loads(  # noqa: S301
+        pickle.dumps([agents, AgentSet(agents)])
+    )
+    assert all(
+        a1.unique_id == a2.unique_id for a1, a2 in zip(another_set, other_agents)
+    )
+    assert len(another_set) == len(other_agents)
+
+
+def test_agentset_initialization():
+    """Test agentset initialization."""
+    model = Model()
+    empty_agentset = AgentSet([], random=model.random)
+    assert len(empty_agentset) == 0
+    with pytest.warns(UserWarning):
+        empty_agentset2 = AgentSet([])
+    assert len(empty_agentset2) == 0
+
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+    assert len(agentset) == 10
+
+
+def test_agentset_initialization_w_random():
+    """Test agentset initialization."""
+    model = Model()
+    empty_agentset = AgentSet([], random=model.random)
+    assert len(empty_agentset) == 0
+    assert empty_agentset.random == model.random
+
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+    assert len(agentset) == 10
+    assert agentset.random == model.random
+
+
+def test_agentset_serialization():
+    """Test pickleability of agentset."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    agentset = AgentSet(agents)
+
+    serialized = pickle.dumps(agentset)
+    deserialized = pickle.loads(serialized)  # noqa: S301
+
+    original_ids = [agent.unique_id for agent in agents]
+    deserialized_ids = [agent.unique_id for agent in deserialized]
+
+    assert deserialized_ids == original_ids
+
+
+def test_agent_membership():
+    """Test agent membership in AgentSet."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    agentset = AgentSet(agents)
+
+    assert agents[0] in agentset
+    assert AgentTest(model) not in agentset
+
+
+def test_agent_add_remove_discard():
+    """Test adding, removing and discarding agents from AgentSet."""
+    model = Model()
+    agent = AgentTest(model)
+    agentset = AgentSet([], random=model.random)
+
+    agentset.add(agent)
+    assert agent in agentset
+
+    agentset.remove(agent)
+    assert agent not in agentset
+
+    agentset.add(agent)
+    agentset.discard(agent)
+    assert agent not in agentset
+
+    with pytest.raises(KeyError):
+        agentset.remove(agent)
+
+
+def test_agentset_to_list():
+    """Test AgentSet.to_list method."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # Test that to_list returns a list
+    agent_list = agentset.to_list()
+    assert isinstance(agent_list, list)
+    assert len(agent_list) == len(agents)
+
+    # Test that the list contains the same agents in the same order
+    assert agent_list == agents
+
+    # Test indexing on the returned list
+    assert agent_list[0] == agents[0]
+    assert agent_list[-1] == agents[-1]
+    assert agent_list[1:3] == agents[1:3]
+
+    # Test that modifying the list doesn't affect the AgentSet
+    agent_list.pop()
+    assert len(agentset) == 10
+
+
+def test_agentset_get_item():
+    """Test integer based access to AgentSet and deprecation warning."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # Test that __getitem__ raises PendingDeprecationWarning
+    with pytest.warns(
+        PendingDeprecationWarning, match="AgentSet.__getitem__ is deprecated"
+    ):
+        assert agentset[0] == agents[0]
+        assert agentset[-1] == agents[-1]
+        assert agentset[1:3] == agents[1:3]
+
+    with pytest.warns(PendingDeprecationWarning), pytest.raises(IndexError):
+        agentset[20]
+
+
+def test_agentset_do_str():
+    """Test AgentSet.do with str."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    with pytest.raises(AttributeError):
+        agentset.do("non_existing_method")
+
+    # tests for addition and removal in do
+    # do iterates, so no error should be raised to change size while iterating
+    # related to issue #1595
+
+    # setup
+    n = 10
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(n)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    agentset.do("do_add")
+    assert len(agentset) == 2 * n
+
+    # setup
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    agentset.do("do_remove")
+    assert len(agentset) == 0
+
+
+def test_agentset_do_callable():
+    """Test AgentSet.do with callable."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # Test callable with non-existent function
+    with pytest.raises(AttributeError):
+        agentset.do(lambda agent: agent.non_existing_method())
+
+    # tests for addition and removal in do using callables
+    # do iterates, so no error should be raised to change size while iterating
+    # related to issue #1595
+
+    # setup for lambda function tests
+    n = 10
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(n)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    # Lambda for addition
+    agentset.do(lambda agent: agent.do_add())
+    assert len(agentset) == 2 * n
+
+    # setup again for lambda function tests
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    # Lambda for removal
+    agentset.do(lambda agent: agent.do_remove())
+    assert len(agentset) == 0
+
+    # setup for actual function tests
+    def add_function(agent):
+        agent.do_add()
+
+    def remove_function(agent):
+        agent.do_remove()
+
+    # setup again for actual function tests
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(n)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    # Actual function for addition
+    agentset.do(add_function)
+    assert len(agentset) == 2 * n
+
+    # setup again for actual function tests
+    model = Model()
+    agents = [AgentDoTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+    for agent in agents:
+        agent.agent_set = agentset
+
+    # Actual function for removal
+    agentset.do(remove_function)
+    assert len(agentset) == 0
+
+
+def test_agentset_get():
+    """Test AgentSet.get."""
+    model = Model()
+    [AgentTest(model) for _ in range(10)]
+
+    agentset = model.agents
+
+    agentset.set("a", 5)
+    agentset.set("b", 6)
+
+    # Case 1: Normal retrieval of existing attributes
+    values = agentset.get(["a", "b"])
+    assert all((a == 5) & (b == 6) for a, b in values)
+
+    # Case 2: Raise AttributeError when attribute doesn't exist
+    with pytest.raises(AttributeError):
+        agentset.get("unknown_attribute")
+
+    # Case 3: Use default value when attribute is missing
+    results = agentset.get(
+        "unknown_attribute", handle_missing="default", default_value=True
+    )
+    assert all(results) is True
+
+    # Case 4: Retrieve mixed attributes with default value for missing ones
+    values = agentset.get(
+        ["a", "unknown_attribute"], handle_missing="default", default_value=True
+    )
+    assert all((a == 5) & (unknown is True) for a, unknown in values)
+
+    # Case 5: Invalid handle_missing value raises ValueError
+    with pytest.raises(ValueError):
+        agentset.get("unknown_attribute", handle_missing="some nonsense value")
+
+    # Case 6: Retrieve multiple attributes with mixed existence and 'default' handling
+    values = agentset.get(
+        ["a", "b", "unknown_attribute"], handle_missing="default", default_value=0
+    )
+    assert all((a == 5) & (b == 6) & (unknown == 0) for a, b, unknown in values)
+
+    # Case 7: 'default' handling when one attribute is completely missing from some agents
+    agentset.select(at_most=0.5).set("c", 8)  # Only some agents have attribute 'c'
+    values = agentset.get(["a", "c"], handle_missing="default", default_value=-1)
+    assert all((a == 5) & (c in [8, -1]) for a, c in values)
+
+
+def test_agentset_agg():
+    """Test agentset.agg."""
+    model = Model()
+    agents = [AgentTest(model) for i in range(10)]
+
+    # Assign some values to attributes
+    for i, agent in enumerate(agents):
+        agent.energy = i + 1
+        agent.wealth = 10 * (i + 1)
+
+    agentset = AgentSet(agents)
+
+    # Test min aggregation
+    min_energy = agentset.agg("energy", min)
+    assert min_energy == 1
+
+    # Test max aggregation
+    max_energy = agentset.agg("energy", max)
+    assert max_energy == 10
+
+    # Test sum aggregation
+    total_energy = agentset.agg("energy", sum)
+    assert total_energy == sum(range(1, 11))
+
+    # Test mean aggregation using numpy
+    avg_wealth = agentset.agg("wealth", np.mean)
+    assert avg_wealth == 55.0
+
+    # Test aggregation with a custom function
+    def custom_func(values):
+        return sum(values) / len(values)
+
+    custom_avg_energy = agentset.agg("energy", custom_func)
+    assert custom_avg_energy == 5.5
+
+    # Test with list of functions
+    min_max_energy = agentset.agg("energy", [min, max])
+    assert min_max_energy == [1, 10]
+
+    # Test with tuple of functions
+    min_energy, max_energy, total_energy = agentset.agg("energy", (min, max, sum))
+    assert [min_energy, max_energy, total_energy] == [1, 10, 55]
+
+    # Test with custom functions in a list
+    stats = agentset.agg("wealth", [min, max, np.mean, custom_func])
+    assert stats == [10, 100, 55.0, 55.0]
+
+
+def test_agentset_set_method():
+    """Test AgentSet.set."""
+
+    # Initialize the model and agents with and without existing attributes
+    class TestAgentWithAttribute(Agent):
+        def __init__(self, model, age=None):
+            super().__init__(model)
+            self.age = age
+
+    model = Model()
+    agents = [TestAgentWithAttribute(model, age=i) for i in range(5)]
+    agentset = AgentSet(agents)
+
+    # Set a new attribute "health" and an existing attribute "age" for all agents
+    agentset.set("health", 100).set("age", 50).set("status", "active")
+
+    # Check if all agents have the "health", "age", and "status" attributes correctly set
+    for agent in agentset:
+        assert hasattr(agent, "health")
+        assert agent.health == 100
+        assert hasattr(agent, "age")
+        assert agent.age == 50
+        assert hasattr(agent, "status")
+        assert agent.status == "active"
+
+
+def test_agentset_set_element_wise():
+    """Test AgentSet.set element-wise vs broadcast, derived from the value."""
+
+    class TestAgent(Agent):
+        pass
+
+    model = Model()
+    agentset = AgentSet([TestAgent(model) for _ in range(5)])
+
+    # a sequence whose length matches the AgentSet is assigned element-wise,
+    # in the same order get uses
+    values = [10, 20, 30, 40, 50]
+    agentset.set("energy", values)
+    assert agentset.get("energy") == values
+
+    # a get -> transform -> set round-trip stays consistent
+    doubled = [e * 2 for e in agentset.get("energy")]
+    agentset.set("energy", doubled)
+    assert agentset.get("energy") == doubled
+
+    # numpy arrays and tuples of matching length are also element-wise
+    agentset.set("energy", np.arange(5))
+    assert agentset.get("energy") == list(range(5))
+    agentset.set("energy", (100, 200, 300, 400, 500))
+    assert agentset.get("energy") == [100, 200, 300, 400, 500]
+
+    # a scalar is broadcast to every agent
+    agentset.set("energy", 7)
+    assert agentset.get("energy") == [7] * len(agentset)
+
+    # a string is a scalar, not a per-character sequence
+    agentset.set("label", "abcde")
+    assert agentset.get("label") == ["abcde"] * len(agentset)
+
+    # a sequence whose length does not match raises
+    with pytest.raises(ValueError, match="does not match the number of agents"):
+        agentset.set("energy", [1, 2, 3])
+
+
+def test_agentset_map_str():
+    """Test AgentSet.map with strings."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    with pytest.raises(AttributeError):
+        agentset.do("non_existing_method")
+
+    results = agentset.map("get_unique_identifier")
+    assert all(i == entry for i, entry in zip(results, range(1, 11)))
+
+
+def test_agentset_map_callable():
+    """Test AgentSet.map with callable."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    # Test callable with non-existent function
+    with pytest.raises(AttributeError):
+        agentset.map(lambda agent: agent.non_existing_method())
+
+    # tests for addition and removal in do using callables
+    # do iterates, so no error should be raised to change size while iterating
+    # related to issue #1595
+
+    results = agentset.map(lambda agent: agent.unique_id)
+    assert all(i == entry for i, entry in zip(results, range(1, 11)))
+
+
+def test_agentset_shuffle_do():
+    """Test AgentSet.shuffle_do method."""
+    model = Model()
+
+    class TestAgentShuffleDo(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.called = False
+
+        def test_method(self):
+            self.called = True
+
+    agents = [TestAgentShuffleDo(model) for _ in range(100)]
+    agentset = AgentSet(agents)
+
+    # Test shuffle_do with a string method name
+    agentset.shuffle_do("test_method")
+    assert all(agent.called for agent in agents)
+
+    # Reset the called flag
+    for agent in agents:
+        agent.called = False
+
+    # Test shuffle_do with a callable
+    agentset.shuffle_do(lambda agent: setattr(agent, "called", True))
+    assert all(agent.called for agent in agents)
+
+    # Verify that the order is indeed shuffled
+    original_order = list(agentset)
+    shuffled_order = []
+    agentset.shuffle_do(shuffled_order.append)
+    assert original_order != shuffled_order, (
+        "The order should be different after shuffle_do"
+    )
+
+    class AgentWithRemove(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.is_alive = True
+
+        def remove(self):
+            super().remove()
+            self.is_alive = False
+
+        def step(self):
+            if not self.is_alive:
+                raise Exception
+
+            agent_to_remove = self.random.choice(self.model.agents)
+
+            if agent_to_remove is not self:
+                agent_to_remove.remove()
+
+    model = Model(rng=32)
+    for _ in range(100):
+        AgentWithRemove(model)
+    model.agents.shuffle_do("step")
+
+
+def test_agentset_get_attribute():
+    """Test AgentSet.get for attributes."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    unique_ids = agentset.get("unique_id")
+    assert unique_ids == [agent.unique_id for agent in agents]
+
+    with pytest.raises(AttributeError):
+        agentset.get("non_existing_attribute")
+
+    model = Model()
+    agents = []
+    for i in range(10):
+        agent = AgentTest(model)
+        agent.i = i**2
+        agents.append(agent)
+    agentset = AgentSet(agents)
+
+    values = agentset.get(["unique_id", "i"])
+
+    for value, agent in zip(values, agents):
+        (
+            unique_id,
+            i,
+        ) = value
+        assert agent.unique_id == unique_id
+        assert agent.i == i
+
+
+def test_agentset_select_by_type():
+    """Test AgentSet.select for agent type."""
+    model = Model()
+    # Create a mix of agents of two different types
+    test_agents = [AgentTest(model) for _ in range(4)]
+    other_agents = [OtherAgentType(model) for _ in range(6)]
+
+    # Combine the two types of agents
+    mixed_agents = test_agents + other_agents
+    agentset = AgentSet(mixed_agents, random=model.random)
+
+    # Test selection by type
+    selected_test_agents = agentset.select(agent_type=AgentTest)
+    assert len(selected_test_agents) == len(test_agents)
+    assert all(isinstance(agent, AgentTest) for agent in selected_test_agents)
+    assert len(selected_test_agents) == 4
+
+    selected_other_agents = agentset.select(agent_type=OtherAgentType)
+    assert len(selected_other_agents) == len(other_agents)
+    assert all(isinstance(agent, OtherAgentType) for agent in selected_other_agents)
+    assert len(selected_other_agents) == 6
+
+    # Test with no type specified (should select all agents)
+    all_agents = agentset.select()
+    assert len(all_agents) == len(mixed_agents)
+
+
+def test_agentset_shuffle():
+    """Test AgentSet.shuffle."""
+    model = Model()
+    test_agents = [AgentTest(model) for _ in range(12)]
+
+    agentset = AgentSet(test_agents, random=model.random)
+    agentset = agentset.shuffle()
+    assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
+
+    agentset = AgentSet(test_agents, random=model.random)
+    agentset.shuffle(inplace=True)
+    assert not all(a1 == a2 for a1, a2 in zip(test_agents, agentset))
+
+
+def test_agentset_groupby():
+    """Test AgentSet.groupby."""
+
+    class TestAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.even = self.unique_id % 2 == 0
+            self.value = self.unique_id * 10
+
+        def get_unique_identifier(self):
+            return self.unique_id
+
+    model = Model()
+    agents = [TestAgent(model) for _ in range(10)]
+    agentset = AgentSet(agents)
+
+    groups = agentset.groupby("even")
+    assert len(groups.groups[True]) == 5
+    assert len(groups.groups[False]) == 5
+
+    groups = agentset.groupby(lambda a: a.unique_id % 2 == 0)
+    assert len(groups.groups[True]) == 5
+    assert len(groups.groups[False]) == 5
+    assert len(groups) == 2
+
+    even_group = groups.get_group(True)
+    assert len(even_group) == 5
+    assert all(agent.unique_id % 2 == 0 for agent in even_group)
+
+    assert groups.get_group("missing", default=None) is None
+
+    fallback_group = AgentSet([], random=model.random)
+    assert groups.get_group("missing", default=fallback_group) is fallback_group
+
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        groups.get_group("missing")
+
+    for group_name, group in groups:
+        assert len(group) == 5
+        assert group_name in {True, False}
+
+    sizes = agentset.groupby("even", result_type="list").map(len)
+    assert sizes == {True: 5, False: 5}
+
+    list_groups = agentset.groupby("even", result_type="list")
+    assert "missing" not in list_groups.groups
+    with pytest.raises(KeyError, match="No group found with name: missing"):
+        list_groups.get_group("missing")
+    assert "missing" not in list_groups.groups
+
+    assert list_groups.get_group("missing", default=None) is None
+    assert "missing" not in list_groups.groups
+
+    attributes = agentset.groupby("even", result_type="agentset").map("get", "even")
+    for group_name, group in attributes.items():
+        assert all(group_name == entry for entry in group)
+
+    groups = agentset.groupby("even", result_type="agentset")
+    another_ref_to_groups = groups.do("do", "step")
+    assert groups == another_ref_to_groups
+
+    groups = agentset.groupby("even", result_type="agentset")
+    another_ref_to_groups = groups.do(lambda x: x.do("step"))
+    assert groups == another_ref_to_groups
+
+    # New tests for count() method
+    groups = agentset.groupby("even")
+    count_result = groups.count()
+    assert count_result == {True: 5, False: 5}
+
+    # New tests for agg() method
+    groups = agentset.groupby("even")
+    sum_result = groups.agg("value", sum)
+    assert sum_result[True] == sum(agent.value for agent in agents if agent.even)
+    assert sum_result[False] == sum(agent.value for agent in agents if not agent.even)
+
+    max_result = groups.agg("value", max)
+    assert max_result[True] == max(agent.value for agent in agents if agent.even)
+    assert max_result[False] == max(agent.value for agent in agents if not agent.even)
+
+    min_result = groups.agg("value", min)
+    assert min_result[True] == min(agent.value for agent in agents if agent.even)
+    assert min_result[False] == min(agent.value for agent in agents if not agent.even)
+
+    # Test with a custom aggregation function
+    def custom_agg(values):
+        return sum(values) / len(values) if values else 0
+
+    custom_result = groups.agg("value", custom_agg)
+    assert custom_result[True] == custom_agg(
+        [agent.value for agent in agents if agent.even]
+    )
+    assert custom_result[False] == custom_agg(
+        [agent.value for agent in agents if not agent.even]
+    )
+
+
+def test_agentset_repr_and_str():
+    """AgentSet and its subclasses have informative repr/str showing the count."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+
+    agentset = AgentSet(agents, random=model.random)
+    assert repr(agentset) == "<AgentSet (5 agents)>"
+    assert str(agentset) == "AgentSet with 5 agents"
+
+    # _HardKeyAgentSet uses its own class name (repr is programmer-facing).
+    hard_set = _HardKeyAgentSet(agents, random=model.random)
+    assert repr(hard_set) == "<_HardKeyAgentSet (5 agents)>"
+    assert str(hard_set) == "_HardKeyAgentSet with 5 agents"
+
+    # Count reflects the actual size, including empty sets.
+    empty = AgentSet([], random=model.random)
+    assert repr(empty) == "<AgentSet (0 agents)>"
+
+
+def test_groupby_repr():
+    """GroupBy repr shows the number of groups and each group's identifier and size."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(6)]
+    grouped = AgentSet(agents, random=model.random).groupby(lambda a: a.unique_id % 3)
+    sizes = {name: len(group) for name, group in grouped.groups.items()}
+    assert repr(grouped) == f"GroupBy(3 groups: {sizes})"
+
+
+def test_hardkeyagentset_init():
+    """Test _HardKeyAgentSet initialization and storage."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+
+    with pytest.warns(UserWarning):
+        _ = _HardKeyAgentSet([], random=None)
+        _ = _HardKeyAgentSet(agents, random=None)
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    assert len(hard_set) == 5
+    assert all(a in hard_set for a in agents)
+    assert hard_set.random == model.random
+
+    assert hard_set[0] == agents[0]
+
+    hard_set.discard(agents[0])
+    assert agents[0] not in hard_set
+
+
+def test_hardkeyagentset_downgrade():
+    """Test that _HardKeyAgentSet downgrades to AgentSet on views to prevent memory leaks."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    view = hard_set.select(at_most=5)
+    assert isinstance(view, AgentSet)
+    assert not isinstance(view, _HardKeyAgentSet)
+    assert len(view) == 5
+
+    same_set = hard_set.select(inplace=True)
+    assert isinstance(same_set, _HardKeyAgentSet)
+    assert same_set is hard_set
+    assert len(same_set) == 10
+
+    shuffled_view = hard_set.shuffle(inplace=False)
+    assert isinstance(shuffled_view, AgentSet)
+    assert not isinstance(shuffled_view, _HardKeyAgentSet)
+
+    copied = hard_set.copy()
+    assert isinstance(copied, AgentSet)
+    assert not isinstance(copied, _HardKeyAgentSet)
+    assert len(copied) == 10
+
+    new_copied = copy.copy(hard_set)
+    assert isinstance(new_copied, AgentSet)
+    assert not isinstance(new_copied, _HardKeyAgentSet)
+    assert len(new_copied) == 10
+
+    sorted_view = hard_set.sort("unique_id")
+    assert isinstance(sorted_view, AgentSet)
+
+    groups = hard_set.groupby(lambda a: a.unique_id % 2 == 0)
+    for group in groups.groups.values():
+        assert isinstance(group, AgentSet)
+        assert not isinstance(group, _HardKeyAgentSet)
+
+    groups_list = hard_set.groupby(lambda a: a.unique_id % 2 == 0, result_type="list")
+    for group in groups_list.groups.values():
+        assert isinstance(group, list)
+
+
+def test_hardkeyagentset_inplace():
+    """Test inplace sort and shuffle on _HardKeyAgentSet (should NOT downgrade)."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    # Give them IDs out of order to test sorting
+    for i, a in enumerate(agents):
+        a.unique_id = 10 - i
+
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    # Sort Inplace
+    res_sort = hard_set.sort("unique_id", inplace=True)
+
+    assert isinstance(res_sort, _HardKeyAgentSet)
+    assert res_sort is hard_set
+    assert next(iter(hard_set)).unique_id == 10
+
+    # Shuffle Inplace
+    res_shuffle = hard_set.shuffle(inplace=True)
+    assert isinstance(res_shuffle, _HardKeyAgentSet)
+    assert res_shuffle is hard_set
+
+
+def test_hardkeyagentset_str():
+    """Test _HardKeyAgentSet with strings."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(10)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    with pytest.raises(AttributeError):
+        hard_set.do("non_existing_method")
+
+    results = hard_set.map("get_unique_identifier")
+    assert all(i == entry for i, entry in zip(results, range(1, 11)))
+
+    class ShrinkingAgent(Agent):
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.ran = False
+
+        def run(self):
+            # If "Killer" runs, they remove "Victim" from the set
+            if self.name == "Killer":  # pragma: no cover
+                victim = next(a for a in self.model.hard_set if a.name == "Victim")
+                self.model.hard_set.remove(victim)
+
+            self.ran = True
+
+    success = False
+    # We iterate a few seeds to ensure we find a case where "Killer" is shuffled
+    # BEFORE "Victim". This guarantees we exercise the safety check.
+    for seed in range(20):  # pragma: no cover
+        model = Model(rng=seed)
+        killer = ShrinkingAgent(model, "Killer")
+        victim = ShrinkingAgent(model, "Victim")
+
+        hard_set = _HardKeyAgentSet([killer, victim], model.random)
+        model.hard_set = hard_set
+
+        assert killer in hard_set
+        assert victim in hard_set
+
+        hard_set.shuffle_do("run")
+
+        if killer.ran and not victim.ran:  # pragma: no cover
+            assert victim not in hard_set
+            success = True
+            break
+
+    assert success
+
+
+def test_agentset_do_shuffle_do_map_methods():
+    """Test map, do, and shuffle_do on weak-ref AgentSet with str and callable."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    aset = AgentSet(agents, random=model.random)
+
+    # map with str
+    res_str = aset.map("get_unique_identifier")
+    assert len(res_str) == 5
+
+    # map with callable
+    res_call = aset.map(lambda a: a.unique_id)
+    assert len(res_call) == 5
+
+    # do with str
+    aset.do("get_unique_identifier")
+
+    # do with callable
+    for a in agents:
+        a.touched = False
+    aset.do(lambda a: setattr(a, "touched", True))
+    assert all(a.touched for a in agents)
+
+    # shuffle_do with str
+    aset.shuffle_do("get_unique_identifier")
+
+    # shuffle_do with callable
+    aset.shuffle_do(lambda a: setattr(a, "touched", False))
+    assert all(not a.touched for a in agents)
+
+
+def test_agentset_do_skips_agent_removed_mid_iteration():
+    """Weak AgentSet.do/shuffle_do/map must not call an agent removed mid-iteration.
+
+    This tests that `agent in self._agents` guard works across `do`, `shuffle_do`,
+    and `map` with both string method names and callables.
+    """
+
+    class ShrinkingAgent(Agent):
+        def __init__(self, model, name):
+            super().__init__(model)
+            self.name = name
+            self.ran = False
+
+        def run(self):
+            if self.name == "Killer":
+                victim = next(a for a in self.model.aset if a.name == "Victim")
+                self.model.aset.discard(victim)
+                victim.remove()
+            self.ran = True
+            return self.name
+
+    # 1. Test do(str)
+    model = Model()
+    killer = ShrinkingAgent(model, "Killer")
+    victim = ShrinkingAgent(model, "Victim")
+    model.aset = AgentSet([killer, victim], random=model.random)
+    model.aset.do("run")
+    assert killer.ran and not victim.ran
+    assert victim not in model.aset
+
+    # 2. Test do(callable)
+    model = Model()
+    killer = ShrinkingAgent(model, "Killer")
+    victim = ShrinkingAgent(model, "Victim")
+    model.aset = AgentSet([killer, victim], random=model.random)
+    model.aset.do(lambda a: a.run())
+    assert killer.ran and not victim.ran
+    assert victim not in model.aset
+
+    # 3. Test map(str)
+    model = Model()
+    killer = ShrinkingAgent(model, "Killer")
+    victim = ShrinkingAgent(model, "Victim")
+    model.aset = AgentSet([killer, victim], random=model.random)
+    results = model.aset.map("run")
+    assert killer.ran and not victim.ran
+    assert results == ["Killer"]
+    assert victim not in model.aset
+
+    # 4. Test map(callable)
+    model = Model()
+    killer = ShrinkingAgent(model, "Killer")
+    victim = ShrinkingAgent(model, "Victim")
+    model.aset = AgentSet([killer, victim], random=model.random)
+    results = model.aset.map(lambda a: a.run())
+    assert killer.ran and not victim.ran
+    assert results == ["Killer"]
+    assert victim not in model.aset
+
+    # 5. Test shuffle_do(str) and shuffle_do(callable)
+    for method in ["run", lambda a: a.run()]:
+        success = False
+        for seed in range(20):
+            model = Model(rng=seed)
+            killer = ShrinkingAgent(model, "Killer")
+            victim = ShrinkingAgent(model, "Victim")
+            model.aset = AgentSet([killer, victim], random=model.random)
+            model.aset.shuffle_do(method)
+
+            if killer.ran and not victim.ran:
+                assert victim not in model.aset
+                success = True
+                break
+        assert success, f"Never exercised killer-first ordering for {method}"
+
+
+def test_hardkeyagentset_map_do_shuffledo():
+    """Test map and shuffle_do overrides on _HardKeyAgentSet."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(5)]
+    hard_set = _HardKeyAgentSet(agents, model.random)
+
+    ids = hard_set.map(lambda a: a.unique_id)
+
+    assert isinstance(ids, list)
+    assert len(ids) == 5
+    assert all(i in [a.unique_id for a in agents] for i in ids)
+
+    for a in agents:
+        a.touched = False
+    hard_set.do(lambda a: setattr(a, "touched", True))
+    assert all(a.touched for a in agents)
+
+    res = hard_set.shuffle_do(lambda a: setattr(a, "touched", False))
+
+    assert isinstance(res, _HardKeyAgentSet)
+    assert res is hard_set
+    assert all(not a.touched for a in agents)
+
+
+def test_hardkeyagentset_add_remove():
+    """Test explicit add and remove on _HardKeyAgentSet."""
+    model = Model()
+    agent = AgentTest(model)
+    hard_set = _HardKeyAgentSet([], model.random)
+
+    hard_set.add(agent)
+    assert agent in hard_set
+    assert len(hard_set) == 1
+    assert hard_set[0] == agent
+
+    hard_set.remove(agent)
+    assert agent not in hard_set
+    assert len(hard_set) == 0
+
+    with pytest.raises(KeyError):
+        hard_set.remove(agent)
+
+
+def test_select_random_uniform():
+    """Test uniform random selection without replacement."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Sample n=5
+    sampled = agentset.select_random(5)
+    assert isinstance(sampled, AgentSet)
+    assert len(sampled) == 5
+    assert len(set(sampled)) == 5  # No duplicates
+
+    # Error when n > len(agentset) without replacement
+    with pytest.raises(ValueError, match=r"Sample size .* cannot exceed AgentSet size"):
+        agentset.select_random(50)
+
+    # Reproducibility with seed
+    model1 = Model()
+    model1.random = Random(123)
+    agents1 = [AgentTest(model1) for _ in range(20)]
+    s1 = AgentSet(agents1, random=model1.random).select_random(5)
+
+    model2 = Model()
+    model2.random = Random(123)
+    agents2 = [AgentTest(model2) for _ in range(20)]
+    s2 = AgentSet(agents2, random=model2.random).select_random(5)
+
+    assert [a.unique_id for a in s1] == [a.unique_id for a in s2]
+
+
+def test_select_random_with_replacement():
+    """Test uniform random selection with replacement."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Sample with replacement into an AgentSet (unique agents)
+    sampled = agentset.select_random(10, replace=True)
+    assert isinstance(sampled, AgentSet)
+    assert 1 <= len(sampled) <= 3
+    # Every sampled agent must be in the original agentset
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_fraction():
+    """Test fractional sampling."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # 0.25 of 20 = 5
+    sampled = agentset.select_random(0.25)
+    assert len(sampled) == 5
+
+    # 0.5 of 20 = 10
+    sampled_half = agentset.select_random(0.5)
+    assert len(sampled_half) == 10
+
+
+def test_select_random_inplace():
+    """Test inplace selection."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(20)]
+    agentset = AgentSet(agents, random=model.random)
+
+    res = agentset.select_random(5, inplace=True)
+    assert res is agentset
+    assert len(agentset) == 5
+
+
+def test_select_random_weighted_attribute():
+    """Test weighted selection using agent attribute name."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(4)]
+    # Set fitnesses: [1, 1, 1, 100]
+    agents[0].fitness = 1.0
+    agents[1].fitness = 1.0
+    agents[2].fitness = 1.0
+    agents[3].fitness = 100.0
+
+    agentset = AgentSet(agents, random=model.random)
+
+    # Draw 500 single samples with replacement
+    draws = [
+        agentset.select_random(1, weights="fitness", replace=True).to_list()[0]
+        for _ in range(500)
+    ]
+    # Agent 3 (fitness=100) should be drawn roughly 100/103 ~ 97% of the time
+    count_top = sum(1 for a in draws if a == agents[3])
+    assert count_top > 450
+
+
+def test_select_random_weighted_callable():
+    """Test weighted selection using a callable."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agents[0].energy = 2
+    agents[1].energy = 4
+    agents[2].energy = 8
+
+    agentset = AgentSet(agents, random=model.random)
+
+    sampled = agentset.select_random(2, weights=lambda a: a.energy**2, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_weighted_sequence():
+    """Test weighted selection using a numerical sequence."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    weights = [0.1, 0.1, 0.8]
+    sampled = agentset.select_random(2, weights=weights, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+@pytest.mark.parametrize("invalid_weight", [np.nan, np.inf])
+def test_select_random_rejects_nonfinite_weights(invalid_weight):
+    """Weighted sampling rejects values that cannot define probabilities."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(ValueError, match="All weights must be finite"):
+        agentset.select_random(1, weights=[invalid_weight, 1.0], replace=False)
+
+
+def test_select_random_weighted_without_replacement():
+    """Test weighted selection without replacement using Efraimidis-Spirakis."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(5)]
+    for i, a in enumerate(agents):
+        a.weight = float(i + 1)
+
+    agentset = AgentSet(agents, random=model.random)
+    sampled = agentset.select_random(3, weights="weight", replace=False)
+    assert len(sampled) == 3
+    assert len(set(sampled)) == 3  # Distinct agents
+
+
+def test_select_random_weighted_without_replacement_rejects_zero_weight_fill():
+    """Zero-weight agents cannot fill a weighted sample."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(
+        ValueError, match="cannot exceed the number of agents with positive weights"
+    ):
+        agentset.select_random(2, weights=[1.0, 0.0, 0.0], replace=False)
+
+
+def test_select_random_weighted_without_replacement_excludes_zero_weights():
+    """Zero-weight agents are excluded when enough positive weights exist."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(4)]
+    agentset = AgentSet(agents, random=model.random)
+
+    sampled = agentset.select_random(3, weights=[1.0, 2.0, 3.0, 0.0], replace=False)
+
+    assert len(sampled) == 3
+    assert agents[3] not in sampled
+
+
+def test_select_random_edge_cases_and_errors():
+    """Test edge cases and error handling."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    # Empty agentset
+    empty_set = AgentSet([], random=model.random)
+    with pytest.raises(ValueError, match="Cannot sample from an empty AgentSet"):
+        empty_set.select_random(5)
+
+    # n <= 0
+    with pytest.raises(ValueError, match="n must be a positive integer"):
+        agentset.select_random(0)
+    with pytest.raises(ValueError, match="n must be a positive integer"):
+        agentset.select_random(-1)
+
+    # Invalid fractional n
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(0.0)
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(-0.5)
+    with pytest.raises(ValueError, match="Fractional sample size"):
+        agentset.select_random(1.5)
+
+    # Invalid type for n
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random("five")
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random(True)
+
+    # n > len(agentset) when replace=False
+    with pytest.raises(ValueError, match="cannot exceed AgentSet size"):
+        agentset.select_random(10, replace=False)
+
+    # Negative weights
+    agents[0].w = -5
+    agents[1].w = 10
+    agents[2].w = 10
+    with pytest.raises(ValueError, match="non-negative"):
+        agentset.select_random(2, weights="w")
+
+    # Sum of weights <= 0
+    agents[0].w = 0
+    agents[1].w = 0
+    agents[2].w = 0
+    with pytest.raises(ValueError, match="strictly positive"):
+        agentset.select_random(2, weights="w")
+
+    # Sequence length mismatch
+    with pytest.raises(ValueError, match="Length of weights"):
+        agentset.select_random(2, weights=[1.0, 2.0])
+
+    # Unsupported weights type
+    with pytest.raises(TypeError, match="Unsupported weights type"):
+        agentset.select_random(2, weights=12345)
+
+
+@pytest.mark.parametrize(
+    "n", [np.int64(2), np.int32(2), np.uint8(2), np.float64(0.5), np.float32(0.5)]
+)
+def test_select_random_accepts_numpy_numbers(n):
+    """Test that numpy integer and float scalars are accepted for n."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(4)]
+    agentset = AgentSet(agents, random=model.random)
+
+    assert len(agentset.select_random(n)) == 2
+
+
+def test_select_random_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    with pytest.raises(TypeError, match="n must be an integer or float"):
+        agentset.select_random(np.True_)
+
+
+def test_select_random_realistic_abm_evolution_scenario():
+    """Test a realistic Agent-Based evolutionary selection scenario.
+
+    In this ABM scenario, a population of agents undergoes fitness-proportionate
+    reproduction across multiple generations. Fitter agents reproduce more often,
+    causing average population fitness to increase over generations.
+    """
+    model = Model()
+    model.random = Random(100)
+
+    # Initialize 50 agents with random fitness traits
+    agents = [AgentTest(model) for _ in range(50)]
+    for a in agents:
+        a.trait = model.random.uniform(1.0, 5.0)
+
+    population = AgentSet(agents, random=model.random)
+    initial_mean_fitness = population.agg("trait", sum) / len(population)
+
+    # Simulate 5 generations of evolutionary reproduction
+    for _ in range(5):
+        # Sample parents proportional to fitness trait
+        parents = population.select_random(
+            len(population), weights="trait", replace=True
+        )
+
+        # Offspring inherit parent trait with small mutation
+        offspring_agents = []
+        for p in parents:
+            child = AgentTest(model)
+            mutation = model.random.uniform(-0.1, 0.3)  # slight positive bias
+            child.trait = max(0.1, p.trait + mutation)
+            offspring_agents.append(child)
+
+        population = AgentSet(offspring_agents, random=model.random)
+
+    final_mean_fitness = population.agg("trait", sum) / len(population)
+
+    # Evolutionary pressure via weighted sampling increases population fitness
+    assert final_mean_fitness > initial_mean_fitness

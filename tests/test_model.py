@@ -3,7 +3,6 @@
 import numpy as np
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.devs.simulator import DEVSimulator
 from mesa.model import Model
 
 
@@ -11,12 +10,9 @@ def test_model_set_up():
     """Test Model initialization."""
     model = Model()
     assert model.running is True
-    assert model.steps == 0
     assert model.time == 0.0
-    assert model._simulator is None
 
     model.step()
-    assert model.steps == 1
     assert model.time == 1.0
 
 
@@ -26,23 +22,7 @@ def test_model_time_increment():
 
     for i in range(5):
         model.step()
-        assert model.steps == i + 1
         assert model.time == float(i + 1)
-
-
-def test_model_time_with_simulator():
-    """Test that simulator controls time when attached."""
-    model = Model()
-    simulator = DEVSimulator()
-    simulator.setup(model)
-
-    # Simulator is now attached
-    assert model._simulator is simulator
-
-    # Time should not auto-increment when simulator is attached
-    # (In practice, the simulator controls stepping, but we can test the flag)
-    model._user_step()  # Call user step directly to avoid wrapped_step
-    # Time unchanged because simulator controls it
 
 
 def test_running():
@@ -51,66 +31,31 @@ def test_running():
     class TestModel(Model):
         def step(self):
             """Stop at step 10."""
-            if self.steps == 10:
+            if self.time == 10:
                 self.running = False
 
     model = TestModel()
     model.run_model()
-    assert model.steps == 10
     assert model.time == 10.0
 
 
-def test_seed(seed=23):
+def test_rng(rng=23):
     """Test initialization of model with specific seed."""
-    model = Model(seed=seed)
-    assert model._seed == seed
-    model2 = Model(seed=seed + 1)
-    assert model2._seed == seed + 1
-    assert model._seed == seed
+    model = Model(rng=rng)
+    assert model.scenario.seed_sequence.entropy == rng
+    model2 = Model(rng=rng + 1)
+    assert model2.scenario.seed_sequence.entropy == rng + 1
+    assert model.scenario.seed_sequence.entropy == rng
 
-    assert Model(seed=42).random.random() == Model(seed=42).random.random()
+    assert Model(rng=42).random.random() == Model(rng=42).random.random()
     assert np.all(
-        Model(seed=42).rng.random(
+        Model(rng=42).rng.random(
             10,
         )
-        == Model(seed=42).rng.random(
+        == Model(rng=42).rng.random(
             10,
         )
     )
-
-
-def test_reset_randomizer(newseed=42):
-    """Test resetting the random seed on the model."""
-    model = Model()
-    oldseed = model._seed
-    model.reset_randomizer()
-    assert model._seed == oldseed
-    model.reset_randomizer(seed=newseed)
-    assert model._seed == newseed
-
-
-def test_reset_rng(newseed=42):
-    """Test resetting the random seed on the model."""
-    model = Model(rng=5)
-    old_rng = model._rng
-
-    model.reset_rng(rng=6)
-    new_rng = model._rng
-
-    assert old_rng != new_rng
-
-    old_rng = new_rng
-    model.reset_rng()
-    new_rng = model.rng.bit_generator.state
-
-    assert old_rng == new_rng
-
-    model = Model(rng=np.random.MT19937(42))
-    old_rng = model._rng
-    model.reset_rng()
-    new_rng = model.rng.bit_generator.state
-
-    assert np.all(old_rng["state"]["key"] == new_rng["state"]["key"])
 
 
 def test_agent_types():
@@ -156,3 +101,46 @@ def test_agent_remove():
 
     model.remove_all_agents()
     assert len(model.agents) == 0
+
+
+def test_agent_removed_hook():
+    """Agent removal hooks run synchronously after deregistration."""
+    model = Model()
+    removed = []
+    model._register_agent_removed_hook(removed.append)
+
+    agent = Agent(model)
+    assert removed == []
+
+    agent.remove()
+    assert removed == [agent]
+    assert agent not in model.agents
+
+
+def test_agents_by_type_keeps_empty_bucket():
+    """Removing all agents of a type keeps its empty bucket in agents_by_type.
+
+    The per-type AgentSet is retained (as an empty set) after the last agent of
+    that type is removed, and the type stays listed in agent_types. Models such
+    as WolfSheep rely on this: they index agents_by_type[SomeType] every step and
+    expect an empty set rather than a KeyError once that type goes extinct.
+    """
+
+    class Predator(Agent):
+        pass
+
+    class Prey(Agent):
+        pass
+
+    model = Model()
+    for _ in range(3):
+        Predator(model)
+    for _ in range(2):
+        Prey(model)
+
+    for agent in list(model.agents_by_type[Prey]):
+        agent.remove()
+
+    assert Prey in model.agent_types
+    assert len(model.agents_by_type[Prey]) == 0
+    assert len(model.agents_by_type[Predator]) == 3

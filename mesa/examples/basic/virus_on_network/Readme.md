@@ -14,21 +14,19 @@ For more information about this model, read the NetLogo's web page: http://ccl.n
 
 JavaScript library used in this example to render the network: [d3.js](https://d3js.org/).
 
-## Installation
-
-To install the dependencies use pip and the requirements.txt in this directory. e.g.
-
-```
-    $ pip install -r requirements.txt
-```
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Install Mesa with recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+Then run the example:
+
+solara run app.py
+
+Open the displayed local URL in your browser.
+
 
 ## Files
 

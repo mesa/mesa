@@ -8,18 +8,22 @@ This model tests Mesa's continuous space feature, and uses numpy arrays to repre
 
 ## How to Run
 
-To run the model interactively, in this directory, run the following command
+Install Mesa with recommended dependencies:
 
-```
-    $ solara run app.py
-```
+pip install "mesa[rec]"
+
+Then run the example:
+
+solara run app.py
+
+Open the displayed local URL in your browser.
 
 
 ## Files
 
-* [model.py](model.py): Contains the Boid Model
-* [agents.py](agents.py): Contains the Boid agent
-* [app.py](app.py): Solara based Visualization code.
+* ``model.py``: Contains the Boid Model
+* ``agents.py``: Contains the Boid agent
+* ``app.py``: Solara based Visualization code.
 
 ## Further Reading
 

@@ -8,6 +8,7 @@ from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannWealth
 from mesa.examples.basic.conways_game_of_life.model import ConwaysGameOfLife
 from mesa.examples.basic.schelling.model import Schelling
 from mesa.examples.basic.virus_on_network.model import VirusOnNetwork
+from mesa.examples.experimental.tram_model.model import TransitSystem
 
 __all__ = [
     "BoidFlockers",
@@ -18,6 +19,7 @@ __all__ = [
     "PdGrid",
     "Schelling",
     "SugarscapeG1mt",
+    "TransitSystem",
     "VirusOnNetwork",
     "WolfSheep",
 ]

@@ -98,8 +98,24 @@ class CellCollection[T: Cell]:
     def agents(self) -> Iterable[CellAgent]:  # noqa
         return itertools.chain.from_iterable(self._cells.values())
 
-    def select_random_cell(self) -> T:
-        """Select a random cell."""
+    def select_random_cell(self, default=RAISES) -> T | None:
+        """Select a random cell from the collection.
+
+        Args:
+            default: Value to return if the collection is empty.
+                     If not provided, raises LookupError.
+
+        Returns:
+            T: A random cell, or the default value if provided and collection is empty.
+
+        Raises:
+            LookupError: If collection is empty and no default is provided.
+        """
+        if not self._cells:
+            if default is RAISES:
+                raise LookupError("Cannot select random cell from empty collection")
+            return default
+
         return self.random.choice(self.cells)
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
@@ -140,11 +156,18 @@ class CellCollection[T: Cell]:
         Returns:
             CellCollection
 
+        Raises:
+            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+
         """
         if filter_func is None and at_most == float("inf"):
             return self
 
-        if at_most <= 1.0 and isinstance(at_most, float):
+        if isinstance(at_most, float) and at_most != float("inf"):
+            if not (0.0 < at_most <= 1.0):
+                raise ValueError(
+                    f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
+                )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
 
         def cell_generator(filter_func, at_most):

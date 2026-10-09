@@ -16,6 +16,11 @@ from mesa.examples import (
     VirusOnNetwork,
     WolfSheep,
 )
+from mesa.examples.advanced.pd_grid.model import PrisonersDilemmaScenario
+from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
+from mesa.examples.basic.boid_flockers.model import BoidsScenario
+from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
+from mesa.examples.basic.schelling.model import SchellingScenario
 from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.components.matplotlib_components import (
     PlotMatplotlib,
@@ -39,7 +44,7 @@ def run_model_test(
     try:
         # Create visualizations for the initial model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, propertylayer_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         initial_graph = None
 
@@ -57,12 +62,11 @@ def run_model_test(
             initial_graph = page_session.locator("img").screenshot()
 
         # Run the model for specified number of steps
-        for _ in range(steps):
-            model.step()
+        model.run_for(steps)
 
         # Create new visualizations for the updated model state
         space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, propertylayer_portrayal=None
+            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
         )
         changed_graph = None
 
@@ -72,7 +76,7 @@ def run_model_test(
         # Display and capture the updated visualizations
         display(space_viz)
         page_session.wait_for_selector("img")
-        changed_space = page_session.locator("img").first.screenshot()
+        changed_space = page_session.locator("img").last.screenshot()
 
         if measure_config:
             display(graph_viz)
@@ -105,7 +109,7 @@ def run_model_test(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_schelling_model(solara_test, page_session: playwright.sync_api.Page):
     """Test schelling model behavior and visualization."""
-    model = Schelling(seed=42)
+    model = Schelling(scenario=SchellingScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -131,9 +135,8 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
         Sheep,
         Wolf,
     )
-    from mesa.experimental.devs import ABMSimulator  # noqa: PLC0415
 
-    model = WolfSheep(simulator=ABMSimulator(), seed=42)
+    model = WolfSheep(scenario=WolfSheepScenario(rng=42))
 
     def agent_portrayal(agent):
         if agent is None:
@@ -174,7 +177,7 @@ def test_wolf_sheep_model(solara_test, page_session: playwright.sync_api.Page):
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page):
     """Test boid flockers model behavior and visualization."""
-    model = BoidFlockers(seed=42)
+    model = BoidFlockers(scenario=BoidsScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color="tab:blue")
@@ -191,7 +194,7 @@ def test_boid_flockers_model(solara_test, page_session: playwright.sync_api.Page
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_boltzmann_wealth_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Boltzmann wealth model behavior and visualization."""
-    model = BoltzmannWealth(seed=42)
+    model = BoltzmannWealth(scenario=BoltzmannScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(color=agent.wealth)
@@ -212,7 +215,7 @@ def test_virus_on_network_model(solara_test, page_session: playwright.sync_api.P
     """Test virus on network model behavior and visualization."""
     from mesa.examples.basic.virus_on_network.model import State  # noqa: PLC0415
 
-    model = VirusOnNetwork(seed=42)
+    model = VirusOnNetwork(rng=42)
 
     def agent_portrayal(agent):
         node_color_dict = {
@@ -243,7 +246,7 @@ def test_conways_game_of_life_model(
     solara_test, page_session: playwright.sync_api.Page
 ):
     """Test Conway's Game of Life model behavior and visualization."""
-    model = ConwaysGameOfLife(seed=42)
+    model = ConwaysGameOfLife(rng=42)
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -278,7 +281,7 @@ def test_epstein_civil_violence_model(
         agent_colors,
     )
 
-    model = EpsteinCivilViolence(seed=42)
+    model = EpsteinCivilViolence()
 
     def agent_portrayal(agent):
         if agent is None:
@@ -309,7 +312,11 @@ def test_epstein_civil_violence_model(
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Sugarscape G1mt model behavior and visualization."""
-    model = SugarscapeG1mt(seed=42)
+    from mesa.examples.advanced.sugarscape_g1mt.model import (  # noqa: PLC0415
+        SugarScapeScenario,
+    )
+
+    model = SugarscapeG1mt(SugarScapeScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(marker="o", color="red", size=10)
@@ -329,7 +336,7 @@ def test_sugarscape_g1mt_model(solara_test, page_session: playwright.sync_api.Pa
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
     """Test Prisoner's Dilemma model behavior and visualization."""
-    model = PdGrid(seed=42)
+    model = PdGrid(scenario=PrisonersDilemmaScenario(rng=42))
 
     def agent_portrayal(agent):
         return AgentPortrayalStyle(
@@ -347,3 +354,21 @@ def test_pd_grid_model(solara_test, page_session: playwright.sync_api.Page):
         solara_test=solara_test,
         page_session=page_session,
     )
+
+
+# fixme: model has no space, so test code breaks on this
+# @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+# def test_alliance_model(solara_test, page_session: playwright.sync_api.Page):
+#     """Test alliance formation visualization."""
+#     model = MultiLevelAllianceModel(scenario=AllianceScenario(n=50, rng=42))
+#
+#     def agent_portrayal(agent):
+#         return AgentPortrayalStyle()
+#
+#     run_model_test(
+#         model=model,
+#         agent_portrayal=agent_portrayal,
+#         measure_config=None,
+#         solara_test=solara_test,
+#         page_session=page_session,
+#     )

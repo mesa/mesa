@@ -12,11 +12,16 @@ Useful for modeling systems like social networks, transportation systems,
 or any environment where connectivity matters more than physical location.
 """
 
+from collections.abc import Callable, Mapping
 from random import Random
 from typing import Any
 
+import numpy as np
+from scipy.spatial import KDTree
+
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.exceptions import SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -28,6 +33,7 @@ class Network(DiscreteSpace[Cell]):
         capacity: int | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
+        layout: Mapping | Callable | None = None,
     ) -> None:
         """A Networked grid.
 
@@ -36,17 +42,70 @@ class Network(DiscreteSpace[Cell]):
             capacity (int) : the capacity of the cell
             random (Random): a random number generator
             cell_klass (type[Cell]): The base Cell class to use in the Network
-
+            layout: A dictionary mapping node IDs to physical positions (x, y),
+                or a callable that generates them (e.g. nx.spring_layout).
+                It defaults to nx.circular_layout
+                This ensures all nodes possess physical (x, y) positions for visualization and
+                spatial queries without introducing performance bottlenecks on large graphs
         """
+        if layout is None:
+            import networkx as nx  # noqa: PLC0415
+
+            layout = nx.circular_layout
+
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.G = G
 
-        for node_id in self.G.nodes:
-            self._cells[node_id] = self.cell_klass(
-                node_id, capacity, random=self.random
+        # Resolve positions from the layout argument
+        node_positions = {}
+        if callable(layout):
+            node_positions = layout(self.G)
+        elif isinstance(layout, Mapping):
+            node_positions = layout
+        else:
+            raise TypeError(
+                "Incorrect Layout Argument.\nShould be either `Mapping` or `Callable`"
             )
 
+        self._kdtree_cells = []
+        self._kdtree_dirty = False  # True when KDTree needs a rebuild.
+        positions_for_tree = []
+
+        # Create cells and gather KD-Tree data simultaneously
+        for node_id in self.G.nodes:
+            try:
+                pos = np.array(node_positions[node_id])
+            except KeyError as e:
+                raise SpaceException(
+                    f"Node ID '{node_id}' is missing from the provided layout dictionary."
+                ) from e
+
+            cell = self.cell_klass(
+                coordinate=node_id,
+                capacity=capacity,
+                random=self.random,
+                position=pos,
+            )
+            self._cells[node_id] = cell
+
+            self._kdtree_cells.append(cell)
+            positions_for_tree.append(pos)
+
+        if positions_for_tree:
+            self._kdtree = KDTree(np.array(positions_for_tree))
+        else:
+            self._kdtree = None
+
         self._connect_cells()
+
+    def _rebuild_kdtree(self) -> None:
+        """Rebuild the KD-Tree."""
+        if self._kdtree_cells:
+            positions = np.array([c._position for c in self._kdtree_cells])
+            self._kdtree = KDTree(positions)
+        else:
+            self._kdtree = None
+        self._kdtree_dirty = False  # set to false after rebuilding  every time
 
     def _connect_cells(self) -> None:
         for cell in self.all_cells:
@@ -56,15 +115,53 @@ class Network(DiscreteSpace[Cell]):
         for node_id in self.G.neighbors(cell.coordinate):
             cell.connect(self._cells[node_id], node_id)
 
+    def find_nearest_cell(self, position: np.ndarray) -> Cell:
+        """Find the network node nearest to the given position.
+
+        Only works for spatial networks (networks with node positions).
+
+        Note:
+            The KD-Tree index is rebuilt lazily. If cells were added or removed
+            since the previous spatial query, this method rebuilds the KD-Tree
+            before performing the nearest-neighbor lookup.
+
+        Args:
+            position: Physical position [x, y]
+
+        Returns:
+            Cell: The node closest to the position
+
+        Raises:
+            ValueError: If network is not spatial
+        """
+        # build the kd-tree once if the _kdtree_dirty flag is true
+
+        if self._kdtree_dirty:
+            self._rebuild_kdtree()
+
+        if getattr(self, "_kdtree", None) is None:
+            raise ValueError("No nodes with positions found in network")
+
+        _, index = self._kdtree.query(position)
+        return self._kdtree_cells[index]
+
     def add_cell(self, cell: Cell):
         """Add a cell to the space."""
         super().add_cell(cell)
         self.G.add_node(cell.coordinate)
 
+        if cell._position is not None:
+            self._kdtree_cells.append(cell)
+            self._kdtree_dirty = True
+
     def remove_cell(self, cell: Cell):
         """Remove a cell from the space."""
         super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
+
+        if cell._position is not None and cell in self._kdtree_cells:
+            self._kdtree_cells.remove(cell)
+            self._kdtree_dirty = True
 
     def add_connection(self, cell1: Cell, cell2: Cell):
         """Add a connection between the two cells."""

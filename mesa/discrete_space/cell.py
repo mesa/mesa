@@ -18,8 +18,15 @@ from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.exceptions import (
+    AgentMissingException,
+    CellFullException,
+    ConnectionMissingException,
+)
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
@@ -31,7 +38,8 @@ class Cell:
     """The cell represents a position in a discrete space.
 
     Attributes:
-        coordinate (Tuple[int, int]) : the position of the cell in the discrete space
+        coordinate (Coordinate) : the logical position(or index) of the cell in the discrete space
+        position (np.ndarray | None): the physical position of the cell in the discrete space
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell
         random (Random): the random number generator
@@ -41,9 +49,10 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_position",  # physical position
         "capacity",
         "connections",
-        "coordinate",
+        "coordinate",  # Logical index
         "properties",
         "random",
     ]
@@ -56,9 +65,26 @@ class Cell:
     def empty(self, value: bool) -> None:
         self._empty = value
 
+    @property
+    def position(self) -> np.ndarray:
+        """Get the physical position of the cell.
+
+        Returns:
+            np.ndarray: Physical position of the cell
+        """
+        if self._position is not None:
+            return self._position
+        # Default for implicit grids
+        return np.asarray(self.coordinate, dtype=float)
+
+    @position.setter
+    def position(self, value: np.ndarray | None) -> None:
+        self._position = value
+
     def __init__(
         self,
         coordinate: Coordinate,
+        position: np.ndarray | None = None,
         capacity: int | None = None,
         random: Random | None = None,
     ) -> None:
@@ -66,16 +92,19 @@ class Cell:
 
         Args:
             coordinate: coordinates of the cell
+            position: physical coordinates of the cell
             capacity (int) : the capacity of the cell. If None, the capacity is infinite
             random (Random) : the random number generator to use
 
         """
         super().__init__()
-        self.coordinate = coordinate
+        self.coordinate = coordinate  # Logical index
+        self._position = position  # Physical position
         self.connections: dict[Coordinate, Cell] = {}
         self._agents: list[
             CellAgent
         ] = []  # TODO:: change to AgentSet or weakrefs? (neither is very performant, )
+        self._empty: bool = True  # a freshly created cell holds no agents
         self.capacity: int | None = capacity
         self.properties: dict[
             Coordinate, object
@@ -103,6 +132,10 @@ class Cell:
 
         """
         keys_to_remove = [k for k, v in self.connections.items() if v == other]
+
+        if not keys_to_remove:
+            raise ConnectionMissingException(self, other)
+
         for key in keys_to_remove:
             del self.connections[key]
         self._clear_cache()
@@ -118,9 +151,7 @@ class Cell:
         self.empty = False
 
         if self.capacity is not None and n >= self.capacity:
-            raise Exception(
-                "ERROR: Cell is full"
-            )  # FIXME we need MESA errors or a proper error
+            raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
 
@@ -131,7 +162,11 @@ class Cell:
             agent (CellAgent): agent to remove from this cell
 
         """
-        self._agents.remove(agent)
+        try:
+            self._agents.remove(agent)
+        except ValueError as e:
+            raise AgentMissingException(agent, self.coordinate) from e
+
         self.empty = self.is_empty
 
     @property
@@ -168,7 +203,7 @@ class Cell:
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
-        """Returns a list of all neighboring cells for the given radius.
+        """Returns a CellCollection of all neighboring cells for the given radius.
 
         For getting the direct neighborhood (i.e., radius=1) you can also use
         the `neighborhood` property.
@@ -178,7 +213,7 @@ class Cell:
             include_center (bool): include the center of the neighborhood
 
         Returns:
-            a list of all neighboring cells
+            a CellCollection of all neighboring cells
 
         """
         return CellCollection[Cell](
@@ -197,7 +232,7 @@ class Cell:
         of recursion to avoid RecursionError on large radius values.
         """
         if radius < 1:
-            raise ValueError("radius must be larger than one")
+            raise ValueError("radius must be at least 1")
 
         # Fast path for radius=1 (most common case) - avoid BFS overhead
         if radius == 1:
@@ -241,10 +276,17 @@ class Cell:
         return neighborhood
 
     def __getstate__(self):
-        """Return state of the Cell with connections set to empty."""
+        """Return state of the Cell.
+
+        Neighbors are replaced with their coordinates to avoid deep recursion
+        while preserving the connection keys.
+        """
         state = super().__getstate__()
-        # Replace connections with empty dict to avoid infinite recursion error in pickle/deepcopy
-        state[1]["connections"] = {}
+        # Replace neighbor objects with their coordinates to avoid deep recursion
+        # while preserving the connection keys.
+        state[1]["connections"] = {
+            key: neighbor.coordinate for key, neighbor in self.connections.items()
+        }
         return state
 
     def _clear_cache(self):

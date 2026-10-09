@@ -1,6 +1,5 @@
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
-from mesa.examples.advanced.wolf_sheep.model import WolfSheep
-from mesa.experimental.devs import ABMSimulator
+from mesa.examples.advanced.wolf_sheep.model import WolfSheep, WolfSheepScenario
 from mesa.visualization import (
     CommandConsole,
     Slider,
@@ -36,7 +35,7 @@ def wolf_sheep_portrayal(agent):
 
 
 model_params = {
-    "seed": {
+    "rng": {
         "type": "InputText",
         "value": 42,
         "label": "Random Seed",
@@ -78,15 +77,10 @@ lineplot_component = make_plot_component(
     post_process=post_process_lines,
 )
 
-simulator = ABMSimulator()
-model = WolfSheep(simulator=simulator, grass=True)
-
-renderer = SpaceRenderer(
-    model,
-    backend="matplotlib",
-).setup_agents(wolf_sheep_portrayal)
+model = WolfSheep(scenario=WolfSheepScenario(grass=True))
+renderer = SpaceRenderer(model, backend="matplotlib").setup_agents(wolf_sheep_portrayal)
+renderer.render()
 renderer.post_process = post_process_space
-renderer.draw_agents()
 
 page = SolaraViz(
     model,
@@ -94,6 +88,5 @@ page = SolaraViz(
     components=[lineplot_component, CommandConsole],
     model_params=model_params,
     name="Wolf Sheep",
-    simulator=simulator,
 )
 page  # noqa

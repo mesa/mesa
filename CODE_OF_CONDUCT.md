@@ -71,8 +71,10 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at [@jackiekazil](https://matrix.to/#/@jackiekazil:matrix.org) and/or [@edgeofchaos](https://matrix.to/#/@edgeofchaos:matrix.org). Violations posted as Github comments, discussion, etc maybe also be reported via the [report functionality](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam)
-All complaints will be reviewed and investigated promptly and fairly.
+reported privately to `@jackiekazil` and/or `@edgeofchaos42` on the
+[Mesa Discord server](https://discord.gg/UUGJvdtEJu). Violations posted as
+GitHub comments or discussions may also be reported using GitHub's
+[reporting functionality](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam). All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.

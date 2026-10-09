@@ -5,7 +5,6 @@ import os
 import pickle
 import sys
 import time
-import timeit
 
 # making sure we use this version of mesa and not one
 # also installed in site_packages or so.
@@ -13,43 +12,43 @@ sys.path.insert(0, os.path.abspath(".."))
 
 from configurations import configurations
 
-from mesa.experimental.devs.simulator import ABMSimulator
-
 
 # Generic function to initialize and run a model
-def run_model(model_class, seed, parameters):
-    """Run model for given seed and parameter values.
+def run_model(model_class, steps, scenario):
+    """Run model for given scenario.
 
     Args:
         model_class: a model class
-        seed: the seed
-        parameters: parameters for the run
+        steps: number of steps to run the model
+        scenario: Scenario instance with model parameters
 
     Returns:
         startup time and run time
     """
-    uses_simulator = ["WolfSheep"]
-    start_init = timeit.default_timer()
-    if model_class.__name__ in uses_simulator:
-        simulator = ABMSimulator()
-        model = model_class(simulator=simulator, seed=seed, **parameters)
-    else:
-        model = model_class(seed=seed, **parameters)
+    # Explicitly collect garbage before the run to ensure a clean memory state
+    gc.collect()
 
-    end_init_start_run = timeit.default_timer()
+    # Disable GC during timed runs to avoid random slowdowns
+    gc.disable()
+    start_init = time.perf_counter()
+    model = model_class(scenario=scenario)
 
-    if model_class.__name__ in uses_simulator:
-        simulator.run_for(config["steps"])
-    else:
-        for _ in range(config["steps"]):
-            model.step()
+    end_init_start_run = time.perf_counter()
 
-    end_run = timeit.default_timer()
+    model.run_for(steps)
 
+    end_run = time.perf_counter()
+    gc.enable()  # Re-enable GC after benchmarking
+
+    # Clean up to avoid memory leaks
+    model.remove_all_agents()
+
+    # Force a final collection to reclaim memory before the next iteration
+    gc.collect()
     return (end_init_start_run - start_init), (end_run - end_init_start_run)
 
 
-# Function to run experiments and save the fastest replication for each seed
+# Function to run experiments and save the fastest iteration for each scenario
 def run_experiments(model_class, config):
     """Run performance benchmarks.
 
@@ -58,16 +57,23 @@ def run_experiments(model_class, config):
         config: the benchmark configuration
 
     """
-    gc.enable()
-    sys.path.insert(0, os.path.abspath("."))
-
     init_times = []
     run_times = []
-    for seed in range(1, config["seeds"] + 1):
+
+    steps = config["steps"]
+
+    for scenario in config["scenario"].spawn_replications(config["replications"]):
         fastest_init = float("inf")
         fastest_run = float("inf")
-        for _replication in range(1, config["replications"] + 1):
-            init_time, run_time = run_model(model_class, seed, config["parameters"])
+
+        # Warm-up: run 3 times before starting measurement
+        # This eliminates cold start penalty
+        for _ in range(3):
+            run_model(model_class, steps, scenario)
+
+        # Actual measured iterations
+        for _ in range(config["iterations"]):
+            init_time, run_time = run_model(model_class, steps, scenario)
             if init_time < fastest_init:
                 fastest_init = init_time
             if run_time < fastest_run:
