@@ -74,3 +74,42 @@ def test_meta_agents():
     from mesa.meta_agents import MetaAgents  # noqa: PLC0415
 
     assert MetaAgents is mesa.meta_agents.MetaAgents
+
+
+def test_lazy_submodule_getattr_and_dir():
+    """Exercise the lazy __getattr__/__dir__ added for #2343.
+
+    mesa/__init__.py and mesa/experimental/__init__.py lazy-load their
+    optional-dependency submodules via a module-level __getattr__ (PEP 562)
+    instead of importing them eagerly. This exercises that __getattr__/__dir__
+    directly, independent of whichever other test happensto import a given
+    submodule a different way first.
+    """
+    import mesa  # noqa: PLC0415
+    import mesa.discrete_space  # noqa: PLC0415
+    import mesa.experimental  # noqa: PLC0415
+    import mesa.experimental.actions  # noqa: PLC0415
+    import mesa.experimental.continuous_space  # noqa: PLC0415
+    import mesa.meta_agents  # noqa: PLC0415
+    import mesa.time  # noqa: PLC0415
+
+    for name, expected in (
+        ("discrete_space", mesa.discrete_space),
+        ("experimental", mesa.experimental),
+        ("meta_agents", mesa.meta_agents),
+        ("time", mesa.time),
+    ):
+        assert name in dir(mesa)
+        assert mesa.__getattr__(name) is expected
+
+    for name, expected in (
+        ("actions", mesa.experimental.actions),
+        ("continuous_space", mesa.experimental.continuous_space),
+    ):
+        assert name in dir(mesa.experimental)
+        assert mesa.experimental.__getattr__(name) is expected
+
+    with pytest.raises(AttributeError):
+        mesa.__getattr__("not_a_real_submodule")
+    with pytest.raises(AttributeError):
+        mesa.experimental.__getattr__("not_a_real_submodule")
