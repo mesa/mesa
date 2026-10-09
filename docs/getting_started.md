@@ -22,6 +22,8 @@ If you want to learn how to build agent-based models step by step using Mesa, fo
 - [Visualization using SpaceRenderer](tutorials/8_visualization_rendering_with_space_renderer): Learn how to use SpaceRenderer to its full extent to enhance your visualizations.
 - [Property Layer Visualization](tutorials/9_visualization_property_layer_visualization): Learn how to visualize property layers in Mesa.
 - [Custom Visualization Components](tutorials/10_visualization_custom): Learn how to add custom visual components to your interactive dashboard.
+- [Discrete Event Simulation](tutorials/11_discrete_event_simulation.ipynb)
+- [Hybrid ABM-DEVS Models](tutorials/12_hybrid_abm_devs.ipynb)
 
 ## Examples
 Mesa ships with a collection of example models. These are classic ABMs, so if you are familiar with ABMs and want to get a quick sense of how MESA works, these examples are great place to start. You can find them [here](examples).
