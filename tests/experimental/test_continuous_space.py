@@ -229,6 +229,44 @@ def test_continous_space_calculate_distances():
     )
 
 
+def test_continuous_space_torus_out_of_bounds_query():
+    """Test torus distances and difference vectors for out-of-bounds query points.
+
+    On a torus, a query point is equivalent to its wrapped counterpart, so points
+    differing by whole multiples of the space size must yield identical results.
+    Agent positions are wrapped on assignment, but query points are not, so only
+    the query side can violate this.
+    """
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 1], [0, 1]])
+    space = ContinuousSpace(dimensions, torus=True, random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [0.1, 0.1]
+
+    # every point here is congruent to [0.9, 0.1] modulo the space size
+    congruent_points = [
+        [0.9, 0.1],
+        [1.9, 0.1],
+        [2.9, 0.1],
+        [-0.1, 0.1],
+        [-1.1, 0.1],
+    ]
+
+    # the largest separation possible on a torus is half of its diagonal
+    max_distance = np.linalg.norm(space.size / 2)
+
+    for point in congruent_points:
+        distances, _ = space.calculate_distances(point)
+        assert np.allclose(distances, [0.2]), point
+        assert np.all(distances <= max_distance), point
+
+    for point in congruent_points:
+        vector = space.calculate_difference_vector(point)
+        assert np.allclose(vector, [0.2, 0.0]), point
+        assert np.all(np.abs(vector) <= space.size / 2), point
+
+
 def test_continous_space_difference_vector():
     """Test ContinuousSpace.get_difference_vector method."""
     # non torus

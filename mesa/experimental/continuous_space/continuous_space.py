@@ -174,9 +174,16 @@ class ContinuousSpace:
             agents: the agents to calculate the difference vector of point with. By default,
                     all agents are considered.
 
+        Notes:
+            On a torus, the point is wrapped into the space bounds before the
+            difference is taken, so a point outside the bounds is equivalent to
+            its wrapped counterpart.
 
         """
         point = np.asanyarray(point)
+        if self.torus:
+            point = self.torus_correct(point)
+
         positions = (
             self.agent_positions
             if agents is None
@@ -211,6 +218,11 @@ class ContinuousSpace:
             kwargs: any additional keyword arguments are passed to scipy's cdist, which is used
                     only if torus is False. This allows for non-Euclidian distance measures.
 
+        Notes:
+            On a torus, the point is wrapped into the space bounds before distances
+            are taken, so a point outside the bounds is equivalent to its wrapped
+            counterpart.
+
         """
         point = np.asanyarray(point)
 
@@ -222,6 +234,7 @@ class ContinuousSpace:
             agents = np.asarray(agents)
 
         if self.torus:
+            point = self.torus_correct(point)
             delta = np.abs(point - positions)
             delta = np.minimum(delta, self.size - delta, out=delta)
 
