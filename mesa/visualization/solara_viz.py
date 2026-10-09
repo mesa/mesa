@@ -226,13 +226,24 @@ def SolaraViz(
             )
         with solara.Card("Information"):
             ShowSteps(model.value)
-        if (
-            CommandConsole in display_components
-        ):  # If command console in components show it in sidebar
-            display_components.remove(CommandConsole)
-            additional_imports = console_kwargs.get("additional_imports", {})
-            with solara.Card("Command Console"):
-                CommandConsole(model.value, additional_imports=additional_imports)
+
+    # If a CommandConsole entry is present (bare, or paged as
+    # (CommandConsole, page)), wire console_kwargs's additional_imports
+    # through and let it render in the main grid like any other
+    # component -- a real, resizable/draggable cell, rather than being
+    # squeezed into a fixed-height sidebar card. Give its own tab by
+    # passing (CommandConsole, page) instead of the bare reference.
+
+    additional_imports = console_kwargs.get("additional_imports", {})
+
+    def _console_with_imports(model, additional_imports=additional_imports):
+        return CommandConsole(model, additional_imports=additional_imports)
+
+    for index, entry in enumerate(display_components):
+        if entry is CommandConsole:
+            display_components[index] = _console_with_imports
+        elif isinstance(entry, tuple) and entry[0] is CommandConsole:
+            display_components[index] = (_console_with_imports, entry[1])
 
     # Render the main components view
     ComponentsView(display_components, model.value)
