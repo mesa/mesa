@@ -868,6 +868,26 @@ class TestEventGeneratorStartStop:
         model.run_for(2.0)
         assert calls == [1.0, 6.0, 7.0]
 
+    def test_restart_from_within_callback(self, setup):
+        """Restarting from the callback must not double-schedule the generator."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            if len(calls) == 1:
+                gen.stop()
+                gen.start()
+
+        gen = EventGenerator(model, cb, Schedule(interval=1.0))
+        gen.start()
+        model.run_for(4.0)
+
+        # One call per step, never doubled.
+        assert calls == [1.0, 2.0, 3.0, 4.0]
+        assert len(calls) == len(set(calls))
+
 
 class TestEventGeneratorExecution:
     def test_recurring_execution(self, setup):

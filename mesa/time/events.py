@@ -303,11 +303,13 @@ class EventGenerator:
             return  # Silent no-op (no error raised)
 
         # Execute the function
+        firing_event = self._current_event
         fn()
         self._execution_count += 1
 
-        # The callback may have stopped or paused this generator.
-        if not self._active or self._paused:
+        # The callback may have stopped, paused, or restarted this generator; a
+        # restart replaces _current_event, so do not schedule a second one.
+        if not self._active or self._paused or self._current_event is not firing_event:
             return
 
         # Schedule next event if we shouldn't stop
