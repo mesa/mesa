@@ -191,6 +191,43 @@ def test_draw_network():
     draw_network(grid, agent_portrayal, ax)
 
 
+def test_draw_network_with_same_marker_different_zorders():
+    """Agents with different zorders are rendered separately."""
+    graph = nx.path_graph(3)
+    model = Model(rng=42)
+    grid = Network(
+        graph,
+        random=model.random,
+        capacity=1,
+        layout=nx.spring_layout,
+    )
+    for index, cell in enumerate(grid.all_cells):
+        agent = CellAgent(model)
+        agent.cell = cell
+        agent.zorder = index + 1
+
+    def zorder_portrayal(agent):
+        return AgentPortrayalStyle(
+            size=10,
+            color="tab:blue",
+            marker="o",
+            zorder=agent.zorder,
+        )
+
+    fig = Figure()
+    ax = fig.add_subplot()
+
+    draw_network(grid, zorder_portrayal, ax)
+
+    agent_collections = [
+        collection
+        for collection in ax.collections
+        if collection.get_zorder() in {1, 2, 3}
+    ]
+    assert len(agent_collections) == 3
+    assert all(len(collection.get_offsets()) == 1 for collection in agent_collections)
+
+
 @pytest.mark.parametrize("edgecolor", ["black", (1.0, 0.0, 0.0, 1.0)])
 def test_draw_network_with_partial_edgecolors(edgecolor):
     """Network drawing handles edgecolors provided for only some agents.
