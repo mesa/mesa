@@ -80,6 +80,11 @@ class ContinuousSpace:
         self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
         self.center: np.array = np.sum(self.dimensions, axis=1) / 2
 
+        # Plain Python copies of the bounds. Used for the bounds check in
+        # calculate_distances, where avoiding a numpy call matters.
+        self._lower: tuple[float, ...] = tuple(float(v) for v in self.dimensions[:, 0])
+        self._upper: tuple[float, ...] = tuple(float(v) for v in self.dimensions[:, 1])
+
         self.torus: bool = torus
 
         # self._agent_positions is the array containing all agent positions
@@ -234,13 +239,18 @@ class ContinuousSpace:
             agents = np.asarray(agents)
 
         if self.torus:
-            delta = np.abs(point - positions)
             # The minimum image convention below only holds while the separation
-            # is at most the space size on each axis. An out-of-bounds query
-            # point can break that, so fold the separation back when it does.
-            # The check is per axis, since the size may differ between axes.
-            if np.any(delta > self.size):
-                delta %= self.size
+            # is at most the space size on each axis, which an out-of-bounds
+            # query point can break. Agents query with their own position, which
+            # is already wrapped, so the common case needs no correction: the
+            # bounds check deliberately uses plain Python comparisons to keep
+            # numpy call overhead off this hot path.
+            for value, lower, upper in zip(point, self._lower, self._upper):
+                if value < lower or value > upper:
+                    point = self.torus_correct(point)
+                    break
+
+            delta = np.abs(point - positions)
             delta = np.minimum(delta, self.size - delta, out=delta)
 
             # + is much faster than np.sum or array.sum
