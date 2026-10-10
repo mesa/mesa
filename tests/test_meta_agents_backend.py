@@ -3,6 +3,7 @@
 from mesa import Agent, Model
 from mesa.meta_agents import MetaAgents
 from mesa.meta_agents.backend import MembershipBackend
+from mesa.meta_agents.meta_agent import extract_class
 
 
 def test_add_and_query():
@@ -108,3 +109,48 @@ def test_backend_uses_unique_ids_for_mesa_agents():
     assert meta_agents.backend.groups_of(agent) == {group.unique_id}
     assert meta_agents.backend.agents_of(group) == {agent.unique_id}
     meta_agents.backend.assert_invariants()
+
+
+def test_group_name_can_be_reused_after_dissolve():
+    """Recreating a dissolved group name should not raise.
+
+    ``agents_by_type`` keeps the bucket for a class after its last instance is
+    removed, so a name lookup still succeeds while the bucket is empty.
+    """
+    model = Model()
+    meta_agents = MetaAgents(model)
+    first, second = Agent(model), Agent(model)
+
+    group = meta_agents.create("Team", [first, second])
+    meta_agents.dissolve(group)
+
+    regrouped = meta_agents.create("Team", [first, second])
+
+    assert set(meta_agents.members_of(regrouped)) == {first, second}
+    meta_agents.backend.assert_invariants()
+
+
+def test_reused_group_name_keeps_the_same_class():
+    """The dissolved group's class is reused, so isinstance stays reliable."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+
+    group = meta_agents.create("Team", [agent])
+    original_class = type(group)
+    meta_agents.dissolve(group)
+
+    regrouped = meta_agents.create("Team", [agent])
+
+    assert type(regrouped) is original_class
+    assert isinstance(regrouped, original_class)
+
+
+def test_extract_class_returns_the_registered_class():
+    """extract_class resolves a live class, and None for an unknown name."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    group = meta_agents.create("Team", [Agent(model)])
+
+    assert extract_class(model.agents_by_type, "Team") is type(group)
+    assert extract_class(model.agents_by_type, "NoSuchGroup") is None
