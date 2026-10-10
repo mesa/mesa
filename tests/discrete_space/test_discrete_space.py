@@ -1291,6 +1291,21 @@ def test_fixed_agent_removal_state():
     assert agent.cell is None
 
 
+def test_fixed_agent_removal_without_cell():
+    """Test that removing an unplaced FixedAgent succeeds and model teardown works."""
+    model = Model()
+    agent = FixedAgent(model)
+    assert agent.cell is None
+
+    # Should not raise AttributeError when removed without an assigned cell
+    agent.remove()
+    assert agent.cell is None
+
+    # model.remove_all_agents() should also handle unplaced FixedAgent cleanly
+    FixedAgent(model)
+    model.remove_all_agents()
+
+
 def test_pickling_cell():
     """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
