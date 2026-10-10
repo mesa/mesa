@@ -411,6 +411,9 @@ class DataCollector:
         """Add a row dictionary to a specific table.
 
         A row with missing required columns leaves the table unchanged.
+        Mutable values are deep-copied before being stored, so changes made
+        to the original object after this call do not retroactively change
+        the recorded row.
 
         Args:
             table_name: Name of the table to append a row to.
@@ -429,8 +432,14 @@ class DataCollector:
                         f"Could not insert row with missing column '{column}'"
                     )
 
+        # Immutable types that don't need deepcopy
+        python_immutable_types = (str, int, bool, float)
+
         for column, values in table.items():
-            values.append(row.get(column))
+            value = row.get(column)
+            if not isinstance(value, python_immutable_types):
+                value = deepcopy(value)
+            values.append(value)
 
     def get_model_vars_dataframe(self):
         """Create a pandas DataFrame from the model variables.
