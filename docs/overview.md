@@ -97,7 +97,7 @@ For models requiring continuous movement:
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 
 # Create a continuous space
-space = ContinuousSpace([[0, x_max], [0, y_max]], torus=True, random=model.random)
+space = ContinuousSpace([[0, x_max], [0, y_max]], torus=True, rng=model.rng)
 
 # Place an agent in the space and move it to specific coordinates
 agent = ContinuousSpaceAgent(space, model)

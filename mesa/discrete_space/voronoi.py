@@ -21,6 +21,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 
 class Delaunay:
@@ -188,6 +189,8 @@ class VoronoiGrid(DiscreteSpace):
         capacity: int | Callable | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
@@ -199,8 +202,9 @@ class VoronoiGrid(DiscreteSpace):
             centroids_coordinates: coordinates of centroids to build the tessellation space
             capacity (int | Callable): capacity of the cells in the discrete space, or a
                 callable computing the (int) capacity of a cell from its (float) polygon area
-            random (Random): random number generator
+            random (Random): a seeded stdlib random.Random instance. Deprecated in favor of rng.
             cell_klass (type[Cell]): type of cell class
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
 
         """
         # Separate callable capacity from numeric capacity before passing to base class
@@ -211,9 +215,8 @@ class VoronoiGrid(DiscreteSpace):
             capacity_function = None
             numeric_capacity = capacity
 
-        super().__init__(
-            capacity=numeric_capacity, random=random, cell_klass=cell_klass
-        )
+        rng = resolve_rng(random=random, rng=rng)
+        super().__init__(capacity=numeric_capacity, rng=rng, cell_klass=cell_klass)
         self.centroids_coordinates = centroids_coordinates
         self.capacity_function = capacity_function
         self._validate_parameters()
@@ -227,7 +230,7 @@ class VoronoiGrid(DiscreteSpace):
             i: cell_klass(
                 coordinate=i,  # Integer index
                 capacity=capacity,
-                random=self.random,
+                rng=self.rng,
                 position=self.centroids_coordinates[i],  # Physical centroid position
             )
             for i in range(len(self.centroids_coordinates))

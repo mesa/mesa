@@ -144,7 +144,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             type[A], _HardKeyAgentSet[A]
         ] = {}  # a dict with an agentset for each class of agents
         self._all_agents: _HardKeyAgentSet[A] = _HardKeyAgentSet(
-            [], random=self.random
+            [], rng=self.rng
         )  # an agenset with all agents
 
         # Internal callbacks invoked after agent lifecycle events
@@ -273,7 +273,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         except KeyError:
             self._agents_by_type[type(agent)] = _HardKeyAgentSet(
                 [agent],
-                random=self.random,
+                rng=self.rng,
             )
 
         _mesa_logger.debug(

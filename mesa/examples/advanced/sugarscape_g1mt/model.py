@@ -57,7 +57,7 @@ class SugarscapeG1mt(mesa.Model):
 
         # initiate mesa grid class
         self.grid = OrthogonalVonNeumannGrid(
-            (self.width, self.height), torus=False, random=self.random
+            (self.width, self.height), torus=False, rng=self.rng
         )
         # initiate datacollector
         self.datacollector = mesa.DataCollector(

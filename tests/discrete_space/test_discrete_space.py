@@ -1658,3 +1658,84 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
     a1.move_to(cell)
     with pytest.raises(CellFullException):
         a2.move_to(cell)
+
+
+# Section 4 — rng keyword argument (Issue #2884)
+
+
+def test_space_rng_kwarg() -> None:
+    """Spaces take an rng keyword argument and share it with their cells."""
+    rng = np.random.default_rng(42)
+    grid = OrthogonalMooreGrid((3, 3), rng=rng)
+
+    assert grid.rng is rng
+    assert all(cell.rng is rng for cell in grid)
+    assert grid.all_cells.rng is rng
+    assert grid.agents.rng is rng
+
+
+def test_space_random_kwarg_deprecated() -> None:
+    """Passing a stdlib Random through random warns and seeds a generator."""
+    with pytest.warns(PendingDeprecationWarning, match="`rng` instead"):
+        grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    assert isinstance(grid.rng, np.random.Generator)
+
+    with pytest.raises(ValueError, match="not both"):
+        OrthogonalMooreGrid(
+            (3, 3), random=random.Random(42), rng=np.random.default_rng(42)
+        )
+
+
+def test_cell_collection_rng_kwarg() -> None:
+    """CellCollection takes an rng keyword argument."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((3, 3), rng=model.rng)
+    cells = grid.all_cells.select(lambda cell: cell.coordinate[0] == 0)
+
+    assert cells.rng is model.rng
+
+    with pytest.warns(PendingDeprecationWarning, match="`rng` instead"):
+        deprecated = CellCollection(grid.all_cells.cells, random=random.Random(42))
+    assert isinstance(deprecated.rng, np.random.Generator)
+
+
+def test_select_random_empty_cell_reproducible() -> None:
+    """The same rng seed picks the same empty cell."""
+    first = OrthogonalMooreGrid((3, 3), rng=np.random.default_rng(42))
+    second = OrthogonalMooreGrid((3, 3), rng=np.random.default_rng(42))
+
+    assert (
+        first.select_random_empty_cell().coordinate
+        == second.select_random_empty_cell().coordinate
+    )
+
+
+def test_space_without_rng_warns_and_falls_back_to_generator() -> None:
+    """Passing no random number generator warns and creates one."""
+    with pytest.warns(UserWarning, match="Random number generator not specified"):
+        grid = OrthogonalMooreGrid((3, 3))
+    assert isinstance(grid.rng, np.random.Generator)
+
+    with pytest.warns(UserWarning, match="Random number generator not specified"):
+        collection = CellCollection(grid.all_cells.cells)
+    assert isinstance(collection.rng, np.random.Generator)
+
+
+def test_select_random_empty_cell_raises_when_none_empty() -> None:
+    """The base implementation raises IndexError when every cell holds an agent."""
+    model = Model(rng=42)
+    grid = Network(nx.path_graph(5), rng=model.rng)
+    for cell in grid.all_cells:
+        CellAgent(model).move_to(cell)
+
+    with pytest.raises(IndexError, match="Cannot choose from an empty sequence"):
+        grid.select_random_empty_cell()
+
+
+def test_select_random_cell_with_capacity_fallback() -> None:
+    """The explicit fallback is used when probing random cells is switched off."""
+    grid = OrthogonalMooreGrid((3, 3), capacity=1, rng=np.random.default_rng(42))
+    grid._try_random = False
+
+    cell = grid.select_random_cell_with_capacity()
+    assert not cell.is_full

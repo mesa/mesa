@@ -76,7 +76,7 @@ class WolfSheep(Model):
             [self.height, self.width],
             torus=True,
             capacity=math.inf,
-            random=self.random,
+            rng=self.rng,
         )
 
         # Set up data collection

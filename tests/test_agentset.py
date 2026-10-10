@@ -152,14 +152,76 @@ def test_agentset_initialization():
 def test_agentset_initialization_w_random():
     """Test agentset initialization."""
     model = Model()
-    empty_agentset = AgentSet([], random=model.random)
+    with pytest.warns(PendingDeprecationWarning):
+        empty_agentset = AgentSet([], random=model.random)
     assert len(empty_agentset) == 0
-    assert empty_agentset.random == model.random
+    assert isinstance(empty_agentset.rng, np.random.Generator)
 
     agents = [AgentTest(model) for _ in range(10)]
     agentset = AgentSet(agents)
     assert len(agentset) == 10
-    assert agentset.random == model.random
+    assert agentset.rng is model.rng
+
+
+def test_agentset_rng_kwarg():
+    """Test agentset initialization with the rng keyword argument."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(10)]
+
+    agentset = AgentSet(agents, rng=model.rng)
+    assert len(agentset) == 10
+    assert agentset.rng is model.rng
+
+    hard_key_agentset = _HardKeyAgentSet(agents, rng=model.rng)
+    assert hard_key_agentset.rng is model.rng
+
+    seeded = AgentSet(agents, rng=42)
+    same_seeded = AgentSet(agents, rng=42)
+    assert seeded.rng.random() == same_seeded.rng.random()
+
+
+def test_agentset_random_kwarg_deprecated():
+    """Test that the random keyword argument is deprecated in favor of rng."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(10)]
+
+    with pytest.warns(PendingDeprecationWarning, match="`rng` instead"):
+        agentset = AgentSet(agents, random=Random(42))
+    assert isinstance(agentset.rng, np.random.Generator)
+
+    with pytest.warns(PendingDeprecationWarning):
+        first = AgentSet(agents, random=Random(42))
+    with pytest.warns(PendingDeprecationWarning):
+        second = AgentSet(agents, random=Random(42))
+    assert first.rng.random() == second.rng.random()
+
+    with pytest.raises(ValueError, match="not both"):
+        AgentSet(agents, random=Random(42), rng=model.rng)
+
+
+def test_agentset_select_random_reproducible_with_rng():
+    """Test that select_random draws are reproducible for a given rng."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(20)]
+
+    first = AgentSet(agents, rng=np.random.default_rng(7)).select_random(5)
+    second = AgentSet(agents, rng=np.random.default_rng(7)).select_random(5)
+
+    assert [agent.unique_id for agent in first] == [agent.unique_id for agent in second]
+
+
+def test_agentset_select_random_fraction_rounding_to_zero():
+    """Test that a fraction below one agent returns an empty agentset."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(5)]
+    agentset = AgentSet(agents)
+
+    sampled = agentset.select_random(0.1)
+    assert len(sampled) == 0
+    assert sampled.rng is agentset.rng
+
+    agentset.select_random(0.1, inplace=True)
+    assert len(agentset) == 0
 
 
 def test_agentset_serialization():
@@ -809,7 +871,7 @@ def test_hardkeyagentset_init():
 
     assert len(hard_set) == 5
     assert all(a in hard_set for a in agents)
-    assert hard_set.random == model.random
+    assert isinstance(hard_set.rng, np.random.Generator)
 
     assert hard_set[0] == agents[0]
 
@@ -1192,8 +1254,17 @@ def test_select_random_weighted_callable():
     agentset = AgentSet(agents, random=model.random)
 
     sampled = agentset.select_random(2, weights=lambda a: a.energy**2, replace=True)
-    assert len(sampled) == 2
+    assert 1 <= len(sampled) <= 2
     assert all(a in agentset for a in sampled)
+
+    # weights are energy ** 2 = [4, 16, 64], so the heaviest agent dominates
+    draws = [
+        agentset.select_random(
+            1, weights=lambda a: a.energy**2, replace=True
+        ).to_list()[0]
+        for _ in range(200)
+    ]
+    assert sum(1 for a in draws if a == agents[2]) > 120
 
 
 def test_select_random_weighted_sequence():
@@ -1205,8 +1276,15 @@ def test_select_random_weighted_sequence():
 
     weights = [0.1, 0.1, 0.8]
     sampled = agentset.select_random(2, weights=weights, replace=True)
-    assert len(sampled) == 2
+    assert 1 <= len(sampled) <= 2
     assert all(a in agentset for a in sampled)
+
+    # the heaviest agent is drawn most often
+    draws = [
+        agentset.select_random(1, weights=weights, replace=True).to_list()[0]
+        for _ in range(200)
+    ]
+    assert sum(1 for a in draws if a == agents[2]) > 120
 
 
 @pytest.mark.parametrize("invalid_weight", [np.nan, np.inf])

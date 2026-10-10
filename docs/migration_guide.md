@@ -8,6 +8,26 @@ Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing 
 
 Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
 
+### `random` keyword argument deprecated in favor of `rng`
+
+`AgentSet`, `CellCollection`, `Cell`, the discrete spaces (`Grid` and its subclasses, `Network`, `VoronoiGrid`), and `ContinuousSpace` now take an `rng` keyword argument and expose the generator as `rng` instead of `random`. The old `random` argument still works, but it issues a `PendingDeprecationWarning` and is removed in Mesa 5.0.
+
+```python
+# Old
+grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
+agents = AgentSet([], random=model.random)
+
+# New
+grid = OrthogonalMooreGrid((width, height), torus=True, rng=model.rng)
+agents = AgentSet([], rng=model.rng)
+```
+
+Their random draws now come from `model.rng`, a NumPy `Generator`, rather than from the stdlib `random.Random`. A model seeded with the same value therefore produces a different sequence of results than it did on Mesa 3.x, although it still reproduces itself on the same version. Passing a `random.Random` instance to the deprecated argument seeds a generator with the full state of that instance, so constructions from the same seeded instance keep agreeing with each other.
+
+`model.random` and `Agent.random` are not deprecated by this change; they keep working and now only feed your own code.
+
+- Ref: [Issue #2884](https://github.com/mesa/mesa/issues/2884)
+
 ### Experimental meta-agents moved to `mesa.meta_agents`
 
 Import meta-agents from `mesa.meta_agents`. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
@@ -146,7 +166,7 @@ grid = SingleGrid(width, height, torus=True)
 # New
 from mesa.discrete_space import OrthogonalMooreGrid
 
-grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
+grid = OrthogonalMooreGrid((width, height), torus=True, rng=model.rng)
 ```
 Networks migrate the same way — `NetworkGrid` becomes `discrete_space.Network`, and placing an agent becomes assigning its `cell` rather than calling a `place_agent` method:
 
@@ -160,7 +180,7 @@ grid.place_agent(agent, node_id)
 # New
 from mesa.discrete_space import Network
 
-grid = Network(some_networkx_graph, random=model.random)
+grid = Network(some_networkx_graph, rng=model.rng)
 agent.cell = grid[node_id]
 ​```
 

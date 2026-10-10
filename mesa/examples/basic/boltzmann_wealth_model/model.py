@@ -46,9 +46,7 @@ class BoltzmannWealth(Model):
         super().__init__(scenario=scenario)
 
         self.num_agents = scenario.n
-        self.grid = OrthogonalMooreGrid(
-            (scenario.width, scenario.height), random=self.random
-        )
+        self.grid = OrthogonalMooreGrid((scenario.width, scenario.height), rng=self.rng)
 
         self.recorder = DataRecorder(self)
         (

@@ -45,8 +45,8 @@ class AwesomeAgent(Agent):
 ```
 
 `Agent.random` is just a convenient shorthand in the Agent class to `self.model.random`. If you create your own `AgentSet`
-instances, you have to pass `random` explicitly. Typically, you can simply do, in a Model instance,
-`my_agentset = AgentSet([], random=self.random)`. This ensures that `my_agentset` uses the same random
+instances, you have to pass a random number generator explicitly. Typically, you can simply do, in a Model instance,
+`my_agentset = AgentSet([], rng=self.rng)`. This ensures that `my_agentset` uses the same random
 number generator as the rest of the model.
 
 

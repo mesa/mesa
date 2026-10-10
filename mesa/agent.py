@@ -121,7 +121,7 @@ class Agent[M: Model]:
         if not args and not kwargs:
             for _ in range(n):
                 agents.append(cls(model))
-            return AgentSet(agents, random=model.random)
+            return AgentSet(agents, rng=model.rng)
 
         # Prepare positional argument iterators. A sequence must have length n
         # (assigned per agent); a length mismatch raises. Anything else is broadcast.
@@ -144,7 +144,7 @@ class Agent[M: Model]:
             for _, p_args in zip(range(n), pos_iter):
                 agents.append(cls(model, *p_args))
 
-        return AgentSet(agents, random=model.random)
+        return AgentSet(agents, rng=model.rng)
 
     @classmethod
     def from_dataframe[T: Agent](
@@ -182,7 +182,7 @@ class Agent[M: Model]:
             for record in df.to_dict(orient="records")
         ]
 
-        return AgentSet(agents, random=model.random)
+        return AgentSet(agents, rng=model.rng)
 
     def __str__(self) -> str:
         """Return a human-readable string representation of the agent."""

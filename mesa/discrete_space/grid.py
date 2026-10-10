@@ -25,6 +25,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 T = TypeVar("T", bound=Cell)
 
@@ -63,7 +64,7 @@ class Grid(DiscreteSpace[T]):
         dimensions (Sequence[int]): the dimensions of the grid
         torus (bool): whether the grid is a torus
         capacity (int): the capacity of a grid cell
-        random (Random): the random number generator
+        rng (np.random.Generator): the random number generator
         _try_random (bool): whether to get empty cell be repeatedly trying random cell
 
     Notes:
@@ -88,6 +89,8 @@ class Grid(DiscreteSpace[T]):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[T] = Cell,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """Initialise the grid class.
 
@@ -95,10 +98,12 @@ class Grid(DiscreteSpace[T]):
             dimensions: the dimensions of the space
             torus: whether the space wraps
             capacity: capacity of the grid cell
-            random: a random number generator
+            random: a seeded stdlib random.Random instance. Deprecated in favor of rng.
             cell_klass: the base class to use for the cells
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        rng = resolve_rng(random=random, rng=rng)
+        super().__init__(capacity=capacity, rng=rng, cell_klass=cell_klass)
         self.torus = torus
         self.dimensions = dimensions
         self._try_random = True
@@ -120,7 +125,7 @@ class Grid(DiscreteSpace[T]):
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
         self._cells = {
-            coord: self.cell_klass(coord, capacity=capacity, random=self.random)
+            coord: self.cell_klass(coord, capacity=capacity, rng=self.rng)
             for coord in coordinates
         }
         self._celllist = list(self._cells.values())
@@ -300,20 +305,20 @@ class Grid(DiscreteSpace[T]):
         # https://github.com/mesa/mesa/issues/1052 and
         # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
-        random = self.random
+        rng = self.rng
         cells = self._celllist
 
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
             for _ in range(50):
-                cell = random.choice(cells)
+                cell = cells[rng.integers(0, len(cells))]
                 if cell.is_empty:
                     return cell
 
         empty_coords = np.argwhere(self.property_layers["empty"])
         try:
-            random_coord = self.random.choice(empty_coords)
-        except IndexError as e:
+            random_coord = empty_coords[rng.integers(0, len(empty_coords))]
+        except ValueError as e:
             raise ValueError(
                 "Grid is completely full. No empty cells available. "
                 "Cannot select a random empty cell."
@@ -363,7 +368,7 @@ class Grid(DiscreteSpace[T]):
             free_cell = grid.select_random_cell_with_capacity()
             agent.move_to(free_cell)
         """
-        random = self.random
+        rng = self.rng
         cells = self._celllist
         # Fast path: up to 50 random samples, O(1) average when grid is sparse.
         # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
@@ -371,7 +376,7 @@ class Grid(DiscreteSpace[T]):
 
         if self._try_random:
             for _ in range(50):
-                cell = random.choice(cells)
+                cell = cells[rng.integers(0, len(cells))]
                 if not cell.is_full:
                     return cell
 
@@ -380,7 +385,7 @@ class Grid(DiscreteSpace[T]):
             raise IndexError(
                 "No available cells exist in the grid: all cells are at full capacity."
             )
-        return random.choice(available)
+        return available[rng.integers(0, len(available))]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
@@ -526,6 +531,8 @@ class HexGrid(Grid[T]):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[T] = Cell,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """Initialize the hex grid.
 
@@ -533,8 +540,9 @@ class HexGrid(Grid[T]):
             dimensions: the dimensions of the space
             torus: whether the space wraps
             capacity: capacity of the grid cell
-            random: a random number generator
+            random: a seeded stdlib random.Random instance. Deprecated in favor of rng.
             cell_klass: the base class to use for the cells
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
         super().__init__(
             dimensions=dimensions,
@@ -542,6 +550,7 @@ class HexGrid(Grid[T]):
             capacity=capacity,
             random=random,
             cell_klass=cell_klass,
+            rng=rng,
         )
         self._init_hex_geometry()
 

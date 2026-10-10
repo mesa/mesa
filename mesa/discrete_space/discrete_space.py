@@ -27,6 +27,7 @@ from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
 from mesa.exceptions import CellMissingException
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 T = TypeVar("T", bound=Cell)
 
@@ -37,15 +38,16 @@ class DiscreteSpace[T: Cell](ABC):
     Attributes:
         capacity (int): The capacity of the cells in the discrete space
         all_cells (CellCollection): The cells composing the discrete space
-        random (Random): The random number generator
+        rng (np.random.Generator): The random number generator
         cell_klass (Type) : the type of cell class
         empties (CellCollection) : collection of all cells that are empty
         property_layers (dict[str, np.ndarray]): property_layer of the discrete space
 
     Notes:
-        A `UserWarning` is issued if `random=None`. You can resolve this warning by explicitly
-        passing a random number generator. In most cases, this will be the seeded random number
-        generator in the model. So, you would do `random=self.random` in a `Model` or `Agent` instance.
+        A `UserWarning` is issued if no random number generator is passed. You can resolve this
+        warning by explicitly passing a random number generator. In most cases, this will be the
+        seeded random number generator in the model. So, you would do `rng=self.rng` in a `Model`
+        or `Agent` instance.
 
     """
 
@@ -54,25 +56,29 @@ class DiscreteSpace[T: Cell](ABC):
         capacity: int | None = None,
         cell_klass: type[T] = Cell,
         random: Random | None = None,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ):
         """Instantiate a DiscreteSpace.
 
         Args:
             capacity: capacity of cells
             cell_klass: base class for all cells
-            random: random number generator
+            random: a seeded stdlib random.Random instance. Deprecated in favor of rng.
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
         super().__init__()
         self.capacity = capacity
         self._cells: dict[tuple[int, ...], T] = {}
-        if random is None:
+        rng = resolve_rng(random=random, rng=rng)
+        if rng is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
                 UserWarning,
                 stacklevel=2,
             )
-            random = Random()
-        self.random = random
+            rng = np.random.default_rng()
+        self.rng = rng
         self.cell_klass = cell_klass
 
         self._empties: dict[tuple[int, ...], None] = {}
@@ -84,7 +90,7 @@ class DiscreteSpace[T: Cell](ABC):
     @property
     def agents(self) -> AgentSet:
         """Return an AgentSet with the agents in the space."""
-        return AgentSet(self.all_cells.agents, random=self.random)
+        return AgentSet(self.all_cells.agents, rng=self.rng)
 
     @abstractmethod
     def _connect_cells(self) -> None: ...
@@ -170,7 +176,7 @@ class DiscreteSpace[T: Cell](ABC):
     def all_cells(self):
         """Return all cells in space."""
         return CellCollection(
-            {cell: cell._agents for cell in self._cells.values()}, random=self.random
+            {cell: cell._agents for cell in self._cells.values()}, rng=self.rng
         )
 
     def __iter__(self):  # noqa
@@ -189,7 +195,10 @@ class DiscreteSpace[T: Cell](ABC):
 
     def select_random_empty_cell(self) -> T:
         """Select random empty cell."""
-        return self.random.choice(list(self.empties))
+        empties = list(self.empties)
+        if not empties:
+            raise IndexError("Cannot choose from an empty sequence")
+        return empties[self.rng.integers(0, len(empties))]
 
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""

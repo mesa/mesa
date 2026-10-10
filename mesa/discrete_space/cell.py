@@ -27,6 +27,7 @@ from mesa.exceptions import (
     CellFullException,
     ConnectionMissingException,
 )
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
@@ -42,7 +43,7 @@ class Cell:
         position (np.ndarray | None): the physical position of the cell in the discrete space
         agents (List[Agent]): the agents occupying the cell
         capacity (int): the maximum number of agents that can simultaneously occupy the cell
-        random (Random): the random number generator
+        rng (np.random.Generator): the random number generator
 
     """
 
@@ -54,7 +55,7 @@ class Cell:
         "connections",
         "coordinate",  # Logical index
         "properties",
-        "random",
+        "rng",
     ]
 
     @property
@@ -87,6 +88,8 @@ class Cell:
         position: np.ndarray | None = None,
         capacity: int | None = None,
         random: Random | None = None,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """Initialise the cell.
 
@@ -94,7 +97,8 @@ class Cell:
             coordinate: coordinates of the cell
             position: physical coordinates of the cell
             capacity (int) : the capacity of the cell. If None, the capacity is infinite
-            random (Random) : the random number generator to use
+            random (Random) : a seeded stdlib random.Random instance. Deprecated in favor of rng.
+            rng : a numpy.random.Generator or a value accepted by numpy.random.default_rng.
 
         """
         super().__init__()
@@ -109,7 +113,7 @@ class Cell:
         self.properties: dict[
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
-        self.random = random
+        self.rng = resolve_rng(random=random, rng=rng)
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -218,7 +222,7 @@ class Cell:
         """
         return CellCollection[Cell](
             self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
+            rng=self.rng,
         )
 
     # FIXME: Revisit caching strategy on methods

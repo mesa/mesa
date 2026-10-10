@@ -53,11 +53,11 @@ class EpsteinCivilViolence(mesa.Model):
         match self.scenario.grid_type:
             case "Moore":
                 self.grid = OrthogonalMooreGrid(
-                    (width, height), capacity=1, torus=True, random=self.random
+                    (width, height), capacity=1, torus=True, rng=self.rng
                 )
             case "Von Neumann":
                 self.grid = OrthogonalVonNeumannGrid(
-                    (width, height), capacity=1, torus=True, random=self.random
+                    (width, height), capacity=1, torus=True, rng=self.rng
                 )
             case _:
                 raise ValueError(

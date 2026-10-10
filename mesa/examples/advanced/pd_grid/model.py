@@ -52,7 +52,7 @@ class PdGrid(mesa.Model):
         super().__init__(scenario=scenario)
         self.activation_order = scenario.activation_order
         self.grid = OrthogonalMooreGrid(
-            (scenario.width, scenario.height), torus=scenario.torus, random=self.random
+            (scenario.width, scenario.height), torus=scenario.torus, rng=self.rng
         )
 
         if scenario.payoff is not None:

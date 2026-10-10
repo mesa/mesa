@@ -1,5 +1,7 @@
 """Tests for continuous space."""
 
+from random import Random
+
 import numpy as np
 import pytest
 
@@ -553,3 +555,27 @@ def test_continuous_space_k_exact():
 
     assert len(agents) == 2
     assert len(dists) == 2
+
+
+def test_continuous_space_rng_kwarg():
+    """Test that ContinuousSpace takes an rng keyword argument."""
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 1], [0, 1]])
+
+    space = ContinuousSpace(dimensions, rng=model.rng)
+    assert space.rng is model.rng
+    assert space.agents.rng is model.rng
+
+    with pytest.warns(PendingDeprecationWarning, match="`rng` instead"):
+        deprecated = ContinuousSpace(dimensions, random=Random(42))
+    assert isinstance(deprecated.rng, np.random.Generator)
+
+    with pytest.raises(ValueError, match="not both"):
+        ContinuousSpace(dimensions, random=Random(42), rng=model.rng)
+
+
+def test_continuous_space_without_rng_warns_and_falls_back_to_generator():
+    """Passing no random number generator warns and creates one."""
+    with pytest.warns(UserWarning, match="Random number generator not specified"):
+        space = ContinuousSpace([[0, 1], [0, 1]])
+    assert isinstance(space.rng, np.random.Generator)

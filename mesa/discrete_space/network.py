@@ -22,6 +22,7 @@ from scipy.spatial import KDTree
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
 from mesa.exceptions import SpaceException
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 
 class Network(DiscreteSpace[Cell]):
@@ -34,26 +35,30 @@ class Network(DiscreteSpace[Cell]):
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
         layout: Mapping | Callable | None = None,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """A Networked grid.
 
         Args:
             G: a NetworkX Graph instance.
             capacity (int) : the capacity of the cell
-            random (Random): a random number generator
+            random (Random): a seeded stdlib random.Random instance. Deprecated in favor of rng.
             cell_klass (type[Cell]): The base Cell class to use in the Network
             layout: A dictionary mapping node IDs to physical positions (x, y),
                 or a callable that generates them (e.g. nx.spring_layout).
                 It defaults to nx.circular_layout
                 This ensures all nodes possess physical (x, y) positions for visualization and
                 spatial queries without introducing performance bottlenecks on large graphs
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
         if layout is None:
             import networkx as nx  # noqa: PLC0415
 
             layout = nx.circular_layout
 
-        super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
+        rng = resolve_rng(random=random, rng=rng)
+        super().__init__(capacity=capacity, rng=rng, cell_klass=cell_klass)
         self.G = G
 
         # Resolve positions from the layout argument
@@ -83,7 +88,7 @@ class Network(DiscreteSpace[Cell]):
             cell = self.cell_klass(
                 coordinate=node_id,
                 capacity=capacity,
-                random=self.random,
+                rng=self.rng,
                 position=pos,
             )
             self._cells[node_id] = cell

@@ -11,7 +11,7 @@ class ConwaysGameOfLife(Model):
         super().__init__(rng=rng)
         # Use a simple grid, where edges wrap around.
         self.grid = OrthogonalMooreGrid(
-            (width, height), capacity=1, random=self.random, torus=True
+            (width, height), capacity=1, rng=self.rng, torus=True
         )
 
         # Place a cell at each location, with some initialized to

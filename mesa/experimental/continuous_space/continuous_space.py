@@ -10,6 +10,7 @@ from numpy.typing import ArrayLike
 from scipy.spatial.distance import cdist
 
 from mesa.agent import Agent, AgentSet
+from mesa.util import RNGLike, SeedLike, resolve_rng
 
 
 class ContinuousSpace:
@@ -51,28 +52,32 @@ class ContinuousSpace:
         torus: bool = False,
         random: Random | None = None,
         n_agents: int = 100,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ) -> None:
         """Create a new continuous space.
 
         Args:
             dimensions: a numpy array like object where each row specifies the minimum and maximum value of that dimension.
             torus: boolean for whether the space wraps around or not
-            random: a seeded stdlib random.Random instance
+            random: a seeded stdlib random.Random instance. Deprecated in favor of rng.
             n_agents: the expected number of agents in the space
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
 
         Internally, a numpy array is used to store the positions of all agents. This is resized if needed,
         but you can control the initial size explicitly by passing n_agents.
 
 
         """
-        if random is None:
+        rng = resolve_rng(random=random, rng=rng)
+        if rng is None:
             warnings.warn(
                 "Random number generator not specified, this can make models non-reproducible. Please pass a random number generator explicitly",
                 UserWarning,
                 stacklevel=2,
             )
-            random = Random()
-        self.random = random
+            rng = np.random.default_rng()
+        self.rng = rng
 
         self.dimensions: np.array = np.asanyarray(dimensions)
         self.ndims: int = self.dimensions.shape[0]
@@ -103,7 +108,7 @@ class ContinuousSpace:
     @property
     def agents(self) -> AgentSet:
         """Return an AgentSet with the agents in the space."""
-        return AgentSet(self.active_agents, random=self.random)
+        return AgentSet(self.active_agents, rng=self.rng)
 
     def _add_agent(self, agent: Agent) -> int:
         """Helper method for adding an agent to the space.

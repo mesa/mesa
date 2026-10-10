@@ -308,7 +308,7 @@ class MetaAgents:
             )
             if member_id in lookup
         ]
-        return AgentSet(members, random=self.model.random)
+        return AgentSet(members, rng=self.model.rng)
 
     def groups_of(
         self, agent: Hashable, relation: RelationKey | None = None
@@ -322,7 +322,7 @@ class MetaAgents:
             )
             if group_id in lookup
         ]
-        return AgentSet(groups, random=self.model.random)
+        return AgentSet(groups, rng=self.model.rng)
 
     def query_memberships(
         self, entity: Hashable, relation: RelationKey | None = None
@@ -398,7 +398,7 @@ class MetaAgents:
             raise ValueError(f"root {root!r} is not registered in the model")
 
         if level == 0:
-            return AgentSet([lookup[root_id]], random=self.model.random)
+            return AgentSet([lookup[root_id]], rng=self.model.rng)
 
         # BFS downward: group -> members. First visit is nearest depth.
         visited: set[Hashable] = {root_id}
@@ -425,7 +425,7 @@ class MetaAgents:
                 elif next_depth < level:
                     queue.append((member_id, next_depth))
 
-        return AgentSet(at_depth, random=self.model.random)
+        return AgentSet(at_depth, rng=self.model.rng)
 
     # TODO(perf): Add a cache_build staticmethod so models that constantly
     # reference the same sets of meta-agents can cache them instead of

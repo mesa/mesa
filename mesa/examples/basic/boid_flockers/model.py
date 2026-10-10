@@ -65,7 +65,7 @@ class BoidFlockers(Model):
         self.space = ContinuousSpace(
             [[0, scenario.width], [0, scenario.height]],
             torus=True,
-            random=self.random,
+            rng=self.rng,
             n_agents=scenario.population_size,
         )
 

@@ -43,7 +43,7 @@ class Schelling(Model):
 
         # Initialize grid
         self.grid = OrthogonalMooreGrid(
-            (scenario.width, scenario.height), random=self.random, capacity=1
+            (scenario.width, scenario.height), rng=self.rng, capacity=1
         )
 
         # Track happiness

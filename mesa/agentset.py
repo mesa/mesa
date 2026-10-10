@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import numpy as np
 import pandas as pd
 
+from mesa.util import RNGLike, SeedLike, resolve_rng
+
 if TYPE_CHECKING:
     from mesa.agent import Agent
 
@@ -202,7 +204,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         agents = agent_generator(filter_func, agent_type, at_most)
 
         # Use type(self) to ensure we return the correct subclass (AgentSet vs StrongAgentSet)
-        return self._update(agents) if inplace else type(self)(agents, self.random)
+        return self._update(agents) if inplace else type(self)(agents, rng=self.rng)
 
     def select_random(
         self,
@@ -258,40 +260,56 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             )
 
         if sample_size == 0:
-            return self._update([]) if inplace else type(self)([], self.random)
+            return self._update([]) if inplace else type(self)([], rng=self.rng)
 
         items = self.to_list()
 
         if weights is None:
             if replace:
-                chosen = self.random.choices(items, k=sample_size)
+                chosen = [
+                    items[i] for i in self.rng.integers(0, len(items), size=sample_size)
+                ]
             else:
-                chosen = self.random.sample(items, k=sample_size)
+                chosen = [
+                    items[i]
+                    for i in self.rng.choice(
+                        len(items), size=sample_size, replace=False
+                    )
+                ]
         else:
             w = _resolve_weights(items, weights)
 
             if replace:
-                chosen = self.random.choices(items, weights=w, k=sample_size)
+                probabilities = np.asarray(w, dtype=float)
+                probabilities /= probabilities.sum()
+                chosen = [
+                    items[i]
+                    for i in self.rng.choice(
+                        len(items), size=sample_size, replace=True, p=probabilities
+                    )
+                ]
             else:
                 # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
-                keys = []
-                for agent, wi in zip(items, w):
-                    if wi > 0:
-                        u = self.random.random()
-                        key = u ** (1.0 / wi)
-                        keys.append((key, agent))
+                weights_per_item = np.asarray(w, dtype=float)
+                positive_weights = weights_per_item[weights_per_item > 0]
 
-                positive_weight_count = len(keys)
+                positive_weight_count = len(positive_weights)
                 if sample_size > positive_weight_count:
                     raise ValueError(
                         f"Sample size ({sample_size}) cannot exceed the number of "
                         f"agents with positive weights ({positive_weight_count}) when "
                         "replace=False."
                     )
-                keys.sort(key=lambda x: x[0], reverse=True)
-                chosen = [agent for _, agent in keys[:sample_size]]
 
-        return self._update(chosen) if inplace else type(self)(chosen, self.random)
+                keys = self.rng.random(positive_weight_count) ** (
+                    1.0 / positive_weights
+                )
+                positive_items = [item for item, wi in zip(items, w) if wi > 0]
+                chosen = [
+                    positive_items[i] for i in np.argsort(keys)[::-1][:sample_size]
+                ]
+
+        return self._update(chosen) if inplace else type(self)(chosen, rng=self.rng)
 
     def agg(
         self, attribute: str, func: Callable | Iterable[Callable]
@@ -514,9 +532,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
                 groups[getattr(agent, by)].append(agent)
 
         if result_type == "agentset":
-            return GroupBy(
-                {k: type(self)(v, random=self.random) for k, v in groups.items()}
-            )
+            return GroupBy({k: type(self)(v, rng=self.rng) for k, v in groups.items()})
         else:
             return GroupBy(groups)
 
@@ -562,7 +578,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
     of agent lifecycles without preventing garbage collection.
 
     Attributes:
-        random (Random): The random number generator for this agent set.
+        rng (np.random.Generator): The random number generator for this agent set.
 
     Notes:
         The AgentSet maintains weak references to agents, which means that agents not
@@ -577,28 +593,33 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         self,
         agents: Iterable[A],
         random: Random | None = None,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ):
         """Initialize the AgentSet with weak references to agents.
 
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
-            random (Random | None): The random number generator for this agent set.
+            random (Random | None): a seeded stdlib random.Random instance. Deprecated in favor of rng.
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
         self._agents = weakref.WeakKeyDictionary(dict.fromkeys(agents))
-        if (len(self._agents) == 0) and random is None:
-            warnings.warn(
-                "No Agents specified in creation of AgentSet and no random number generator specified. "
-                "This can make models non-reproducible. Please pass a random number generator explicitly",
-                UserWarning,
-                stacklevel=2,
-            )
-            random = Random()
+        rng = resolve_rng(random=random, rng=rng)
 
-        if random is not None:
-            self.random = random
-        else:
-            # all agents in an AgentSet should share the same model, just take it from first
-            self.random = self._agents.keys().__next__().model.random
+        if rng is None:
+            if len(self._agents) == 0:
+                warnings.warn(
+                    "No Agents specified in creation of AgentSet and no random number generator specified. "
+                    "This can make models non-reproducible. Please pass a random number generator explicitly",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                rng = np.random.default_rng()
+            else:
+                # all agents in an AgentSet should share the same model, just take it from first
+                rng = self._agents.keys().__next__().model.rng
+
+        self.rng = rng
 
     def __len__(self) -> int:
         """Return the number of agents in the AgentSet."""
@@ -626,14 +647,15 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
 
         """
         weakrefs = list(self._agents.keyrefs())
-        self.random.shuffle(weakrefs)
+        self.rng.shuffle(weakrefs)
 
         if inplace:
             self._agents.data = dict.fromkeys(weakrefs)
             return self
         else:
             return AgentSet(
-                (agent for ref in weakrefs if (agent := ref()) is not None), self.random
+                (agent for ref in weakrefs if (agent := ref()) is not None),
+                rng=self.rng,
             )
 
     def sort(
@@ -658,7 +680,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         sorted_agents = sorted(self._agents.keys(), key=key, reverse=not ascending)
 
         return (
-            AgentSet(sorted_agents, self.random)
+            AgentSet(sorted_agents, rng=self.rng)
             if not inplace
             else self._update(sorted_agents)
         )
@@ -706,7 +728,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         It's a fast, optimized version of calling shuffle() followed by do().
         """
         weakrefs = list(self._agents.keyrefs())
-        self.random.shuffle(weakrefs)
+        self.rng.shuffle(weakrefs)
 
         if isinstance(method, str):
             for ref in weakrefs:
@@ -823,7 +845,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         Returns:
             dict: A dictionary representing the state of the AgentSet.
         """
-        return {"agents": list(self._agents.keys()), "random": self.random}
+        return {"agents": list(self._agents.keys()), "rng": self.rng}
 
     def __setstate__(self, state):
         """Set the state of the AgentSet during deserialization.
@@ -831,7 +853,7 @@ class AgentSet[A: Agent](AbstractAgentSet[A], Sequence[A]):
         Args:
             state (dict): A dictionary representing the state to restore.
         """
-        self.random = state["random"]
+        self.rng = state["rng"]
         self._update(state["agents"])
 
 
@@ -852,33 +874,34 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         self,
         agents: Iterable[A],
         random: Random | None = None,
+        *,
+        rng: RNGLike | SeedLike | None = None,
     ):
         """Initialize the _HardKeyAgentSet with strong references to agents.
 
         Args:
             agents (Iterable[Agent]): An iterable of Agent objects to be included in the set.
-            random (Random | None): The random number generator for this agent set.
+            random (Random | None): a seeded stdlib random.Random instance. Deprecated in favor of rng.
+            rng: a numpy.random.Generator or a value accepted by numpy.random.default_rng.
         """
         self._agents: dict[A, None] = dict.fromkeys(agents)
+        rng = resolve_rng(random=random, rng=rng)
 
         # Handle empty sets and random number generation
-        if (len(self._agents) == 0) and random is None:
-            warnings.warn(
-                "No Agents specified in creation of AgentSet and no random number generator specified. "
-                "This can make models non-reproducible. Please pass a random number generator explicitly",
-                UserWarning,
-                stacklevel=2,
-            )
-            random = Random()
-
-        if random is not None:
-            self.random = random
-        else:
-            # Take random from the first agent if available
-            if len(self._agents) > 0:
-                self.random = next(iter(self._agents)).model.random
+        if rng is None:
+            if len(self._agents) == 0:
+                warnings.warn(
+                    "No Agents specified in creation of AgentSet and no random number generator specified. "
+                    "This can make models non-reproducible. Please pass a random number generator explicitly",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                rng = np.random.default_rng()
             else:
-                self.random = Random()
+                # Take the rng from the first agent if available
+                rng = next(iter(self._agents)).model.rng
+
+        self.rng = rng
 
     def __len__(self) -> int:
         """Return the number of agents in the _HardKeyAgentSet."""
@@ -931,7 +954,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             return result
 
         # 3. If new set, downgrade to AgentSet (Weak) to prevent leaks
-        return AgentSet(result, self.random)
+        return AgentSet(result, rng=self.rng)
 
     def groupby(
         self, by: Callable | str, result_type: Literal["agentset", "list"] = "agentset"
@@ -943,14 +966,14 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         # Downgrade the groups from HardKeyAgentSet -> AgentSet
         if result_type == "agentset":
             groups.groups = {
-                k: AgentSet(v, self.random) for k, v in groups.groups.items()
+                k: AgentSet(v, rng=self.rng) for k, v in groups.groups.items()
             }
 
         return groups
 
     def copy(self) -> AgentSet[A]:
         """Return a shallow copy as a standard AgentSet (Weak Refs)."""
-        return AgentSet(self._agents, self.random)
+        return AgentSet(self._agents, rng=self.rng)
 
     def __copy__(self):
         """Support for copy.copy(). Returns a standard AgentSet."""
@@ -977,7 +1000,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
     ) -> _HardKeyAgentSet[A]:
         """Shuffle and invoke a method on each agent."""
         agents = list(self._agents)
-        self.random.shuffle(agents)
+        self.rng.shuffle(agents)
 
         if isinstance(method, str):
             for agent in agents:
@@ -1009,14 +1032,14 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
     def shuffle(self, inplace: bool = False) -> AbstractAgentSet[A]:
         """Shuffle agents. Returns a standard AgentSet (Weak) if inplace=False."""
         agents = list(self._agents)
-        self.random.shuffle(agents)
+        self.rng.shuffle(agents)
 
         if inplace:
             self._agents = dict.fromkeys(agents)
             return self
         else:
             # Downgrade to standard AgentSet
-            return AgentSet(agents, self.random)
+            return AgentSet(agents, rng=self.rng)
 
     def sort(
         self,
@@ -1034,7 +1057,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             return self._update(sorted_agents)
         else:
             # Downgrade to standard AgentSet
-            return AgentSet(sorted_agents, self.random)
+            return AgentSet(sorted_agents, rng=self.rng)
 
 
 class GroupBy:
