@@ -6,7 +6,7 @@ from mesa.examples.advanced.alliance_formation.model import (
     AllianceScenario,
     MultiLevelAllianceModel,
 )
-from mesa.meta_agents import MetaAgents
+from mesa.experimental.meta_agents import MetaAgents
 
 
 def test_alliance_model_records_overlapping_memberships(monkeypatch):
@@ -24,7 +24,7 @@ def test_alliance_model_records_overlapping_memberships(monkeypatch):
         ]
 
     monkeypatch.setattr(
-        "mesa.meta_agents.MetaAgents.find_combinations",
+        "mesa.experimental.meta_agents.MetaAgents.find_combinations",
         fake_find_combinations,
     )
 
@@ -36,12 +36,12 @@ def test_alliance_model_records_overlapping_memberships(monkeypatch):
     assert backend is model.meta_agents.backend
     groups = model.meta_agents.groups_of(agent_0)
     assert len(groups) == 2
-    assert backend.groups_of(agent_0) == {meta.unique_id for meta in groups}
+    assert backend.groups_of(agent_0) == set(groups)
 
     expected_triplets = set()
     for agent in agents:
         for meta in model.meta_agents.groups_of(agent):
-            expected_triplets.add((agent.unique_id, meta.unique_id, "member"))
+            expected_triplets.add((agent, meta, "member"))
 
     assert backend.as_triplets() == expected_triplets
     backend.assert_invariants()
