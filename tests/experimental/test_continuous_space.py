@@ -432,6 +432,50 @@ def test_get_neighbor_methos():  # noqa: D103
     assert np.allclose(distances, [0.2, 0.2])
 
 
+def test_get_nearest_neighbors_colocated_agents():
+    """Test that get_nearest_neighbors returns at most k agents when agents share a position.
+
+    If more than k other agents sit at the same position as the querying agent, the
+    querying agent itself may not be among the k + 1 nearest, so filtering out self
+    must not leave k + 1 neighbors.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(5)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+
+    for agent in agents:
+        for k in (1, 2, 3):
+            neighbors, distances = agent.get_nearest_neighbors(k=k)
+            assert len(neighbors) == k
+            assert len(distances) == k
+            assert agent not in neighbors
+            assert np.allclose(distances, 0)
+            # ties are broken on internal index (insertion order here), so the result is deterministic
+            others = [a for a in agents if a is not agent]
+            assert neighbors == others[:k]
+
+
+def test_get_k_nearest_agents_ties_deterministic():
+    """Test that get_k_nearest_agents breaks ties on internal index and sorts by distance."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(30)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+    agents[20].position = (5.0, 5.5)
+    agents[25].position = (5.0, 6.0)
+
+    found, distances = space.get_k_nearest_agents([5.0, 5.0], k=10)
+    assert found == agents[:10]
+    assert np.allclose(distances, 0)
+
+    found, distances = space.get_k_nearest_agents([5.0, 5.5], k=3)
+    assert found == [agents[20], *agents[:2]]
+    assert np.allclose(distances, [0, 0.5, 0.5])
+
+
 def test_agent_removal_no_ghost_entries():
     """Test that removing an agent doesn't leave ghost entries in _index_to_agent.
 
