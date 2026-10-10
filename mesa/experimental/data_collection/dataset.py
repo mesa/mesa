@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import abc
 import operator
+from collections import Counter
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -299,6 +300,11 @@ class NumpyAgentDataSet[A: Agent]:
     _GROWTH_FACTOR = 2.0
     _MIN_GROWTH = 100
 
+    # (agent class, attribute) -> number of open datasets relying on the accessor
+    # installed on that class, so closing one model's dataset does not strip the
+    # accessor from agents of other models that are still running.
+    _accessor_users: ClassVar[Counter] = Counter()
+
     def __init__(
         self,
         name: str,
@@ -330,6 +336,10 @@ class NumpyAgentDataSet[A: Agent]:
         self._closed = False
         self.dtype = dtype
         self._index_in_table = f"_index_datatable_{name}"
+        # Each agent stores a reference to the dataset that owns its row. The
+        # accessors installed on the (shared) agent class resolve storage through
+        # it, so several models (or a deepcopy) never read each other's arrays.
+        self._dataset_in_table = f"_datatable_{name}"
 
         # Core data storage - always contiguous from 0 to _n_active-1
         self._agent_data: np.ndarray = np.empty((n, len(self._attributes)), dtype=dtype)
@@ -355,13 +365,15 @@ class NumpyAgentDataSet[A: Agent]:
         """Generate getter and setter for the specified attribute."""
         j = self._attribute_to_index[attribute_name]
         index_attr = self._index_in_table
-        data = self._agent_data
+        dataset_attr = self._dataset_in_table
 
         def getter(agent: A):
-            return data[agent.__dict__[index_attr], j]
+            state = agent.__dict__
+            return state[dataset_attr]._agent_data[state[index_attr], j]
 
         def setter(agent: A, value):
-            data[agent.__dict__[index_attr], j] = value
+            state = agent.__dict__
+            state[dataset_attr]._agent_data[state[index_attr], j] = value
 
         return getter, setter
 
@@ -369,6 +381,7 @@ class NumpyAgentDataSet[A: Agent]:
         """Install properties on the agent class for all attributes."""
         for attr in self._attributes:
             setattr(self.agent_type, attr, property(*self._make_getter_setter(attr)))
+            NumpyAgentDataSet._accessor_users[(self.agent_type, attr)] += 1
 
     def _expand_storage(self) -> None:
         """Expand the internal array when out of space."""
@@ -383,9 +396,6 @@ class NumpyAgentDataSet[A: Agent]:
         new_ids = np.zeros(new_size, dtype=int)
         new_ids[:current_size] = self._agent_ids
         self._agent_ids = new_ids
-
-        # Reinstall properties to capture new array reference
-        self._install_properties()
 
     def _check_closed(self) -> None:
         """Raise if dataset has been closed."""
@@ -412,8 +422,9 @@ class NumpyAgentDataSet[A: Agent]:
         if index >= self._agent_data.shape[0]:
             self._expand_storage()
 
-        # Store index on agent
+        # Store index and owning dataset on agent
         agent.__dict__[self._index_in_table] = index
+        agent.__dict__[self._dataset_in_table] = self
 
         # Update mappings
 
@@ -457,6 +468,7 @@ class NumpyAgentDataSet[A: Agent]:
         del self._agent_to_index[agent]
         del self._index_to_agent[last_index]
         agent.__dict__.pop(self._index_in_table, None)
+        agent.__dict__.pop(self._dataset_in_table, None)
         self._n_active -= 1
 
     @property
@@ -511,11 +523,21 @@ class NumpyAgentDataSet[A: Agent]:
             return
 
         self._reset()
-        # Remove properties from agent class
+        # Remove properties from agent class once no open dataset relies on them
         for attr in self._attributes:
-            with suppress(AttributeError):
-                delattr(self.agent_type, attr)
+            key = (self.agent_type, attr)
+            NumpyAgentDataSet._accessor_users[key] -= 1
+            if NumpyAgentDataSet._accessor_users[key] <= 0:
+                del NumpyAgentDataSet._accessor_users[key]
+                with suppress(AttributeError):
+                    delattr(self.agent_type, attr)
         self._closed = True
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore state and reinstall the accessors on the agent class."""
+        self.__dict__.update(state)
+        if not self._closed:
+            self._install_properties()
 
     def record(
         self, recorder: BaseDataRecorder, configuration: DatasetConfig | None = None
