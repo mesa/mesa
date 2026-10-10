@@ -15,7 +15,7 @@ import code
 import io
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import solara
 from solara.components.input import use_change
@@ -134,7 +134,9 @@ class ConsoleManager:
         locals_dict (dict): Dictionary containing local variables available to the console
         console (InteractiveConsole): Python's interactive console instance
         buffer (list): Buffer for storing multi-line code blocks
-        history (list[ConsoleEntry]): List of console entries containing commands and their outputs
+        history (solara.Reactive[list[ConsoleEntry]]): Reactive list of console entries,
+            so that any component reading ``history.value`` re-renders automatically
+            when it changes
     Special Commands:
         1. `history` : Shows the command history
         2. `cls` : Clears the console screen
@@ -156,9 +158,23 @@ class ConsoleManager:
         self.locals_dict = locals_dict
         self.console = InteractiveConsole(locals_dict)
         self.buffer = []
-        self.history: list[ConsoleEntry] = []
+        self.history: solara.Reactive[list[ConsoleEntry]] = solara.reactive([])
         self.history_index = -1
         self.current_input = ""
+
+    def _append(self, entry: ConsoleEntry) -> None:
+        """Append an entry by replacing the reactive history list wholesale."""
+        self.history.value = [*self.history.value, entry]
+
+    def _replace_last(self, **fields) -> None:
+        """Return a copy of the last entry with the given fields updated."""
+        *rest, last = self.history.value
+        self.history.value = [*rest, replace(last, **fields)]
+
+    def _pop_last(self, n: int) -> None:
+        """Drop the last n entries from the history."""
+        if n:
+            self.history.value = self.history.value[:-n]
 
     def execute_code(
         self, code_line: str, set_input_text: Callable[[str], None]
@@ -172,13 +188,13 @@ class ConsoleManager:
                 (
                     f"Command: {entry.command}, \nOutput: {entry.output if entry.output else None}\n"
                 )
-                for entry in self.history
+                for entry in self.history.value
                 if entry.command != "[history]"
                 and entry.command != "[tips]"
                 and entry.command != ""
             ]
 
-            self.history.append(
+            self._append(
                 ConsoleEntry(
                     command="[history]",
                     output="\n".join(cur_his) if cur_his else "No history",
@@ -198,7 +214,7 @@ class ConsoleManager:
 
         # C. Tips
         if code_line == "tips":
-            self.history.append(
+            self._append(
                 ConsoleEntry(
                     command="[tips]",
                     output="Available Console Commands:\n1. Press Enter to execute a command\n2. Type 'cls' to clear the console screen (it doesn't delete past variables and functions)\n3. Type 'history' to view previous commands\n4. Press Enter on an empty line to complete a multiline block\n5. Use proper indentation for multiline blocks\n6. The console will show '..: ' for continuation lines",
@@ -217,33 +233,37 @@ class ConsoleManager:
                 full_code = "\n".join(self.buffer)
                 more, (output, error) = self.console.push("")
 
+                if not more:
+                    # The block just finished executing -- same reasoning
+                    # as the main execute path below.
+                    force_update()
+
                 # Remove the redundant commands from the history
-                for _ in range(len(self.buffer) - 1):
-                    self.history.pop()
+                self._pop_last(len(self.buffer) - 1)
 
                 # Completing a multi-line block
                 if self.history:
-                    self.history[-1].command = full_code
-                    self.history[-1].output = error if error else output
-                    self.history[-1].is_error = bool(error)
-                    self.history[-1].is_continuation = False
-                self.buffer = []
+                    self._replace_last(
+                        command=full_code,
+                        output=error if error else output,
+                        is_error=bool(error),
+                        is_continuation=False,
+                    )
             else:
                 # Empty line with no buffer - just add a blank entry
-                self.history.append(ConsoleEntry(command=""))
+                self._append(ConsoleEntry(command=""))
             set_input_text("")
             return
 
         # Execute the line
         more, (output, error) = self.console.push(code_line)
 
-        # Force update to display any changes to the model
-        force_update()
-
         # If this is the start of a multi-line block
         if more:
+            # codeop is still waiting for more input, so nothing has actually
+            # executed yet -- there's nothing for force_update() to report.
             self.buffer.append(code_line)
-            self.history.append(
+            self._append(
                 ConsoleEntry(
                     command=code_line,
                     output="",  # Don't show partial output for incomplete blocks
@@ -252,10 +272,13 @@ class ConsoleManager:
                 )
             )
         else:
+            # A complete statement just ran, so this is the one point where
+            # the model could actually have changed.
+            force_update()
             # Single complete command
             if not self.buffer:
                 # Normal single-line command
-                self.history.append(
+                self._append(
                     ConsoleEntry(
                         command=code_line,
                         output=error if error else output,
@@ -272,18 +295,19 @@ class ConsoleManager:
                 self.buffer.append(code_line)
                 full_code = "\n".join(self.buffer)
                 if self.history:
-                    self.history[-1].command = full_code
-                    self.history[-1].output = error if error else output
-                    self.history[-1].is_error = bool(error)
-                    self.history[-1].is_continuation = False
-                self.buffer = []
+                    self._replace_last(
+                        command=full_code,
+                        output=error if error else output,
+                        is_error=bool(error),
+                        is_continuation=False,
+                    )
 
         set_input_text("")
 
     def clear_console(self) -> None:
         """Clear the console history and reset the console state."""
         self.history.clear()
-        self.buffer.clear()
+        self.history.value = []
         self.history_index = -1
         self.current_input = ""
         # Reset the console while maintaining the locals dictionary
@@ -291,13 +315,13 @@ class ConsoleManager:
 
     def get_entries(self) -> list[ConsoleEntry]:
         """Get the list of console entries."""
-        return self.history
+        return self.history.value
 
     def prev_command(
         self, current_text: str, set_input_text: Callable[[str], None]
     ) -> None:
         """Navigate to previous command in history."""
-        if not self.history:
+        if not self.history.value:
             return
 
         # Save the current input
@@ -306,13 +330,13 @@ class ConsoleManager:
 
         # Move up in history
         if self.history_index == -1:
-            self.history_index = len(self.history) - 1
+            self.history_index = len(self.history.value) - 1
         elif self.history_index > 0:
             self.history_index -= 1
 
         # Set text to the historical command
-        if 0 <= self.history_index < len(self.history):
-            set_input_text(self.history[self.history_index].command)
+        if 0 <= self.history_index < len(self.history.value):
+            set_input_text(self.history.value[self.history_index].command)
 
     def next_command(self, set_input_text: Callable[[str], None]) -> None:
         """Navigate to next command in history."""
@@ -323,11 +347,11 @@ class ConsoleManager:
         self.history_index += 1
 
         # If we've moved past the end of history, restore the saved input
-        if self.history_index >= len(self.history):
+        if self.history_index >= len(self.history.value):
             self.history_index = -1
             set_input_text(self.current_input)
         else:
-            set_input_text(self.history[self.history_index].command)
+            set_input_text(self.history.value[self.history_index].command)
 
 
 def format_command_html(entry):
@@ -431,20 +455,14 @@ def CommandConsole(model=None, additional_imports=None):
             model=model, additional_imports=additional_imports
         )
 
-    # State to trigger re-renders
-    refresh, set_refresh = solara.use_state(0)
-
     def handle_code_execution(code, set_input_text):
         console_ref.current.execute_code(code, set_input_text)
-        set_refresh(refresh + 1)
 
     def handle_up(current_text, set_input_text):
         console_ref.current.prev_command(current_text, set_input_text)
-        set_refresh(refresh + 1)
 
     def handle_down(set_input_text):
         console_ref.current.next_command(set_input_text)
-        set_refresh(refresh + 1)
 
     with solara.Column(
         style={
