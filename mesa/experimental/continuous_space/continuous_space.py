@@ -234,8 +234,13 @@ class ContinuousSpace:
             agents = np.asarray(agents)
 
         if self.torus:
-            point = self.torus_correct(point)
             delta = np.abs(point - positions)
+            # The minimum image convention below only holds while the separation
+            # is at most the space size on each axis. An out-of-bounds query
+            # point can break that, so fold the separation back when it does.
+            # The check is per axis, since the size may differ between axes.
+            if np.any(delta > self.size):
+                delta %= self.size
             delta = np.minimum(delta, self.size - delta, out=delta)
 
             # + is much faster than np.sum or array.sum
