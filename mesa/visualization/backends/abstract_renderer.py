@@ -37,13 +37,17 @@ class AbstractRenderer(ABC):
 
     def _get_agent_pos(self, agent, space):
         """Get agent position based on space type."""
-        if isinstance(space, OrthogonalGrid):
-            # Orthogonal grids are drawn in cell coordinates, not frame coordinates
-            return agent.cell.coordinate
         if isinstance(space, DiscreteSpace):
-            return agent.cell.position
+            cell = space._cell_of(agent) or agent.cell
+            # Orthogonal grids are drawn in cell coordinates
+            if isinstance(space, OrthogonalGrid):
+                return cell.coordinate
+            return cell.position
 
-        pos = agent.position
+        position_of = getattr(space, "_position_of", None)
+        pos = None if position_of is None else position_of(agent)
+        if pos is None:
+            pos = agent.position
         if len(pos) < 2:
             raise ValueError(
                 "Continuous space visualization requires at least 2 dimensions"

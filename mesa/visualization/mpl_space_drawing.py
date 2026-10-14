@@ -111,13 +111,17 @@ def collect_agent_data(
 
     def get_agent_pos(agent, space):
         """Helper function to get the agent position depending on the grid type."""
-        if isinstance(space, OrthogonalGrid):
-            # Orthogonal grids are drawn in cell coordinates, not frame coordinates
-            agent_x, agent_y = agent.cell.coordinate
-        elif isinstance(space, DiscreteSpace):
-            agent_x, agent_y = agent.cell.position
+        if isinstance(space, DiscreteSpace):
+            cell = space._cell_of(agent) or agent.cell
+            # Orthogonal grids are drawn in cell coordinates
+            if isinstance(space, OrthogonalGrid):
+                agent_x, agent_y = cell.coordinate
+            else:
+                agent_x, agent_y = cell.position
         else:
-            agent_x, agent_y = agent.position
+            position_of = getattr(space, "_position_of", None)
+            position = None if position_of is None else position_of(agent)
+            agent_x, agent_y = agent.position if position is None else position
         return agent_x, agent_y
 
     arguments = {
