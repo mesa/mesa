@@ -76,9 +76,16 @@ def _resolve_weights(
 def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Iterable:
     """Resolve ``value`` into an iterable of ``n`` per-agent values.
 
-    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` of length ``n``
-    is treated as one value per agent. Any other value (a scalar, a string, or a
-    non-sequence) is broadcast to all ``n`` agents.
+    A sequence of length ``n`` is treated as one value per agent. This covers
+    any ``collections.abc.Sequence`` -- ``list``, ``tuple``, ``range``,
+    ``collections.deque``, ``array.array`` -- as well as ``numpy.ndarray``,
+    ``pandas.Series`` and ``pandas.Index``, which are sized and ordered but do
+    not register as ``Sequence``.
+
+    Strings and bytes are sequences, but treating them element-wise is almost
+    never what a caller means, so they are broadcast like any other scalar.
+    Unordered containers such as ``set`` and ``dict`` are broadcast too, since
+    there is no well-defined order in which to hand their elements out.
 
     Per-agent values are assigned by reference, not copied. If the same mutable
     object (a list, dict, or similar) appears at more than one position, every
@@ -100,7 +107,9 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
         ValueError: If ``strict`` and ``value`` is a sequence whose length is
             not ``n``.
     """
-    if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+    if isinstance(
+        value, (Sequence, np.ndarray, pd.Series, pd.Index)
+    ) and not isinstance(value, (str, bytes, bytearray)):
         if len(value) == n:
             _warn_if_object_shared_between_agents(value)
             return value
