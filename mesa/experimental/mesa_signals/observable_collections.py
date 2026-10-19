@@ -48,16 +48,15 @@ class ObservableList(BaseObservable):
         if ctx is not None:
             old_value = [] if old_value is None else list(old_value)
             ctx.capture_original_value_once(self.public_name, old_value)
-        setattr(
-            instance,
-            self.private_name,
-            SignalingList(value, instance, self.public_name),
-        )
+        new_list = SignalingList(value, instance, self.public_name)
+        setattr(instance, self.private_name, new_list)
+        # value may be a one-shot iterable that SignalingList has consumed,
+        # so emit a snapshot of the stored values instead.
         instance.notify(
             self.public_name,
             ListSignals.SET,
             old=old_value,
-            new=value,
+            new=list(new_list.data),
         )
 
 
