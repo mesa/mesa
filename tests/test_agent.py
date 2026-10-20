@@ -2,6 +2,7 @@
 
 import array
 import collections
+import collections.abc
 from typing import ClassVar
 
 import numpy as np
@@ -9,6 +10,7 @@ import pandas as pd
 import pytest
 
 from mesa.agent import Agent
+from mesa.agentset import AgentSet
 from mesa.model import Model
 
 
@@ -127,6 +129,7 @@ def test_create_agents_rejects_any_wrong_length_sequence(make_sequence):
     [
         pytest.param("abcd", id="str"),
         pytest.param(b"abcd", id="bytes"),
+        pytest.param(collections.UserString("abcd"), id="userstring"),
         pytest.param({0, 1, 2, 3}, id="set"),
         pytest.param({"a": 1}, id="dict"),
         pytest.param(7, id="int"),
@@ -141,6 +144,37 @@ def test_create_agents_broadcasts_scalars_and_unordered_values(value):
 
     values = [agent.value for agent in model.agents]
     assert values == [value] * n
+    assert len({id(v) for v in values}) == 1
+
+
+def test_create_agents_broadcasts_an_agentset():
+    """An AgentSet is a Sequence by inheritance, but means "share this group".
+
+    Passing a team or a set of neighbours to every agent must keep working, at
+    any length, rather than handing out one member each or raising.
+    """
+    model = Model(rng=42)
+    members = [AgentTest(model) for _ in range(3)]
+    team = AgentSet(members, random=model.random)
+    assert isinstance(team, collections.abc.Sequence)
+
+    for n in (3, 5):
+        inner = Model(rng=42)
+        _ValueAgent.create_agents(inner, n, value=team)
+        values = [agent.value for agent in inner.agents]
+        assert values == [team] * n
+        assert len({id(v) for v in values}) == 1
+
+
+def test_agentset_set_broadcasts_an_agentset():
+    """AgentSet.set must share a group too, not spread its members."""
+    model = Model(rng=42)
+    _ValueAgent.create_agents(model, 4)
+    team = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    model.agents_by_type[_ValueAgent].set("value", team)
+
+    values = [agent.value for agent in model.agents_by_type[_ValueAgent]]
     assert len({id(v) for v in values}) == 1
 
 

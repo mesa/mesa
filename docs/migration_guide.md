@@ -108,6 +108,23 @@ if model.time >= 100:
 
 - Ref: [PR #3328](https://github.com/mesa/mesa/pull/3328)
 
+### Any sized sequence is spread across agents
+`create_agents()` and `AgentSet.set()` used to spread only `list`, `tuple`, `numpy.ndarray` and `pandas.Series`, and broadcast everything else as one shared value. Any sized, ordered sequence is now spread, which adds `range`, `collections.deque`, `array.array` and `pandas.Index`. The length check applies to all of them, so a mismatch raises instead of silently broadcasting.
+
+```python
+# Old
+MyAgent.create_agents(model, n, wealth=range(n))   # every agent got the same range object
+MyAgent.create_agents(model, 4, wealth=range(3))   # silently broadcast, no error
+
+# New
+MyAgent.create_agents(model, n, wealth=range(n))   # agent i gets i
+MyAgent.create_agents(model, 4, wealth=range(3))   # ValueError
+```
+
+Strings, bytes, `collections.UserString`, `set`, `dict` and `AgentSet` are still broadcast, so sharing a group with every agent is unchanged. If you were relying on a `range` or a `deque` being broadcast as a single value, wrap it: `wealth=[my_range] * n`, or pass it as a scalar the agent stores itself.
+
+- Ref: [PR #3956](https://github.com/mesa/mesa/pull/3956)
+
 ### `batch_run` removed
 `mesa.batch_run` no longer exists. Parameter sweeps go through `Scenario` + `RunConfiguration` + `run_scenarios()` in `mesa.experimental.scenarios`. This isn't a drop-in replacement — it separates *what varies between runs* (`Scenario`) from *how a single run is executed and what's extracted* (`RunConfiguration`), and returns a queryable `Store` rather than a single DataFrame.
 
