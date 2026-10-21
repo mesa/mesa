@@ -147,8 +147,44 @@ def test_create_agents_broadcasts_scalars_and_unordered_values(value):
     assert len({id(v) for v in values}) == 1
 
 
+class _OrderedSet(collections.abc.Set, collections.abc.Sequence):
+    """A container that is both a Set and a Sequence, as AgentSet is."""
+
+    def __init__(self, items):
+        self._items = list(items)
+
+    def __contains__(self, item):
+        return item in self._items
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, index):
+        return self._items[index]
+
+
+def test_create_agents_broadcasts_an_ordered_set():
+    """A Set is shared with every agent even when it is also a Sequence.
+
+    A set is a group to hand over whole, not a row of per-agent values, so it
+    is broadcast whatever order it carries.
+    """
+    ordered = _OrderedSet([0, 1, 2])
+    assert isinstance(ordered, collections.abc.Sequence)
+    assert isinstance(ordered, collections.abc.Set)
+
+    for n in (3, 5):
+        model = Model(rng=42)
+        _ValueAgent.create_agents(model, n, value=ordered)
+        values = [agent.value for agent in model.agents]
+        assert values == [ordered] * n
+
+
 def test_create_agents_broadcasts_an_agentset():
-    """An AgentSet is a Sequence by inheritance, but means "share this group".
+    """An AgentSet is a Set, and lists Sequence among its own bases.
 
     Passing a team or a set of neighbours to every agent must keep working, at
     any length, rather than handing out one member each or raising.
@@ -157,6 +193,7 @@ def test_create_agents_broadcasts_an_agentset():
     members = [AgentTest(model) for _ in range(3)]
     team = AgentSet(members, random=model.random)
     assert isinstance(team, collections.abc.Sequence)
+    assert isinstance(team, collections.abc.Set)
 
     for n in (3, 5):
         inner = Model(rng=42)

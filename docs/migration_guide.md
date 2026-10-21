@@ -121,7 +121,7 @@ MyAgent.create_agents(model, n, wealth=range(n))   # agent i gets i
 MyAgent.create_agents(model, 4, wealth=range(3))   # ValueError
 ```
 
-Strings, bytes, `collections.UserString`, `set`, `dict` and `AgentSet` are still broadcast, so sharing a group with every agent is unchanged. If you were relying on a `range` or a `deque` being broadcast as a single value, wrap it: `wealth=[my_range] * n`, or pass it as a scalar the agent stores itself.
+Strings, bytes, `collections.UserString`, `dict` and every `collections.abc.Set` are still broadcast, so sharing a group with every agent -- a `set`, an `AgentSet`, a team of neighbours -- is unchanged. If you were relying on a `range` or a `deque` being broadcast as a single value, wrap it: `wealth=[my_range] * n`, or pass it as a scalar the agent stores itself.
 
 - Ref: [PR #3956](https://github.com/mesa/mesa/pull/3956)
 
