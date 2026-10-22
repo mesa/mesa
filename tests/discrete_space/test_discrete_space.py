@@ -676,6 +676,8 @@ def test_cell():
     cell_zero = Cell((1,), capacity=0, random=random.Random())
     with pytest.raises(CellFullException):
         cell_zero.add_agent(CellAgent(model))
+    assert cell_zero.empty is True
+    assert cell_zero.is_empty is True
 
 
 def test_cell_empty_attribute_initialized():
