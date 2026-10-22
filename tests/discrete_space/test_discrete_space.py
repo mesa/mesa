@@ -589,6 +589,26 @@ def test_cell_missing_exception():
         _ = grid[(-1, 0)]
 
 
+def test_cell_empty_flag_after_rejected_add():
+    """A rejected add_agent must not corrupt the cell's empty flag."""
+    model = Model()
+
+    # capacity 0: the add is rejected, so the cell must stay empty
+    cell = Cell((0, 0), capacity=0, random=model.random)
+    with pytest.raises(CellFullException):
+        cell.add_agent(CellAgent(model))
+    assert cell.empty is True
+    assert cell.empty == cell.is_empty
+
+    # a full cell keeps a correct flag when a further add is rejected
+    cell = Cell((1, 1), capacity=1, random=model.random)
+    cell.add_agent(CellAgent(model))
+    with pytest.raises(CellFullException):
+        cell.add_agent(CellAgent(model))
+    assert cell.empty is False
+    assert cell.empty == cell.is_empty
+
+
 def test_grid_validate_parameters():
     """Test that OrthogonalMooreGrid raises standard exceptions for invalid parameters."""
     with pytest.raises(
