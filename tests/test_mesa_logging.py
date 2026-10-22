@@ -1,6 +1,8 @@
 """Unit tests for mesa_logging."""
 
+import ast
 import logging
+from pathlib import Path
 
 import pytest
 
@@ -66,3 +68,36 @@ def test_caplog_capture_after_teardown(caplog):
     logger.setLevel(logging.INFO)
     logger.info("testing caplog propagation")
     assert "testing caplog propagation" in caplog.text
+
+
+def test_no_module_level_logging_in_examples():
+    """Static AST scan to ensure no module-level logging configuration
+
+    (like log_to_stderr or basicConfig) happens in the examples directory.
+    """
+    current_dir = Path(__file__).parent
+    examples_dir = current_dir.parent / "mesa" / "examples"
+
+    forbidden_calls = {"log_to_stderr", "log_to_file", "basicConfig", "dictConfig"}
+
+    offenders = []
+    for path in sorted(examples_dir.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in tree.body:  # module level only
+            if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
+                continue
+            func = node.value.func
+            name = (
+                func.attr
+                if isinstance(func, ast.Attribute)
+                else getattr(func, "id", "")
+            )
+            if name in forbidden_calls:
+                offenders.append(
+                    f"{path.relative_to(examples_dir).as_posix()}:{node.lineno}:{name}()"
+                )  # pragma: no cover
+
+    assert not offenders, (
+        "example modules must not configure logging at import time: "
+        + ", ".join(offenders)
+    )
