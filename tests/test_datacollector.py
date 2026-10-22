@@ -853,6 +853,40 @@ def test_mutable_data_independence():
     assert df.loc[(3, 1), "Data"] == [1, 2]
 
 
+@pytest.mark.parametrize("reporter_kind", ["agent", "agenttype"])
+def test_tuple_with_mutable_agent_data_is_copied(reporter_kind):
+    """Preserve historical data when a reporter returns a tuple containing a list."""
+
+    class MutableAgent(Agent):
+        """Agent with mutable data nested in a reporter tuple."""
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.data = []
+
+    model = Model()
+    agent = MutableAgent(model)
+
+    def reporter(current_agent):
+        return (current_agent.data,)
+
+    if reporter_kind == "agent":
+        collector = DataCollector(agent_reporters={"Data": reporter})
+    else:
+        collector = DataCollector(
+            agenttype_reporters={MutableAgent: {"Data": reporter}}
+        )
+
+    collector.collect(model)
+    agent.data.append("changed after collection")
+
+    if reporter_kind == "agent":
+        data = collector.get_agent_vars_dataframe()
+    else:
+        data = collector.get_agenttype_vars_dataframe(MutableAgent)
+    assert data.loc[(0, agent.unique_id), "Data"] == ([],)
+
+
 def test_get_model_vars_dataframe_no_reporters():
     """Test that get_model_vars_dataframe warns and returns empty DataFrame when no reporters defined."""
     dc = DataCollector()
