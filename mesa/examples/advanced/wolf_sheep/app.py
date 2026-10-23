@@ -85,7 +85,7 @@ renderer.post_process = post_process_space
 page = SolaraViz(
     model,
     renderer,
-    components=[lineplot_component, CommandConsole],
+    components=[lineplot_component, (CommandConsole, 1)],
     model_params=model_params,
     name="Wolf Sheep",
 )
