@@ -940,6 +940,20 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
         # 3. If new set, downgrade to AgentSet (Weak) to prevent leaks
         return AgentSet(result, self.random)
 
+    def select_random(
+        self,
+        n: int | float = 1,
+        *,
+        weights: str | Callable[[A], float] | Sequence[float] | None = None,
+        replace: bool = False,
+        inplace: bool = False,
+    ) -> AbstractAgentSet[A]:
+        """Sample agents, returning a weak-reference AgentSet unless inplace."""
+        result = super().select_random(
+            n, weights=weights, replace=replace, inplace=inplace
+        )
+        return result if inplace else AgentSet(result, self.random)
+
     def groupby(
         self, by: Callable | str, result_type: Literal["agentset", "list"] = "agentset"
     ) -> GroupBy:

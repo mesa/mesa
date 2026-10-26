@@ -1,7 +1,9 @@
 """AgentSet.py related tests."""
 
 import copy
+import gc
 import pickle
+import weakref
 from random import Random
 
 import numpy as np
@@ -1116,6 +1118,24 @@ def test_select_random_uniform():
     s2 = AgentSet(agents2, random=model2.random).select_random(5)
 
     assert [a.unique_id for a in s1] == [a.unique_id for a in s2]
+
+
+def test_model_random_sample_does_not_keep_removed_agents_alive():
+    """A sampled view must not retain agents after they leave the model."""
+    model = Model()
+    agent = AgentTest(model)
+    reference = weakref.ref(agent)
+
+    sample = model.agents.select_random(1)
+    assert type(sample) is AgentSet
+    assert len(sample) == 1
+
+    agent.remove()
+    del agent
+    gc.collect()
+
+    assert reference() is None
+    assert len(sample) == 0
 
 
 def test_select_random_with_replacement():
