@@ -87,3 +87,60 @@ team_b = model.meta_agents.create("Team_2026_B", [dave])
    :members:
    :imported-members:
 ```
+
+## Gating membership changes
+
+**What is it?**
+
+By default, joining or leaving a meta-agent is unconditional — call
+`add_member` or `remove_member`, and it happens immediately, every time.
+Gating membership changes means adding a condition that must be satisfied
+before a join or a leave is allowed to actually happen.
+
+**Why is it important?**
+
+This mirrors how real organizations work. A squad doesn't accept every
+recruit automatically. A company doesn't let someone quit mid-project with
+no process. A college doesn't admit every applicant. Joining and leaving are
+often *decisions*, not just structural changes — and a model that only
+supports unconditional membership can't represent that.
+
+**How can we implement it?**
+
+`add_member` and `remove_member` stay simple and unconditional, so approval
+logic is added through `meta_methods` instead — a way to bind your own
+custom methods onto a specific group when you create it. The pattern is:
+write a method that checks your own condition, and only calls
+`add_member`/`remove_member` if that condition passes.
+
+**Implementation**
+
+```python
+def request_join(self, member, relation="member"):
+    if not self.can_accept(member, relation):
+        return False
+    self.model.meta_agents.add_member(self, member, relation)
+    return True
+
+def request_leave(self, member):
+    if not self.can_release(member):
+        return False
+    self.model.meta_agents.remove_member(self, member)
+    return True
+
+squad = model.meta_agents.create(
+    "Squad", [commander], Agent,
+    meta_methods={"request_join": request_join, "request_leave": request_leave},
+)
+squad.max_size = 10
+squad.mission_active = False
+
+squad.request_join(recruit)   # only succeeds if can_accept() allows it
+squad.request_leave(soldier)  # only succeeds if can_release() allows it
+```
+
+`can_accept` and `can_release` are ordinary methods you write yourself — a
+capacity check, a minimum score, a rule that says "no leaving mid-mission,"
+or anything else your model needs. Because `request_join`/`request_leave`
+are bound separately to each group, different groups in the same model can
+each enforce their own, completely different rules.
