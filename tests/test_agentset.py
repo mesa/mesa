@@ -1291,6 +1291,23 @@ def test_select_random_weighted_without_replacement_excludes_zero_weights():
     assert agents[3] not in sampled
 
 
+def test_select_random_weighted_without_replacement_with_probabilities():
+    """Weights normalized to probabilities select the same agents as the raw weights."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2000)]
+    fitness = [float(1 + i % 5) for i in range(2000)]
+    total = sum(fitness)
+    # The normalized weights are O(1e-4), small enough to expose key underflow.
+    probabilities = [f / total for f in fitness]
+
+    expected = AgentSet(agents, random=Random(42)).select_random(1000, weights=fitness)
+    sampled = AgentSet(agents, random=Random(42)).select_random(
+        1000, weights=probabilities
+    )
+
+    assert set(sampled) == set(expected)
+
+
 def test_select_random_edge_cases_and_errors():
     """Test edge cases and error handling."""
     model = Model()

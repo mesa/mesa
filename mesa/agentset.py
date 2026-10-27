@@ -280,12 +280,14 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             if replace:
                 chosen = self.random.choices(items, weights=w, k=sample_size)
             else:
-                # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
+                # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement.
+                # Keys are log(u) / w, which orders agents like u ** (1 / w) but cannot
+                # underflow to 0.0 for small weights or round to 1.0 for large ones.
                 keys = []
                 for agent, wi in zip(items, w):
                     if wi > 0:
                         u = self.random.random()
-                        key = u ** (1.0 / wi)
+                        key = math.log(u) / wi if u > 0.0 else -math.inf
                         keys.append((key, agent))
 
                 positive_weight_count = len(keys)
