@@ -2,6 +2,7 @@
 
 import unittest
 import warnings
+from copy import deepcopy
 from functools import partial
 
 import pandas as pd
@@ -929,6 +930,84 @@ def test_get_table_dataframe_nonexistent():
 
     with pytest.raises(TableMissingException, match="does not exist"):
         dc.get_table_dataframe("nonexistent")
+
+
+def test_agenttype_collection_atomic_on_reporter_failure():
+    """Failed agent type collection preserves previous snapshot and does not store partial data."""
+
+    class First(Agent):
+        pass
+
+    class Second(Agent):
+        pass
+
+    def report_second(agent):
+        if getattr(agent, "fail", False):
+            raise RuntimeError("reporter failed")
+        return agent.value
+
+    model = Model(rng=1)
+    first, second = First(model), Second(model)
+    first.value, second.value = 1, 2
+    collector = DataCollector(
+        agenttype_reporters={
+            First: {"value": "value"},
+            Second: {"value": report_second},
+        }
+    )
+
+    # Initial successful collection
+    collector.collect(model)
+    initial_snapshot = deepcopy(collector._agenttype_records[model.time])
+    assert First in initial_snapshot and Second in initial_snapshot
+
+    # Reporter fails on second collection at same tick
+    first.value = 10
+    second.fail = True
+    with pytest.raises(RuntimeError, match="reporter failed"):
+        collector.collect(model)
+
+    # Previous complete snapshot remains unchanged
+    assert collector._agenttype_records[model.time] == initial_snapshot
+    assert collector._agenttype_records[model.time][First][0][2] == 1
+    assert collector._agenttype_records[model.time][Second][0][2] == 2
+
+    # Reporter recovers and collection succeeds
+    second.fail = False
+    collector.collect(model)
+    assert collector._agenttype_records[model.time][First][0][2] == 10
+    assert collector._agenttype_records[model.time][Second][0][2] == 2
+
+
+def test_agenttype_collection_atomic_initial_failure_leaves_no_partial_records():
+    """Initial failure in a later agent type reporter does not leave partial records."""
+
+    class First(Agent):
+        pass
+
+    class Second(Agent):
+        pass
+
+    def bad_reporter(agent):
+        raise ValueError("initial reporter failure")
+
+    model = Model(rng=1)
+    first = First(model)
+    first.val = 1
+    second = Second(model)
+    second.val = 2
+
+    collector = DataCollector(
+        agenttype_reporters={
+            First: {"val": "val"},
+            Second: {"val": bad_reporter},
+        }
+    )
+
+    with pytest.raises(ValueError, match="initial reporter failure"):
+        collector.collect(model)
+
+    assert model.time not in collector._agenttype_records
 
 
 if __name__ == "__main__":
