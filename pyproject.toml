@@ -55,8 +55,9 @@ network = [
 viz = [
   "matplotlib",
   "solara",
+  "websockets",
   "altair",
-  "starlette<1.0",
+  "starlette",
 ]
 # Dev and CI stuff
 dev = [
