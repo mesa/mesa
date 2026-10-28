@@ -676,6 +676,8 @@ def test_cell():
     cell_zero = Cell((1,), capacity=0, random=random.Random())
     with pytest.raises(CellFullException):
         cell_zero.add_agent(CellAgent(model))
+    assert cell_zero.empty is True
+    assert cell_zero.is_empty is True
 
 
 def test_cell_empty_attribute_initialized():
@@ -830,9 +832,13 @@ def test_cell_collection():
     cells = collection.select(at_most=0.5)
     assert len(cells) == 5
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             collection.select(at_most=bad_at_most)
+
+    for bad_type in (False, True, "1", [1], None):
+        with pytest.raises(TypeError, match="must be an integer or float"):
+            collection.select(at_most=bad_type)
 
     cells = collection.select()
     assert len(cells) == len(collection)
@@ -940,6 +946,96 @@ def test_property_layer_integration():
     # Test name conflict raises ValueError
     with pytest.raises(ValueError):
         grid.create_property_layer("width")
+
+
+@pytest.mark.parametrize("method", ["create_property_layer", "add_property_layer"])
+@pytest.mark.parametrize(
+    "reserved",
+    ["dimensions", "torus", "_cells", "_celllist", "cell_klass", "_read_only_layers"],
+)
+def test_property_layer_rejects_grid_instance_attribute_collision(method, reserved):
+    """Reject conflicting names before changing grid state or cell accessors."""
+    grid = OrthogonalMooreGrid((3, 3), capacity=1, random=random.Random(42))
+    original = getattr(grid, reserved)
+
+    with pytest.raises(
+        ValueError,
+        match=f"property_layer '{reserved}' conflicts with an existing Grid attribute",
+    ):
+        if method == "create_property_layer":
+            grid.create_property_layer(reserved, read_only=True)
+        else:
+            grid.add_property_layer(reserved, np.zeros((3, 3)), read_only=True)
+
+    assert getattr(grid, reserved) is original
+    assert set(grid.property_layers) == {"empty"}
+    assert grid.cell_klass.property_layers == {"empty"}
+    assert grid._read_only_layers == set()
+    cell = grid.find_nearest_cell([1.2, 1.2])
+    assert cell.coordinate == (1, 1)
+    assert len(grid.empties) == 9
+    CellAgent(Model(rng=42)).cell = cell
+    assert cell.is_full
+    assert len(grid.empties) == 8
+
+
+@pytest.mark.parametrize("method", ["create_property_layer", "add_property_layer"])
+def test_property_layer_duplicate_name_preserves_existing_layer(method):
+    """Duplicate names keep the original array and its read-only accessor."""
+    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    original = grid.create_property_layer("sugar", default_value=1, read_only=True)
+
+    with pytest.raises(ValueError, match="property_layer 'sugar' already exists"):
+        if method == "create_property_layer":
+            grid.create_property_layer("sugar", default_value=2)
+        else:
+            grid.add_property_layer("sugar", np.full((3, 3), 2))
+
+    assert grid.sugar is original
+    assert grid.property_layers["sugar"] is original
+    np.testing.assert_array_equal(original, np.ones((3, 3)))
+    with pytest.raises(AttributeError):
+        grid._cells[(1, 1)].sugar = 3
+
+
+@pytest.mark.parametrize("method", ["create_property_layer", "add_property_layer"])
+def test_property_layer_can_be_readded_after_removal(method):
+    """Removing a layer releases its name for a new array and accessor."""
+    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    grid.create_property_layer("sugar", read_only=True)
+    grid.remove_property_layer("sugar")
+
+    assert not hasattr(grid, "sugar")
+    assert not hasattr(grid._cells[(1, 1)], "sugar")
+    assert "sugar" not in grid.property_layers
+    assert "sugar" not in grid.cell_klass.property_layers
+    assert "sugar" not in grid._read_only_layers
+
+    if method == "create_property_layer":
+        grid.create_property_layer("sugar", default_value=2)
+    else:
+        grid.add_property_layer("sugar", np.full((3, 3), 2))
+
+    assert grid.sugar is grid.property_layers["sugar"]
+    cell = grid._cells[(1, 1)]
+    assert cell.sugar == 2
+    cell.sugar = 3
+    assert grid.sugar[1, 1] == 3
+
+
+def test_property_layer_cannot_remove_empty():
+    """Ensure remove_property_layer rejects removing the built-in 'empty' layer."""
+    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    with pytest.raises(
+        ValueError, match="Cannot remove the built-in 'empty' property layer"
+    ):
+        grid.remove_property_layer("empty")
+
+    assert "empty" in grid.property_layers
+    assert hasattr(grid, "empty")
+    assert hasattr(grid.cell_klass, "empty")
+    assert "empty" in grid.cell_klass.property_layers
+    assert hasattr(grid._cells[(1, 1)], "empty")
 
 
 @pytest.mark.parametrize(
@@ -1310,6 +1406,57 @@ def test_fixed_agent_removal_state():
     assert agent.cell is None
 
 
+def test_fixed_agent_assign_none_while_unplaced():
+    """Assigning None to an unplaced fixed agent does nothing, it can still be placed later."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+
+    agent.cell = None
+    assert agent.cell is None
+
+    agent.cell = cell
+    assert agent.cell is cell
+    assert agent in cell.agents
+
+
+def test_fixed_agent_remove_unplaced_raises():
+    """Removing an unplaced fixed agent raises and leaves the agent untouched."""
+    model = Model()
+    agent = FixedAgent(model)
+
+    with pytest.raises(ValueError, match="not in a cell"):
+        agent.remove()
+
+    # the check runs before anything is removed
+    assert agent in model.agents
+    assert agent.cell is None
+
+
+def test_fixed_agent_remove_twice_raises():
+    """A second remove() raises, since the agent is no longer in a cell."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell
+
+    agent.remove()
+    with pytest.raises(ValueError, match="not in a cell"):
+        agent.remove()
+
+
+def test_fixed_agent_cannot_unassign_after_placement():
+    """Once placed, a fixed agent can't be set back to None."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell
+
+    with pytest.raises(ValueError, match="Cannot move agent"):
+        agent.cell = None
+    assert agent.cell is cell
+
+
 def test_pickling_cell():
     """Test pickling of a Cell."""
     cell = Cell((1,), capacity=1, random=random.Random(42))
@@ -1677,3 +1824,26 @@ def test_voronoi_int_capacity_enforced_at_runtime() -> None:
     a1.move_to(cell)
     with pytest.raises(CellFullException):
         a2.move_to(cell)
+
+
+def test_cell_neighborhood_self_loop_bug_3885():
+    """Verifying radius=1 neighborhood excludes self on self-connected cells when include_center=False (#3885)."""
+    # 1. Torus Grid (1xN ring wrapping around)
+    grid = OrthogonalVonNeumannGrid((5, 1), torus=True, random=random.Random(42))
+    cell = grid._cells[(2, 0)]
+    neighborhood = [
+        c.coordinate for c in cell.get_neighborhood(radius=1, include_center=False)
+    ]
+    assert cell.coordinate not in neighborhood, (
+        f"Cell {cell.coordinate} found in its own neighborhood!"
+    )
+
+    # 2. Network with a self-loop
+    net = Network(nx.Graph([(0, 1), (1, 1), (1, 2)]), random=random.Random(42))
+    net_cell = net._cells[1]
+    net_neighborhood = [
+        c.coordinate for c in net_cell.get_neighborhood(radius=1, include_center=False)
+    ]
+    assert net_cell.coordinate not in net_neighborhood, (
+        f"Node {net_cell.coordinate} found in its own neighborhood!"
+    )

@@ -166,7 +166,8 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             AbstractAgentSet: A new AbstractAgentSet containing the selected agents, unless inplace is True, in which case the current AbstractAgentSet is updated.
 
         Raises:
-            ValueError: If at_most is a float and not in the range (0.0, 1.0].
+            TypeError: If at_most is not an integer or float, or is a boolean.
+            ValueError: If at_most is a negative integer, or a float not in the range (0.0, 1.0].
 
         Notes:
             - at_most just return the first n or fraction of agents. To take a random sample, shuffle() beforehand.
@@ -176,13 +177,19 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if filter_func is None and agent_type is None and at_most == inf:
             return self if inplace else copy.copy(self)
 
-        # Check if at_most is of type float
+        if isinstance(at_most, bool) or not isinstance(at_most, (int, float)):
+            raise TypeError(
+                f"at_most must be an integer or float, got {type(at_most).__name__}."
+            )
+
         if isinstance(at_most, float) and at_most != inf:
             if not (0.0 < at_most <= 1.0):
                 raise ValueError(
                     f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
                 )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
+        elif isinstance(at_most, int) and at_most < 0:
+            raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
 
         def agent_generator(
             filter_func: Callable[[A], bool] | None,
@@ -931,6 +938,24 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             return result
 
         # 3. If new set, downgrade to AgentSet (Weak) to prevent leaks
+        return AgentSet(result, self.random)
+
+    def select_random(
+        self,
+        n: int | float = 1,
+        *,
+        weights: str | Callable[[A], float] | Sequence[float] | None = None,
+        replace: bool = False,
+        inplace: bool = False,
+    ) -> AbstractAgentSet[A]:
+        """Select a random sample of agents. Returns a standard AgentSet (Weak Refs) if inplace=False."""
+        result = super().select_random(
+            n=n, weights=weights, replace=replace, inplace=inplace
+        )
+
+        if inplace:
+            return result
+
         return AgentSet(result, self.random)
 
     def groupby(

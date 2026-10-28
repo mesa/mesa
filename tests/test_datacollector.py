@@ -881,6 +881,27 @@ def test_get_agent_vars_dataframe_no_reporters():
     assert df.empty
 
 
+def test_get_agent_vars_dataframe_empty_records():
+    """Test that get_agent_vars_dataframe returns an empty DataFrame when no agent data has been recorded."""
+    dc = DataCollector(agent_reporters={"energy": lambda a: a.energy})
+
+    # Case 1: Before any collect() call
+    df_before = dc.get_agent_vars_dataframe()
+    assert df_before.empty
+    assert len(df_before) == 0
+    assert list(df_before.columns) == ["energy"]
+    assert df_before.index.names == ["Step", "AgentID"]
+
+    # Case 2: After collect() on a model with 0 agents
+    model = Model()
+    dc.collect(model)
+    df_after = dc.get_agent_vars_dataframe()
+    assert df_after.empty
+    assert len(df_after) == 0
+    assert list(df_after.columns) == ["energy"]
+    assert df_after.index.names == ["Step", "AgentID"]
+
+
 def test_add_table_row_nonexistent_table():
     """Test that add_table_row raises TableMissingException for nonexistent table."""
     dc = DataCollector()

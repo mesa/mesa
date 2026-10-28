@@ -11,6 +11,6 @@ dependencies:
     - matplotlib
     - seaborn
     - solara
-    - mesa[rec]
+    - mesa[rec]>=3.5
 
 # TODO: Move to pyproject.toml when upstream implemented in https://github.com/jupyterhub/repo2docker/issues/1427

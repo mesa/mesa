@@ -1,7 +1,9 @@
 """AgentSet.py related tests."""
 
 import copy
+import gc
 import pickle
+import weakref
 from random import Random
 
 import numpy as np
@@ -79,9 +81,13 @@ def test_agentset():
     assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
     assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             agentset.select(at_most=bad_at_most)
+
+    for bad_type in (False, True, "1", [1], None):
+        with pytest.raises(TypeError, match="must be an integer or float"):
+            agentset.select(at_most=bad_type)
 
     assert len(agentset.select(test_function)) == 5
     assert len(agentset.select(test_function, at_most=2)) == 2
@@ -850,6 +856,16 @@ def test_hardkeyagentset_downgrade():
     sorted_view = hard_set.sort("unique_id")
     assert isinstance(sorted_view, AgentSet)
 
+    random_view = hard_set.select_random(5)
+    assert isinstance(random_view, AgentSet)
+    assert not isinstance(random_view, _HardKeyAgentSet)
+    assert len(random_view) == 5
+
+    same_random = hard_set.select_random(5, inplace=True)
+    assert isinstance(same_random, _HardKeyAgentSet)
+    assert same_random is hard_set
+    assert len(same_random) == 5
+
     groups = hard_set.groupby(lambda a: a.unique_id % 2 == 0)
     for group in groups.groups.values():
         assert isinstance(group, AgentSet)
@@ -858,6 +874,23 @@ def test_hardkeyagentset_downgrade():
     groups_list = hard_set.groupby(lambda a: a.unique_id % 2 == 0, result_type="list")
     for group in groups_list.groups.values():
         assert isinstance(group, list)
+
+
+def test_hardkeyagentset_select_random_garbage_collection():
+    """Test that select_random on _HardKeyAgentSet allows removed agents to be garbage collected (#3992)."""
+    model = Model()
+    agent = AgentTest(model)
+    agent_ref = weakref.ref(agent)
+
+    sample = model.agents.select_random(1)
+    assert isinstance(sample, AgentSet)
+    assert not isinstance(sample, _HardKeyAgentSet)
+
+    agent.remove()
+    del agent
+    gc.collect()
+
+    assert agent_ref() is None
 
 
 def test_hardkeyagentset_inplace():

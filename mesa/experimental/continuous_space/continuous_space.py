@@ -1,9 +1,12 @@
 """A Continuous Space class."""
 
+from __future__ import annotations
+
 import warnings
 from collections.abc import Iterable
 from itertools import compress
 from random import Random
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -11,8 +14,11 @@ from scipy.spatial.distance import cdist
 
 from mesa.agent import Agent, AgentSet
 
+if TYPE_CHECKING:
+    from .continuous_space_agents import ContinuousSpaceAgent
 
-class ContinuousSpace:
+
+class ContinuousSpace[A: ContinuousSpaceAgent]:
     """Continuous space where each agent can have an arbitrary position."""
 
     @property
@@ -101,7 +107,7 @@ class ContinuousSpace:
         self._index_to_agent: dict[int, Agent] = {}
 
     @property
-    def agents(self) -> AgentSet:
+    def agents(self) -> AgentSet[A]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.active_agents, random=self.random)
 

@@ -65,7 +65,7 @@ class ContinuousSpaceAgent(Agent):
 
     def get_neighbors_in_radius(
         self, radius: float | int = 1
-    ) -> tuple[list, np.ndarray]:
+    ) -> tuple[list[ContinuousSpaceAgent], np.ndarray]:
         """Get neighbors within radius.
 
         Args:
@@ -77,7 +77,9 @@ class ContinuousSpaceAgent(Agent):
         agents = list(compress(agents, logical))
         return agents, dists[logical]
 
-    def get_nearest_neighbors(self, k: int = 1) -> tuple[list, np.ndarray]:
+    def get_nearest_neighbors(
+        self, k: int = 1
+    ) -> tuple[list[ContinuousSpaceAgent], np.ndarray]:
         """Get neighbors within radius.
 
         Args:
