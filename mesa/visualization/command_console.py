@@ -140,8 +140,8 @@ class ConsoleManager:
         2. `cls` : Clears the console screen
         3. `tips` : Shows available console commands and usage tips
     Example:
-        >>> console = ConsoleManager(model=my_model)
-        >>> console.execute_code("print('hello world')", set_input_callback)
+        >>> console = ConsoleManager(model=my_model)  # doctest: +SKIP
+        >>> console.execute_code("print('hello world')", set_input_callback)  # doctest: +SKIP
     """
 
     def __init__(self, model=None, additional_imports=None):
