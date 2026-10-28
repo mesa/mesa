@@ -54,8 +54,8 @@ network = [
 ]
 viz = [
   "matplotlib",
-  "solara",
-  "websockets",
+  "solara>=1.34.0",
+  "websockets>=14",
   "altair",
   "starlette",
 ]
