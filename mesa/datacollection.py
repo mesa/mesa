@@ -464,7 +464,10 @@ class DataCollector:
             )
             return pd.DataFrame()
 
-        all_records = itertools.chain.from_iterable(self._agent_records.values())
+        # Materialize to a list: passing an empty generator to
+        # pd.DataFrame.from_records with an index misparses the index labels as
+        # rows (producing spurious all-NaN rows), whereas an empty list does not.
+        all_records = list(itertools.chain.from_iterable(self._agent_records.values()))
         rep_names = list(self.agent_reporters)
 
         df = pd.DataFrame.from_records(
