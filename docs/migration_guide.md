@@ -8,6 +8,22 @@ Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing 
 
 Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
 
+### Grid cell positions are cell centers
+`Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position of a grid cell is now read-only.
+
+```python
+# Old
+x, y = cell.position  # 5.0, 5.0: the integer index, as floats
+
+# New
+x, y = cell.coordinate  # 5, 5: the index
+x, y = cell.position  # 5.5, 5.5: the center of the cell
+```
+
+Grids also take two new arguments, `cell_size` and `origin`, that place them in the same coordinates as other spaces. A 50 by 50 grid with `cell_size=2.0` covers the same area as a `ContinuousSpace` of 100 by 100.
+
+- Ref: [Discussion #2585](https://github.com/mesa/mesa/discussions/2585)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.

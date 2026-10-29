@@ -90,6 +90,8 @@ class Grid(DiscreteSpace[T]):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[T] = Cell,
+        cell_size: float | Sequence[float] = 1.0,
+        origin: Sequence[float] | None = None,
     ) -> None:
         """Initialise the grid class.
 
@@ -99,6 +101,11 @@ class Grid(DiscreteSpace[T]):
             capacity: capacity of the grid cell
             random: a random number generator
             cell_klass: the base class to use for the cells
+            cell_size: the size of a cell, as one number or one per dimension. A 50
+                by 50 grid with ``cell_size=2.0`` covers the same area as a
+                continuous space of 100 by 100.
+            origin: the position of the corner of cell (0, 0, ...), by default
+                all zeros
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.torus = torus
@@ -106,10 +113,16 @@ class Grid(DiscreteSpace[T]):
         self._try_random = True
         self._ndims = len(dimensions)
         self._validate_parameters()
+        self._set_mapping(cell_size, origin)
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "_mesa_scale": self.cell_size,
+                "_mesa_offset": self.origin,
+            },
         )
         self.property_layers: dict[str, np.ndarray] = {}
         # Track which property layers are read-only so the constraint survives
@@ -128,6 +141,32 @@ class Grid(DiscreteSpace[T]):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def _set_mapping(
+        self, cell_size: float | Sequence[float], origin: Sequence[float] | None
+    ) -> None:
+        """Store how cell coordinates map to positions.
+
+        The mapping is a scale and an offset per dimension. Only ``Cell.position``
+        and ``find_nearest_cell`` use it, so it can grow into an affine transform.
+        """
+        n = self._ndims
+        if isinstance(cell_size, int | float):
+            sizes = [float(cell_size)] * n
+        else:
+            sizes = [float(size) for size in cell_size]
+        origins = [0.0] * n if origin is None else [float(o) for o in origin]
+        if len(sizes) != n or len(origins) != n:
+            raise ValueError(
+                f"cell_size and origin must be a number or have one value for each of "
+                f"the {n} dimensions."
+            )
+        if not all(size > 0 for size in sizes):
+            raise ValueError("cell_size must be positive.")
+        # Plain floats keep find_nearest_cell fast for the handful of values involved
+        self._mapping = (origins, sizes)
+        self.cell_size = np.array(sizes)
+        self.origin = np.array(origins)
 
     def create_property_layer(
         self,
@@ -256,22 +295,35 @@ class Grid(DiscreteSpace[T]):
 
         Raises:
             ValueError: If position is outside grid bounds and not a torus
+
+        Notes:
+            A bounded grid includes its upper edge, like ``ContinuousSpace``: a
+            position exactly on it belongs to the last cell.
         """
-        # Floor to get cell coordinate
-        coord = tuple(np.floor(position).astype(int))
+        if isinstance(position, np.ndarray):
+            position = position.tolist()
+        origin, cell_size = self._mapping
+        # Floor to get cell coordinate; plain floats are several times faster than
+        # numpy for the handful of values involved
+        coord = [
+            math.floor((p - o) / s)
+            for p, o, s in zip(position, origin, cell_size, strict=True)
+        ]
 
         # Handle torus wrapping
         if self.torus:
-            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+            coord = [c % d for c, d in zip(coord, self.dimensions)]
+        else:
+            for i, (c, d) in enumerate(zip(coord, self.dimensions)):
+                if c == d and position[i] == origin[i] + d * cell_size[i]:
+                    coord[i] = d - 1
+                elif not 0 <= c < d:
+                    raise ValueError(
+                        f"Position {position} is outside grid bounds. "
+                        f"Dimensions: {self.dimensions}"
+                    )
 
-        # Check bounds for non-torus grids
-        elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
-            raise ValueError(
-                f"Position {position} is outside grid bounds. "
-                f"Dimensions: {self.dimensions}"
-            )
-
-        return self._cells[coord]
+        return self._cells[tuple(coord)]
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
@@ -433,7 +485,12 @@ class Grid(DiscreteSpace[T]):
         self.cell_klass = type(
             "GridCell",
             (base_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "_mesa_scale": self.cell_size,
+                "_mesa_offset": self.origin,
+            },
         )
         copyreg.pickle(self.cell_klass, pickle_gridcell)
         for cell in self._cells.values():

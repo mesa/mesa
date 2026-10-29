@@ -5,6 +5,7 @@ import weakref
 import pytest
 
 from mesa.examples import (
+    BirdsAndTrees,
     BoidFlockers,
     BoltzmannWealth,
     ConwaysGameOfLife,
@@ -18,6 +19,7 @@ from mesa.examples import (
     WolfSheep,
 )
 from mesa.examples.advanced.alliance_formation.model import AllianceScenario
+from mesa.examples.advanced.birds_and_trees.model import BirdsAndTreesScenario
 from mesa.examples.advanced.pd_grid.model import PrisonersDilemmaScenario
 from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
@@ -206,6 +208,28 @@ def test_wolf_sheep_grass_disabled():
     assert "Grass" not in df.columns
     assert "Wolves" in df.columns
     assert "Sheep" in df.columns
+
+
+def test_birds_and_trees_model():  # noqa: D103
+    from mesa.examples.advanced.birds_and_trees import app  # noqa: PLC0415
+    from mesa.examples.advanced.birds_and_trees.agents import Bird  # noqa: PLC0415
+
+    app.page  # noqa: B018
+
+    model = BirdsAndTrees(scenario=BirdsAndTreesScenario(rng=42))
+    ref = weakref.ref(model)
+
+    model.run_for(20)
+    # every bird's ground cell is the cell below its position in the air
+    assert all(
+        bird.cell is model.ground.find_nearest_cell(bird.position)
+        for bird in model.agents_by_type[Bird]
+    )
+
+    model.remove_all_agents()
+    del model
+    gc.collect()
+    assert ref() is None
 
 
 def test_alliance_formation_model():  # noqa: D103
