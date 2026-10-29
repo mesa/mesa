@@ -13,7 +13,9 @@ another action, resume an interrupted one -- belong there.
 Example::
 
     class Sheep(HasActions, Agent):
-        pass
+        def __init__(self, model):
+            super().__init__(model)
+            self.energy = 50
 
     class Forage(Action):
         def __init__(self, sheep):
@@ -25,7 +27,10 @@ Example::
         def on_interrupt(self, progress):
             self.agent.energy += 30 * progress
 
+    model = Model()
+    sheep = Sheep(model)
     sheep.start_action(Forage(sheep))
+    model.run_for(5)  # the forage completes, sheep.energy is now 80
 """
 
 from __future__ import annotations
@@ -490,6 +495,17 @@ class HasActions:
     ends and nothing replaces it, the on_idle() wake fires.
 
     Action instances require their agent to inherit from this mixin.
+
+    Example::
+
+        class Worker(HasActions, Agent):
+            def on_idle(self, previous):
+                self.start_action(Action(self, duration=1.0))
+
+        model = Model()
+        worker = Worker(model)
+        worker.start_action(Action(worker, duration=1.0))
+        model.run_for(3)  # each completion starts the next action
     """
 
     if TYPE_CHECKING:
