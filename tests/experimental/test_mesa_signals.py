@@ -1022,6 +1022,67 @@ def test_observable_list_reverse_slice_batch(delete):
     )
 
 
+@pytest.mark.parametrize("batched", [False, True])
+def test_observable_list_set_payload_is_snapshot(batched):
+    """Assigning a one-shot iterable emits the stored values, batched or not."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    owner = Owner()
+    owner.items = [1, 2]
+    handler = Mock()
+    owner.observe("items", ListSignals.SET, handler)
+
+    values = (x * 2 for x in range(3))
+    if batched:
+        with owner.batch():
+            owner.items = values
+    else:
+        owner.items = values
+
+    handler.assert_called_once_with(
+        Message(
+            name="items",
+            signal_type=ListSignals.SET,
+            owner=owner,
+            additional_kwargs={"old": [1, 2], "new": [0, 2, 4]},
+        )
+    )
+
+    # Later mutations of the stored list must not reach the delivered payload.
+    owner.items.append(6)
+    assert handler.call_args.args[0].additional_kwargs["new"] == [0, 2, 4]
+
+
+def test_observable_list_set_old_payload_is_detached():
+    """The SET old payload is neither the shared fallback nor the replaced list."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    first, second = Owner(), Owner()
+    handler = Mock()
+    for owner in (first, second):
+        owner.observe("items", ListSignals.SET, handler)
+        owner.observe("items", ListSignals.APPENDED, handler)
+
+    first.items = [1]
+    old = handler.call_args.args[0].additional_kwargs["old"]
+    assert old == []
+    old.append("stale")
+    second.items = [2]
+    assert handler.call_args.args[0].additional_kwargs["old"] == []
+
+    first.items = [3]
+    old = handler.call_args.args[0].additional_kwargs["old"]
+    assert old == [1]
+    handler.reset_mock()
+    old.append(4)
+    handler.assert_not_called()
+    assert list(first.items) == [3]
+
+
 def test_observable_list_mutation():
     """Test that in-place mutations of ObservableList trigger computed property updates."""
 
