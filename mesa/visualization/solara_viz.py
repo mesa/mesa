@@ -908,8 +908,8 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     attributes_to_copy = [
         "agent_portrayal",
         "property_layer_portrayal",
-        "space_kwargs",
-        "agent_kwargs",
+        "draw_space_kwargs",
+        "draw_agent_kwargs",
         "space_mesh",
         "agent_mesh",
         "property_layer_mesh",
@@ -919,6 +919,9 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     for attr in attributes_to_copy:
         if getattr(renderer, attr, None) is not None:
             value_to_copy = getattr(renderer, attr)
+            # copy dicts so the old and new renderer don't share the same kwargs
+            if isinstance(value_to_copy, dict):
+                value_to_copy = dict(value_to_copy)
             setattr(new_renderer, attr, value_to_copy)
 
     return new_renderer
