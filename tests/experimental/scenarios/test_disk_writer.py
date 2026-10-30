@@ -79,6 +79,34 @@ def test_diskstreamwriter_init_validates_schemas(tmp_path):
         DiskStreamWriter(tmp_path, session="s1", schemas=bad_schema)
 
 
+def test_frame_with_own_scenario_id_column_raises_instead_of_silently_overwritten(
+    tmp_path,
+):
+    """A frame that already has its own 'scenario_id' column is rejected, not clobbered.
+
+    Without this check, frame.assign(scenario_id=...) would silently replace
+    the model's own data with the identity value and the original column
+    would be unrecoverable, with no error or warning. _validate_schemas
+    already rejects this for a *declared* schema; this is the same rule
+    applied to the actual frame extract_output returns, which has no
+    declared schema to check against in the common no-schemas case.
+    """
+    writer = DiskStreamWriter(tmp_path, session="s1")
+    frame = pd.DataFrame({"scenario_id": [99, 99], "value": [1, 2]})
+
+    with pytest.raises(ValueError, match="scenario_id"):
+        writer.to_reference(RunId(7, 2), {"results": frame})
+
+
+def test_frame_with_own_replication_id_column_raises(tmp_path):
+    """Same rejection for a frame that already has its own 'replication_id' column."""
+    writer = DiskStreamWriter(tmp_path, session="s1")
+    frame = pd.DataFrame({"replication_id": [5], "value": [1]})
+
+    with pytest.raises(ValueError, match="replication_id"):
+        writer.to_reference(RunId(7, 2), {"results": frame})
+
+
 # ============================================================
 # _file_for
 # ============================================================

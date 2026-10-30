@@ -604,6 +604,15 @@ class DiskStreamWriter:
         if user_schema is not None:
             frame = self._conform_to_schema(name, user_schema, frame)
 
+        reserved_present = _RESERVED_IDENTITY_COLUMNS & set(frame.columns)
+        if reserved_present:
+            raise ValueError(
+                f"output {name!r} for {run_id} already has column(s) "
+                f"{sorted(reserved_present)}; these are reserved for the "
+                "identity columns appended automatically and must not be "
+                "returned by extract_output"
+            )
+
         frame = frame.assign(
             scenario_id=run_id.scenario_id, replication_id=run_id.replication_id
         )
