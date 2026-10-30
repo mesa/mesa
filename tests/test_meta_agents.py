@@ -6,6 +6,7 @@ from mesa import Agent, Model
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.meta_agents import MetaAgents
+from mesa.experimental.meta_agents.meta_agent import extract_class
 
 
 class CustomAgent(Agent):
@@ -69,6 +70,54 @@ def test_create_reuses_existing_class_for_new_instance(setup_agents):
     assert set(model.meta_agents.members_of(meta_agent)) == {agents[2], agents[0]}
     assert meta_agent2.function2() == "function2"
     assert set(model.meta_agents.members_of(meta_agent2)) == {agents[1], agents[3]}
+
+
+def test_create_reuses_a_name_after_the_last_group_is_dissolved(setup_agents):
+    """Recreating a group name after dissolving every group of that name works.
+
+    Dissolving the last group leaves an empty bucket in ``agents_by_type``
+    rather than removing the key, which is deliberate (see #3809). Looking the
+    class up by name therefore still succeeded while no instance remained to
+    read the class from, and ``create`` raised StopIteration. See #3849.
+    """
+    model, agents = setup_agents
+
+    team = model.meta_agents.create("TaskForce", [agents[0], agents[1]])
+    original_class = type(team)
+    model.meta_agents.dissolve(team)
+
+    rebuilt = model.meta_agents.create("TaskForce", [agents[0], agents[1]])
+
+    assert type(rebuilt) is original_class
+    assert set(model.meta_agents.members_of(rebuilt)) == {agents[0], agents[1]}
+
+
+def test_extract_class_does_not_depend_on_live_instances(setup_agents):
+    """The class lookup answers from the dict key, not from a surviving agent.
+
+    ``agents_by_type`` is keyed by the class, so the lookup must give the same
+    answer whether or not any instance of that class is still alive.
+    """
+    model, agents = setup_agents
+
+    team = model.meta_agents.create("Squad", [agents[0], agents[1]])
+    group_class = type(team)
+    while_alive = extract_class(model.agents_by_type, "Squad")
+
+    model.meta_agents.dissolve(team)
+    assert not model.agents_by_type[group_class], "bucket should be empty but kept"
+
+    while_extinct = extract_class(model.agents_by_type, "Squad")
+
+    assert while_alive is group_class
+    assert while_extinct is group_class
+
+
+def test_extract_class_returns_none_for_an_unknown_name(setup_agents):
+    """A name no agent class carries still resolves to None."""
+    model, _ = setup_agents
+
+    assert extract_class(model.agents_by_type, "NoSuchClass") is None
 
 
 def test_create_adds_to_existing_group_of_same_class(setup_agents):
