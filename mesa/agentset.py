@@ -38,7 +38,8 @@ def _resolve_weights(
 
     Args:
         agents: The sequence of agents to extract weights for.
-        weights: Agent attribute name (str), weight callable, or sequence of floats.
+        weights: Agent attribute name (str), weight callable, or array-like of
+            floats (list, tuple, numpy.ndarray, or pandas.Series).
 
     Returns:
         list[float]: Validated list of non-negative weights with positive sum.
@@ -51,7 +52,7 @@ def _resolve_weights(
         w = [getattr(agent, weights) for agent in agents]
     elif callable(weights):
         w = [weights(agent) for agent in agents]
-    elif isinstance(weights, Sequence):
+    elif isinstance(weights, (Sequence, np.ndarray, pd.Series)):
         if len(weights) != len(agents):
             raise ValueError(
                 f"Length of weights ({len(weights)}) does not match AgentSet length ({len(agents)})"
@@ -60,7 +61,8 @@ def _resolve_weights(
     else:
         raise TypeError(
             f"Unsupported weights type: {type(weights).__name__}. "
-            "Expected str, Callable, Sequence[float], or None."
+            "Expected str, Callable, an array-like of floats "
+            "(list, tuple, numpy.ndarray, pandas.Series), or None."
         )
 
     if not all(map(math.isfinite, w)):
