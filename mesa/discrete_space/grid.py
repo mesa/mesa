@@ -582,7 +582,8 @@ class HexGrid(Grid[T]):
         size = 1.0
         for coord, cell in self._cells.items():
             col, row = coord
-            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            # even-r: even rows are shifted right, matching _connect_cells_2d
+            x = size * math.sqrt(3) * (col + 0.5 * ((row + 1) % 2))
             y = size * 1.5 * row
             position = np.array([x, y])
 
