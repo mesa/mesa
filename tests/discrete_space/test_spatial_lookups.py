@@ -73,6 +73,26 @@ def test_hex_grid_lookups():
     assert wrapped_cell == expected_wrapped_cell
 
 
+def test_hex_grid_torus_nearest_cell():
+    """The nearest cell on a toroidal HexGrid can lie across an edge."""
+    width, height = 4, 6
+    grid = HexGrid((width, height), torus=True, random=random.Random(42))
+    period = np.array([width * math.sqrt(3), height * 1.5])
+    positions = np.array([cell.position for cell in grid.all_cells])
+    rng = np.random.default_rng(42)
+
+    for point in rng.uniform(-period, 2 * period, size=(200, 2)):
+        wrapped = point % period
+        # Distance to every cell, taking the shortest way around the torus.
+        delta = np.abs(positions - wrapped)
+        delta = np.minimum(delta, period - delta)
+        distances = np.hypot(delta[:, 0], delta[:, 1])
+        found = grid.find_nearest_cell(point)
+        assert distances[list(grid.all_cells).index(found)] == pytest.approx(
+            distances.min()
+        )
+
+
 def test_voronoi_lookups():
     """Test VoronoiGrid positioning and KD-Tree lookups."""
     centroids = [(10, 10), (20, 10), (50, 50)]

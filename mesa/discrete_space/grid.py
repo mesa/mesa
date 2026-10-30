@@ -590,7 +590,11 @@ class HexGrid(Grid[T]):
             positions.append(position)
             self._kdtree_coords.append(coord)
 
-        self._kdtree = KDTree(np.array(positions))
+        # On a torus, the nearest cell may lie across an edge, so the tree must be periodic.
+        boxsize = (self.dimensions[0] * math.sqrt(3), self.dimensions[1] * 1.5)
+        self._kdtree = KDTree(
+            np.array(positions), boxsize=boxsize if self.torus else None
+        )
 
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the hex cell at the given position."""
