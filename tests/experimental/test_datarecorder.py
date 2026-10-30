@@ -19,6 +19,7 @@ from mesa.experimental.data_collection import (
     JSONDataRecorder,
     ParquetDataRecorder,
     SQLDataRecorder,
+    TableDataSet,
 )
 from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.model import Model
@@ -1104,6 +1105,51 @@ def test_run_ended(tmp_path, recorder_class):
     model.run_for(3.0)
     df = recorder.get_table_dataframe("model_data")
     assert df.empty
+
+
+class TableModel(Model):
+    """A model that adds a row to a TableDataSet on every step but the third."""
+
+    def __init__(self):
+        """Initialize the model."""
+        super().__init__(rng=42)
+        self.events = self.data_registry.create_dataset(
+            TableDataSet, "events", fields=["what"]
+        )
+
+    def step(self):
+        """Add a row, except at time 3."""
+        if self.time != 3:
+            self.events.add_row({"what": f"added at t={self.time}"})
+
+
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+def test_table_dataset_rows_recorded_once(tmp_path, recorder_class):
+    """Test that each TableDataSet row is recorded once, at its collection time.
+
+    Regression test for GitHub issue #3967.
+    """
+    model = TableModel()
+
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    elif recorder_class == SQLDataRecorder:
+        kwargs["db_path"] = ":memory:"
+
+    recorder = recorder_class(model, config={"events": DatasetConfig()}, **kwargs)
+
+    model.run_for(3.0)
+    # time 3 adds no row, and its empty RUN_ENDED snapshot is overwritten
+    model.run_for(2.0)
+
+    df = recorder.get_table_dataframe("events")
+    recorded = sorted(zip(df["what"], df["time"]))
+    expected = [(f"added at t={t}", t) for t in (1.0, 2.0, 4.0, 5.0)]
+    assert recorded == expected
 
 
 def test_numpy_agent_dataset_agent_id_dtype():

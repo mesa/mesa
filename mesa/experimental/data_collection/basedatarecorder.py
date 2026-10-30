@@ -148,6 +148,9 @@ class BaseDataRecorder(ABC):
         # Parse configuration
         self.configs: dict[str, DatasetConfig] = {}
 
+        # (start, end) row range of the last snapshot of each TableDataSet
+        self._table_row_offsets: dict[str, tuple[int, int]] = {}
+
         # # Load defaults from registry
         # for name in self.registry.datasets:
         #     self.configs[name] = DatasetConfig()
@@ -197,7 +200,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = self._snapshot_data(name, dataset, is_overwrite)
 
             self._store_dataset_snapshot(
                 name, current_time, data_snapshot, is_overwrite
@@ -220,9 +223,33 @@ class BaseDataRecorder(ABC):
             is_overwrite = current_time == config._last_collection
 
             dataset = self.registry.datasets[name]
-            self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)
+            data_snapshot = self._snapshot_data(name, dataset, is_overwrite)
+            self._store_dataset_snapshot(
+                name, current_time, data_snapshot, is_overwrite
+            )
 
             config._last_collection = current_time
+
+    def _snapshot_data(
+        self, name: str, dataset: DataSet, is_overwrite: bool = False
+    ) -> Any:
+        """Return the data to store for a snapshot of a dataset.
+
+        A TableDataSet keeps every row ever added, so storing its full data at
+        each snapshot would repeat rows. Only the rows added since the previous
+        snapshot are returned. An overwrite returns the rows since the start of
+        the snapshot it replaces.
+        """
+        from .dataset import TableDataSet  # noqa: PLC0415
+
+        data = dataset.data
+        if not isinstance(dataset, TableDataSet):
+            return data
+
+        previous_start, previous_end = self._table_row_offsets.get(name, (0, 0))
+        start = previous_start if is_overwrite else previous_end
+        self._table_row_offsets[name] = (start, len(data))
+        return data[start:]
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -247,7 +274,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = self._snapshot_data(name, dataset)
             self._store_dataset_snapshot(name, current_time, data_snapshot)
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)

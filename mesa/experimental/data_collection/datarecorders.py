@@ -76,7 +76,8 @@ class DataRecorder(BaseDataRecorder):
         config = self.configs[dataset_name]
 
         old_data = None
-        if is_overwrite and storage.blocks:
+        # An empty snapshot stores no block, so only pop a block from this time
+        if is_overwrite and storage.blocks and storage.blocks[-1][0] == time:
             _, old_data = storage.blocks.pop()
         elif config.window_size and len(storage.blocks) >= config.window_size:
             _, old_data = storage.blocks.popleft()
@@ -343,6 +344,9 @@ class JSONDataRecorder(BaseDataRecorder):
                     records.append({**row, "time": time})
             elif isinstance(data, dict):
                 records.append({**data, "time": time})
+            elif isinstance(data, list) and not data:
+                # An empty snapshot has no rows, as in the other recorders
+                continue
             else:
                 # Handle scalar or simple list
                 records.append({"time": time, "value": data})
