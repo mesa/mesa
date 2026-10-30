@@ -15,6 +15,7 @@ from mesa.visualization.backends.altair_backend import AltairBackend
 from mesa.visualization.backends.matplotlib_backend import MatplotlibBackend
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.solara_viz import (
+    ModelController,
     ModelCreator,
     Slider,
     SolaraViz,
@@ -518,3 +519,34 @@ def test_solara_viz_accepts_model_instance():
     solara.render(
         SolaraViz(reactive_model, components=[], model_params={}), handle_error=False
     )
+
+
+def test_step_button_stops_when_model_stops_running():
+    """Step with render_interval > 1 must not step past model.running = False."""
+
+    class StoppingModel(mesa.Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.step_calls = 0
+
+        def step(self):
+            self.step_calls += 1
+            if self.step_calls >= 3:
+                self.running = False
+
+    model = StoppingModel()
+
+    @solara.component
+    def Page():
+        ModelController(
+            solara.reactive(model),
+            render_interval=solara.reactive(10),
+            play_interval=solara.reactive(100),
+            use_threads=solara.reactive(False),
+        )
+
+    _, rc = solara.render(Page(), handle_error=False)
+    rc.find(vw.Btn, children=["Step"]).widget.click()
+
+    assert model.step_calls == 3
+    assert not model.running
