@@ -128,21 +128,13 @@ class SpaceRenderer:
         mapped_arguments = arguments.copy()
 
         if isinstance(
-            self.space, OrthogonalGrid | VoronoiGrid | ContinuousSpace | Network
+            self.space,
+            OrthogonalGrid | HexGrid | VoronoiGrid | ContinuousSpace | Network,
         ):
-            # Use the coordinates directly for Orthogonal grids, Voronoi grids and Continuous spaces
+            # Agent positions already come from cell.position (or agent.position),
+            # which is the physical position, so they can be used directly.
+            # HexGrid stores the hexagon centre there, the same point the drawer uses.
             mapped_arguments["loc"] = arguments["loc"].astype(float)
-
-        elif isinstance(self.space, HexGrid):
-            # Map rectangular coordinates to hexagonal grid coordinates
-            loc = arguments["loc"].astype(float)
-            if loc.size > 0:
-                # Calculate hexagon centers
-                loc[:, 0] = loc[:, 0] * self.space_drawer.x_spacing + (
-                    (loc[:, 1] - 1) % 2
-                ) * (self.space_drawer.x_spacing / 2)
-                loc[:, 1] = loc[:, 1] * self.space_drawer.y_spacing
-            mapped_arguments["loc"] = loc
 
         return mapped_arguments
 

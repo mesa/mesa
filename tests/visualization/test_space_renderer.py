@@ -8,13 +8,14 @@ import pytest
 
 import mesa
 from mesa.discrete_space import (
+    CellAgent,
     HexGrid,
     Network,
     OrthogonalMooreGrid,
     VoronoiGrid,
 )
 from mesa.visualization.backends import altair_backend, matplotlib_backend
-from mesa.visualization.components import PropertyLayerStyle
+from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.space_drawers import (
     OrthogonalSpaceDrawer,
     VoronoiSpaceDrawer,
@@ -81,7 +82,8 @@ def test_map_coordinates():
         sr = SpaceRenderer(model)
         mapped = sr._map_coordinates(args)
 
-        assert not np.array_equal(mapped["loc"], arr)
+        # HexGrid positions are already physical, so they are used as they are
+        assert np.array_equal(mapped["loc"], arr)
         assert mapped["loc"].shape == arr.shape
 
     with patch.object(
@@ -92,6 +94,39 @@ def test_map_coordinates():
 
         assert np.array_equal(mapped["loc"], arr)
         assert mapped["loc"].shape == arr.shape
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_hexgrid_agents_drawn_at_hexagon_centre(backend):
+    """Each agent on a HexGrid should be drawn at the centre of its own hexagon."""
+    model = mesa.Model(rng=42)
+    model.grid = HexGrid((4, 4), random=random.Random(42))
+
+    # cells on both even and odd rows, since odd rows are shifted
+    coordinates = [(0, 0), (1, 1), (2, 2), (3, 3), (0, 3)]
+    for coordinate in coordinates:
+        CellAgent(model).cell = model.grid[coordinate]
+
+    sr = SpaceRenderer(model, backend=backend).setup_agents(
+        lambda _: AgentPortrayalStyle()
+    )
+    arguments = sr.backend_renderer.collect_agent_data(
+        sr.space, sr.agent_portrayal, default_size=sr.space_drawer.s_default
+    )
+    drawn = sr._map_coordinates(arguments)["loc"]
+
+    # the drawer builds one hexagon per cell, in the same order as all_cells
+    hexagon_centres = {
+        cell.coordinate: np.mean(vertices, axis=0)
+        for cell, vertices in zip(sr.space.all_cells, sr.space_drawer.hexagons)
+    }
+    expected = np.array([hexagon_centres[c] for c in coordinates])
+
+    # agents are collected in space order, so compare the points regardless of order
+    def sort_rows(points):
+        return points[np.lexsort(points.T[::-1])]
+
+    np.testing.assert_allclose(sort_rows(drawn), sort_rows(expected))
 
 
 def test_render_calls():
