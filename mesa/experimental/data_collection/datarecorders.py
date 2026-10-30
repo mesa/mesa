@@ -350,12 +350,14 @@ class JSONDataRecorder(BaseDataRecorder):
         return pd.DataFrame(records) if records else pd.DataFrame()
 
     def clear(self, dataset_name: str | None = None) -> None:
-        """Clear data."""
+        """Clear recorded data, keeping the datasets so recording can continue."""
         if dataset_name is None:
-            self.data.clear()
+            for snapshots in self.data.values():
+                snapshots.clear()
         else:
-            if dataset_name in self.data:
-                self.data[dataset_name].clear()
+            if dataset_name not in self.data:
+                raise KeyError(f"Dataset '{dataset_name}' not found")
+            self.data[dataset_name].clear()
 
     def summary(self) -> dict[str, Any]:
         """Get summary."""
