@@ -83,6 +83,10 @@ class Grid(DiscreteSpace[T]):
         """Convenience access to the height of the grid."""
         return self.dimensions[1]
 
+    # Number of random cells tried before select_random_empty_cell and
+    # select_random_cell_with_capacity fall back to an O(n) scan.
+    _MAX_RANDOM_PROBES: int = 50
+
     def __init__(
         self,
         dimensions: Sequence[int],
@@ -299,20 +303,27 @@ class Grid(DiscreteSpace[T]):
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
+        # Fast path: probe up to ``_MAX_RANDOM_PROBES`` random cells. Each probe is O(1).
+        # If a fraction p of the cells is empty, all probes miss with probability
+        # (1 - p) ** 50: about 0.5% at p = 10% and about 1e-5 at p = 20%. Grids that
+        # are not nearly full therefore practically never pay for the O(n) fallback
+        # below, which matters for models such as Schelling (~20% empty). On nearly
+        # full grids the budget bounds the wasted work: one fallback scan costs about
+        # as much as 10 to 30 probes on grids up to ~1e5 cells, so a handful of
+        # probes is cheap compared to scanning but unbounded probing is not.
+        # Smaller budgets speed up near-full grids but make the scan fire far too
+        # often at p >= 10%, so do not lower this without re-running
+        # benchmarks/grid_empty_cell_cutoff_benchmark.py and the model benchmarks.
         # This method is based on Agents.jl's random_empty() implementation. See
         # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/mesa/mesa/issues/1052 and
-        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
-        # is the break-even comparison with the time taken in the else branching point.
+        # https://github.com/mesa/mesa/issues/1052, https://github.com/mesa/mesa/pull/1565,
+        # https://github.com/mesa/mesa/issues/3626 and https://github.com/mesa/mesa/issues/3999.
         random = self.random
         cells = self._celllist
 
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
-            for _ in range(50):
+            for _ in range(self._MAX_RANDOM_PROBES):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
@@ -373,12 +384,13 @@ class Grid(DiscreteSpace[T]):
         """
         random = self.random
         cells = self._celllist
-        # Fast path: up to 50 random samples, O(1) average when grid is sparse.
+        # Fast path: up to ``_MAX_RANDOM_PROBES`` random samples, O(1) average when
+        # the grid is sparse.
         # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
         # heuristic, see https://github.com/JuliaDynamics/Agents.jl/pull/541).
 
         if self._try_random:
-            for _ in range(50):
+            for _ in range(self._MAX_RANDOM_PROBES):
                 cell = random.choice(cells)
                 if not cell.is_full:
                     return cell

@@ -1930,3 +1930,49 @@ def test_cell_neighborhood_self_loop_bug_3885():
     assert net_cell.coordinate not in net_neighborhood, (
         f"Node {net_cell.coordinate} found in its own neighborhood!"
     )
+
+
+def _spy_on_fallback_scan(monkeypatch):
+    """Count calls made by the O(n) fallback (np.argwhere or np.flatnonzero)."""
+    calls = []
+
+    def wrap(real):
+        def spy(*args, **kwargs):
+            calls.append(1)
+            return real(*args, **kwargs)
+
+        return spy
+
+    monkeypatch.setattr(np, "argwhere", wrap(np.argwhere))
+    monkeypatch.setattr(np, "flatnonzero", wrap(np.flatnonzero))
+    return calls
+
+
+def test_select_random_empty_cell_no_scan_when_grid_has_room(monkeypatch):
+    """With plenty of empty cells the O(n) fallback must (practically) never run.
+
+    Half of the cells are empty, so all 50 probes missing has probability 0.5**50.
+    This protects models such as Schelling (~20% empty) from paying for the scan.
+    """
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    for _ in range(500):
+        assert grid.select_random_empty_cell().is_empty
+    assert not calls
+
+
+def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
+    """A probe budget of zero goes straight to the deterministic fallback."""
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+    monkeypatch.setattr(grid, "_MAX_RANDOM_PROBES", 0)
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    assert grid.select_random_empty_cell().is_empty
+    assert len(calls) == 1
