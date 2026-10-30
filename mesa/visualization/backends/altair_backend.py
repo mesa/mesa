@@ -379,7 +379,8 @@ class AltairBackend(AbstractRenderer):
             chart_height: The height of the chart.
 
         Returns:
-            alt.Chart: A tuple containing the base chart and the color bar chart.
+            alt.LayerChart: All property layers combined into one chart. Each layer's
+                legend is part of this chart, there is no separate color bar chart.
         """
         main_charts = []
 

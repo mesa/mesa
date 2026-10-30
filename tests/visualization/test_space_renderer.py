@@ -3,6 +3,7 @@
 import random
 from unittest.mock import MagicMock, patch
 
+import altair as alt
 import numpy as np
 import pytest
 
@@ -183,3 +184,24 @@ def test_property_layer_style_instance():
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style
+
+
+def test_altair_canvas_with_property_layer():
+    """The Altair canvas should work when a property layer is drawn.
+
+    The Altair backend returns the property layers as one chart, so canvas
+    must not try to unpack it into a chart and a colorbar.
+    """
+    model = CustomModel()
+    sr = SpaceRenderer(model, backend="altair")
+    sr.setup_property_layer(lambda _: PropertyLayerStyle(colormap="viridis"))
+    sr.render()
+
+    chart = sr.canvas
+
+    assert isinstance(chart, alt.LayerChart)
+    chart.to_dict()  # raises if the combined chart is not a valid spec
+
+    # the grid structure plus the property layer chart
+    assert len(chart.layer) == 2
+    assert isinstance(chart.layer[1], alt.LayerChart)
