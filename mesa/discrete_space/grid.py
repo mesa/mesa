@@ -13,7 +13,6 @@ or Hex for more uniform distances.
 
 from __future__ import annotations
 
-import copyreg
 import math
 from collections.abc import Sequence
 from itertools import chain, product
@@ -29,15 +28,14 @@ from mesa.discrete_space.cell_collection import CellCollection
 T = TypeVar("T", bound=Cell)
 
 
-def pickle_gridcell(obj):
-    """Helper function for pickling GridCell instances."""
-    # we have the base class and the state via __getstate__
-    args = obj.__class__.__bases__[0], obj.__getstate__()
-    return unpickle_gridcell, args
+def pickle_gridcell(obj, protocol=None):
+    """Reduce a GridCell for pickle or deepcopy without a global registration."""
+    # Restore state after memoizing the cell so agent references reuse it.
+    return obj.__class__.__bases__[0], ((0, 0),), obj.__getstate__()
 
 
 def unpickle_gridcell(parent, fields):
-    """Helper function for unpickling GridCell instances.
+    """Helper function for unpickling GridCell instances from older pickles.
 
     The cell is restored as an instance of ``parent``, the base cell class of the
     grid. ``Grid.__setstate__`` then moves all restored cells to a single, freshly
@@ -106,18 +104,20 @@ class Grid(DiscreteSpace[T]):
         self._try_random = True
         self._ndims = len(dimensions)
         self._validate_parameters()
+        # A class-local reducer avoids copyreg retaining the class and its layers.
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "__reduce_ex__": pickle_gridcell,
+            },
         )
         self.property_layers: dict[str, np.ndarray] = {}
         # Track which property layers are read-only so the constraint survives
         # pickling and deepcopy (see __getstate__/__setstate__).
         self._read_only_layers: set[str] = set()
-
-        # we register the pickle_gridcell helper function
-        copyreg.pickle(self.cell_klass, pickle_gridcell)
 
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
@@ -433,9 +433,12 @@ class Grid(DiscreteSpace[T]):
         self.cell_klass = type(
             "GridCell",
             (base_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "__reduce_ex__": pickle_gridcell,
+            },
         )
-        copyreg.pickle(self.cell_klass, pickle_gridcell)
         for cell in self._cells.values():
             # cells of other classes added at runtime are left untouched
             if type(cell) is base_klass:
