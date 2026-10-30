@@ -15,8 +15,16 @@ import operator
 import warnings
 import weakref
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
+from collections import UserString, defaultdict
+from collections.abc import (
+    Callable,
+    Hashable,
+    Iterable,
+    Iterator,
+    MutableSet,
+    Sequence,
+)
+from collections.abc import Set as AbstractSet
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -76,9 +84,23 @@ def _resolve_weights(
 def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Iterable:
     """Resolve ``value`` into an iterable of ``n`` per-agent values.
 
-    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` of length ``n``
-    is treated as one value per agent. Any other value (a scalar, a string, or a
-    non-sequence) is broadcast to all ``n`` agents.
+    A sequence of length ``n`` is treated as one value per agent. This covers
+    any ``collections.abc.Sequence`` -- ``list``, ``tuple``, ``range``,
+    ``collections.deque``, ``array.array`` -- as well as ``numpy.ndarray``,
+    ``pandas.Series`` and ``pandas.Index``, which are sized and ordered but do
+    not register as ``Sequence``.
+
+    Strings and bytes are sequences, but treating them element-wise is almost
+    never what a caller means, so they are broadcast like any other scalar, as
+    is ``collections.UserString``.
+
+    Every ``collections.abc.Set`` is broadcast, ordered or not, and so is
+    ``dict``. A set is a group to share rather than a row of per-agent values,
+    and an unordered one has no defined order to hand elements out in anyway.
+    That rule is what keeps ``AgentSet`` broadcast: it lists ``Sequence`` among
+    its own bases, so it satisfies the sequence check, but passing one means
+    "give every agent this group" -- a team, a set of neighbours -- rather than
+    one member each.
 
     Per-agent values are assigned by reference, not copied. If the same mutable
     object (a list, dict, or similar) appears at more than one position, every
@@ -100,7 +122,9 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
         ValueError: If ``strict`` and ``value`` is a sequence whose length is
             not ``n``.
     """
-    if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+    if isinstance(
+        value, (Sequence, np.ndarray, pd.Series, pd.Index)
+    ) and not isinstance(value, (str, bytes, bytearray, UserString, AbstractSet)):
         if len(value) == n:
             _warn_if_object_shared_between_agents(value)
             return value

@@ -1,5 +1,8 @@
 """Agent.py related tests."""
 
+import array
+import collections
+import collections.abc
 from typing import ClassVar
 
 import numpy as np
@@ -7,6 +10,7 @@ import pandas as pd
 import pytest
 
 from mesa.agent import Agent
+from mesa.agentset import AgentSet
 from mesa.model import Model
 
 
@@ -69,6 +73,146 @@ def test_agent_create():
         assert agent.some_default_value == 5
         assert agent.a == a_i
         assert agent.b == 7
+
+
+class _ValueAgent(Agent):
+    """Agent that just records the value it was created with."""
+
+    def __init__(self, model, value=None):
+        """Store the per-agent value."""
+        super().__init__(model)
+        self.value = value
+
+
+@pytest.mark.parametrize(
+    "make_sequence",
+    [
+        pytest.param(lambda n: list(range(n)), id="list"),
+        pytest.param(lambda n: tuple(range(n)), id="tuple"),
+        pytest.param(range, id="range"),
+        pytest.param(lambda n: collections.deque(range(n)), id="deque"),
+        pytest.param(lambda n: array.array("i", range(n)), id="array"),
+        pytest.param(np.arange, id="ndarray"),
+        pytest.param(lambda n: pd.Series(range(n)), id="series"),
+        pytest.param(lambda n: pd.Index(range(n)), id="index"),
+    ],
+)
+def test_create_agents_spreads_any_sized_sequence(make_sequence):
+    """Any sized, ordered sequence of length n is one value per agent."""
+    model = Model(rng=42)
+    n = 4
+
+    _ValueAgent.create_agents(model, n, value=make_sequence(n))
+
+    assert [agent.value for agent in model.agents] == list(range(n))
+
+
+@pytest.mark.parametrize(
+    "make_sequence",
+    [
+        pytest.param(range, id="range"),
+        pytest.param(lambda n: collections.deque(range(n)), id="deque"),
+        pytest.param(lambda n: array.array("i", range(n)), id="array"),
+        pytest.param(lambda n: pd.Index(range(n)), id="index"),
+    ],
+)
+def test_create_agents_rejects_any_wrong_length_sequence(make_sequence):
+    """A length mismatch must raise whatever sequence type carries it."""
+    model = Model(rng=42)
+
+    with pytest.raises(ValueError, match="does not match the number of agents"):
+        _ValueAgent.create_agents(model, 4, value=make_sequence(3))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("abcd", id="str"),
+        pytest.param(b"abcd", id="bytes"),
+        pytest.param(collections.UserString("abcd"), id="userstring"),
+        pytest.param({0, 1, 2, 3}, id="set"),
+        pytest.param({"a": 1}, id="dict"),
+        pytest.param(7, id="int"),
+    ],
+)
+def test_create_agents_broadcasts_scalars_and_unordered_values(value):
+    """Strings, bytes and unordered containers are one value for everyone."""
+    model = Model(rng=42)
+    n = 4
+
+    _ValueAgent.create_agents(model, n, value=value)
+
+    values = [agent.value for agent in model.agents]
+    assert values == [value] * n
+    assert len({id(v) for v in values}) == 1
+
+
+class _OrderedSet(collections.abc.Set, collections.abc.Sequence):
+    """A container that is both a Set and a Sequence, as AgentSet is."""
+
+    def __init__(self, items):
+        self._items = list(items)
+
+    def __contains__(self, item):
+        return item in self._items
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, index):
+        return self._items[index]
+
+
+def test_create_agents_broadcasts_an_ordered_set():
+    """A Set is shared with every agent even when it is also a Sequence.
+
+    A set is a group to hand over whole, not a row of per-agent values, so it
+    is broadcast whatever order it carries.
+    """
+    ordered = _OrderedSet([0, 1, 2])
+    assert isinstance(ordered, collections.abc.Sequence)
+    assert isinstance(ordered, collections.abc.Set)
+
+    for n in (3, 5):
+        model = Model(rng=42)
+        _ValueAgent.create_agents(model, n, value=ordered)
+        values = [agent.value for agent in model.agents]
+        assert values == [ordered] * n
+
+
+def test_create_agents_broadcasts_an_agentset():
+    """An AgentSet is a Set, and lists Sequence among its own bases.
+
+    Passing a team or a set of neighbours to every agent must keep working, at
+    any length, rather than handing out one member each or raising.
+    """
+    model = Model(rng=42)
+    members = [AgentTest(model) for _ in range(3)]
+    team = AgentSet(members, random=model.random)
+    assert isinstance(team, collections.abc.Sequence)
+    assert isinstance(team, collections.abc.Set)
+
+    for n in (3, 5):
+        inner = Model(rng=42)
+        _ValueAgent.create_agents(inner, n, value=team)
+        values = [agent.value for agent in inner.agents]
+        assert values == [team] * n
+        assert len({id(v) for v in values}) == 1
+
+
+def test_agentset_set_broadcasts_an_agentset():
+    """AgentSet.set must share a group too, not spread its members."""
+    model = Model(rng=42)
+    _ValueAgent.create_agents(model, 4)
+    team = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    model.agents_by_type[_ValueAgent].set("value", team)
+
+    values = [agent.value for agent in model.agents_by_type[_ValueAgent]]
+    assert len({id(v) for v in values}) == 1
 
 
 def test_agent_create_with_pandas():
