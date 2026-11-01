@@ -1442,6 +1442,42 @@ def test_infinite_loop_on_full_grid():
         grid.select_random_empty_cell()
 
 
+@pytest.mark.parametrize("space_factory", ["network", "voronoi"])
+def test_select_random_empty_cell_on_full_space_raises(space_factory):
+    """A full space that does not override select_random_empty_cell still explains itself.
+
+    Network and VoronoiGrid inherit DiscreteSpace.select_random_empty_cell,
+    which used to call random.choice on an empty list and surface the stdlib
+    "Cannot choose from an empty sequence" IndexError, saying nothing about
+    the space being full.
+    """
+    model = Model()
+    if space_factory == "network":
+        space = Network(nx.cycle_graph(4), random=model.random)
+    else:
+        space = VoronoiGrid(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]], random=model.random
+        )
+
+    for cell in space.all_cells:
+        CellAgent(model).cell = cell
+    assert len(space.empties) == 0
+
+    with pytest.raises(SpaceException, match="completely full"):
+        space.select_random_empty_cell()
+
+
+def test_select_random_empty_cell_still_works_when_space_has_room():
+    """The guard must not fire while an empty cell is left."""
+    model = Model()
+    space = Network(nx.cycle_graph(4), random=model.random)
+    cells = list(space.all_cells)
+    for cell in cells[:-1]:
+        CellAgent(model).cell = cell
+
+    assert space.select_random_empty_cell() is cells[-1]
+
+
 def test_select_random_empty_cell_fallback():
     """Test the vectorized fallback of select_random_empty_cell (when heuristic is skipped)."""
     width = 10
