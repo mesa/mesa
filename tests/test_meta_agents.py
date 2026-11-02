@@ -73,12 +73,10 @@ def test_create_reuses_existing_class_for_new_instance(setup_agents):
 
 
 def test_create_reuses_a_name_after_the_last_group_is_dissolved(setup_agents):
-    """Recreating a group name after dissolving every group of that name works.
+    """``create`` reuses a group name whose groups have all been dissolved.
 
-    Dissolving the last group leaves an empty bucket in ``agents_by_type``
-    rather than removing the key, which is deliberate (see #3809). Looking the
-    class up by name therefore still succeeded while no instance remained to
-    read the class from, and ``create`` raised StopIteration. See #3849.
+    The rebuilt group gets the class already registered under that name
+    rather than a newly defined one, and takes its members as usual.
     """
     model, agents = setup_agents
 

@@ -37,13 +37,19 @@ def _normalize_agent_bases(
 
 
 def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] | None:
-    """Return the existing model agent class named ``new_agent_class`` if present.
+    """Look up a registered agent class by its name.
 
-    ``agents_by_type`` is keyed by the agent class itself, so the key is the
-    answer. Reading the class back off a live instance instead made the result
-    depend on the population: a type whose agents have all been removed keeps
-    its (now empty) bucket, so the name lookup still succeeded while there was
-    no instance left to take the class from.
+    ``agents_by_type`` is keyed by the agent class itself, so the class is
+    read from the key. The result therefore depends only on which types are
+    registered, not on how many agents of a type currently exist.
+
+    Args:
+        agents_by_type: The model's agent registry, keyed by agent class.
+        new_agent_class: Name of the class to look up.
+
+    Returns:
+        The registered class with that name, or ``None`` if no registered
+        type has it.
     """
     agent_type_names = {
         agent_type.__name__: agent_type for agent_type in agents_by_type
