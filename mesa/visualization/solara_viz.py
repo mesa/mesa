@@ -594,7 +594,7 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
-                if not playing.value:
+                if not playing.value or not running.value:
                     break
             if not use_threads.value:
                 force_update()
@@ -603,6 +603,8 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
+                if not running.value:
+                    break
             force_update()
 
     @function_logger(__name__)
