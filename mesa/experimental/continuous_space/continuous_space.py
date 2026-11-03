@@ -302,3 +302,18 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         return self.dimensions[:, 0] + np.mod(
             np.asanyarray(point) - self.dimensions[:, 0], self.size
         )
+
+    def __getstate__(self) -> dict:
+        """Return the state for pickling and deepcopy.
+
+        agent_positions is a view into _agent_positions. Pickle and deepcopy
+        would store it as a separate array, so it is rebuilt in __setstate__.
+        """
+        state = self.__dict__.copy()
+        state.pop("agent_positions", None)
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore the state and rebuild agent_positions as a view."""
+        self.__dict__.update(state)
+        self.agent_positions = self._agent_positions[0 : self._n_agents]
