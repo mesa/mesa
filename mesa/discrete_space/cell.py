@@ -14,9 +14,9 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
+from weakref import WeakSet
 
 import numpy as np
 
@@ -34,6 +34,20 @@ if TYPE_CHECKING:
 Coordinate = tuple[int, ...]
 
 
+class _NeighborhoodCache:
+    """Per-cell neighborhood cache that can be tracked without retaining cells."""
+
+    __slots__ = ("__weakref__", "entries")
+
+    def __init__(self) -> None:
+        self.entries: dict[tuple[int, bool], CellCollection] = {}
+
+
+# Only populated per-cell caches are registered. Weak references let their
+# owners (and the models that contain them) be garbage-collected.
+_ACTIVE_NEIGHBORHOOD_CACHES: WeakSet[_NeighborhoodCache] = WeakSet()
+
+
 class Cell:
     """The cell represents a position in a discrete space.
 
@@ -49,6 +63,7 @@ class Cell:
     __slots__ = [
         "_agents",
         "_empty",
+        "_neighborhood_cache",
         "_position",  # physical position
         "capacity",
         "connections",
@@ -110,6 +125,7 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self._neighborhood_cache = _NeighborhoodCache()
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -196,8 +212,6 @@ class Cell:
         """
         return self.get_neighborhood()
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -214,13 +228,24 @@ class Cell:
             a CellCollection of all neighboring cells
 
         """
-        return CellCollection[Cell](
-            self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
-        )
+        cache = getattr(self, "_neighborhood_cache", None)
+        if cache is None:
+            # Also handles Cell instances restored from pickles created before
+            # this per-instance cache was introduced.
+            cache = self._neighborhood_cache = _NeighborhoodCache()
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
+        cache_key = (radius, include_center)
+        try:
+            return cache.entries[cache_key]
+        except KeyError:
+            neighborhood = CellCollection[Cell](
+                self._neighborhood(radius=radius, include_center=include_center),
+                random=self.random,
+            )
+            cache.entries[cache_key] = neighborhood
+            _ACTIVE_NEIGHBORHOOD_CACHES.add(cache)
+            return neighborhood
+
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -282,6 +307,10 @@ class Cell:
         while preserving the connection keys.
         """
         state = super().__getstate__()
+        # Neighborhoods are derived from connections and must not be serialized.
+        # Older pickles will also lack this slot; get_neighborhood initializes
+        # it lazily when needed.
+        state[1].pop("_neighborhood_cache", None)
         # Replace neighbor objects with their coordinates to avoid deep recursion
         # while preserving the connection keys.
         state[1]["connections"] = {
@@ -289,7 +318,12 @@ class Cell:
         }
         return state
 
-    def _clear_cache(self):
-        """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()
+    def _clear_cache(self) -> None:
+        """Invalidate all live caches, including neighborhoods spanning this cell.
+
+        A weak registry avoids keeping cells alive while preserving the global
+        invalidation needed for neighborhoods with radius greater than one.
+        """
+        for cache in tuple(_ACTIVE_NEIGHBORHOOD_CACHES):
+            cache.entries.clear()
+        _ACTIVE_NEIGHBORHOOD_CACHES.clear()
