@@ -283,8 +283,31 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             )
             k = n
 
-        # np.argpartition expects zero-based index (k-1) and returns the indices of the k smallest distances
+        # np.argpartition expects zero-based index (k-1) and returns the indices
+        # of the k smallest distances.
         indices = np.argpartition(dists, k - 1)[:k]
+
+        # argpartition may choose any agents tied at the cutoff. Keep all closer
+        # agents, then fill the remaining places with the earliest inserted ties.
+        cutoff = dists[indices].max()
+        closer = np.flatnonzero(dists < cutoff)
+        cutoff_ties = np.flatnonzero(dists == cutoff)
+        if len(cutoff_ties) > k - len(closer):
+            cutoff_indices = np.flatnonzero(dists[indices] == cutoff)
+            cutoff_ties = sorted(cutoff_ties, key=lambda i: agents[i].unique_id)
+            indices[cutoff_indices] = cutoff_ties[: k - len(closer)]
+
+        # Preserve the partial-selection ordering between distinct distances,
+        # while making the ranking within each selected tie follow insertion order.
+        tied_positions: dict[float, list[int]] = {}
+        for position, index in enumerate(indices):
+            tied_positions.setdefault(float(dists[index]), []).append(position)
+        for positions in tied_positions.values():
+            if len(positions) > 1:
+                indices[positions] = sorted(
+                    indices[positions], key=lambda i: agents[i].unique_id
+                )
+
         agents = [agents[i] for i in indices]
         return agents, dists[indices]
 
