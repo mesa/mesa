@@ -1644,8 +1644,42 @@ def test_pickling_cell_after_warming_neighborhood_cache():
     unpickled_cell = pickle.loads(pickle.dumps(cell))  # noqa: S301
 
     assert unpickled_cell.coordinate == cell.coordinate
-    # The cache slots are omitted from the pickle and initialized lazily.
     assert len(unpickled_cell.get_neighborhood()) == 0
+
+
+@pytest.mark.parametrize(
+    ("radius", "include_center"),
+    [
+        (1, False),
+        (1, True),
+        (2, False),
+        (2, True),
+        (3, False),
+        (3, True),
+    ],
+)
+def test_neighborhood_cache_is_reused_and_invalidated_for_each_query_key(
+    radius: int, include_center: bool
+):
+    """All specialized and fallback cache keys must be reused and invalidated."""
+    cells = [Cell((i,), random=random.Random(42)) for i in range(4)]
+    for left, right in itertools.pairwise(cells):
+        left.connect(right)
+        right.connect(left)
+
+    cell = cells[0]
+    cached = cell.get_neighborhood(radius=radius, include_center=include_center)
+    assert cell.get_neighborhood(radius=radius, include_center=include_center) is cached
+    assert (cell in cached) is include_center
+
+    if radius == 1 and not include_center:
+        assert cell.neighborhood is cached
+
+    cell.disconnect(cells[1])
+    updated = cell.get_neighborhood(radius=radius, include_center=include_center)
+    assert updated is not cached
+    assert (cell in updated) is include_center
+    assert cells[1] not in updated
 
 
 def test_large_radius_neighborhood():

@@ -34,20 +34,6 @@ if TYPE_CHECKING:
 Coordinate = tuple[int, ...]
 
 
-class _NeighborhoodCache:
-    """Per-cell neighborhood cache that can be tracked without retaining cells."""
-
-    __slots__ = ("__weakref__", "entries")
-
-    def __init__(self) -> None:
-        self.entries: dict[tuple[int, bool], CellCollection] = {}
-
-
-# Only populated per-cell caches are registered. Weak references let their
-# owners (and the models that contain them) be garbage-collected.
-_ACTIVE_NEIGHBORHOOD_CACHES: WeakSet[_NeighborhoodCache] = WeakSet()
-
-
 class Cell:
     """The cell represents a position in a discrete space.
 
@@ -61,9 +47,14 @@ class Cell:
     """
 
     __slots__ = [
+        "__weakref__",
         "_agents",
         "_empty",
         "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
         "_position",  # physical position
         "capacity",
         "connections",
@@ -125,7 +116,13 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
-        self._neighborhood_cache = _NeighborhoodCache()
+        self._neighborhood_cache: (
+            dict[tuple[int, bool], CellCollection[Cell]] | None
+        ) = None
+        self._neighborhood_radius1: CellCollection[Cell] | None = None
+        self._neighborhood_radius1_with_center: CellCollection[Cell] | None = None
+        self._neighborhood_radius2: CellCollection[Cell] | None = None
+        self._neighborhood_radius2_with_center: CellCollection[Cell] | None = None
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -210,7 +207,21 @@ class Cell:
         This is equivalent to cell.get_neighborhood(radius=1)
 
         """
-        return self.get_neighborhood()
+        try:
+            neighborhood = self._neighborhood_radius1
+        except AttributeError:  # Older pickles predate the derived cache slots.
+            self._initialize_neighborhood_cache()
+            neighborhood = None
+
+        if neighborhood is None:
+            neighborhood = CellCollection[Cell](
+                self._neighborhood(radius=1, include_center=False),
+                random=self.random,
+            )
+            self._neighborhood_radius1 = neighborhood
+            _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
+
+        return neighborhood
 
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
@@ -228,23 +239,76 @@ class Cell:
             a CellCollection of all neighboring cells
 
         """
-        cache = getattr(self, "_neighborhood_cache", None)
-        if cache is None:
-            # Also handles Cell instances restored from pickles created before
-            # this per-instance cache was introduced.
-            cache = self._neighborhood_cache = _NeighborhoodCache()
-
-        cache_key = (radius, include_center)
         try:
-            return cache.entries[cache_key]
-        except KeyError:
-            neighborhood = CellCollection[Cell](
-                self._neighborhood(radius=radius, include_center=include_center),
-                random=self.random,
-            )
-            cache.entries[cache_key] = neighborhood
-            _ACTIVE_NEIGHBORHOOD_CACHES.add(cache)
-            return neighborhood
+            radius1_neighborhood = self._neighborhood_radius1
+        except AttributeError:  # Older pickles predate the derived cache slots.
+            self._initialize_neighborhood_cache()
+            radius1_neighborhood = None
+
+        # Radius 1 and 2 are common model queries; dedicated slots avoid
+        # tuple creation and dictionary lookup on these cache-hit paths.
+        if radius == 1:
+            if include_center:
+                neighborhood = self._neighborhood_radius1_with_center
+                if neighborhood is not None:
+                    return neighborhood
+                neighborhood = CellCollection[Cell](
+                    self._neighborhood(radius=1, include_center=True),
+                    random=self.random,
+                )
+                self._neighborhood_radius1_with_center = neighborhood
+            else:
+                if radius1_neighborhood is not None:
+                    return radius1_neighborhood
+                neighborhood = CellCollection[Cell](
+                    self._neighborhood(radius=1, include_center=False),
+                    random=self.random,
+                )
+                self._neighborhood_radius1 = neighborhood
+        elif radius == 2:
+            if include_center:
+                neighborhood = self._neighborhood_radius2_with_center
+                if neighborhood is not None:
+                    return neighborhood
+                neighborhood = CellCollection[Cell](
+                    self._neighborhood(radius=2, include_center=True),
+                    random=self.random,
+                )
+                self._neighborhood_radius2_with_center = neighborhood
+            else:
+                neighborhood = self._neighborhood_radius2
+                if neighborhood is not None:
+                    return neighborhood
+                neighborhood = CellCollection[Cell](
+                    self._neighborhood(radius=2, include_center=False),
+                    random=self.random,
+                )
+                self._neighborhood_radius2 = neighborhood
+        else:
+            neighborhood_cache = self._neighborhood_cache
+            if neighborhood_cache is None:
+                neighborhood_cache = {}
+                self._neighborhood_cache = neighborhood_cache
+            cache_key = (radius, include_center)
+            try:
+                return neighborhood_cache[cache_key]
+            except KeyError:
+                neighborhood = CellCollection[Cell](
+                    self._neighborhood(radius=radius, include_center=include_center),
+                    random=self.random,
+                )
+                neighborhood_cache[cache_key] = neighborhood
+
+        _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
+        return neighborhood
+
+    def _initialize_neighborhood_cache(self) -> None:
+        """Initialize derived cache slots for cells restored from older pickles."""
+        self._neighborhood_cache = None
+        self._neighborhood_radius1 = None
+        self._neighborhood_radius1_with_center = None
+        self._neighborhood_radius2 = None
+        self._neighborhood_radius2_with_center = None
 
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
@@ -308,9 +372,12 @@ class Cell:
         """
         state = super().__getstate__()
         # Neighborhoods are derived from connections and must not be serialized.
-        # Older pickles will also lack this slot; get_neighborhood initializes
-        # it lazily when needed.
-        state[1].pop("_neighborhood_cache", None)
+        # Store empty cache slots so they are initialized after unpickling.
+        state[1]["_neighborhood_cache"] = None
+        state[1]["_neighborhood_radius1"] = None
+        state[1]["_neighborhood_radius1_with_center"] = None
+        state[1]["_neighborhood_radius2"] = None
+        state[1]["_neighborhood_radius2_with_center"] = None
         # Replace neighbor objects with their coordinates to avoid deep recursion
         # while preserving the connection keys.
         state[1]["connections"] = {
@@ -319,11 +386,22 @@ class Cell:
         return state
 
     def _clear_cache(self) -> None:
-        """Invalidate all live caches, including neighborhoods spanning this cell.
+        """Invalidate all live neighborhood caches after a topology change.
 
-        A weak registry avoids keeping cells alive while preserving the global
-        invalidation needed for neighborhoods with radius greater than one.
+        A weak registry preserves graph-wide invalidation (including radius > 1)
+        without keeping cached Cells or their models alive.
         """
-        for cache in tuple(_ACTIVE_NEIGHBORHOOD_CACHES):
-            cache.entries.clear()
-        _ACTIVE_NEIGHBORHOOD_CACHES.clear()
+        if not _ACTIVE_NEIGHBORHOOD_CELLS:
+            return
+
+        for cell in _ACTIVE_NEIGHBORHOOD_CELLS:
+            cell._neighborhood_cache = None
+            cell._neighborhood_radius1 = None
+            cell._neighborhood_radius1_with_center = None
+            cell._neighborhood_radius2 = None
+            cell._neighborhood_radius2_with_center = None
+        _ACTIVE_NEIGHBORHOOD_CELLS.clear()
+
+
+# Weak references avoid making this registry a root for Cells or their models.
+_ACTIVE_NEIGHBORHOOD_CELLS: WeakSet[Cell] = WeakSet()
