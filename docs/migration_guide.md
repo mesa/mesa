@@ -8,6 +8,27 @@ Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing 
 
 Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
 
+### `Grid.select_random_empty_cell` raises `SpaceException` on a full grid
+On a full grid, `select_random_empty_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raises `SpaceException` instead of `ValueError`, matching `Network` and `VoronoiGrid`.
+
+```python
+from mesa.exceptions import SpaceException
+
+# Old
+try:
+    cell = grid.select_random_empty_cell()
+except ValueError:
+    ...
+
+# New
+try:
+    cell = grid.select_random_empty_cell()
+except SpaceException:
+    ...
+```
+
+- Ref: [Issue #4031](https://github.com/mesa/mesa/issues/4031)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
