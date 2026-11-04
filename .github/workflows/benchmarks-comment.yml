@@ -20,12 +20,25 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const prs = context.payload.workflow_run.pull_requests || [];
-            if (prs.length === 0) {
-              core.setFailed('No pull request found on workflow_run payload.');
+            // workflow_run.pull_requests is always empty for PRs from forks,
+            // so look the PR up through the API instead. Every input comes
+            // from the trusted event payload, never from the uploaded artifact.
+            const run = context.payload.workflow_run;
+            const headSha = run.head_sha;
+            const headOwner = run.head_repository && run.head_repository.owner
+              ? run.head_repository.owner.login
+              : null;
+            if (!headOwner) {
+              core.setFailed('Head repository not found on workflow_run payload.');
               return;
             }
-            const headSha = context.payload.workflow_run.head_sha;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${headOwner}:${run.head_branch}`,
+              per_page: 100,
+            });
             const matching = prs.filter(pr => pr.head && pr.head.sha === headSha);
             if (matching.length === 0) {
               core.setFailed(`No pull request with head SHA ${headSha} found on workflow_run payload.`);
