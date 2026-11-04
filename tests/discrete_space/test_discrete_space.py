@@ -1647,6 +1647,50 @@ def test_pickling_cell_after_warming_neighborhood_cache():
     assert len(unpickled_cell.get_neighborhood()) == 0
 
 
+def test_neighborhood_property_initializes_cache_for_legacy_cell():
+    """The neighborhood property initializes cache slots missing from old pickles."""
+    cell = Cell((0,), random=random.Random(42))
+    neighbor = Cell((1,), random=random.Random(42))
+    cell.connect(neighbor)
+
+    # Simulate a Cell restored from a pickle written before the cache slots existed.
+    for slot in (
+        "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
+    ):
+        delattr(cell, slot)
+
+    neighborhood = cell.neighborhood
+
+    assert list(neighborhood) == [neighbor]
+    assert cell.neighborhood is neighborhood
+
+
+def test_get_neighborhood_initializes_cache_for_legacy_cell():
+    """get_neighborhood initializes cache slots missing from older pickles."""
+    cell = Cell((0,), random=random.Random(42))
+    neighbor = Cell((1,), random=random.Random(42))
+    cell.connect(neighbor)
+
+    # Simulate a Cell restored from a pickle written before the cache slots existed.
+    for slot in (
+        "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
+    ):
+        delattr(cell, slot)
+
+    neighborhood = cell.get_neighborhood(radius=2, include_center=True)
+
+    assert set(neighborhood) == {cell, neighbor}
+    assert cell.get_neighborhood(radius=2, include_center=True) is neighborhood
+
+
 @pytest.mark.parametrize(
     ("radius", "include_center"),
     [
