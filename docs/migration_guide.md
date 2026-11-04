@@ -27,7 +27,7 @@ except SpaceException:
     ...
 ```
 
-- Ref: [Issue #4031](https://github.com/mesa/mesa/issues/4031)
+- Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
 ### Experimental meta-agents API reworked
 
