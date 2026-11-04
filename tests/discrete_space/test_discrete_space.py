@@ -1,10 +1,12 @@
 """Test cell spaces."""
 
 import copy
+import gc
 import pickle
 import random
 import random as stdlib_random
 import sys
+import weakref
 
 import networkx as nx
 import numpy as np
@@ -24,6 +26,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.discrete_space.grid import unpickle_gridcell
 from mesa.discrete_space.voronoi import round_float
 from mesa.exceptions import (
     AgentMissingException,
@@ -1093,6 +1096,168 @@ def test_read_only_property_layer_survives_pickle_and_deepcopy():
         # read-write layer must still accept writes
         cell.sugar = 5.0
         assert cell.sugar == 5.0, label
+
+
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_legacy_gridcell_pickle_is_readable(monkeypatch, protocol):
+    """The old reducer's constructor-state format must remain readable."""
+    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid.create_property_layer("terrain", default_value=2, read_only=True)
+
+    def legacy_reducer(cell, protocol):
+        return unpickle_gridcell, (Cell, cell.__getstate__())
+
+    monkeypatch.setattr(grid.cell_klass, "__reduce_ex__", legacy_reducer)
+    restored = pickle.loads(pickle.dumps(grid, protocol=protocol))  # noqa: S301
+
+    for cell in restored.all_cells:
+        assert cell.sugar == 1.0
+        cell.sugar = 5.0
+        assert restored.sugar[cell.coordinate] == 5.0
+    with pytest.raises(AttributeError):
+        restored[(1, 1)].terrain = 99
+    twice = pickle.loads(pickle.dumps(restored, protocol=protocol))  # noqa: S301
+    np.testing.assert_array_equal(twice.sugar, restored.sugar)
+
+
+@pytest.mark.parametrize(
+    "grid_class", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid, HexGrid]
+)
+@pytest.mark.parametrize("method", ["original", "deepcopy", "pickle"])
+def test_property_layers_are_collected_with_grid(grid_class, method):
+    """Repeated grid creation must not retain cell classes or layer arrays."""
+
+    def create_references():
+        grid = grid_class((3, 3), random=random.Random(42))
+        grid.create_property_layer("sugar", default_value=1.0)
+        grid.create_property_layer("terrain", default_value=2, read_only=True)
+        if method == "deepcopy":
+            grid = copy.deepcopy(grid)
+        elif method == "pickle":
+            grid = pickle.loads(pickle.dumps(grid))  # noqa: S301
+        return (
+            weakref.ref(grid),
+            weakref.ref(grid.cell_klass),
+            [weakref.ref(layer) for layer in grid.property_layers.values()],
+        )
+
+    references = [create_references() for _ in range(3)]
+    gc.collect()
+
+    for grid_ref, class_ref, layer_refs in references:
+        assert grid_ref() is None
+        assert all(layer_ref() is None for layer_ref in layer_refs)
+        assert class_ref() is None
+
+
+@pytest.mark.parametrize(
+    "grid_class", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid, HexGrid]
+)
+def test_live_cell_keeps_property_layer_alive(grid_class):
+    """A retained cell can use its layers until the cell is released too."""
+    grid = grid_class((3, 3), random=random.Random(42))
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid_ref = weakref.ref(grid)
+    layer_ref = weakref.ref(grid.sugar)
+    cell = grid[(1, 1)]
+
+    del grid
+    gc.collect()
+    assert grid_ref() is None
+    assert cell.sugar == 1.0
+    cell.sugar = 5.0
+    assert layer_ref()[1, 1] == 5.0
+
+    del cell
+    gc.collect()
+    assert layer_ref() is None
+
+
+class LayeredGridAgent(CellAgent):
+    """Move and update a layer using both of the model's RNGs."""
+
+    def __init__(self, model, cell):
+        """Place an agent and initialise its accumulated deposits."""
+        super().__init__(model)
+        self.cell = cell
+        self.total = 0.0
+
+    def step(self):
+        """Move to a neighbour and deposit a random amount of sugar."""
+        self.cell = self.random.choice(list(self.cell.connections.values()))
+        amount = self.rng.random()
+        self.cell.sugar += amount
+        self.total += amount
+
+
+class LayeredGridModel(Model):
+    """A small simulation for checking continuation after a round trip."""
+
+    def __init__(self, grid_class):
+        """Create a seeded grid with writable and read-only layers."""
+        super().__init__(rng=42)
+        self.grid = grid_class((4, 4), random=self.random)
+        self.grid.create_property_layer("sugar", default_value=1.0)
+        self.grid.create_property_layer("terrain", default_value=2, read_only=True)
+        for coordinate in [(0, 0), (1, 1), (2, 2)]:
+            LayeredGridAgent(self, self.grid[coordinate])
+
+    def step(self):
+        """Activate agents in a random order."""
+        self.agents.shuffle_do("step")
+
+
+@pytest.mark.parametrize(
+    "grid_class", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid, HexGrid]
+)
+@pytest.mark.parametrize("method", ["deepcopy", "pickle"])
+def test_layered_grid_model_continues_after_round_trip(grid_class, method):
+    """A restored model must follow the same trajectory with independent arrays."""
+    model = LayeredGridModel(grid_class)
+    for _ in range(3):
+        model.step()
+
+    if method == "deepcopy":
+        restored = copy.deepcopy(model)
+    else:
+        restored = pickle.loads(pickle.dumps(model))  # noqa: S301
+
+    assert restored.grid.random is restored.random
+    for agent in restored.agents:
+        assert agent.model is restored
+        assert agent.cell is restored.grid[agent.cell.coordinate]
+    for cell in restored.grid.all_cells:
+        assert type(cell) is restored.grid.cell_klass
+        for neighbor in cell.connections.values():
+            assert neighbor is restored.grid[neighbor.coordinate]
+    for name in model.grid.property_layers:
+        assert not np.shares_memory(
+            model.grid.property_layers[name], restored.grid.property_layers[name]
+        )
+    with pytest.raises(AttributeError):
+        restored.grid[(0, 0)].terrain = 99
+
+    def agent_states(current):
+        return sorted(
+            (agent.unique_id, agent.cell.coordinate, agent.total)
+            for agent in current.agents
+        )
+
+    for _ in range(5):
+        model.step()
+        restored.step()
+        assert restored.time == model.time
+        assert agent_states(restored) == agent_states(model)
+        assert restored.random.getstate() == model.random.getstate()
+        assert restored.rng.bit_generator.state == model.rng.bit_generator.state
+        for name in model.grid.property_layers:
+            np.testing.assert_array_equal(
+                restored.grid.property_layers[name], model.grid.property_layers[name]
+            )
+        for cell in restored.grid.all_cells:
+            assert cell.sugar == restored.grid.sugar[cell.coordinate]
+            assert cell.empty == cell.is_empty
 
 
 def test_property_layer_accessors_survive_copy_on_all_cells():
