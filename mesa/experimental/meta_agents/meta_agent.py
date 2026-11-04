@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from types import MethodType
-from typing import Any
+from typing import Any, cast
 
 from mesa.agent import Agent
 
@@ -48,7 +48,7 @@ def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] 
 
 
 def _apply_meta_attributes(
-    meta_agent: Any,
+    meta_agent: MetaAgent,
     meta_attributes: dict[str, Any] | None,
 ) -> None:
     """Set resolved meta-agent attributes on an instance."""
@@ -57,7 +57,7 @@ def _apply_meta_attributes(
 
 
 def _apply_meta_methods(
-    meta_agent: Any,
+    meta_agent: MetaAgent,
     meta_methods: dict[str, Callable] | None,
 ) -> None:
     """Bind resolved meta-agent methods to an instance."""
@@ -66,12 +66,12 @@ def _apply_meta_methods(
 
 
 def _find_existing_meta_agent(
-    agents: Iterable[Any],
+    agents: Iterable[Agent],
     new_agent_class: str,
     membership_api: Any,
-) -> Any | None:
+) -> MetaAgent | None:
     """Find a compatible existing meta-agent among an agent's current groups."""
-    existing_meta_agents = []
+    existing_meta_agents: list[MetaAgent] = []
     for agent in agents:
         for meta_agent in sorted(
             membership_api.groups_of(agent), key=_unique_id_sort_key
@@ -90,14 +90,17 @@ def _find_existing_meta_agent(
 def _build_meta_agent_class(
     new_agent_class: str,
     mesa_agent_type: tuple[type[Agent], ...],
-) -> type[Agent]:
+) -> type[MetaAgent]:
     """Create a dynamic meta-agent class with the requested Mesa base types."""
-    return type(
-        new_agent_class,
-        (MetaAgent, *mesa_agent_type),
-        {
-            "unique_id": None,
-        },
+    return cast(
+        type[MetaAgent],
+        type(
+            new_agent_class,
+            (MetaAgent, *mesa_agent_type),
+            {
+                "unique_id": None,
+            },
+        ),
     )
 
 
@@ -106,7 +109,7 @@ def _build_meta_agent_class(
 def _create_meta_agent_instance(
     model: Any,
     new_agent_class: str,
-    agents: Iterable[Any],
+    agents: Iterable[Agent],
     mesa_agent_type: type[Agent] | tuple[type[Agent], ...] | None,
     meta_attributes: dict[str, Any] | None = None,
     meta_methods: dict[str, Callable] | None = None,
@@ -186,6 +189,4 @@ class MetaAgent(Agent):
         """Default meta-agent behavior."""
 
 
-__all__ = [
-    "extract_class",
-]
+__all__ = ["MetaAgent", "extract_class"]
