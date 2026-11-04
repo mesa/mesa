@@ -118,6 +118,9 @@ nb_execution_mode = "cache"
 nb_execution_allow_errors = False
 nb_execution_raise_on_error = True
 
+# Generate anchors for headings up to level 3, so links like page.md#heading work.
+myst_heading_anchors = 3
+
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
