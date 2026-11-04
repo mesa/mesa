@@ -1,7 +1,10 @@
 """AgentSet.py related tests."""
 
 import copy
+import gc
 import pickle
+import warnings
+import weakref
 from random import Random
 
 import numpy as np
@@ -514,6 +517,36 @@ def test_agentset_set_element_wise():
         agentset.set("energy", [1, 2, 3])
 
 
+def test_set_warns_when_one_mutable_object_is_shared_by_agents():
+    """A per-agent sequence that repeats one mutable object warns, other shapes do not."""
+
+    class TestAgent(Agent):
+        pass
+
+    model = Model()
+    agentset = AgentSet([TestAgent(model) for _ in range(5)])
+    shared = [1, 2, 3]
+
+    with pytest.warns(UserWarning, match="same object"):
+        agentset.set("dna", [shared] * 5)
+
+    # the warning is about sharing, so the value is still stored by reference
+    assert agentset.get("dna")[0] is shared
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # distinct objects are fine
+        agentset.set("dna", [[1, 2, 3] for _ in range(5)])
+        # repeated immutables are fine
+        agentset.set("energy", [0.5] * 5)
+        agentset.set("label", ["a", "a", "a", "a", "a"])
+        # a broadcast scalar or dict is not a per-agent sequence
+        agentset.set("config", {"mode": "fast"})
+        # agents sharing a non-container object (e.g. a location) is intended
+        location = TestAgent(model)
+        agentset.set("cell", [location] * 5)
+
+
 def test_agentset_map_str():
     """Test AgentSet.map with strings."""
     model = Model()
@@ -854,6 +887,16 @@ def test_hardkeyagentset_downgrade():
     sorted_view = hard_set.sort("unique_id")
     assert isinstance(sorted_view, AgentSet)
 
+    random_view = hard_set.select_random(5)
+    assert isinstance(random_view, AgentSet)
+    assert not isinstance(random_view, _HardKeyAgentSet)
+    assert len(random_view) == 5
+
+    same_random = hard_set.select_random(5, inplace=True)
+    assert isinstance(same_random, _HardKeyAgentSet)
+    assert same_random is hard_set
+    assert len(same_random) == 5
+
     groups = hard_set.groupby(lambda a: a.unique_id % 2 == 0)
     for group in groups.groups.values():
         assert isinstance(group, AgentSet)
@@ -862,6 +905,23 @@ def test_hardkeyagentset_downgrade():
     groups_list = hard_set.groupby(lambda a: a.unique_id % 2 == 0, result_type="list")
     for group in groups_list.groups.values():
         assert isinstance(group, list)
+
+
+def test_hardkeyagentset_select_random_garbage_collection():
+    """Test that select_random on _HardKeyAgentSet allows removed agents to be garbage collected (#3992)."""
+    model = Model()
+    agent = AgentTest(model)
+    agent_ref = weakref.ref(agent)
+
+    sample = model.agents.select_random(1)
+    assert isinstance(sample, AgentSet)
+    assert not isinstance(sample, _HardKeyAgentSet)
+
+    agent.remove()
+    del agent
+    gc.collect()
+
+    assert agent_ref() is None
 
 
 def test_hardkeyagentset_inplace():

@@ -147,13 +147,11 @@ class Cell:
             agent (CellAgent): agent to add to this Cell
 
         """
-        n = len(self._agents)
-        self.empty = False
-
-        if self.capacity is not None and n >= self.capacity:
+        if self.capacity is not None and len(self._agents) >= self.capacity:
             raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
+        self.empty = False
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -241,6 +239,8 @@ class Cell:
             }
             if include_center:
                 neighborhood[self] = self._agents
+            else:
+                neighborhood.pop(self, None)
             return neighborhood
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
