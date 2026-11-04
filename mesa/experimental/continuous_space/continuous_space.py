@@ -258,8 +258,9 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         """Return the k nearest agents and their distances to the point.
 
         Notes:
-            This method returns exactly k agents, ignoring ties. In case of ties, the
-            earlier an agent is inserted the higher it will rank.
+            This method returns exactly k agents, ignoring ties. Which of several agents
+            tied at the k-th distance are returned is deterministic, but does not follow
+            insertion order (np.argpartition is not stable).
 
             If fewer than k agents are present in the space, all agents are returned
             and a UserWarning is emitted to indicate that the requested k could not be
