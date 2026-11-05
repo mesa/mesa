@@ -247,8 +247,8 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             positions = self.agent_positions
             agents = self.active_agents
         else:
+            agents = list(agents)
             positions = self._agent_positions[[a._mesa_index for a in agents]]
-            agents = np.asarray(agents)
 
         if self.torus:
             # The minimum image convention below only holds while the separation
