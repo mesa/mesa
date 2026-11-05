@@ -165,18 +165,24 @@ class CellCollection[T: Cell]:
         if filter_func is None and at_most == float("inf"):
             return self
 
-        if isinstance(at_most, bool) or not isinstance(at_most, numbers.Real):
+        if isinstance(at_most, bool) or not isinstance(
+            at_most, (int, float, numbers.Real)
+        ):
             raise TypeError(
                 f"at_most must be an integer or float, got {type(at_most).__name__}."
             )
 
-        if not isinstance(at_most, numbers.Integral) and at_most != float("inf"):
+        # Keep builtin counts/fractions off the slower numeric ABC checks.
+        is_integer = isinstance(at_most, int) or (
+            not isinstance(at_most, float) and isinstance(at_most, numbers.Integral)
+        )
+        if not is_integer and at_most != float("inf"):
             if not (0.0 < at_most <= 1.0):
                 raise ValueError(
                     f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
                 )
             at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
-        elif isinstance(at_most, numbers.Integral) and at_most < 0:
+        elif is_integer and at_most < 0:
             raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
 
         def cell_generator(filter_func, at_most):
