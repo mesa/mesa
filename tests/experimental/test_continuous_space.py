@@ -296,6 +296,93 @@ def test_continuous_space_torus_agent_queries_skip_bounds_check():
         assert wrap_point.call_count == 2
 
 
+@pytest.mark.parametrize(
+    "agents_factory",
+    [
+        list,
+        tuple,
+        lambda agents: (agent for agent in agents),
+        iter,
+    ],
+    ids=["list", "tuple", "generator", "iterator"],
+)
+@pytest.mark.parametrize("torus", [False, True], ids=["euclidean", "torus"])
+def test_calculate_distances_with_agent_iterables(agents_factory, torus):
+    """Distances and returned agents stay aligned for all supported iterables."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], torus=torus, random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(3)]
+    agents[0].position = [1.0, 0.0]
+    agents[1].position = [2.0, 0.0]
+    agents[2].position = [4.0, 0.0]
+    point = [0.0, 0.0]
+    selected_agents = [agents[1], agents[0]]
+
+    distances, returned_agents = space.calculate_distances(
+        point, agents=agents_factory(selected_agents)
+    )
+
+    assert isinstance(returned_agents, list)
+    assert returned_agents == selected_agents
+    np.testing.assert_allclose(distances, [2.0, 1.0])
+    np.testing.assert_allclose(
+        distances,
+        [np.linalg.norm(agent.position - point) for agent in selected_agents],
+    )
+
+
+def test_calculate_distances_with_empty_agent_generator():
+    """An empty one-shot iterable returns empty distances and agents."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    distances, agents = space.calculate_distances([0.0, 0.0], agents=(a for a in []))
+
+    assert distances.shape == (0,)
+    assert agents == []
+
+
+def test_calculate_distances_iterates_supplied_agents_once():
+    """The input iterable is materialized with a single iteration."""
+
+    class CountingIterable:
+        def __init__(self, agents):
+            self.agents = agents
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return iter(self.agents)
+
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [1.0, 0.0]
+    supplied_agents = CountingIterable([agent])
+
+    distances, returned_agents = space.calculate_distances(
+        [0.0, 0.0], agents=supplied_agents
+    )
+
+    assert supplied_agents.iterations == 1
+    assert returned_agents == [agent]
+    np.testing.assert_allclose(distances, [1.0])
+
+
+def test_calculate_distances_without_agents_returns_all_agents_in_order():
+    """Omitting agents continues to return all space agents in insertion order."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(2)]
+    agents[0].position = [1.0, 0.0]
+    agents[1].position = [2.0, 0.0]
+
+    distances, returned_agents = space.calculate_distances([0.0, 0.0])
+
+    assert returned_agents == agents
+    np.testing.assert_allclose(distances, [1.0, 2.0])
+
+
 def test_continous_space_difference_vector():
     """Test ContinuousSpace.get_difference_vector method."""
     # non torus
