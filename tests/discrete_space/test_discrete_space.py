@@ -1,10 +1,13 @@
 """Test cell spaces."""
 
 import copy
+import gc
+import itertools
 import pickle
 import random
 import random as stdlib_random
 import sys
+import weakref
 
 import networkx as nx
 import numpy as np
@@ -1584,6 +1587,143 @@ def test_pickling_cell():
 
     assert cell.coordinate == unpickled_cell.coordinate
     assert cell.capacity == unpickled_cell.capacity
+
+
+def test_neighborhood_cache_does_not_keep_discarded_models_alive():
+    """Cached neighborhoods must not retain cells, agents, or their model."""
+
+    def make_model_reference():
+        model = Model()
+        cells = [Cell((i,), random=random.Random(42)) for i in range(3)]
+        agents = [CellAgent(model) for _ in cells]
+
+        for cell, agent in zip(cells, agents, strict=True):
+            cell.add_agent(agent)
+
+        for left, right in itertools.pairwise(cells):
+            left.connect(right)
+            right.connect(left)
+
+        for cell in cells:
+            cell.get_neighborhood(radius=2)
+
+        return weakref.ref(model)
+
+    model_ref = make_model_reference()
+    gc.collect()
+
+    assert model_ref() is None
+
+
+def test_neighborhood_cache_is_invalidated_by_topology_changes():
+    """A topology change must invalidate cached neighborhoods on other cells."""
+    cells = [Cell((i,), random=random.Random(42)) for i in range(3)]
+    first, second, third = cells
+
+    first.connect(second)
+    initial_neighborhood = first.get_neighborhood(radius=2)
+    assert set(initial_neighborhood) == {second}
+    assert first.get_neighborhood(radius=2) is initial_neighborhood
+
+    # The first cell is not directly modified, but its radius-2 neighborhood
+    # changes when a connection is added one hop away.
+    second.connect(third)
+    updated_neighborhood = first.get_neighborhood(radius=2)
+    assert set(updated_neighborhood) == {second, third}
+    assert updated_neighborhood is not initial_neighborhood
+
+    second.disconnect(third)
+    assert set(first.get_neighborhood(radius=2)) == {second}
+
+
+def test_pickling_cell_after_warming_neighborhood_cache():
+    """Derived neighborhood caches are not serialized and are rebuilt on use."""
+    cell = Cell((1,), random=random.Random(42))
+    cell.get_neighborhood()
+
+    unpickled_cell = pickle.loads(pickle.dumps(cell))  # noqa: S301
+
+    assert unpickled_cell.coordinate == cell.coordinate
+    assert len(unpickled_cell.get_neighborhood()) == 0
+
+
+def test_neighborhood_property_initializes_cache_for_legacy_cell():
+    """The neighborhood property initializes cache slots missing from old pickles."""
+    cell = Cell((0,), random=random.Random(42))
+    neighbor = Cell((1,), random=random.Random(42))
+    cell.connect(neighbor)
+
+    # Simulate a Cell restored from a pickle written before the cache slots existed.
+    for slot in (
+        "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
+    ):
+        delattr(cell, slot)
+
+    neighborhood = cell.neighborhood
+
+    assert list(neighborhood) == [neighbor]
+    assert cell.neighborhood is neighborhood
+
+
+def test_get_neighborhood_initializes_cache_for_legacy_cell():
+    """get_neighborhood initializes cache slots missing from older pickles."""
+    cell = Cell((0,), random=random.Random(42))
+    neighbor = Cell((1,), random=random.Random(42))
+    cell.connect(neighbor)
+
+    # Simulate a Cell restored from a pickle written before the cache slots existed.
+    for slot in (
+        "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
+    ):
+        delattr(cell, slot)
+
+    neighborhood = cell.get_neighborhood(radius=2, include_center=True)
+
+    assert set(neighborhood) == {cell, neighbor}
+    assert cell.get_neighborhood(radius=2, include_center=True) is neighborhood
+
+
+@pytest.mark.parametrize(
+    ("radius", "include_center"),
+    [
+        (1, False),
+        (1, True),
+        (2, False),
+        (2, True),
+        (3, False),
+        (3, True),
+    ],
+)
+def test_neighborhood_cache_is_reused_and_invalidated_for_each_query_key(
+    radius: int, include_center: bool
+):
+    """All specialized and fallback cache keys must be reused and invalidated."""
+    cells = [Cell((i,), random=random.Random(42)) for i in range(4)]
+    for left, right in itertools.pairwise(cells):
+        left.connect(right)
+        right.connect(left)
+
+    cell = cells[0]
+    cached = cell.get_neighborhood(radius=radius, include_center=include_center)
+    assert cell.get_neighborhood(radius=radius, include_center=include_center) is cached
+    assert (cell in cached) is include_center
+
+    if radius == 1 and not include_center:
+        assert cell.neighborhood is cached
+
+    cell.disconnect(cells[1])
+    updated = cell.get_neighborhood(radius=radius, include_center=include_center)
+    assert updated is not cached
+    assert (cell in updated) is include_center
+    assert cells[1] not in updated
 
 
 def test_large_radius_neighborhood():
