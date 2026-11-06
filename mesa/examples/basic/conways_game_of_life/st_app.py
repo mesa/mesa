@@ -1,17 +1,16 @@
 import time
 
 import altair as alt
-import numpy as np
 import pandas as pd
 import streamlit as st
 
 from mesa.examples.basic.conways_game_of_life.model import ConwaysGameOfLife
 
-model = st.title("Conway's Game of Life")
+st.title("Conway's Game of Life")
 num_ticks = st.slider("Select number of Steps", min_value=1, max_value=100, value=50)
 height = st.slider("Select Grid Height", min_value=10, max_value=100, step=10, value=15)
 width = st.slider("Select Grid Width", min_value=10, max_value=100, step=10, value=20)
-model = ConwaysGameOfLife(height, width)
+model = ConwaysGameOfLife(width=width, height=height)
 
 col1, col2, col3 = st.columns(3)
 status_text = st.empty()
@@ -24,7 +23,7 @@ if run:
     step = 0
     # init grid
     df_grid = pd.DataFrame()
-    agent_counts = np.zeros((model.grid.width, model.grid.height))
+
     for x in range(width):
         for y in range(height):
             df_grid = pd.concat(
