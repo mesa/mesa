@@ -523,10 +523,36 @@ def test_json_recorder_clear():
         df = recorder.get_table_dataframe("model_data")
         assert df.empty
 
-        # Clear All
+        # Clear All: the datasets stay registered and are empty, like the other recorders
         recorder.clear()
-        with pytest.raises(KeyError):
-            recorder.get_table_dataframe("agent_data")
+        assert recorder.get_table_dataframe("agent_data").empty
+
+
+def test_json_recorder_keeps_recording_after_clear():
+    """Recording continues after clear(), instead of raising on the next step."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = MockModel(n=2)
+        recorder = JSONDataRecorder(
+            model, {"model_data": DatasetConfig()}, output_dir=temp_dir
+        )
+
+        model.step()
+        recorder.clear()
+        model.step()
+        model.step()
+
+        assert not recorder.get_table_dataframe("model_data").empty
+
+
+def test_json_recorder_clear_nonexistent_dataset():
+    """Clearing an unknown dataset raises KeyError, like the other recorders."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        recorder = JSONDataRecorder(
+            MockModel(n=2), {"model_data": DatasetConfig()}, output_dir=temp_dir
+        )
+
+        with pytest.raises(KeyError, match="nonexistent"):
+            recorder.clear("nonexistent")
 
 
 def test_json_recorder_summary():
