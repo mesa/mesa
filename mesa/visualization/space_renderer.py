@@ -423,38 +423,28 @@ class SpaceRenderer:
         elif self.backend == "altair":
             structure = self.space_mesh if self.space_mesh else None
             agents = self.agent_mesh if self.agent_mesh else None
-            prop_base, prop_cbar = self.property_layer_mesh or (None, None)
+            # The Altair backend returns the property layers as one chart, with
+            # the legend already part of it, so there is no separate colorbar.
+            prop_layers = self.property_layer_mesh if self.property_layer_mesh else None
 
             if self.space_mesh:
                 structure = self.draw_structure()
             if self.agent_mesh:
                 agents = self.draw_agents()
             if self.property_layer_mesh:
-                prop_base, prop_cbar = self.draw_property_layer()
+                prop_layers = self.draw_property_layer()
 
             spatial_charts_list = [
-                chart for chart in [structure, prop_base, agents] if chart
+                chart for chart in [structure, prop_layers, agents] if chart
             ]
 
-            main_spatial = None
+            final_chart = None
             if spatial_charts_list:
-                main_spatial = (
+                final_chart = (
                     spatial_charts_list[0]
                     if len(spatial_charts_list) == 1
                     else alt.layer(*spatial_charts_list)
                 )
-
-            # Determine final chart by combining with color bar if present
-            final_chart = None
-            if main_spatial and prop_cbar:
-                final_chart = alt.vconcat(main_spatial, prop_cbar).configure_view(
-                    stroke=None
-                )
-            elif main_spatial:  # Only main_spatial, no prop_cbar
-                final_chart = main_spatial
-            elif prop_cbar:  # Only prop_cbar, no main_spatial
-                final_chart = prop_cbar
-                final_chart = final_chart.configure_view(grid=False)
 
             if final_chart is None:
                 # If no charts are available, return an empty chart
