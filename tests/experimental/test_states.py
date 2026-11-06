@@ -188,11 +188,96 @@ class TestGenuineRateBugsStillRaise:
             BadRateAgent(model)
         assert "a_cceleration" in str(exc_info.value)
 
-    def test_typo_raises_on_lazy_first_access(self, model: TramModel) -> None:
-        """Ensure lazy evaluation still raises errors accurately."""
-        agent = BadRateAgentNoThreshold(model)
-        with pytest.raises(AttributeError):
-            _ = agent.speed
+    def test_typo_raises_without_a_threshold(self, model: TramModel) -> None:
+        """Ensure a bad rate raises even when no Threshold observes the state.
+
+        The rate is anchored when the state is assigned, so the typo now
+        surfaces at ``self.speed = 0.0`` in ``__init__`` rather than at the
+        first read. Earlier than before, and still naming the attribute.
+        """
+        with pytest.raises(AttributeError, match="a_cceleration"):
+            BadRateAgentNoThreshold(model)
+
+
+class TestChainedExtrapolationWithoutThreshold:
+    """A chained state must extrapolate correctly with no Threshold watching it."""
+
+    @staticmethod
+    def _mover(threshold_on: str | None):
+        """Build a position/speed/accel agent, optionally with a Threshold."""
+        namespace: dict = {
+            "accel": Observable(fallback_value=0.0),
+            "speed": ContinuousState(fallback_value=0.0, rate=lambda a: a.accel),
+        }
+        namespace["position"] = ContinuousState(
+            fallback_value=0.0, rate=lambda a: a.speed
+        )
+        if threshold_on is not None:
+            namespace["_never"] = Threshold(
+                state=namespace[threshold_on],
+                limit=1e9,
+                callback="noop",
+                direction="rising",
+            )
+
+        def _noop(self):
+            pass
+
+        def _init(self, model):
+            Agent.__init__(self, model)
+
+        namespace["noop"] = _noop
+        namespace["__init__"] = _init
+        return type("Mover", (Agent, HasEmitters), namespace)
+
+    @pytest.mark.parametrize("threshold_on", [None, "speed", "position"])
+    @pytest.mark.parametrize("elapsed", [1.0, 2.0, 5.0])
+    def test_quadratic_extrapolation_does_not_depend_on_a_threshold(
+        self, threshold_on, elapsed
+    ) -> None:
+        """Position is 0.5 * a * t**2 whether or not a Threshold is declared.
+
+        The rate used to be anchored only when something subscribed to the
+        state, which a Threshold on that state did. Without one the rate went
+        stale while last_time moved on, and the next read applied the newer
+        rate across the whole interval, giving 3 * t**2 instead of t**2.
+        See #3987.
+        """
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+
+        model.run_for(elapsed)
+
+        assert mover.position == pytest.approx(0.5 * 2.0 * elapsed**2)
+        assert mover.speed == pytest.approx(2.0 * elapsed)
+
+    def test_nonzero_initial_rate_is_anchored(self) -> None:
+        """A state assigned while already moving keeps its own starting rate."""
+        model = Model(rng=1)
+        mover = self._mover(None)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 1.0, 0.0
+
+        model.run_for(1.0)
+
+        # x = v0*t + 0.5*a*t**2 = 1 + 1
+        assert mover.position == pytest.approx(2.0)
+
+    def test_trajectory_stays_exact_across_a_rate_change(self) -> None:
+        """Changing the acceleration mid-flight re-anchors rather than drifting."""
+        model = Model(rng=1)
+        mover = self._mover(None)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+
+        model.run_for(3.0)
+        assert mover.position == pytest.approx(9.0)
+
+        mover.accel = -1.0
+        model.run_for(2.0)
+
+        # 9 + 6*2 + 0.5*(-1)*4
+        assert mover.position == pytest.approx(19.0)
+        assert mover.speed == pytest.approx(4.0)
 
 
 class TestContinuousStateExtrapolation:
