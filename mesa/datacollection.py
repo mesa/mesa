@@ -368,32 +368,41 @@ class DataCollector:
         return agenttype_records
 
     def collect(self, model):
-        """Collect all the data for the given model object."""
+        """Collect all the data for the given model object.
+
+        A failed model reporter leaves model rows and collection steps unchanged.
+        Agent data is collected afterward and is not part of that transaction.
+        Reporter side effects are not rolled back.
+        """
         if self.model_reporters:
-            if hasattr(self, "_collection_steps"):
-                self._collection_steps.append(model.time)
             if not self._validated:
                 for name, reporter in self.model_reporters.items():
                     self._validate_model_reporter(name, reporter, model)
 
+            # Evaluate the whole model row before updating stored columns.
+            model_values = {}
             for var, reporter in self.model_reporters.items():
                 # Check if lambda or partial function
                 if isinstance(reporter, types.LambdaType | partial):
-                    # Use deepcopy to store a copy of the data,
-                    # preventing references from being updated across steps.
-                    self.model_vars[var].append(deepcopy(reporter(model)))
+                    value = reporter(model)
                 # Check if model attribute
                 elif isinstance(reporter, str):
-                    self.model_vars[var].append(
-                        deepcopy(getattr(model, reporter, None))
-                    )
+                    value = getattr(model, reporter, None)
                 # Check if function with arguments
                 elif isinstance(reporter, list):
                     self._check_list_reporter(var, reporter)
-                    self.model_vars[var].append(deepcopy(reporter[0](*reporter[1])))
+                    value = reporter[0](*reporter[1])
                 # Assume it's a callable otherwise (e.g., method)
                 else:
-                    self.model_vars[var].append(deepcopy(reporter()))
+                    value = reporter()
+
+                # Store a copy so references cannot change values across steps.
+                model_values[var] = deepcopy(value)
+
+            for var, value in model_values.items():
+                self.model_vars[var].append(value)
+            if hasattr(self, "_collection_steps"):
+                self._collection_steps.append(model.time)
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
