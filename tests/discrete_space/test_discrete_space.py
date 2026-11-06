@@ -368,6 +368,43 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
 
+def test_neighborhood_cache_invalidated_on_topology_change():
+    """connect() and disconnect() must invalidate the cached neighborhood.
+
+    get_neighborhood() is cached, so a topology change has to clear that cache
+    or callers keep seeing the old neighbourhood. See #3379.
+    """
+    c1 = Cell((1,), capacity=None, random=random.Random())
+    c2 = Cell((2,), capacity=None, random=random.Random())
+    c3 = Cell((3,), capacity=None, random=random.Random())
+
+    c1.connect(c2)
+    assert set(c1.get_neighborhood().cells) == {c2}  # warms the cache
+
+    c1.connect(c3)
+    assert set(c1.get_neighborhood().cells) == {c2, c3}
+
+    c1.disconnect(c2)
+    assert set(c1.get_neighborhood().cells) == {c3}
+
+
+def test_neighborhood_cache_invalidated_for_larger_radius():
+    """A connect() one hop away must invalidate a radius > 1 neighborhood.
+
+    `cells[1].connect(cells[2])` changes a cell that `cells[0]` only reaches at
+    radius 2, so `cells[0]`'s warmed entry has to be invalidated even though
+    `cells[0]` itself was not touched. See #3379.
+    """
+    cells = [Cell((i,), capacity=None, random=random.Random()) for i in range(3)]
+    cells[0].connect(cells[1], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1]}  # warms
+
+    cells[1].connect(cells[2], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1], cells[2]}
+
+
 def test_cell_neighborhood():
     """Test neighborhood method of cell in different GridSpaces."""
     # orthogonal grid
