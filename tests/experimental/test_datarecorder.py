@@ -111,15 +111,16 @@ def test_dataset_config_should_collect_after_end_time():
     assert not config.should_collect(11)  # After end_time
 
 
-def test_dataset_config_update_next_collection_auto_disable():
-    """Test that updating next_collection auto-disables at end_time."""
+def test_dataset_config_update_next_collection_past_end_time():
+    """Keep explicit enablement separate from the collection window."""
     config = DatasetConfig(interval=5, start_time=0, end_time=20)
     assert config.enabled
 
-    # Update to time that would schedule next collection beyond end_time
+    # No more scheduled collections fit, but an in-window final snapshot can.
     config.update_next_collection(18)
     assert config._next_collection == 23
-    assert not config.enabled  # Should auto-disable
+    assert config.enabled
+    assert not config.should_collect(23)
 
 
 def test_base_recorder_no_registry():
@@ -1196,3 +1197,95 @@ def test_run_ended_before_start_can_resume(run_method):
     getattr(model, run_method)(10 if run_method == "run_for" else 12)
 
     assert recorder.get_table_dataframe("state")["time"].tolist() == [10, 12]
+
+
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+@pytest.mark.parametrize("run_method", ["run_for", "run_until"])
+@pytest.mark.parametrize(
+    ("stop_time", "expected"),
+    [
+        (10, [0, 5, 10]),
+        (12, [0, 5, 10, 12]),
+        (13, [0, 5, 10, 13]),
+        (14, [0, 5, 10]),
+        (20, [0, 5, 10]),
+    ],
+)
+def test_run_ended_respects_end_time(
+    tmp_path, recorder_class, run_method, stop_time, expected
+):
+    """Record an in-window final state even after the last scheduled snapshot."""
+    model = Model(rng=1)
+    model.value = 7
+    model.data_registry.track_model(model, "state", fields=["value"])
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    elif recorder_class == SQLDataRecorder:
+        kwargs["db_path"] = ":memory:"
+    recorder = recorder_class(
+        model, {"state": DatasetConfig(interval=5, end_time=13)}, **kwargs
+    )
+
+    getattr(model, run_method)(stop_time)
+
+    frame = recorder.get_table_dataframe("state")
+    assert frame["time"].tolist() == expected
+    assert frame["value"].tolist() == [7] * len(expected)
+
+
+@pytest.mark.parametrize("disable_directly", [False, True])
+def test_run_ended_keeps_explicitly_disabled_dataset_disabled(disable_directly):
+    """Do not restore final collection when a user disables the dataset."""
+    model = Model(rng=1)
+    model.value = 7
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = DataRecorder(model, {"state": DatasetConfig(interval=5, end_time=13)})
+    model.run_for(10)
+    if disable_directly:
+        recorder.configs["state"].enabled = False
+    else:
+        recorder.disable_dataset("state")
+
+    model.run_for(2)
+
+    assert recorder.get_table_dataframe("state")["time"].tolist() == [0, 5, 10]
+    assert not recorder.configs["state"].enabled
+
+
+@pytest.mark.parametrize("interval", [5, 20])
+def test_end_window_allows_repeated_in_window_runs(interval):
+    """Keep final snapshots until the window closes without late collections."""
+    model = Model(rng=1)
+    model.value = 7
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = DataRecorder(
+        model, {"state": DatasetConfig(interval=interval, end_time=13)}
+    )
+    model.run_until(12)
+    model.value = 8
+    with pytest.warns(RuntimeWarning, match="end time 12 is not larger"):
+        model.run_until(12)
+    frame = recorder.get_table_dataframe("state")
+    assert frame["time"].tolist().count(12) == 1
+    assert frame.loc[frame["time"] == 12, "value"].iloc[0] == 8
+
+    model.run_until(13)
+    assert recorder.get_table_dataframe("state")["time"].iloc[-1] == 13
+    model.run_until(20)
+    before = recorder.get_table_dataframe("state").copy()
+    recorder.collect()
+    pd.testing.assert_frame_equal(recorder.get_table_dataframe("state"), before)
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_next_collection_preserves_explicit_enablement(enabled):
+    """Scheduling past the window does not change the user's enabled flag."""
+    config = DatasetConfig(interval=5, end_time=13, enabled=enabled)
+    config.update_next_collection(10)
+    assert config.enabled is enabled
+    assert config._next_collection == 15
+    assert not config.should_collect(15)
