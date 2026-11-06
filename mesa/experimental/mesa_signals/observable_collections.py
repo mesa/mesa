@@ -42,22 +42,27 @@ class ObservableList(BaseObservable):
             value: The value to set the attribute to.
 
         """
-        old_value = getattr(instance, self.private_name, self.fallback_value)
-        # Snapshot into batch context before replacing the list
+        old_list = getattr(instance, self.private_name, None)
+        new_list = SignalingList(value, instance, self.public_name)
+        setattr(instance, self.private_name, new_list)
+
         ctx = instance._batch_context
+        if ctx is None and not instance._has_subscribers(
+            self.public_name, ListSignals.SET
+        ):
+            return
+
+        # Emit plain list snapshots, like the batched SET signal does. `value`
+        # may be a generator that SignalingList has already consumed, and the
+        # replaced SignalingList still emits signals on `instance` if mutated.
+        old_value = [] if old_list is None else list(old_list.data)
         if ctx is not None:
-            old_value = [] if old_value is None else list(old_value)
             ctx.capture_original_value_once(self.public_name, old_value)
-        setattr(
-            instance,
-            self.private_name,
-            SignalingList(value, instance, self.public_name),
-        )
         instance.notify(
             self.public_name,
             ListSignals.SET,
             old=old_value,
-            new=value,
+            new=list(new_list.data),
         )
 
 
