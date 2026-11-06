@@ -832,16 +832,52 @@ def test_cell_collection():
     cells = collection.select(at_most=0.5)
     assert len(cells) == 5
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
+    for bad_at_most in (
+        float("nan"),
+        0.0,
+        -0.5,
+        1.5,
+        -1,
+        -5,
+        np.int64(-1),
+        np.float32(0.0),
+        np.float32(1.5),
+        np.float32("nan"),
+    ):
         with pytest.raises(ValueError):
             collection.select(at_most=bad_at_most)
 
-    for bad_type in (False, True, "1", [1], None):
+    for bad_type in (False, True, np.False_, np.True_, "1", [1], None):
         with pytest.raises(TypeError, match="must be an integer or float"):
             collection.select(at_most=bad_type)
 
     cells = collection.select()
     assert len(cells) == len(collection)
+
+
+@pytest.mark.parametrize(
+    ("at_most", "expected_count"),
+    [
+        (np.int32(3), 3),
+        (np.int64(3), 3),
+        (np.uint64(3), 3),
+        (np.int64(0), 0),
+        (np.int64(1), 1),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32(1.0), 10),
+    ],
+)
+def test_cell_collection_select_numpy_scalars(at_most, expected_count):
+    """Accept NumPy counts and fractions without changing cell order."""
+    rng = random.Random(42)
+    cells = [Cell((i,), random=rng) for i in range(10)]
+    collection = CellCollection(cells, random=rng)
+
+    selected = collection.select(at_most=at_most)
+
+    assert list(selected) == cells[:expected_count]
+    assert len(collection) == 10
 
 
 def test_empty_cell_collection():

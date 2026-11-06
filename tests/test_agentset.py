@@ -82,11 +82,22 @@ def test_agentset():
     assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
     assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
+    for bad_at_most in (
+        float("nan"),
+        0.0,
+        -0.5,
+        1.5,
+        -1,
+        -5,
+        np.int64(-1),
+        np.float32(0.0),
+        np.float32(1.5),
+        np.float32("nan"),
+    ):
         with pytest.raises(ValueError):
             agentset.select(at_most=bad_at_most)
 
-    for bad_type in (False, True, "1", [1], None):
+    for bad_type in (False, True, np.False_, np.True_, "1", [1], None):
         with pytest.raises(TypeError, match="must be an integer or float"):
             agentset.select(at_most=bad_type)
 
@@ -140,6 +151,50 @@ def test_agentset():
         a1.unique_id == a2.unique_id for a1, a2 in zip(another_set, other_agents)
     )
     assert len(another_set) == len(other_agents)
+
+
+@pytest.mark.parametrize("set_type", [AgentSet, _HardKeyAgentSet])
+@pytest.mark.parametrize(
+    ("at_most", "expected_count"),
+    [
+        (np.int32(3), 3),
+        (np.int64(3), 3),
+        (np.uint64(3), 3),
+        (np.int64(0), 0),
+        (np.int64(1), 1),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32(1.0), 10),
+    ],
+)
+def test_agentset_select_numpy_scalars(set_type, at_most, expected_count):
+    """Accept NumPy counts and fractions without changing selection order."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(10)]
+    agentset = set_type(agents, random=model.random)
+
+    selected = agentset.select(at_most=at_most)
+
+    assert list(selected) == agents[:expected_count]
+    assert len(agentset) == 10
+    assert isinstance(selected, AgentSet)
+
+
+def test_agentset_select_numpy_rng_count_inplace():
+    """Accept a count drawn from the model's generator for filtered selection."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(10)]
+    count = model.rng.integers(1, 5)
+
+    selected = model.agents.select(
+        lambda agent: agent.unique_id % 2 == 0, at_most=count, inplace=True
+    )
+
+    assert selected is model.agents
+    assert (
+        list(selected)
+        == [agent for agent in agents if agent.unique_id % 2 == 0][:count]
+    )
 
 
 def test_agentset_initialization():
