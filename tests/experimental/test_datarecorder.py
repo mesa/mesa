@@ -1125,3 +1125,48 @@ def test_numpy_agent_dataset_agent_id_dtype():
         df_parquet = parquet_recorder.get_table_dataframe("numpy_data")
         assert pd.api.types.is_integer_dtype(df_parquet["agent_id"])
         assert list(df_parquet["agent_id"]) == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+@pytest.mark.parametrize("run_method", ["run_for", "run_until"])
+@pytest.mark.parametrize("stop_time", [2, 10, 12])
+def test_run_ended_respects_start_time(tmp_path, recorder_class, run_method, stop_time):
+    """Skip final snapshots before warmup, but keep them at and after its end."""
+    model = Model(rng=3)
+    model.value = 4
+    model.data_registry.track_model(model, "state", fields=["value"])
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    recorder = recorder_class(
+        model, {"state": DatasetConfig(start_time=10, interval=5)}, **kwargs
+    )
+
+    getattr(model, run_method)(stop_time)
+
+    data = recorder.get_table_dataframe("state")
+    if stop_time < 10:
+        assert data.empty
+        assert recorder.configs["state"]._last_collection == -1
+    else:
+        expected_times = [10] if stop_time == 10 else [10, 12]
+        assert data["time"].tolist() == expected_times
+        assert data["value"].tolist() == [4] * len(expected_times)
+
+
+@pytest.mark.parametrize("run_method", ["run_for", "run_until"])
+def test_run_ended_before_start_can_resume(run_method):
+    """A run ending during warmup must not prevent later scheduled collection."""
+    model = Model(rng=3)
+    model.value = 4
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = DataRecorder(model, {"state": DatasetConfig(start_time=10, interval=5)})
+
+    getattr(model, run_method)(2)
+    assert recorder.get_table_dataframe("state").empty
+    getattr(model, run_method)(10 if run_method == "run_for" else 12)
+
+    assert recorder.get_table_dataframe("state")["time"].tolist() == [10, 12]
