@@ -25,6 +25,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space import Cell, DiscreteSpace
 from mesa.discrete_space.cell_collection import CellCollection
+from mesa.exceptions import SpaceException
 
 T = TypeVar("T", bound=Cell)
 
@@ -322,9 +323,9 @@ class Grid(DiscreteSpace[T]):
         try:
             random_index = self.random.choice(empty_indices)
         except IndexError as e:
-            raise ValueError(
-                "Grid is completely full. No empty cells available. "
-                "Cannot select a random empty cell."
+            raise SpaceException(
+                f"{type(self).__name__} is completely full. No empty cells "
+                "available. Cannot select a random empty cell."
             ) from e
         return self._cells[np.unravel_index(random_index, empty_layer.shape)]
 

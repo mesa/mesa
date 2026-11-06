@@ -15,24 +15,28 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve PR number from workflow_run event
+      - name: Resolve PR number
         id: pr
         uses: actions/github-script@v9
         with:
           script: |
-            const prs = context.payload.workflow_run.pull_requests || [];
-            if (prs.length === 0) {
-              core.setFailed('No pull request found on workflow_run payload.');
+            const run = context.payload.workflow_run;
+            const headOwner = run.head_repository?.owner?.login;
+            if (!headOwner) {
+              core.setFailed('No head repository on workflow_run payload.');
               return;
             }
-            const headSha = context.payload.workflow_run.head_sha;
-            const matching = prs.filter(pr => pr.head && pr.head.sha === headSha);
-            if (matching.length === 0) {
-              core.setFailed(`No pull request with head SHA ${headSha} found on workflow_run payload.`);
-              return;
-            }
-            if (matching.length > 1) {
-              core.setFailed(`Multiple pull requests with head SHA ${headSha} found on workflow_run payload.`);
+            const head = `${headOwner}:${run.head_branch}`;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head,
+              per_page: 100,
+            });
+            const matching = prs.filter(pr => pr.head.sha === run.head_sha);
+            if (matching.length !== 1) {
+              core.setFailed(`Expected one open pull request for ${head} at ${run.head_sha}, found ${matching.length}.`);
               return;
             }
             core.setOutput('number', String(matching[0].number));
@@ -46,10 +50,12 @@ jobs:
 
       - name: Comment PR
         uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         with:
           script: |
             const fs = require('fs');
-            const prNumber = parseInt('${{ steps.pr.outputs.number }}', 10);
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
             const output = fs.readFileSync('benchmark_output.txt', 'utf8');
             await github.rest.issues.createComment({
               issue_number: prNumber,
