@@ -328,6 +328,7 @@ class MatplotlibBackend(AbstractRenderer):
         Returns:
             tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
         """
+        cbar = None
         # Draw each layer
         for layer_name, layer in property_layers.items():
             if layer_name == "empty":
