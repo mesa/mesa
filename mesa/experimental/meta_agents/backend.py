@@ -27,26 +27,16 @@ class MembershipBackend:
             set
         )
 
-    def _to_id(self, entity: Hashable) -> Hashable:
-        """Normalize entity to canonical ID.
-
-        Uses ``mesa.agent.Agent.unique_id`` when available and finally the entity
-        as-is (for already hashable external IDs).
-        """
-        return getattr(entity, "unique_id", entity)
-
     def add_membership(
         self, agent: Hashable, group: Hashable, relation: RelationKey
     ) -> None:
         """Add one membership edge if it does not already exist."""
-        agent_id = self._to_id(agent)
-        group_id = self._to_id(group)
-        triplet = (agent_id, group_id, relation)
+        triplet = (agent, group, relation)
         if triplet in self._triplets:
             return
         self._triplets.add(triplet)
-        self._by_agent[agent_id].add((group_id, relation))
-        self._by_group[group_id].add((agent_id, relation))
+        self._by_agent[agent].add((group, relation))
+        self._by_group[group].add((agent, relation))
 
     def bulk_add(self, memberships: Iterable[Triplet]) -> None:
         """Add many membership edges."""
@@ -57,20 +47,18 @@ class MembershipBackend:
         self, agent: Hashable, group: Hashable, relation: RelationKey
     ) -> None:
         """Remove one membership edge if present."""
-        agent_id = self._to_id(agent)
-        group_id = self._to_id(group)
-        triplet = (agent_id, group_id, relation)
+        triplet = (agent, group, relation)
         if triplet not in self._triplets:
             return
         self._triplets.remove(triplet)
 
-        self._by_agent[agent_id].discard((group_id, relation))
-        if not self._by_agent[agent_id]:
-            del self._by_agent[agent_id]
+        self._by_agent[agent].discard((group, relation))
+        if not self._by_agent[agent]:
+            del self._by_agent[agent]
 
-        self._by_group[group_id].discard((agent_id, relation))
-        if not self._by_group[group_id]:
-            del self._by_group[group_id]
+        self._by_group[group].discard((agent, relation))
+        if not self._by_group[group]:
+            del self._by_group[group]
 
     def replace_relation(
         self,
@@ -85,28 +73,25 @@ class MembershipBackend:
 
     def remove_agent(self, agent: Hashable) -> None:
         """Remove an agent and all incident memberships."""
-        agent_id = self._to_id(agent)
         # TODO(perf): Current removal is O(degree(agent)) with per-edge updates.
         # Revisit with bulk/index-aware deletion once benchmark baselines are in place.
-        edges = list(self._by_agent.get(agent_id, set()))
-        for group_id, relation in edges:
-            self.remove_membership(agent_id, group_id, relation)
+        edges = list(self._by_agent.get(agent, set()))
+        for group, relation in edges:
+            self.remove_membership(agent, group, relation)
 
     def remove_group(self, group: Hashable) -> None:
         """Remove a group and all incident memberships."""
-        group_id = self._to_id(group)
         # TODO(perf): Current removal is O(degree(agent)) with per-edge updates.
         # Revisit with bulk/index-aware deletion once benchmark baselines are in place.
-        edges = list(self._by_group.get(group_id, set()))
-        for agent_id, relation in edges:
-            self.remove_membership(agent_id, group_id, relation)
+        edges = list(self._by_group.get(group, set()))
+        for agent, relation in edges:
+            self.remove_membership(agent, group, relation)
 
     def groups_of(
         self, agent: Hashable, relation: RelationKey | None = None
     ) -> set[Hashable]:
         """Return groups for an agent, optionally filtered by relation."""
-        agent_id = self._to_id(agent)
-        entries = self._by_agent.get(agent_id, set())
+        entries = self._by_agent.get(agent, set())
         if relation is None:
             return {group for group, _ in entries}
         return {group for group, rel in entries if rel == relation}
@@ -115,20 +100,17 @@ class MembershipBackend:
         self, group: Hashable, relation: RelationKey | None = None
     ) -> set[Hashable]:
         """Return agents for a group, optionally filtered relation."""
-        group_id = self._to_id(group)
-        entries = self._by_group.get(group_id, set())
+        entries = self._by_group.get(group, set())
         if relation is None:
             return {agent for agent, _ in entries}
         return {agent for agent, rel in entries if rel == relation}
 
     def relations_between(self, agent: Hashable, group: Hashable) -> set[RelationKey]:
         """Return all relation types between one agent and one group."""
-        agent_id = self._to_id(agent)
-        group_id = self._to_id(group)
         return {
             relation
-            for linked_group, relation in self._by_agent.get(agent_id, set())
-            if linked_group == group_id
+            for linked_group, relation in self._by_agent.get(agent, set())
+            if linked_group == group
         }
 
     def as_triplets(self) -> set[Triplet]:

@@ -209,6 +209,7 @@ class DataRecorder(BaseDataRecorder):
         combined_array = np.vstack(arrays)
         df_cols = ["agent_id", *columns]
         df = pd.DataFrame(combined_array, columns=df_cols)
+        df["agent_id"] = df["agent_id"].astype(int)
         df["time"] = times
         return df
 
@@ -349,12 +350,14 @@ class JSONDataRecorder(BaseDataRecorder):
         return pd.DataFrame(records) if records else pd.DataFrame()
 
     def clear(self, dataset_name: str | None = None) -> None:
-        """Clear data."""
+        """Clear recorded data, keeping the datasets so recording can continue."""
         if dataset_name is None:
-            self.data.clear()
+            for snapshots in self.data.values():
+                snapshots.clear()
         else:
-            if dataset_name in self.data:
-                self.data[dataset_name].clear()
+            if dataset_name not in self.data:
+                raise KeyError(f"Dataset '{dataset_name}' not found")
+            self.data[dataset_name].clear()
 
     def summary(self) -> dict[str, Any]:
         """Get summary."""
@@ -437,6 +440,7 @@ class ParquetDataRecorder(BaseDataRecorder):
                 columns = ["agent_id", *columns]
 
                 df = pd.DataFrame(data_to_store, columns=columns)
+                df["agent_id"] = df["agent_id"].astype(int)
                 df["time"] = time
                 buffer.extend(df.to_dict("records"))
 

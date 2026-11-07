@@ -523,10 +523,36 @@ def test_json_recorder_clear():
         df = recorder.get_table_dataframe("model_data")
         assert df.empty
 
-        # Clear All
+        # Clear All: the datasets stay registered and are empty, like the other recorders
         recorder.clear()
-        with pytest.raises(KeyError):
-            recorder.get_table_dataframe("agent_data")
+        assert recorder.get_table_dataframe("agent_data").empty
+
+
+def test_json_recorder_keeps_recording_after_clear():
+    """Recording continues after clear(), instead of raising on the next step."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model = MockModel(n=2)
+        recorder = JSONDataRecorder(
+            model, {"model_data": DatasetConfig()}, output_dir=temp_dir
+        )
+
+        model.step()
+        recorder.clear()
+        model.step()
+        model.step()
+
+        assert not recorder.get_table_dataframe("model_data").empty
+
+
+def test_json_recorder_clear_nonexistent_dataset():
+    """Clearing an unknown dataset raises KeyError, like the other recorders."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        recorder = JSONDataRecorder(
+            MockModel(n=2), {"model_data": DatasetConfig()}, output_dir=temp_dir
+        )
+
+        with pytest.raises(KeyError, match="nonexistent"):
+            recorder.clear("nonexistent")
 
 
 def test_json_recorder_summary():
@@ -1104,3 +1130,69 @@ def test_run_ended(tmp_path, recorder_class):
     model.run_for(3.0)
     df = recorder.get_table_dataframe("model_data")
     assert df.empty
+
+
+def test_numpy_agent_dataset_agent_id_dtype():
+    """Test that agent_id is stored as integer for numpy datasets in both recorders."""
+    pytest.importorskip("pyarrow")
+    model = MockModel(n=3)
+    recorder = DataRecorder(model, {"numpy_data": DatasetConfig()})
+    model.step()
+    df = recorder.get_table_dataframe("numpy_data")
+    assert pd.api.types.is_integer_dtype(df["agent_id"])
+    assert list(df["agent_id"]) == [1, 2, 3]
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        model2 = MockModel(n=3)
+        parquet_recorder = ParquetDataRecorder(
+            model2, {"numpy_data": DatasetConfig()}, output_dir=temp_dir
+        )
+        model2.step()
+        df_parquet = parquet_recorder.get_table_dataframe("numpy_data")
+        assert pd.api.types.is_integer_dtype(df_parquet["agent_id"])
+        assert list(df_parquet["agent_id"]) == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "recorder_class",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+@pytest.mark.parametrize("run_method", ["run_for", "run_until"])
+@pytest.mark.parametrize("stop_time", [2, 10, 12])
+def test_run_ended_respects_start_time(tmp_path, recorder_class, run_method, stop_time):
+    """Skip final snapshots before warmup, but keep them at and after its end."""
+    model = Model(rng=3)
+    model.value = 4
+    model.data_registry.track_model(model, "state", fields=["value"])
+    kwargs = {}
+    if recorder_class in [JSONDataRecorder, ParquetDataRecorder]:
+        kwargs["output_dir"] = tmp_path
+    recorder = recorder_class(
+        model, {"state": DatasetConfig(start_time=10, interval=5)}, **kwargs
+    )
+
+    getattr(model, run_method)(stop_time)
+
+    data = recorder.get_table_dataframe("state")
+    if stop_time < 10:
+        assert data.empty
+        assert recorder.configs["state"]._last_collection == -1
+    else:
+        expected_times = [10] if stop_time == 10 else [10, 12]
+        assert data["time"].tolist() == expected_times
+        assert data["value"].tolist() == [4] * len(expected_times)
+
+
+@pytest.mark.parametrize("run_method", ["run_for", "run_until"])
+def test_run_ended_before_start_can_resume(run_method):
+    """A run ending during warmup must not prevent later scheduled collection."""
+    model = Model(rng=3)
+    model.value = 4
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = DataRecorder(model, {"state": DatasetConfig(start_time=10, interval=5)})
+
+    getattr(model, run_method)(2)
+    assert recorder.get_table_dataframe("state").empty
+    getattr(model, run_method)(10 if run_method == "run_for" else 12)
+
+    assert recorder.get_table_dataframe("state")["time"].tolist() == [10, 12]

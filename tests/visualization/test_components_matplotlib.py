@@ -173,6 +173,25 @@ def test_draw_orthogonal_grid():
     draw_orthogonal_grid(grid, agent_portrayal, ax)
 
 
+def test_draw_orthogonal_grid_uses_size_and_alpha():
+    """Test that the portrayal's size and alpha reach the scatter plot."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((5, 5), random=model.random)
+    for i in range(3):
+        agent = CellAgent(model)
+        agent.cell = grid[i, i]
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_orthogonal_grid(
+        grid, lambda _: AgentPortrayalStyle(size=200, alpha=0.3, marker="o"), ax
+    )
+
+    points = ax.collections[-1]
+    assert list(points.get_sizes()) == [200, 200, 200]
+    assert list(points.get_alpha()) == [0.3, 0.3, 0.3]
+
+
 def test_draw_network():
     """Test drawing network."""
     n = 10
@@ -189,6 +208,43 @@ def test_draw_network():
     fig = Figure()
     ax = fig.add_subplot()
     draw_network(grid, agent_portrayal, ax)
+
+
+def test_draw_network_with_same_marker_different_zorders():
+    """Agents with different zorders are rendered separately."""
+    graph = nx.path_graph(3)
+    model = Model(rng=42)
+    grid = Network(
+        graph,
+        random=model.random,
+        capacity=1,
+        layout=nx.spring_layout,
+    )
+    for index, cell in enumerate(grid.all_cells):
+        agent = CellAgent(model)
+        agent.cell = cell
+        agent.zorder = index + 1
+
+    def zorder_portrayal(agent):
+        return AgentPortrayalStyle(
+            size=10,
+            color="tab:blue",
+            marker="o",
+            zorder=agent.zorder,
+        )
+
+    fig = Figure()
+    ax = fig.add_subplot()
+
+    draw_network(grid, zorder_portrayal, ax)
+
+    agent_collections = [
+        collection
+        for collection in ax.collections
+        if collection.get_zorder() in {1, 2, 3}
+    ]
+    assert len(agent_collections) == 3
+    assert all(len(collection.get_offsets()) == 1 for collection in agent_collections)
 
 
 @pytest.mark.parametrize("edgecolor", ["black", (1.0, 0.0, 0.0, 1.0)])

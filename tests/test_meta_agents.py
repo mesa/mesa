@@ -5,8 +5,7 @@ import pytest
 from mesa import Agent, Model
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.grid import OrthogonalMooreGrid
-from mesa.meta_agents import MetaAgents
-from mesa.meta_agents.meta_agent import MetaAgent
+from mesa.experimental.meta_agents import MetaAgents
 
 
 class CustomAgent(Agent):
@@ -190,13 +189,6 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     assert result == []
 
 
-def test_meta_agent_constructor_requires_membership_manager():
-    """Direct MetaAgent construction is rejected."""
-    model = Model()
-    with pytest.raises(RuntimeError, match=r"model\.meta_agents\.create"):
-        MetaAgent(model)
-
-
 def test_create_repeated_instances_with_descriptor_parent():
     """Multiple instances of the same class work with a descriptor parent."""
     model = Model()
@@ -213,7 +205,7 @@ def test_create_repeated_instances_with_descriptor_parent():
         CellAgent,
         meta_attributes={"cell": grid[2, 2]},
     )
-    assert isinstance(swarm1, MetaAgent)
+    assert isinstance(swarm1, Agent)
     assert isinstance(swarm1, CellAgent)
     assert swarm1.cell == grid[2, 2]
 
@@ -226,7 +218,7 @@ def test_create_repeated_instances_with_descriptor_parent():
         meta_attributes={"cell": grid[5, 5]},
     )
     assert swarm2 is not swarm1
-    assert isinstance(swarm2, MetaAgent)
+    assert isinstance(swarm2, Agent)
     assert isinstance(swarm2, CellAgent)
     assert swarm2.cell == grid[5, 5]
     assert swarm1.cell == grid[2, 2]
