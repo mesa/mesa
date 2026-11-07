@@ -23,6 +23,7 @@ from mesa.visualization.solara_viz import (
     _build_model_init_kwargs,
     _check_model_params,
     _validate_model_params,
+    copy_renderer,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
@@ -550,3 +551,23 @@ def test_step_button_stops_when_model_stops_running():
 
     assert model.step_calls == 3
     assert not model.running
+
+
+def test_copy_renderer_keeps_setup_kwargs():
+    """Reset rebuilds the renderer with copy_renderer, which must keep the setup kwargs."""
+    model = mesa.Model(rng=42)
+    model.grid = OrthogonalMooreGrid((5, 5), random=random.Random(42))
+
+    renderer = (
+        SpaceRenderer(model, backend="matplotlib")
+        .setup_structure(grid_color="red")
+        .setup_agents(lambda _: AgentPortrayalStyle(), cmap="viridis")
+    )
+    new_renderer = copy_renderer(renderer, model)
+
+    assert new_renderer.draw_space_kwargs == {"grid_color": "red"}
+    assert new_renderer.draw_agent_kwargs == {"cmap": "viridis"}
+
+    # the copies should not share the same dict with the original renderer
+    assert new_renderer.draw_space_kwargs is not renderer.draw_space_kwargs
+    assert new_renderer.draw_agent_kwargs is not renderer.draw_agent_kwargs
