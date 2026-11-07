@@ -3,6 +3,7 @@
 import copy
 import gc
 import pickle
+import warnings
 import weakref
 from random import Random
 
@@ -514,6 +515,36 @@ def test_agentset_set_element_wise():
     # a sequence whose length does not match raises
     with pytest.raises(ValueError, match="does not match the number of agents"):
         agentset.set("energy", [1, 2, 3])
+
+
+def test_set_warns_when_one_mutable_object_is_shared_by_agents():
+    """A per-agent sequence that repeats one mutable object warns, other shapes do not."""
+
+    class TestAgent(Agent):
+        pass
+
+    model = Model()
+    agentset = AgentSet([TestAgent(model) for _ in range(5)])
+    shared = [1, 2, 3]
+
+    with pytest.warns(UserWarning, match="same object"):
+        agentset.set("dna", [shared] * 5)
+
+    # the warning is about sharing, so the value is still stored by reference
+    assert agentset.get("dna")[0] is shared
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # distinct objects are fine
+        agentset.set("dna", [[1, 2, 3] for _ in range(5)])
+        # repeated immutables are fine
+        agentset.set("energy", [0.5] * 5)
+        agentset.set("label", ["a", "a", "a", "a", "a"])
+        # a broadcast scalar or dict is not a per-agent sequence
+        agentset.set("config", {"mode": "fast"})
+        # agents sharing a non-container object (e.g. a location) is intended
+        location = TestAgent(model)
+        agentset.set("cell", [location] * 5)
 
 
 def test_agentset_map_str():
@@ -1289,6 +1320,23 @@ def test_select_random_weighted_without_replacement_excludes_zero_weights():
 
     assert len(sampled) == 3
     assert agents[3] not in sampled
+
+
+def test_select_random_weighted_without_replacement_with_probabilities():
+    """Weights normalized to probabilities select the same agents as the raw weights."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2000)]
+    fitness = [float(1 + i % 5) for i in range(2000)]
+    total = sum(fitness)
+    # The normalized weights are O(1e-4), small enough to expose key underflow.
+    probabilities = [f / total for f in fitness]
+
+    expected = AgentSet(agents, random=Random(42)).select_random(1000, weights=fitness)
+    sampled = AgentSet(agents, random=Random(42)).select_random(
+        1000, weights=probabilities
+    )
+
+    assert set(sampled) == set(expected)
 
 
 def test_select_random_edge_cases_and_errors():

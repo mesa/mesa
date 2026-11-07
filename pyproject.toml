@@ -54,9 +54,10 @@ network = [
 ]
 viz = [
   "matplotlib",
-  "solara",
+  "solara>=1.34.0",
+  "websockets<14",
   "altair",
-  "starlette<1.0",
+  "starlette",
 ]
 # Dev and CI stuff
 dev = [
@@ -90,6 +91,10 @@ docs = [
 [project.urls]
 homepage = "https://github.com/mesa/mesa"
 repository = "https://github.com/mesa/mesa"
+
+[tool.pytest.ini_options]
+# Applied to docstring examples collected via `pytest --doctest-modules`.
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
 
 [tool.codespell]
 ignore-words-list = ["ist", "hart", "nD"]

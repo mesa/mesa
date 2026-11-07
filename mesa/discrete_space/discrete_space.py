@@ -26,7 +26,7 @@ import numpy as np
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
-from mesa.exceptions import CellMissingException
+from mesa.exceptions import CellMissingException, SpaceException
 
 T = TypeVar("T", bound=Cell)
 
@@ -188,8 +188,19 @@ class DiscreteSpace[T: Cell](ABC):
         return self.all_cells.select(lambda cell: cell.is_empty)
 
     def select_random_empty_cell(self) -> T:
-        """Select random empty cell."""
-        return self.random.choice(list(self.empties))
+        """Select random empty cell.
+
+        Raises:
+            SpaceException: if the space holds no empty cell.
+
+        """
+        empties = list(self.empties)
+        if not empties:
+            raise SpaceException(
+                f"{type(self).__name__} is completely full. No empty cells "
+                "available. Cannot select a random empty cell."
+            )
+        return self.random.choice(empties)
 
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""

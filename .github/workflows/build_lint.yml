@@ -57,7 +57,7 @@ jobs:
       - name: Setup Playwright
         run: playwright install chromium-headless-shell
       - name: Test with pytest
-        run: pytest --durations=10 tests/ -Werror -Wdefault::PendingDeprecationWarning
+        run: pytest --durations=10 tests/ -Werror -Wdefault::PendingDeprecationWarning -W "ignore:websockets.legacy is deprecated:DeprecationWarning"
 
   coverage:
     runs-on: ubuntu-latest
@@ -75,6 +75,24 @@ jobs:
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  doctest:
+    # Runs docstring examples (>>> blocks) under mesa/ as a separate job so a
+    # broken docstring is flagged on its own, not mixed with unit test or docs
+    # build failures. See https://github.com/mesa/mesa/issues/3825.
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: "pip"
+      - run: pip install uv
+      - run: uv pip install --system .[dev]
+      # mesa/examples is excluded: it has no doctests, importing every app.py
+      # builds a model and renderer, and st_app.py needs streamlit.
+      - run: pytest --doctest-modules mesa --ignore=mesa/examples -Werror -Wdefault::PendingDeprecationWarning
 
   examples:
     runs-on: ubuntu-latest
@@ -98,4 +116,4 @@ jobs:
       - name: Test examples
         run: |
           cd mesa-examples
-          pytest -rA -Werror -Wdefault::PendingDeprecationWarning test_examples.py
+          pytest -rA -Werror -Wdefault::PendingDeprecationWarning -W "ignore:websockets.legacy is deprecated:DeprecationWarning" test_examples.py
