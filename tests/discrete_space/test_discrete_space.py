@@ -1095,6 +1095,108 @@ def test_read_only_property_layer_survives_pickle_and_deepcopy():
         assert cell.sugar == 5.0, label
 
 
+def test_property_layer_accessors_survive_copy_on_all_cells():
+    """Every cell, not just the first one, keeps its property_layer accessors after a round trip.
+
+    Previously unpickle_gridcell created a separate GridCell class for every cell
+    and Grid.__setstate__ re-attached the accessors only to the class of the first
+    cell. As a result cell.sugar raised AttributeError on all other cells,
+    cell.empty no longer tracked the "empty" layer, and pickling the restored
+    grid a second time failed.
+    """
+    grid = OrthogonalMooreGrid((3, 3), torus=False, random=random.Random(42))
+    grid.create_property_layer("sugar", default_value=1.0)
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # all cells share one class, and it is the grid's cell_klass
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass.property_layers == {"empty", "sugar"}, label
+
+        for cell in restored.all_cells:
+            assert cell.sugar == 1.0, label
+            cell.sugar = 5.0
+            assert restored.property_layers["sugar"][cell.coordinate] == 5.0, label
+
+        cell = restored._cells[(2, 2)]
+        cell.empty = False
+        assert not restored.property_layers["empty"][2, 2], label
+
+        # layers created after the round trip reach every cell as well
+        restored.create_property_layer("water", default_value=2.0)
+        assert all(cell.water == 2.0 for cell in restored.all_cells), label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert all(cell.sugar == 5.0 for cell in twice.all_cells), label
+        assert all(cell.water == 2.0 for cell in twice.all_cells), label
+
+
+class SlottedCustomCell(Cell):
+    """A user cell class with an extra slot, as the tutorials recommend."""
+
+    __slots__ = ("temperature",)
+
+    def __init__(self, coordinate, capacity=None, random=None):
+        """Create the cell with a default temperature."""
+        super().__init__(coordinate, capacity=capacity, random=random)
+        self.temperature = 20.0
+
+
+class DictCustomCell(Cell):
+    """A user cell class without __slots__, so its instances carry a __dict__."""
+
+
+@pytest.mark.parametrize("cell_klass", [SlottedCustomCell, DictCustomCell])
+def test_custom_cell_klass_survives_copy_and_pickle(cell_klass):
+    """A grid built on a user-supplied cell class survives deepcopy and pickle.
+
+    The restored cells keep the user's class as their base, their own attributes
+    (in a slot or in __dict__) and the property_layer accessors.
+    """
+    grid = OrthogonalMooreGrid(
+        (3, 3), torus=False, random=random.Random(42), cell_klass=cell_klass
+    )
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid._cells[(1, 1)].temperature = 99.0
+    grid._cells[(1, 1)].sugar = 3.0
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # one GridCell class, derived from the user's class
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass.__bases__ == (cell_klass,), label
+        assert all(isinstance(cell, cell_klass) for cell in restored.all_cells), label
+
+        # the cells' own attributes survive, whether stored in a slot or in __dict__
+        assert restored._cells[(1, 1)].temperature == 99.0, label
+        if cell_klass is SlottedCustomCell:
+            assert restored._cells[(0, 0)].temperature == 20.0, label
+
+        # property layers work on every cell and write through to the array
+        assert restored._cells[(1, 1)].sugar == 3.0, label
+        for cell in restored.all_cells:
+            cell.sugar += 1.0
+        assert (
+            restored.property_layers["sugar"] == grid.property_layers["sugar"] + 1
+        ).all(), label
+        restored._cells[(2, 2)].empty = False
+        assert not restored.property_layers["empty"][2, 2], label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert twice._cells[(1, 1)].temperature == 99.0, label
+        assert twice._cells[(1, 1)].sugar == 4.0, label
+
+
 def test_multiple_property_layers():
     """Test initialization of DiscreteSpace with Property Layers."""
     dimensions = (5, 5)
@@ -1322,7 +1424,7 @@ def test_select_random_cell_empty_safe():
 
 
 def test_infinite_loop_on_full_grid():
-    """Test that select_random_empty_cell raises ValueError with informative message on a full grid."""
+    """Test that select_random_empty_cell raises SpaceException with informative message on a full grid."""
     # 1. Create a small 2x2 model
     model = Model()
     grid = OrthogonalMooreGrid((2, 2), random=model.random)
@@ -1335,9 +1437,45 @@ def test_infinite_loop_on_full_grid():
     # 3. Verify grid is full
     assert len(grid.empties) == 0
 
-    # 4. Ensure ValueError is raised with a clear message
-    with pytest.raises(ValueError, match="Grid is completely full"):
+    # 4. Ensure SpaceException is raised with a clear message
+    with pytest.raises(SpaceException, match="OrthogonalMooreGrid is completely full"):
         grid.select_random_empty_cell()
+
+
+@pytest.mark.parametrize("space_factory", ["network", "voronoi"])
+def test_select_random_empty_cell_on_full_space_raises(space_factory):
+    """A full space that does not override select_random_empty_cell still explains itself.
+
+    Network and VoronoiGrid inherit DiscreteSpace.select_random_empty_cell,
+    which used to call random.choice on an empty list and surface the stdlib
+    "Cannot choose from an empty sequence" IndexError, saying nothing about
+    the space being full.
+    """
+    model = Model()
+    if space_factory == "network":
+        space = Network(nx.cycle_graph(4), random=model.random)
+    else:
+        space = VoronoiGrid(
+            [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]], random=model.random
+        )
+
+    for cell in space.all_cells:
+        CellAgent(model).cell = cell
+    assert len(space.empties) == 0
+
+    with pytest.raises(SpaceException, match="completely full"):
+        space.select_random_empty_cell()
+
+
+def test_select_random_empty_cell_still_works_when_space_has_room():
+    """The guard must not fire while an empty cell is left."""
+    model = Model()
+    space = Network(nx.cycle_graph(4), random=model.random)
+    cells = list(space.all_cells)
+    for cell in cells[:-1]:
+        CellAgent(model).cell = cell
+
+    assert space.select_random_empty_cell() is cells[-1]
 
 
 def test_select_random_empty_cell_fallback():
@@ -1385,6 +1523,57 @@ def test_fixed_agent_removal_state():
 
     assert agent not in cell1.agents
     assert agent.cell is None
+
+
+def test_fixed_agent_assign_none_while_unplaced():
+    """Assigning None to an unplaced fixed agent does nothing, it can still be placed later."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+
+    agent.cell = None
+    assert agent.cell is None
+
+    agent.cell = cell
+    assert agent.cell is cell
+    assert agent in cell.agents
+
+
+def test_fixed_agent_remove_unplaced_raises():
+    """Removing an unplaced fixed agent raises and leaves the agent untouched."""
+    model = Model()
+    agent = FixedAgent(model)
+
+    with pytest.raises(ValueError, match="not in a cell"):
+        agent.remove()
+
+    # the check runs before anything is removed
+    assert agent in model.agents
+    assert agent.cell is None
+
+
+def test_fixed_agent_remove_twice_raises():
+    """A second remove() raises, since the agent is no longer in a cell."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell
+
+    agent.remove()
+    with pytest.raises(ValueError, match="not in a cell"):
+        agent.remove()
+
+
+def test_fixed_agent_cannot_unassign_after_placement():
+    """Once placed, a fixed agent can't be set back to None."""
+    model = Model()
+    cell = Cell((1,), capacity=None, random=random.Random())
+    agent = FixedAgent(model)
+    agent.cell = cell
+
+    with pytest.raises(ValueError, match="Cannot move agent"):
+        agent.cell = None
+    assert agent.cell is cell
 
 
 def test_pickling_cell():
@@ -1777,3 +1966,49 @@ def test_cell_neighborhood_self_loop_bug_3885():
     assert net_cell.coordinate not in net_neighborhood, (
         f"Node {net_cell.coordinate} found in its own neighborhood!"
     )
+
+
+def _spy_on_fallback_scan(monkeypatch):
+    """Count calls made by the O(n) fallback (np.argwhere or np.flatnonzero)."""
+    calls = []
+
+    def wrap(real):
+        def spy(*args, **kwargs):
+            calls.append(1)
+            return real(*args, **kwargs)
+
+        return spy
+
+    monkeypatch.setattr(np, "argwhere", wrap(np.argwhere))
+    monkeypatch.setattr(np, "flatnonzero", wrap(np.flatnonzero))
+    return calls
+
+
+def test_select_random_empty_cell_no_scan_when_grid_has_room(monkeypatch):
+    """With plenty of empty cells the O(n) fallback must (practically) never run.
+
+    Half of the cells are empty, so all 50 probes missing has probability 0.5**50.
+    This protects models such as Schelling (~20% empty) from paying for the scan.
+    """
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    for _ in range(500):
+        assert grid.select_random_empty_cell().is_empty
+    assert not calls
+
+
+def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
+    """A probe budget of zero goes straight to the deterministic fallback."""
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+    monkeypatch.setattr(grid, "_MAX_RANDOM_PROBES", 0)
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    assert grid.select_random_empty_cell().is_empty
+    assert len(calls) == 1
