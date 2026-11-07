@@ -160,7 +160,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             until: The time to advance to
 
         """
-        if until <= self.time:
+        if until < self.time:
             warnings.warn(
                 f"end time {until} is not larger than current time {self.time}",
                 RuntimeWarning,

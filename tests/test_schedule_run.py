@@ -60,6 +60,14 @@ class TestRunFor:
         model.run_for(5)
         assert model.time == 10.0
 
+    def test_negative_duration(self):
+        """run_for with a negative duration should warn and leave time unchanged."""
+        model = SimpleModel()
+        model.run_for(5)
+        with pytest.warns(RuntimeWarning):
+            model.run_for(-1)
+        assert model.time == 5.0
+
 
 class TestRunUntil:
     def test_basic(self):
@@ -79,6 +87,20 @@ class TestRunUntil:
         model.run_until(3.0)
         model.run_until(7.0)
         assert model.time == 7.0
+
+    def test_events_due_at_end_time_run(self, recwarn):
+        """run_until at the current time should process events scheduled for that time."""
+        model = SimpleModel()
+        model.run_for(3)
+        fired = []
+
+        def fire():
+            fired.append(model.time)
+
+        model.schedule_event(fire, at=model.time)
+        model.run_until(model.time)
+        assert fired == [3.0]
+        assert not [w for w in recwarn if issubclass(w.category, RuntimeWarning)]
 
 
 # --- schedule_event ---
