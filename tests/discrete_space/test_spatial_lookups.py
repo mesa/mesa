@@ -88,6 +88,106 @@ def test_voronoi_lookups():
     assert grid.find_nearest_cell([40, 40]) == grid._cells[2]
 
 
+def test_voronoi_remove_cell_updates_kdtree():
+    """Removing a cell should update the KDTree and prevent KeyError (#3984)."""
+    centroids = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    cell_to_remove = grid._cells[0]
+    grid.remove_cell(cell_to_remove)
+
+    assert grid._kdtree_dirty is True
+
+    # Query near the removed cell's position; should return nearest remaining cell without KeyError
+    nearest = grid.find_nearest_cell([0.05, 0.05])
+    assert nearest != cell_to_remove
+    assert nearest in grid.all_cells
+    assert grid._kdtree_dirty is False
+
+
+def test_voronoi_lazy_rebuild_deferred_until_query():
+    """VoronoiGrid KDTree rebuild should be deferred until nearest-cell query."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        new_cell = Cell(
+            coordinate=99, position=np.array([100.0, 100.0]), random=random.Random(42)
+        )
+        grid.add_cell(new_cell)
+
+        assert grid._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = grid.find_nearest_cell([101.0, 101.0])
+        assert found.coordinate == 99
+        assert rebuild_spy.call_count == 1
+        assert grid._kdtree_dirty is False
+
+
+def test_voronoi_lazy_rebuild_batches_mutations_to_single_rebuild():
+    """Multiple VoronoiGrid mutations should trigger a single rebuild at first query."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        cell_a = Cell(
+            coordinate=99, position=np.array([100.0, 100.0]), random=random.Random(42)
+        )
+        cell_b = Cell(
+            coordinate=100,
+            position=np.array([200.0, 200.0]),
+            random=random.Random(42),
+        )
+        grid.add_cell(cell_a)
+        grid.add_cell(cell_b)
+        grid.remove_cell(cell_a)
+
+        assert grid._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = grid.find_nearest_cell([201.0, 201.0])
+        assert found.coordinate == 100
+        assert rebuild_spy.call_count == 1
+        assert grid._kdtree_dirty is False
+
+
+def test_voronoi_empty_grid_raises_value_error():
+    """Querying an empty VoronoiGrid should raise ValueError."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    for cell in list(grid._cells.values()):
+        grid.remove_cell(cell)
+
+    with pytest.raises(ValueError, match="No cells found in VoronoiGrid"):
+        grid.find_nearest_cell([0.0, 0.0])
+
+
+def test_voronoi_non_spatial_cell_mutation_does_not_dirty_kdtree():
+    """Mutating non-spatial cells should not mark KDTree dirty."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        non_spatial = Cell(coordinate=999, position=None, random=random.Random(42))
+        grid.add_cell(non_spatial)
+        grid.remove_cell(non_spatial)
+
+        assert grid._kdtree_dirty is False
+        assert rebuild_spy.call_count == 0
+
+        # Query should not trigger rebuild because no spatial mutation happened.
+        _ = grid.find_nearest_cell([1.0, 0.0])
+        assert rebuild_spy.call_count == 0
+
+
 def test_network_lookups():
     """Test Network spatial vs topological modes and dynamic KD-Tree updates."""
     G = nx.Graph()  # noqa: N806

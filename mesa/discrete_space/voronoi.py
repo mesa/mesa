@@ -218,9 +218,6 @@ class VoronoiGrid(DiscreteSpace):
         self.capacity_function = capacity_function
         self._validate_parameters()
 
-        # Build KD-tree for fast nearest-centroid lookup
-        self._kdtree = KDTree(np.array(centroids_coordinates))
-
         # Create cells with Integer coordinates and physical positions
         # coordinate is now an integer index
         self._cells = {
@@ -233,6 +230,11 @@ class VoronoiGrid(DiscreteSpace):
             for i in range(len(self.centroids_coordinates))
         }
 
+        # Build KD-tree for fast nearest-centroid lookup
+        self._kdtree = KDTree(np.array(centroids_coordinates))
+        self._kdtree_cells: list[Cell] = list(self._cells.values())
+        self._kdtree_dirty = False
+
         self.regions = None
         self.triangulation = None
         self.voronoi_coordinates = None
@@ -240,21 +242,58 @@ class VoronoiGrid(DiscreteSpace):
         self._connect_cells()
         self._build_cell_polygons()
 
+    def _rebuild_kdtree(self) -> None:
+        """Rebuild the KD-Tree."""
+        if self._kdtree_cells:
+            positions = np.array([c.position for c in self._kdtree_cells])
+            self._kdtree = KDTree(positions)
+        else:
+            self._kdtree = None
+        self._kdtree_dirty = False
+
     def find_nearest_cell(self, position: np.ndarray) -> Cell:
         """Find the Voronoi cell nearest to the given position.
+
+        Note:
+            The KD-Tree index is rebuilt lazily. If cells were added or removed
+            since the previous spatial query, this method rebuilds the KD-Tree
+            before performing the nearest-neighbor lookup.
 
         Args:
             position: Physical position [x, y]
 
         Returns:
             Cell: The Voronoi cell whose centroid is nearest to position
+
+        Raises:
+            ValueError: If no cells exist in the VoronoiGrid
         """
+        if self._kdtree_dirty:
+            self._rebuild_kdtree()
+
+        if getattr(self, "_kdtree", None) is None:
+            raise ValueError("No cells found in VoronoiGrid")
+
         position = np.asarray(position)
 
         # Find nearest centroid using KD-tree
         _distance, index = self._kdtree.query(position)
 
-        return self._cells[index]
+        return self._kdtree_cells[index]
+
+    def add_cell(self, cell: Cell):
+        """Add a cell to the space."""
+        super().add_cell(cell)
+        if cell._position is not None:
+            self._kdtree_cells.append(cell)
+            self._kdtree_dirty = True
+
+    def remove_cell(self, cell: Cell):
+        """Remove a cell from the space."""
+        super().remove_cell(cell)
+        if cell._position is not None and cell in self._kdtree_cells:
+            self._kdtree_cells.remove(cell)
+            self._kdtree_dirty = True
 
     def _connect_cells(self) -> None:
         """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""

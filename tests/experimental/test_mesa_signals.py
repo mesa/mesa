@@ -924,6 +924,104 @@ def test_ObservableList_slice_delitem():
     )
 
 
+@pytest.mark.parametrize(
+    ("values", "index"),
+    [
+        ([1, 2, 3, 4, 5], slice(None, None, -1)),
+        ([1, 2, 3, 4, 5], slice(None, None, -2)),
+        ([1, 2, 3, 4, 5], slice(3, None, -1)),
+        ([1, 2, 3, 4, 5], slice(10, -10, -2)),
+        ([1, 2, 3, 4, 5], slice(4, 0, -2)),
+        ([1, 2, 3, 4, 5], slice(None, -1, -1)),
+        ([], slice(None, None, -1)),
+    ],
+)
+@pytest.mark.parametrize("delete", [False, True])
+def test_observable_list_reverse_slice(values, index, delete):
+    """Reverse slice mutations match lists and report the affected values."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    owner = Owner()
+    owner.items = values
+    expected = list(values)
+    old = expected[index]
+    normalized_index = slice(*index.indices(len(values)))
+    handler = Mock()
+    signal_type = ListSignals.REMOVED if delete else ListSignals.REPLACED
+    owner.observe("items", signal_type, handler)
+
+    if delete:
+        del expected[index]
+        del owner.items[index]
+        payload = {"index": normalized_index, "old": old}
+    else:
+        replacement = [value * 10 for value in old]
+        expected[index] = replacement
+        owner.items[index] = iter(replacement)
+        payload = {"index": normalized_index, "old": old, "new": replacement}
+
+    assert list(owner.items) == expected
+    handler.assert_called_once_with(
+        Message(
+            name="items",
+            signal_type=signal_type,
+            owner=owner,
+            additional_kwargs=payload,
+        )
+    )
+
+
+def test_observable_list_reverse_slice_assignment_wrong_size():
+    """Invalid extended slice assignments leave values and signals unchanged."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    owner = Owner()
+    owner.items = [1, 2, 3]
+    handler = Mock()
+    owner.observe("items", ALL, handler)
+
+    with pytest.raises(ValueError, match="attempt to assign sequence of size 0"):
+        owner.items[::-1] = []
+
+    assert list(owner.items) == [1, 2, 3]
+    handler.assert_not_called()
+
+
+@pytest.mark.parametrize("delete", [False, True])
+def test_observable_list_reverse_slice_batch(delete):
+    """Batched reverse slice mutations retain the complete original snapshot."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    owner = Owner()
+    owner.items = [1, 2, 3]
+    handler = Mock()
+    owner.observe("items", ListSignals.SET, handler)
+
+    with owner.batch():
+        if delete:
+            del owner.items[::-1]
+        else:
+            owner.items[::-1] = [4, 5, 6]
+        handler.assert_not_called()
+
+    expected = [] if delete else [6, 5, 4]
+    assert list(owner.items) == expected
+    handler.assert_called_once_with(
+        Message(
+            name="items",
+            signal_type=ListSignals.SET,
+            owner=owner,
+            additional_kwargs={"old": [1, 2, 3], "new": expected},
+        )
+    )
+
+
 def test_observable_list_mutation():
     """Test that in-place mutations of ObservableList trigger computed property updates."""
 
