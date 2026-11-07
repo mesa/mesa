@@ -800,8 +800,8 @@ def _scatter(ax: Axes, arguments, **kwargs):
     loc_y = loc[:, 1]
     marker = arguments.pop("marker")
     zorder = arguments.pop("zorder")
-    malpha = arguments.pop("alpha")
-    msize = arguments.pop("s")
+    malpha = arguments["alpha"]
+    msize = arguments["s"]
 
     # we check if edgecolor, linewidth, and alpha are specified
     # at the agent level, if not, we remove them from the arguments dict
@@ -846,7 +846,7 @@ def _scatter(ax: Axes, arguments, **kwargs):
             # ordinary markers
             mask_marker = [m == mark for m in list(marker)]
             for z_order in np.unique(zorder[mask_marker]):
-                zorder_mask = z_order == zorder & mask_marker
+                zorder_mask = (z_order == zorder) & mask_marker
                 ax.scatter(
                     loc_x[zorder_mask],
                     loc_y[zorder_mask],

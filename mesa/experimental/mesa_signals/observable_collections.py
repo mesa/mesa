@@ -95,21 +95,23 @@ class SignalingList(MutableSequence[Any]):
         """
         self._snapshot_if_batching()
         if isinstance(index, slice):
-            # this resolves negative numbers in slice
-            index = slice(*index.indices(len(self.data)))
+            # Normalized bounds are for the signal, not for slicing again.
+            normalized_index = slice(*index.indices(len(self.data)))
             old_value = self.data[index]
             new_value = list(value)
             self.data[index] = new_value
             self.owner.notify(
                 self.name,
                 ListSignals.REPLACED,
-                index=index,
+                index=normalized_index,
                 old=old_value,
                 new=new_value,
             )
         else:
             if index < 0:
                 index += len(self.data)
+            if not 0 <= index < len(self.data):
+                raise IndexError("list assignment index out of range")
             old_value = self.data[index]
             self.data[index] = value
             self.owner.notify(
@@ -125,15 +127,19 @@ class SignalingList(MutableSequence[Any]):
         """
         self._snapshot_if_batching()
         if isinstance(index, slice):
-            # this resolves negative numbers in slice
-            index = slice(*index.indices(len(self.data)))
+            normalized_index = slice(*index.indices(len(self.data)))
             old_value = self.data[index]
         else:
             if index < 0:
                 index += len(self.data)
+            if not 0 <= index < len(self.data):
+                raise IndexError("list assignment index out of range")
             old_value = self.data[index]
+            normalized_index = index
         del self.data[index]
-        self.owner.notify(self.name, ListSignals.REMOVED, index=index, old=old_value)
+        self.owner.notify(
+            self.name, ListSignals.REMOVED, index=normalized_index, old=old_value
+        )
 
     def __getitem__(self, index) -> Any:
         """Get item at index.

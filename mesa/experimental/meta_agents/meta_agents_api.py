@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from mesa.agent import Agent, AgentSet
+from mesa.experimental.mesa_signals import ModelSignals
+from mesa.experimental.mesa_signals.signals_util import Message
 
 from .backend import MembershipBackend, RelationKey, Triplet
 from .meta_agent import (
@@ -77,40 +79,23 @@ class MetaAgents:
         self.model = model
         self.backend = backend or MembershipBackend()
         model.meta_agents = self
+        self.model.observe("agents", ModelSignals.AGENT_REMOVED, self._on_agent_removed)
 
-        self.model._register_agent_removed_hook(self._on_agent_removed)
-
-    def _on_agent_removed(self, agent) -> None:
+    def _on_agent_removed(self, signal: Message | Any) -> None:
         """Deactivate memberships when a live agent leaves the model."""
-        self.deactivate(agent)
-
-    def _entity_id(self, entity: Hashable) -> Hashable:
-        """Return the backend identity for a live entity or hashable external id."""
-        return getattr(entity, "unique_id", entity)
-
-    def _live_entity_lookup(self) -> dict[Hashable, Any]:
-        """Build a lookup from backend ids back to live model objects."""
-        # TODO(perf): This rebuilds an O(N) mapping over every model agent on
-        # each call. Cache the lookup instead and only rebuild it on agent add
-        # or remove calls (e.g. via the model's agent lifecycle hooks, seeding
-        # once in ``__init__``). Future optimization: bulk adds and removes.
-        lookup: dict[Hashable, Any] = {}
-        for entity in self.model.agents:
-            entity_id = getattr(entity, "unique_id", None)
-            if entity_id is not None:
-                lookup[entity_id] = entity
-        return lookup
-
-    def _resolve_entity(self, entity_id: Hashable) -> Any:
-        """Resolve a backend id back to a live object when possible."""
-        return self._live_entity_lookup().get(entity_id, entity_id)
+        if hasattr(signal, "additional_kwargs"):
+            args = signal.additional_kwargs.get("args")
+            agent = args[0] if args else signal.additional_kwargs.get("agent")
+        else:
+            agent = signal
+        if agent is not None:
+            self.deactivate(agent)
 
     def _resolve_group(self, group: Hashable) -> Any:
-        """Resolve a group from a live object, unique id, or group name."""
-        lookup = self._live_entity_lookup()
-        entity_id = self._entity_id(group)
-        if entity_id in lookup:
-            return lookup[entity_id]
+        """Resolve a group from a live object or group name."""
+        if group in self.model.agents:
+            return group
+        # Try string name resolution.
         if isinstance(group, str):
             matches = list(
                 dict.fromkeys(
@@ -127,13 +112,10 @@ class MetaAgents:
             raise ValueError(f"Ambiguous group name {group!r}")
         return group
 
-    def _resolve_view(
-        self, entity: Hashable, triplets: Iterable[Triplet]
-    ) -> MembershipView:
+    def _resolve_view(self, entity: Any, triplets: Iterable[Triplet]) -> MembershipView:
         """Convert backend triplets into a user-facing snapshot."""
-        lookup = self._live_entity_lookup()
         resolved_edges: list[MembershipEdge] = []
-        for agent_id, group_id, relation in sorted(
+        for agent, group, relation in sorted(
             triplets,
             key=lambda triplet: (
                 str(triplet[0]),
@@ -143,14 +125,14 @@ class MetaAgents:
         ):
             resolved_edges.append(
                 MembershipEdge(
-                    agent=lookup.get(agent_id, agent_id),
-                    group=lookup.get(group_id, group_id),
+                    agent=agent,
+                    group=group,
                     relation=relation,
                 )
             )
 
         return MembershipView(
-            subject=self._resolve_entity(entity),
+            subject=entity,
             memberships=tuple(resolved_edges),
         )
 
@@ -212,6 +194,14 @@ class MetaAgents:
             The group agent (newly created or existing).
 
         Examples:
+            Install the membership manager on a model and create a few agents:
+
+            >>> from mesa import Agent, Model
+            >>> from mesa.experimental.meta_agents import MetaAgents
+            >>> model = Model()
+            >>> model.meta_agents = MetaAgents(model)
+            >>> alice, bob, carol, dave = (Agent(model) for _ in range(4))
+
             Create a new team with two members (the group agent defaults to a
             plain ``Agent`` subclass):
 
@@ -226,7 +216,7 @@ class MetaAgents:
             This is the same as adding carol using ``add_member`` (more
             explicit):
 
-            >>> model.meta_agents.add_member("Team", carol)
+            >>> _ = model.meta_agents.add_member("Team", carol)
             >>> assert carol in model.meta_agents.members_of("Team")
 
             With the same class name but no overlapping members, a second,
@@ -237,8 +227,9 @@ class MetaAgents:
 
             Force new groups by using unique names:
 
-            >>> team_a = model.meta_agents.create("Team_2026_A", [...])
-            >>> team_b = model.meta_agents.create("Team_2026_B", [...])
+            >>> team_a = model.meta_agents.create("Team_2026_A", [alice])
+            >>> team_b = model.meta_agents.create("Team_2026_B", [dave])
+            >>> assert team_a is not team_b
         """
         member_relations = list(memberships) if memberships is not None else None
         if member_relations is not None:
@@ -274,8 +265,11 @@ class MetaAgents:
         relation: RelationKey = "member",
     ) -> MembershipView:
         """Add one member to one group."""
-        lookup = self._live_entity_lookup()
-        member = lookup.get(self._entity_id(member), member)
+        if (
+            member not in self.model.agents._agents
+        ):  # use internal attribute for optimization
+            raise ValueError(f"member {member!r} is not registered in the model")
+
         group = self._resolve_group(group)
 
         self.backend.add_membership(member, group, relation)
@@ -288,8 +282,6 @@ class MetaAgents:
         relation: RelationKey = "member",
     ) -> MembershipView:
         """Remove one member from one group."""
-        lookup = self._live_entity_lookup()
-        member = lookup.get(self._entity_id(member), member)
         group = self._resolve_group(group)
 
         self.backend.remove_membership(member, group, relation)
@@ -300,51 +292,35 @@ class MetaAgents:
     ) -> AgentSet:
         """Return the live members of one group as an AgentSet."""
         group = self._resolve_group(group)
-        lookup = self._live_entity_lookup()
-        members = [
-            lookup[member_id]
-            for member_id in sorted(
-                self.backend.agents_of(group, relation=relation), key=str
-            )
-            if member_id in lookup
-        ]
+        members = sorted(self.backend.agents_of(group, relation=relation), key=str)
         return AgentSet(members, random=self.model.random)
 
     def groups_of(
         self, agent: Hashable, relation: RelationKey | None = None
     ) -> AgentSet:
         """Return the live groups that contain one agent as an AgentSet."""
-        lookup = self._live_entity_lookup()
-        groups = [
-            lookup[group_id]
-            for group_id in sorted(
-                self.backend.groups_of(agent, relation=relation), key=str
-            )
-            if group_id in lookup
-        ]
+        groups = sorted(self.backend.groups_of(agent, relation=relation), key=str)
         return AgentSet(groups, random=self.model.random)
 
     def query_memberships(
         self, entity: Hashable, relation: RelationKey | None = None
     ) -> MembershipView:
         """Return a resolved, read-only snapshot of one entity's memberships."""
-        entity_id = self._entity_id(entity)
         triplets = (
             triplet
             for triplet in self.backend.as_triplets()
-            if (triplet[0] == entity_id or triplet[1] == entity_id)
+            if (triplet[0] == entity or triplet[1] == entity)
             and (relation is None or triplet[2] == relation)
         )
-        return self._resolve_view(entity_id, triplets)
+        return self._resolve_view(entity, triplets)
 
     def dissolve(self, entity: Hashable) -> MembershipView:
         """Remove an entity's memberships and delete it from the model when possible."""
         snapshot = self._detach_entity(entity)
-        live_entity = self._resolve_entity(self._entity_id(entity))
-        if hasattr(live_entity, "_remove_from_model"):
-            live_entity._remove_from_model()
-        elif hasattr(live_entity, "remove"):
-            live_entity.remove()
+        if hasattr(entity, "_remove_from_model"):
+            entity._remove_from_model()
+        elif hasattr(entity, "remove"):
+            entity.remove()
         return snapshot
 
     def deactivate(self, entity: Hashable) -> MembershipView:
@@ -387,43 +363,54 @@ class MetaAgents:
 
         Examples:
         --------
-        >>> model.meta_agents.at_level(4, root=world)
+        A two-level hierarchy: ``team`` contains ``squad`` and ``carol``, and
+        ``squad`` contains ``alice`` and ``bob``:
+
+        >>> from mesa import Agent, Model
+        >>> from mesa.experimental.meta_agents import MetaAgents
+        >>> model = Model()
+        >>> model.meta_agents = MetaAgents(model)
+        >>> alice, bob, carol = (Agent(model) for _ in range(3))
+        >>> squad = model.meta_agents.create("Squad", [alice, bob])
+        >>> team = model.meta_agents.create("Team", [squad, carol])
+        >>> set(model.meta_agents.at_level(1, root=team)) == {squad, carol}
+        True
+        >>> set(model.meta_agents.at_level(2, root=team)) == {alice, bob}
+        True
+        >>> len(model.meta_agents.at_level(3, root=team))
+        0
         """
         if level < 0:
             raise ValueError(f"level must be non-negative, got {level}")
 
-        lookup = self._live_entity_lookup()
-        root_id = self._entity_id(root)
-        if root_id not in lookup:
+        if root not in self.model.agents:
             raise ValueError(f"root {root!r} is not registered in the model")
 
         if level == 0:
-            return AgentSet([lookup[root_id]], random=self.model.random)
+            return AgentSet([root], random=self.model.random)
 
         # BFS downward: group -> members. First visit is nearest depth.
-        visited: set[Hashable] = {root_id}
-        queue: deque[tuple[Hashable, int]] = deque([(root_id, 0)])
+        visited: set[Hashable] = {root}
+        queue: deque[tuple[Hashable, int]] = deque([(root, 0)])
         at_depth: list[Any] = []
 
         while queue:
-            group_id, depth = queue.popleft()
+            group, depth = queue.popleft()
             if depth >= level:
                 continue
-            member_ids = sorted(
-                self.backend.agents_of(group_id, relation=relation),
+            members = sorted(
+                self.backend.agents_of(group, relation=relation),
                 key=str,
             )
-            for member_id in member_ids:
-                if member_id in visited:
+            for member in members:
+                if member in visited:
                     continue
-                visited.add(member_id)
+                visited.add(member)
                 next_depth = depth + 1
                 if next_depth == level:
-                    entity = lookup.get(member_id)
-                    if entity is not None:
-                        at_depth.append(entity)
+                    at_depth.append(member)
                 elif next_depth < level:
-                    queue.append((member_id, next_depth))
+                    queue.append((member, next_depth))
 
         return AgentSet(at_depth, random=self.model.random)
 
