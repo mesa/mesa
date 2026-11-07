@@ -1,6 +1,7 @@
 """tests for matplotlib components."""
 
 import networkx as nx
+import numpy as np
 import pytest
 from matplotlib.figure import Figure
 
@@ -338,3 +339,25 @@ def test_get_hexmesh_returns_immutable_shared_safe_mesh():
         mesh.append(("x", "y"))  # tuples have no append
     with pytest.raises(TypeError):
         mesh[0][0] = (0.0, 0.0)  # nested tuples are immutable too
+
+
+def test_draw_property_layers_hexgrid():
+    """Test drawing property layers on a HexGrid aligns values correctly."""
+    model = Model(rng=42)
+    grid = HexGrid((4, 2), random=model.random)
+    grid.create_property_layer("sugar", default_value=0.0)
+    grid.property_layers["sugar"][3, 0] = 10.0
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_property_layers(
+        grid,
+        lambda _: PropertyLayerStyle(colormap="viridis"),
+        ax,
+    )
+
+    poly = ax.collections[0]
+    facecolors = np.array(poly.get_facecolors())
+    max_idx = np.argmax(facecolors[:, 0])
+    hex_coords = [(col, row) for row in range(2) for col in range(4)]
+    assert hex_coords[max_idx] == (3, 0)
