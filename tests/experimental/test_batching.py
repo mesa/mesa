@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from mesa.experimental.mesa_signals import (
     HasEmitters,
     ListSignals,
@@ -82,6 +84,55 @@ def test_batch_observable_no_net_change():
         obj.value = 10  # back to original
 
     handler.assert_not_called()
+
+
+@pytest.mark.parametrize("instance_observer", [False, True])
+@pytest.mark.parametrize(
+    ("descriptor", "signal_type", "initial", "intermediate", "final"),
+    [
+        (Observable, ObservableSignals.CHANGED, 10, 20, 30),
+        (Observable, ObservableSignals.CHANGED, 10, 20, 10),
+        (ObservableList, ListSignals.SET, [1], [1, 2], [1, 2, 3]),
+        (ObservableList, ListSignals.SET, [1], [1, 2], [1]),
+    ],
+)
+def test_batch_class_observer(
+    instance_observer, descriptor, signal_type, initial, intermediate, final
+):
+    """Class observers receive aggregated signals, including from nested batches."""
+
+    class Owner(HasEmitters):
+        value = descriptor()
+
+    obj = Owner()
+    obj.value = initial
+    class_handler = Mock()
+    instance_handler = Mock()
+    Owner.observe_class("value", signal_type, class_handler)
+    if instance_observer:
+        obj.observe("value", signal_type, instance_handler)
+
+    with obj.batch():
+        obj.value = intermediate
+        with obj.batch():
+            obj.value = final
+        class_handler.assert_not_called()
+        instance_handler.assert_not_called()
+
+    if initial == final:
+        class_handler.assert_not_called()
+        instance_handler.assert_not_called()
+    else:
+        class_handler.assert_called_once()
+        signal = class_handler.call_args.args[0]
+        assert signal.owner is obj
+        assert signal.name == "value"
+        assert signal.signal_type == signal_type
+        assert signal.additional_kwargs == {"old": initial, "new": final}
+        if instance_observer:
+            instance_handler.assert_called_once_with(signal)
+        else:
+            instance_handler.assert_not_called()
 
 
 def test_batch_suppress_basic():
