@@ -183,3 +183,22 @@ def test_property_layer_style_instance():
     portrayal_arg = call_args[0][2]
     assert callable(portrayal_arg)
     assert portrayal_arg("any_layer") == style
+
+
+def test_hexgrid_property_layer_alignment():
+    """Test that property layer values on HexGrid align with their cell coordinates."""
+    model = mesa.Model(rng=42)
+    grid = HexGrid((4, 2), random=model.random)
+    grid.create_property_layer("sugar", default_value=0.0)
+    grid.property_layers["sugar"][3, 0] = 10.0
+
+    model.grid = grid
+    sr = SpaceRenderer(model, backend="matplotlib")
+    sr.setup_property_layer(lambda _: PropertyLayerStyle(colormap="viridis"))
+    sr.render()
+
+    poly = sr.backend_renderer.ax.collections[1]
+    facecolors = np.array(poly.get_facecolors())
+    max_idx = np.argmax(facecolors[:, 0])
+    cells = list(grid.all_cells)
+    assert cells[max_idx].coordinate == (3, 0)
