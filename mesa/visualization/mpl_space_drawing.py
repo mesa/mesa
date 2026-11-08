@@ -436,6 +436,7 @@ def draw_property_layers(
             width, height = data.shape
             hexagons = _get_hexmesh(width, height)
             norm = Normalize(vmin=vmin, vmax=vmax)
+            # _get_hexmesh is row-major, data is (width, height)
             colors = data.T.ravel()
 
             if color:
