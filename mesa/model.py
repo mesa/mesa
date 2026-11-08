@@ -175,13 +175,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
                 break
 
             if event.time <= until:
-                self.time = event.time
+                self.time = float(event.time)
                 event.execute()
             else:
                 self._event_list.add_event(event)
                 break
 
-        self.time = until
+        self.time = float(until)
 
     @property
     def agents(self) -> _HardKeyAgentSet[A]:
