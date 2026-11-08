@@ -64,7 +64,9 @@ class TestRunFor:
         """run_for with a negative duration should warn and leave time unchanged."""
         model = SimpleModel()
         model.run_for(5)
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(
+            RuntimeWarning, match=r"end time 4\.0 is earlier than current time 5\.0"
+        ):
             model.run_for(-1)
         assert model.time == 5.0
 
@@ -78,7 +80,9 @@ class TestRunUntil:
     def test_already_past(self):
         model = SimpleModel()
         model.run_for(10)
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(
+            RuntimeWarning, match=r"end_time 5\.0 is earlier than current time 10\.0"
+        ):
             model.run_until(5.0)  # already past t=5
             assert model.time == 10
 
