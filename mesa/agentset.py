@@ -15,8 +15,16 @@ import operator
 import warnings
 import weakref
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from collections.abc import Callable, Hashable, Iterable, Iterator, MutableSet, Sequence
+from collections import UserString, defaultdict
+from collections.abc import (
+    Callable,
+    Hashable,
+    Iterable,
+    Iterator,
+    MutableSet,
+    Sequence,
+)
+from collections.abc import Set as AbstractSet
 from random import Random
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -76,9 +84,29 @@ def _resolve_weights(
 def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Iterable:
     """Resolve ``value`` into an iterable of ``n`` per-agent values.
 
-    A ``list``, ``tuple``, ``numpy.ndarray`` or ``pandas.Series`` of length ``n``
-    is treated as one value per agent. Any other value (a scalar, a string, or a
-    non-sequence) is broadcast to all ``n`` agents.
+    A sequence of length ``n`` is treated as one value per agent. This covers
+    any ``collections.abc.Sequence`` -- ``list``, ``tuple``, ``range``,
+    ``collections.deque``, ``array.array`` -- as well as ``numpy.ndarray``,
+    ``pandas.Series`` and ``pandas.Index``, which are sized and ordered but do
+    not register as ``Sequence``.
+
+    Strings and bytes are sequences, but treating them element-wise is almost
+    never what a caller means, so they are broadcast like any other scalar, as
+    is ``collections.UserString``.
+
+    Every ``collections.abc.Set`` is broadcast, ordered or not, and so is
+    ``dict``. A set is a group to share rather than a row of per-agent values,
+    and an unordered one has no defined order to hand elements out in anyway.
+    That rule is what keeps ``AgentSet`` broadcast: it lists ``Sequence`` among
+    its own bases, so it satisfies the sequence check, but passing one means
+    "give every agent this group" -- a team, a set of neighbours -- rather than
+    one member each.
+
+    Per-agent values are assigned by reference, not copied. If the same mutable
+    object (a list, dict, or similar) appears at more than one position, every
+    agent that receives it shares that one object, and a warning is issued; wrap
+    it yourself (e.g. with ``copy.deepcopy``) if each agent needs an independent
+    copy.
 
     Args:
         value: The value(s) to assign, either one per agent or broadcast.
@@ -94,8 +122,11 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
         ValueError: If ``strict`` and ``value`` is a sequence whose length is
             not ``n``.
     """
-    if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+    if isinstance(
+        value, (Sequence, np.ndarray, pd.Series, pd.Index)
+    ) and not isinstance(value, (str, bytes, bytearray, UserString, AbstractSet)):
         if len(value) == n:
+            _warn_if_object_shared_between_agents(value)
             return value
         if strict:
             raise ValueError(
@@ -103,6 +134,33 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
                 f"of agents ({n})"
             )
     return itertools.repeat(value, n)
+
+
+_MUTABLE_CONTAINERS = (list, dict, set, bytearray)
+
+
+def _warn_if_object_shared_between_agents(values: Iterable) -> None:
+    """Warn once if a per-agent sequence gives the same mutable container to several agents.
+
+    Only builtin containers are checked. Other shared objects, such as a cell or
+    any other location or model reference, are often meant to be shared, so they
+    are left alone. Scalars and numpy scalars are skipped too: their identities
+    are not caller data.
+    """
+    seen_ids = set()
+    for item in values:
+        if not isinstance(item, _MUTABLE_CONTAINERS):
+            continue
+        if id(item) in seen_ids:
+            warnings.warn(
+                "The same object was assigned to more than one agent. Mutating "
+                "it on one agent will change it for every agent that shares it; "
+                "pass a separate copy per agent if that is not what you want.",
+                UserWarning,
+                stacklevel=4,
+            )
+            return
+        seen_ids.add(id(item))
 
 
 class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
@@ -280,12 +338,14 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             if replace:
                 chosen = self.random.choices(items, weights=w, k=sample_size)
             else:
-                # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement
+                # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement.
+                # Keys are log(u) / w, which orders agents like u ** (1 / w) but cannot
+                # underflow to 0.0 for small weights or round to 1.0 for large ones.
                 keys = []
                 for agent, wi in zip(items, w):
                     if wi > 0:
                         u = self.random.random()
-                        key = u ** (1.0 / wi)
+                        key = math.log(u) / wi if u > 0.0 else -math.inf
                         keys.append((key, agent))
 
                 positive_weight_count = len(keys)
@@ -425,7 +485,10 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Notes:
             A per-agent sequence is recognized by its type (list, tuple, ndarray,
             Series). To assign a single sequence value to every agent, broadcast
-            it explicitly, e.g. ``[shared_list] * len(agentset)``.
+            it explicitly, e.g. ``[value] * len(agentset)``. Elements are assigned
+            by reference, so a mutable element repeated this way is shared by all
+            those agents and triggers a warning; give each agent its own copy if
+            that is not intended.
         """
         for agent, agent_value in zip(
             self, _resolve_per_agent_values(value, len(self))
@@ -938,6 +1001,24 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             return result
 
         # 3. If new set, downgrade to AgentSet (Weak) to prevent leaks
+        return AgentSet(result, self.random)
+
+    def select_random(
+        self,
+        n: int | float = 1,
+        *,
+        weights: str | Callable[[A], float] | Sequence[float] | None = None,
+        replace: bool = False,
+        inplace: bool = False,
+    ) -> AbstractAgentSet[A]:
+        """Select a random sample of agents. Returns a standard AgentSet (Weak Refs) if inplace=False."""
+        result = super().select_random(
+            n=n, weights=weights, replace=replace, inplace=inplace
+        )
+
+        if inplace:
+            return result
+
         return AgentSet(result, self.random)
 
     def groupby(
