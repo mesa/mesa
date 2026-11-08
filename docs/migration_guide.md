@@ -188,7 +188,7 @@ grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
 ```
 Networks migrate the same way — `NetworkGrid` becomes `discrete_space.Network`, and placing an agent becomes assigning its `cell` rather than calling a `place_agent` method:
 
-​```python
+```python
 # Old
 from mesa.space import NetworkGrid
 
@@ -200,7 +200,7 @@ from mesa.discrete_space import Network
 
 grid = Network(some_networkx_graph, random=model.random)
 agent.cell = grid[node_id]
-​```
+```
 
 - Ref: [PR #3337](https://github.com/mesa/mesa/pull/3337)
 
