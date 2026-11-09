@@ -26,7 +26,7 @@ model_params = {
     "tree_density": Slider("Tree density", 0.2, 0.01, 0.5, 0.01),
     "initial_birds": Slider("Initial birds", 50, 1, 200),
     "speed": Slider("Bird speed", 3.0, 0.5, 10.0, 0.5),
-    "vision": Slider("Vision (ground cells)", 1, 0, 5),
+    "vision": Slider("Vision (ground cells)", 1, 1, 5),
     "fruit_regrowth": Slider("Fruit regrowth chance", 0.05, 0.01, 0.5, 0.01),
 }
 
