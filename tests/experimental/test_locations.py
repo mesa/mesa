@@ -199,6 +199,35 @@ def test_continuous_location_next_to_continuous_space_agent(model):
         np.testing.assert_array_equal(other.position, [0.9, 0.9])
 
 
+def test_one_point_per_agent_in_a_continuous_space(model):
+    """A second location in the same space raises and leaves the first intact."""
+
+    class Twice(Agent):
+        first = ContinuousLocation("opinion")
+        second = ContinuousLocation("opinion")
+
+    agent = Twice(model)
+    agent.first = [0.1, 0.1]
+    with pytest.raises(ValueError, match=r"already in model.opinion"):
+        agent.second = [0.2, 0.2]
+    assert agent.second is None
+    assert model.opinion.active_agents == [agent]
+
+    # once the first location is cleared, the second can take its place
+    agent.first = None
+    agent.second = [0.2, 0.2]
+    agent.remove()
+    assert len(model.opinion.active_agents) == 0
+
+    class Viewer(ContinuousSpaceAgent):
+        view = ContinuousLocation("opinion")
+
+    viewer = Viewer(model.opinion, model)
+    viewer.position = [0.5, 0.5]
+    with pytest.raises(ValueError, match=r"already in model.opinion"):
+        viewer.view = [0.5, 0.5]
+
+
 def test_missing_space_attribute_names_it(model):
     """A location naming a space the model lacks says which one."""
 

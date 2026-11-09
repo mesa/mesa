@@ -333,6 +333,10 @@ class ContinuousLocation(_Location):
         before a move keeps its value, and ``agent.view += step`` moves the agent
         through the checks above. Use the space's ``agent_positions`` array for
         vectorized reads.
+
+        An agent has at most one point in a space: placing it in a space it is
+        already in, through another location or as a ``ContinuousSpaceAgent``,
+        raises.
     """
 
     def __init__(self, space: str):
@@ -366,7 +370,17 @@ class ContinuousLocation(_Location):
                 del state[self._key]
             return
 
-        space = self._space(agent) if handle is None else handle.space
+        if handle is None:
+            space = self._space(agent)
+            # The space keeps one row per agent: a second point would corrupt it
+            if space._index_of(agent) is not None:
+                raise ValueError(
+                    f"{type(agent).__name__} is already in model.{self.space_name}, "
+                    f"so {self.name} cannot place it there too: an agent has at most "
+                    "one point in a continuous space."
+                )
+        else:
+            space = handle.space
         point = np.array(value, dtype=float)
         if point.shape != (space.ndims,):
             raise ValueError(
