@@ -1335,3 +1335,37 @@ def test_has_emitters_copy_drops_dead_subscribers(copier):
     emitter_copy = copier(emitter)
 
     assert not emitter_copy._has_subscribers("value", ObservableSignals.CHANGED)
+
+
+@copiers
+def test_has_emitters_copy_keeps_live_and_drops_dead_subscribers(copier):
+    """Only the subscribers that are still alive are carried over to the copy."""
+    emitter = CopyEmitter()
+    dead = CopyListener(emitter)
+    alive = CopyListener(emitter)
+
+    del dead
+    gc.collect()
+
+    emitter_copy, alive_copy = copier((emitter, alive))
+
+    refs = emitter_copy.subscribers[("value", ObservableSignals.CHANGED)]
+    assert [ref() for ref in refs] == [alive_copy.on_change]
+
+
+@copiers
+def test_has_emitters_bound_method_is_rebound_to_the_copy(copier):
+    """A bound-method handler follows its owner into the copy."""
+    emitter = CopyEmitter()
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    key = ("value", ObservableSignals.CHANGED)
+    (copy_ref,) = emitter_copy.subscribers[key]
+    assert copy_ref().__self__ is listener_copy
+    assert listener_copy.emitter is emitter_copy
+
+    # The original stays bound to the original listener.
+    (original_ref,) = emitter.subscribers[key]
+    assert original_ref().__self__ is listener
