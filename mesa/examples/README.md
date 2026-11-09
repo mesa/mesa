@@ -32,6 +32,9 @@ This model is based on the NetLogo [Virus on a Network](https://ccl.northwestern
 ## Advanced Examples
 The advanced examples are more complex and may use experimental Mesa features. They are good starting points for learning how to build more complex models.
 
+### [Birds and Trees Model](examples/advanced/birds_and_trees)
+Demonstrates `mesa.experimental.locations`: birds fly through a continuous air space and forage on a grid of trees below it. The two spaces share coordinates, and each bird's ground cell follows its position in the air.
+
 ### [Epstein Civil Violence Model](examples/advanced/epstein_civil_violence)
 Joshua Epstein's [model](https://www.pnas.org/doi/10.1073/pnas.092080199) of how a decentralized uprising can be suppressed or reach a critical mass of support.
 
@@ -53,9 +56,6 @@ The experimental examples are built on Mesa APIs that live under `mesa.experimen
 
 ### [Alliance Formation Model](examples/advanced/alliance_formation)
 Demonstrates `mesa.experimental.meta_agents`: agents form alliances through a game-theoretic process, and the resulting alliances become meta-agents that can themselves form higher-level alliances.
-
-### [Birds and Trees Model](examples/advanced/birds_and_trees)
-Demonstrates `mesa.experimental.locations`: birds fly through a continuous air space and forage on a grid of trees below it. The two spaces share coordinates, and each bird's ground cell follows its position in the air.
 
 ### [Tram Route Model](examples/experimental/tram_model)
 Demonstrates continuous states and thresholds: a tram accelerates, coasts, brakes and dwells its way along a route, with every transition solved for analytically and scheduled on the event queue rather than polled for on each tick.
