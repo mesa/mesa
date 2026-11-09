@@ -2,6 +2,9 @@
 
 import doctest
 from unittest.mock import Mock, patch
+import copy
+import gc
+import pickle
 
 import pytest
 
@@ -1239,3 +1242,96 @@ def test_peek():
 
     # untracked_state remains clean because the framework does not know it looked at speed
     assert untracked_comp_state.is_dirty is False
+
+
+class CopyEmitter(HasEmitters):
+    """Emitter for the copy and pickle tests; defined here so pickle can find it."""
+
+    value = Observable()
+
+    def __init__(self):
+        """Create the emitter."""
+        super().__init__()
+        self.value = 0
+
+
+class SlottedCopyEmitter(CopyEmitter):
+    """Emitter with __slots__, which changes the state returned by __getstate__."""
+
+    __slots__ = ("extra",)
+
+    def __init__(self):
+        """Create the emitter."""
+        super().__init__()
+        self.extra = "kept"
+
+
+class CopyListener:
+    """Records the values it is notified of through a weakly referenced handler."""
+
+    def __init__(self, emitter):
+        """Subscribe to the emitter."""
+        self.emitter = emitter
+        self.received = []
+        emitter.observe("value", ObservableSignals.CHANGED, self.on_change)
+
+    def on_change(self, signal):
+        """Record the new value."""
+        self.received.append(signal.additional_kwargs["new"])
+
+
+def _pickle_round_trip(obj):
+    return pickle.loads(pickle.dumps(obj))  # noqa: S301
+
+
+copiers = pytest.mark.parametrize(
+    "copier", [copy.deepcopy, _pickle_round_trip], ids=["deepcopy", "pickle"]
+)
+
+
+@copiers
+@pytest.mark.parametrize("emitter_class", [CopyEmitter, SlottedCopyEmitter])
+def test_has_emitters_subscribers_survive_copy(copier, emitter_class):
+    """Copies of an emitter notify the copied subscribers, not the originals."""
+    emitter = emitter_class()
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    emitter_copy.value = 1
+    assert listener_copy.received == [1]
+    assert listener.received == []
+
+    # Copying must leave the live emitter and its weak references untouched.
+    emitter.value = 2
+    assert listener.received == [2]
+    assert listener_copy.received == [1]
+
+
+@copiers
+def test_has_emitters_slots_survive_copy(copier):
+    """State kept in __slots__ is restored next to the subscribers."""
+    emitter = SlottedCopyEmitter()
+    emitter.extra = "changed"
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    assert emitter_copy.extra == "changed"
+    emitter_copy.value = 1
+    assert listener_copy.received == [1]
+
+
+@copiers
+def test_has_emitters_copy_drops_dead_subscribers(copier):
+    """Subscribers that were already garbage collected are not copied."""
+    emitter = CopyEmitter()
+    listener = CopyListener(emitter)
+    assert emitter._has_subscribers("value", ObservableSignals.CHANGED)
+
+    del listener
+    gc.collect()
+
+    emitter_copy = copier(emitter)
+
+    assert not emitter_copy._has_subscribers("value", ObservableSignals.CHANGED)

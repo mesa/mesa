@@ -1,4 +1,5 @@
 # noqa: D100
+import copy
 import gc
 import weakref
 
@@ -258,6 +259,42 @@ def test_tram_model_reaches_every_stop_across_parameters():
         assert peak <= cruise_speed + 1e-9
 
 
+def agent_states(model):
+    """Return the simple attributes of every agent, to compare two models."""
+    simple = (int, float, str, bool, tuple)
+    return sorted(
+        (
+            type(agent).__name__,
+            agent.unique_id,
+            tuple(
+                sorted(
+                    (name, value)
+                    for name, value in vars(agent).items()
+                    if isinstance(value, simple) and not name.startswith("_")
+                )
+            ),
+        )
+        for agent in model.agents
+    )
+
+
+def test_alliance_formation_deepcopy_behaves_like_the_original():
+    """A deep-copied model, including its meta-agents, continues identically."""
+    model = MultiLevelAllianceModel(scenario=AllianceScenario(rng=42))
+    model.run_for(5)
+
+    clone = copy.deepcopy(model)
+    assert agent_states(clone) == agent_states(model)
+
+    for _ in range(5):
+        model.run_for(1)
+        clone.run_for(1)
+
+    assert clone.time == model.time
+    assert clone.random.getstate() == model.random.getstate()
+    assert agent_states(clone) == agent_states(model)
+ 
+    
 def test_tram_model():  # noqa: D103
     from mesa.examples.experimental.tram_model import app  # noqa: PLC0415
 
