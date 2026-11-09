@@ -201,6 +201,8 @@ class CellLocation(_Location):
         follows: the name of another location of the same agent that this one
             follows. The agent's cell is then always the cell of ``space`` at that
             location, and assigning a cell moves the other location to its center.
+            If the other location is a cell too, only cells at the center of one of
+            its cells can be assigned; others raise ``ValueError``.
 
     Notes:
         Without ``follows``, this is what ``CellAgent.cell`` does, under a name of
@@ -284,6 +286,19 @@ class CellLocation(_Location):
                 f"{type(agent).__name__}.{self.name} takes cells of model."
                 f"{self.space_name}, got a cell of another space."
             )
+        if isinstance(primary, CellLocation) and primary.space_name is not None:
+            # The primary snaps to its cell at this cell's center, and this location
+            # then follows the center of that cell, which can be another cell
+            target = primary._resolve(agent, cell.position)
+            if self._resolve(agent, target.position) is not cell:
+                raise ValueError(
+                    f"{type(agent).__name__}.{self.name} follows {self.follows}, a "
+                    f"cell of model.{primary.space_name}, so it can only be a cell of "
+                    f"model.{self.space_name} at the center of such a cell, which "
+                    f"{cell.coordinate} is not."
+                )
+            primary._set(agent, target)
+            return
         primary._move_to(agent, cell.position)
 
     def _resolve(self, agent: Agent, point) -> Cell:

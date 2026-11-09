@@ -436,6 +436,69 @@ def test_follower_of_a_cell(model):
     assert walker.cell is model.ground[45, 45]
 
 
+class Zoomer(Agent):
+    """An agent on a coarse grid whose cell in a fine grid follows it."""
+
+    district = CellLocation("districts")
+    cell = CellLocation("ground", follows="district")
+
+
+def test_follower_of_a_coarser_cell_takes_only_reachable_cells(model):
+    """A fine cell that its coarse cell doesn't map back to raises, changing nothing."""
+    zoomer = Zoomer(model)
+    # the center of district (1, 1) is (30, 30), in ground cell (15, 15)
+    zoomer.cell = model.ground[15, 15]
+    assert zoomer.district is model.districts[1, 1]
+    assert zoomer.cell is model.ground[15, 15]
+
+    # the cell of another district moves the agent there
+    zoomer.cell = model.ground[25, 5]
+    assert zoomer.district is model.districts[2, 0]
+    assert zoomer.cell is model.ground[25, 5]
+
+    for target in (model.ground[2, 2], model.ground[24, 5]):
+        with pytest.raises(ValueError, match="center of such a cell"):
+            zoomer.cell = target
+        assert zoomer.district is model.districts[2, 0]
+        assert zoomer.cell is model.ground[25, 5]
+        assert zoomer in model.districts[2, 0].agents
+        assert zoomer not in target.agents
+        assert zoomer not in model.districts[0, 0].agents
+
+    # also on first placement
+    newcomer = Zoomer(model)
+    with pytest.raises(ValueError, match="center of such a cell"):
+        newcomer.cell = model.ground[2, 2]
+    assert newcomer.district is None
+    assert newcomer.cell is None
+
+
+def test_follower_of_a_cell_with_shifted_origins(model):
+    """Which cells are reachable depends on the grids' origins."""
+    model.offset = OrthogonalMooreGrid(
+        (40, 40), cell_size=1.0, origin=(0.5, 0.5), random=model.random
+    )
+
+    class Shifted(Agent):
+        district = CellLocation("districts")
+        cell = CellLocation("offset", follows="district")
+
+    agent = Shifted(model)
+    # the center of district (0, 0) is (10, 10), in offset cell (9, 9)
+    agent.district = model.districts[0, 0]
+    assert agent.cell is model.offset[9, 9]
+    agent.cell = model.offset[9, 9]
+    assert agent.district is model.districts[0, 0]
+
+    # offset cell (10, 10) is centered at (11, 11), also in district (0, 0)
+    with pytest.raises(ValueError, match="center of such a cell"):
+        agent.cell = model.offset[10, 10]
+    assert agent.cell is model.offset[9, 9]
+
+    agent.cell = model.offset[29, 29]
+    assert agent.district is model.districts[1, 1]
+
+
 def test_follower_rules(model):
     """Followers need a space, a real primary, and cannot be cleared on their own."""
     with pytest.raises(TypeError):
