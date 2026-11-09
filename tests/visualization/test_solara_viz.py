@@ -9,6 +9,7 @@ import pytest
 import solara
 
 import mesa
+import mesa.visualization.solara_viz as solara_viz_module
 from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.experimental.scenarios import Scenario
 from mesa.visualization.backends.altair_backend import AltairBackend
@@ -26,6 +27,16 @@ from mesa.visualization.solara_viz import (
     copy_renderer,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
+
+
+@pytest.fixture(autouse=True)
+def reset_param_extractors():
+    """Reset the parameter extractors registry before each test."""
+    original_extractors = solara_viz_module._param_extractors.copy()
+    solara_viz_module._param_extractors.clear()
+    yield
+    solara_viz_module._param_extractors.clear()
+    solara_viz_module._param_extractors.update(original_extractors)
 
 
 class TestMakeUserInput(unittest.TestCase):  # noqa: D101
@@ -305,6 +316,28 @@ def test_model_creator():  # noqa: D103
             ),
             handle_error=False,
         )
+
+
+def test_model_creator_stores_slider_value():
+    """Test that ModelCreator stores a Slider's value as the default parameter."""
+
+    class SimpleModel:
+        def __init__(self, param1=1, param2=1):
+            pass
+
+    model_parameters = solara.reactive({})
+    solara.render(
+        ModelCreator(
+            solara.reactive(SimpleModel()),
+            user_params={
+                "param1": Slider("Param1", 10, 10, 100, 1),
+                "param2": {"type": "SliderInt", "value": 5, "min": 1, "max": 9},
+            },
+            model_parameters=model_parameters,
+        ),
+        handle_error=False,
+    )
+    assert model_parameters.value == {"param1": 10, "param2": 5}
 
 
 # test that _check_model_params raises ValueError when *args are present
