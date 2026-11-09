@@ -76,6 +76,24 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  doctest:
+    # Runs docstring examples (>>> blocks) under mesa/ as a separate job so a
+    # broken docstring is flagged on its own, not mixed with unit test or docs
+    # build failures. See https://github.com/mesa/mesa/issues/3825.
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: "pip"
+      - run: pip install uv
+      - run: uv pip install --system .[dev]
+      # mesa/examples is excluded: it has no doctests, importing every app.py
+      # builds a model and renderer, and st_app.py needs streamlit.
+      - run: pytest --doctest-modules mesa --ignore=mesa/examples -Werror -Wdefault::PendingDeprecationWarning
+
   examples:
     runs-on: ubuntu-latest
     steps:

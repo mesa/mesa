@@ -2,7 +2,7 @@ name: mesa-tutorials
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python=3.13
   - numpy
   - pip
   - pip:
