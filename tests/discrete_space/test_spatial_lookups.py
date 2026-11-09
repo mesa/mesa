@@ -57,6 +57,21 @@ def test_grid_upper_edge_belongs_to_last_cell():
 
 
 @pytest.mark.parametrize(
+    ("n", "width", "origin"),
+    [(49, 1.0, 0.0), (98, 1.0, 0.1), (49, 1.0, -1.0), (161, 1.0, 0.0)],
+)
+def test_grid_upper_edge_survives_rounding(n, width, origin):
+    """The upper edge belongs to the grid when n * (width / n) rounds below width."""
+    grid = OrthogonalMooreGrid(
+        (n, n), cell_size=width / n, origin=(origin, origin), random=random.Random(42)
+    )
+    edge = origin + width
+    assert grid.find_nearest_cell([edge, edge]).coordinate == (n - 1, n - 1)
+    with pytest.raises(ValueError):
+        grid.find_nearest_cell([edge + 1e-6, edge])
+
+
+@pytest.mark.parametrize(
     ("cell_size", "origin"),
     [(1.0, None), (2.0, None), (1 / 3, None), ((0.5, 4.0), (-10.0, 7.5))],
 )

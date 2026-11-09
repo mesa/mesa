@@ -303,7 +303,9 @@ class Grid(DiscreteSpace[T]):
 
         Notes:
             A bounded grid includes its upper edge, like ``ContinuousSpace``: a
-            position exactly on it belongs to the last cell.
+            position on it belongs to the last cell. Positions within a billionth
+            of a cell of the edge count as on it, so that rounding in a cell size
+            such as ``1 / 49`` doesn't push the edge out of the grid.
         """
         if isinstance(position, np.ndarray):
             position = position.tolist()
@@ -320,7 +322,11 @@ class Grid(DiscreteSpace[T]):
             coord = [c % d for c, d in zip(coord, self.dimensions)]
         else:
             for i, (c, d) in enumerate(zip(coord, self.dimensions)):
-                if c == d and position[i] == origin[i] + d * cell_size[i]:
+                if (
+                    c == d
+                    and abs(position[i] - origin[i] - d * cell_size[i])
+                    <= 1e-9 * cell_size[i]
+                ):
                     coord[i] = d - 1
                 elif not 0 <= c < d:
                     raise ValueError(
