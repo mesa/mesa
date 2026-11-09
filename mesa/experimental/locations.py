@@ -24,6 +24,10 @@ let one follow the other::
 The bird then has a single location: writing ``position`` updates ``cell``, and
 writing ``cell`` moves ``position`` to the center of that cell. A move is atomic:
 if a cell is full or a point has no cell, the bird stays where it was.
+
+Locations find a named space, such as ``model.air``, by looking up that model
+attribute when they need it. Don't replace a space while agents are in it: agents
+already placed stay in the old space, while followers move into the new one.
 """
 
 from __future__ import annotations
