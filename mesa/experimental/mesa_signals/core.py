@@ -390,7 +390,7 @@ class HasEmitters:
         self._batch_context = None
         self._suppress = False
 
-        def __getstate__(self):
+    def __getstate__(self):
         """Return the state for pickle and deepcopy.
 
         Subscribers are stored as weak references, which can be neither pickled nor
