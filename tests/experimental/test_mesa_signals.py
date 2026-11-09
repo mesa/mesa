@@ -1,10 +1,10 @@
 """Tests for mesa_signals."""
 
-import doctest
-from unittest.mock import Mock, patch
 import copy
+import doctest
 import gc
 import pickle
+from unittest.mock import Mock, patch
 
 import pytest
 

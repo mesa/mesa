@@ -434,7 +434,7 @@ class HasEmitters:
         self.__dict__.update(instance_state)
         for name, value in (slot_state or {}).items():
             setattr(self, name, value)
-            
+
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
         key = (name, signal_type)

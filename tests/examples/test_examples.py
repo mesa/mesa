@@ -293,8 +293,8 @@ def test_alliance_formation_deepcopy_behaves_like_the_original():
     assert clone.time == model.time
     assert clone.random.getstate() == model.random.getstate()
     assert agent_states(clone) == agent_states(model)
- 
-    
+
+
 def test_tram_model():  # noqa: D103
     from mesa.examples.experimental.tram_model import app  # noqa: PLC0415
 
