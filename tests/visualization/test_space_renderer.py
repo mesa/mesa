@@ -204,3 +204,17 @@ def test_none_property_layer_portrayal_returns_none_colorbar():
 
     assert result[0] is sr.backend_renderer.ax
     assert result[1] is None
+
+
+def test_mismatched_property_layer_dimensions_returns_none_colorbar():
+    """A property layer with mismatched dimensions is skipped with a warning."""
+    model = CustomModel()
+    model.grid.property_layers["test"] = np.zeros((1, 1))
+    sr = SpaceRenderer(model, backend="matplotlib")
+
+    with pytest.warns(UserWarning, match="Layer test dimensions"):
+        result = sr.setup_property_layer(
+            lambda _: PropertyLayerStyle(color="red")
+        ).draw_property_layer()
+
+    assert result == (sr.backend_renderer.ax, None)
