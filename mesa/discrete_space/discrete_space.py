@@ -93,6 +93,23 @@ class DiscreteSpace[T: Cell](ABC):
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell at or nearest to the given position."""
 
+    def _cell_of(self, agent) -> T | None:
+        """Return a cell of this space that the agent is in, or None.
+
+        Looks at ``agent.cell`` and at the agent's declared locations, so it works
+        for any agent, whatever its locations are called.
+        """
+        cells = self._cells
+        cell = getattr(agent, "cell", None)
+        if isinstance(cell, Cell) and cells.get(cell.coordinate) is cell:
+            return cell
+        state = agent.__dict__
+        for location in agent._mesa_locations:
+            cell = state.get(location._key)
+            if isinstance(cell, Cell) and cells.get(cell.coordinate) is cell:
+                return cell
+        return None
+
     def add_cell(self, cell: T):
         """Add a cell to the space.
 

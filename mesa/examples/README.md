@@ -32,6 +32,9 @@ This model is based on the NetLogo [Virus on a Network](https://ccl.northwestern
 ## Advanced Examples
 The advanced examples are more complex and may use experimental Mesa features. They are good starting points for learning how to build more complex models.
 
+### [Birds and Trees Model](examples/advanced/birds_and_trees)
+Demonstrates `mesa.experimental.locations`: birds fly through a continuous air space and forage on a grid of trees below it. The two spaces share coordinates, and each bird's ground cell follows its position in the air.
+
 ### [Epstein Civil Violence Model](examples/advanced/epstein_civil_violence)
 Joshua Epstein's [model](https://www.pnas.org/doi/10.1073/pnas.092080199) of how a decentralized uprising can be suppressed or reach a critical mass of support.
 

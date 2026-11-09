@@ -109,17 +109,33 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
 
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, Agent] = {}
+        # Agents placed through a ContinuousLocation keep their index on a handle,
+        # so that one agent can be in several spaces
+        self._holders: dict[Agent, object] = {}
+
+    def __setstate__(self, state):
+        """Restore the state, and the view on the position array.
+
+        Pickling turns a view into an independent array, so the view has to be
+        taken again.
+        """
+        self.__dict__.update(state)
+        self.agent_positions = self._agent_positions[0 : self._n_agents]
 
     @property
     def agents(self) -> AgentSet[A]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.active_agents, random=self.random)
 
-    def _add_agent(self, agent: Agent) -> int:
+    def _add_agent(self, agent: Agent, holder=None) -> int:
         """Helper method for adding an agent to the space.
 
         This method manages the numpy array with the agent positions and ensuring it is
         enlarged if and when needed. It is called automatically by ContinousSpaceAgent when created.
+
+        Args:
+            agent: the agent to add
+            holder: the object that keeps the agent's index, if not the agent itself
 
         """
         index = self._n_agents
@@ -138,7 +154,11 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             new_positions[:current_capacity] = self._agent_positions
             self._agent_positions = new_positions
 
-        agent._mesa_index = index
+        if holder is None:
+            agent._mesa_index = index
+        else:
+            holder._mesa_index = index
+            self._holders[agent] = holder
         self._index_to_agent[index] = agent
 
         # we want to maintain a view rather than a copy on the active agents and positions
@@ -154,7 +174,8 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         This method is automatically called by ContinuousSpaceAgent.remove.
 
         """
-        index = agent._mesa_index
+        holders = self._holders
+        index = (holders.pop(agent, agent) if holders else agent)._mesa_index
         last_index = self._n_agents - 1
 
         # If the removed agent isn't already the last one, swap the last one into its place
@@ -167,7 +188,7 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             # Swap in numpy array
             self._agent_positions[index] = self._agent_positions[last_index]
 
-            last_agent._mesa_index = index
+            holders.get(last_agent, last_agent)._mesa_index = index
             self._index_to_agent[index] = last_agent
 
         # Pop the last elements
@@ -197,7 +218,7 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         positions = (
             self.agent_positions
             if agents is None
-            else self._agent_positions[[a._mesa_index for a in agents]]
+            else self._agent_positions[self._indices(agents)]
         )
 
         delta = positions - point
@@ -248,7 +269,7 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             agents = self.active_agents
         else:
             agents = list(agents)
-            positions = self._agent_positions[[a._mesa_index for a in agents]]
+            positions = self._agent_positions[self._indices(agents)]
 
         if self.torus:
             # The minimum image convention below only holds while the separation
@@ -269,11 +290,43 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
             dists = cdist(point[np.newaxis, :], positions, **kwargs)[0, :]
         return dists, agents
 
+    def _indices(self, agents: Iterable[Agent]) -> list[int]:
+        holders = self._holders
+        if not holders:
+            return [a._mesa_index for a in agents]
+        return [holders.get(a, a)._mesa_index for a in agents]
+
+    def _index_of(self, agent: Agent) -> int | None:
+        """Return the agent's row in the position array, or None if it is not here."""
+        index = getattr(self._holders.get(agent, agent), "_mesa_index", None)
+        if index is None or self._index_to_agent.get(index) is not agent:
+            return None
+        return index
+
+    def _position_of(self, agent: Agent) -> np.ndarray | None:
+        """Return the agent's position in this space, or None if it is not here."""
+        index = self._index_of(agent)
+        return None if index is None else self._agent_positions[index]
+
     def get_agents_in_radius(
-        self, point: ArrayLike, radius: float | int = 1, *, _in_bounds: bool = False
+        self,
+        point: ArrayLike,
+        radius: float | int = 1,
+        exclude: Agent | None = None,
+        *,
+        _in_bounds: bool = False,
     ) -> tuple[list, np.ndarray]:
-        """Return the agents and their distances within a radius for the point."""
+        """Return the agents and their distances within a radius for the point.
+
+        Args:
+            point: the point to search around
+            radius: the radius to search within
+            exclude: an agent to leave out of the result, typically the one asking
+            _in_bounds: internal, True if the point is known to be inside the space
+        """
         distances, agents = self.calculate_distances(point, _in_bounds=_in_bounds)
+        if exclude is not None and (index := self._index_of(exclude)) is not None:
+            distances[index] = np.inf
         logical = distances <= radius
         agents = list(compress(agents, logical))
         return (
@@ -282,9 +335,19 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         )
 
     def get_k_nearest_agents(
-        self, point: ArrayLike, k: int = 1, *, _in_bounds: bool = False
+        self,
+        point: ArrayLike,
+        k: int = 1,
+        exclude: Agent | None = None,
+        *,
+        _in_bounds: bool = False,
     ) -> tuple[list, np.ndarray]:
         """Return the k nearest agents and their distances to the point.
+
+        Args:
+            point: the point to search around
+            k: the number of agents to return
+            exclude: an agent to leave out of the result, typically the one asking
 
         Notes:
             This method returns exactly k agents, ignoring ties. In case of ties, the
@@ -298,6 +361,9 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         """
         dists, agents = self.calculate_distances(point, _in_bounds=_in_bounds)
         n = len(dists)
+        if exclude is not None and (index := self._index_of(exclude)) is not None:
+            dists[index] = np.inf
+            n -= 1
         # Handle empty space or invalid k
         if n == 0 or k <= 0:
             return [], np.array([])

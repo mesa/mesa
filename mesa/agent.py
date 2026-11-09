@@ -20,6 +20,31 @@ if TYPE_CHECKING:
 from mesa.agentset import AgentSet, _resolve_per_agent_values
 
 
+def _collect_locations(cls: type) -> tuple:
+    """Return the locations of a class, declared on it or any of its bases.
+
+    Each class records the locations it declares itself in
+    ``_mesa_declared_locations`` (see mesa.experimental.locations). For each name,
+    the location that counts is the one attribute lookup finds, so a subclass can
+    redefine a location, and a plain attribute of the same name hides it.
+    """
+    mro = cls.__mro__
+    names = dict.fromkeys(
+        location.name
+        for klass in reversed(mro)
+        for location in klass.__dict__.get("_mesa_declared_locations", ())
+    )
+    locations = []
+    for name in names:
+        owner = next(klass for klass in mro if name in klass.__dict__)
+        locations.extend(
+            location
+            for location in owner.__dict__.get("_mesa_declared_locations", ())
+            if location.name == name
+        )
+    return tuple(locations)
+
+
 class Agent[M: Model]:
     """Base class for a model agent in Mesa.
 
@@ -37,6 +62,8 @@ class Agent[M: Model]:
 
     _datasets: ClassVar = set()
     _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action", "unique_id"}
+    # Locations declared on the class, see mesa.experimental.locations
+    _mesa_locations: ClassVar[tuple] = ()
 
     def __init_subclass__(cls, **kwargs):
         """Called when Agent is subclassed, giving each subclass its own dataset set."""
@@ -46,6 +73,7 @@ class Agent[M: Model]:
         # and ensure the retrieved dataset belongs to the same
         # model instance as the agent
         cls._datasets = set()
+        cls._mesa_locations = _collect_locations(cls)
 
     def __init__(self, model: M, *args, **kwargs) -> None:
         """Create a new agent.
@@ -76,6 +104,10 @@ class Agent[M: Model]:
         # ensures models are also removed from datasets
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
+
+        # ensures the agent also leaves the spaces of its declared locations
+        for location in self._mesa_locations:
+            location._remove(self)
 
     def step(self) -> None:
         """A single step of the agent."""

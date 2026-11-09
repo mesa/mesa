@@ -65,17 +65,30 @@ class Cell:
     def empty(self, value: bool) -> None:
         self._empty = value
 
+    # How a grid maps cell coordinates to positions. Grid sets these on the cell
+    # class it creates, so cells need no reference to their space.
+    _mesa_scale = None
+    _mesa_offset = None
+
     @property
     def position(self) -> np.ndarray:
         """Get the physical position of the cell.
+
+        For grid cells this is the center of the cell.
 
         Returns:
             np.ndarray: Physical position of the cell
         """
         if self._position is not None:
             return self._position
-        # Default for implicit grids
-        return np.asarray(self.coordinate, dtype=float)
+        position = np.asarray(self.coordinate, dtype=float)
+        scale = self._mesa_scale
+        if scale is not None:
+            # Grid cell: computed on first use, so cellular automata never pay for it
+            position = (position + 0.5) * scale + self._mesa_offset
+            position.flags.writeable = False
+            self._position = position
+        return position
 
     @position.setter
     def position(self, value: np.ndarray | None) -> None:
