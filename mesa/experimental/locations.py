@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from mesa.discrete_space import Network
+from mesa.discrete_space import Grid, HexGrid, Network
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
@@ -160,7 +160,10 @@ def _enter(agent: Agent, targets) -> None:
     entered = []
     try:
         for location, cell in targets:
-            if cell is not state.get(location._key):
+            old = state.get(location._key)
+            if cell is not old:
+                if old is None and location.follows is not None:
+                    location._check_alignment(agent)
                 cell.add_agent(agent)
                 entered.append(cell)
     except Exception:
@@ -178,6 +181,27 @@ def _commit(agent: Agent, targets) -> None:
             if old is not None:
                 old.remove_agent(agent)
             state[location._key] = cell
+
+
+def _bounds(space) -> list[tuple[float, float]] | None:
+    """Return the lower and upper bound of a space along each axis, if it has them.
+
+    None for spaces that don't place cells by ``cell_size`` and ``origin``, such
+    as a HexGrid. Plain floats, since this runs whenever an agent first joins and
+    numpy is many times slower for a handful of values.
+    """
+    if isinstance(space, Grid):
+        if isinstance(space, HexGrid):
+            return None
+        origin, cell_size = space._mapping
+        return [
+            (o, o + n * s)
+            for o, s, n in zip(origin, cell_size, space.dimensions, strict=True)
+        ]
+    dimensions = getattr(space, "dimensions", None)
+    if isinstance(dimensions, np.ndarray) and dimensions.ndim == 2:
+        return [(low, high) for low, high in dimensions.tolist()]
+    return None
 
 
 def _leave(agent: Agent, followers) -> None:
@@ -202,7 +226,11 @@ class CellLocation(_Location):
             follows. The agent's cell is then always the cell of ``space`` at that
             location, and assigning a cell moves the other location to its center.
             If the other location is a cell too, only cells at the center of one of
-            its cells can be assigned; others raise ``ValueError``.
+            its cells can be assigned; others raise ``ValueError``. If either
+            space is a torus, they must wrap in the same place: a torus grid must
+            have the same bounds as the other space and be a torus too, and a grid
+            in a torus space must lie within it. The first move raises
+            ``ValueError`` otherwise.
 
     Notes:
         Without ``follows``, this is what ``CellAgent.cell`` does, under a name of
@@ -300,6 +328,55 @@ class CellLocation(_Location):
             primary._set(agent, target)
             return
         primary._move_to(agent, cell.position)
+
+    def _check_alignment(self, agent: Agent) -> None:
+        """Refuse a torus mismatch that would put the agent in the wrong cell.
+
+        A torus grid that doesn't match its primary's space wraps points into
+        cells on the other side, and a torus primary wraps a cell outside it back
+        into its space. Neither raises by itself, so check once, when the agent
+        first gets a cell here. Partial grids in a bounded space fail loudly on
+        their own and stay allowed.
+        """
+        primary = self._primary(agent)
+        if primary.space_name is None:
+            return
+        space = self._space(agent)
+        outer = primary._space(agent)
+        torus = getattr(space, "torus", False)
+        outer_torus = getattr(outer, "torus", False)
+        if not (torus or outer_torus):
+            return
+        bounds, outer_bounds = _bounds(space), _bounds(outer)
+        if bounds is None or outer_bounds is None:
+            return
+        axes = list(zip(bounds, outer_bounds, strict=True))
+        # bounds is not None, so space is a grid with a cell size
+        tolerance = 1e-9 * min(space._mapping[1])
+        where = (
+            f"{type(agent).__name__}.{self.name} follows {self.follows}, but "
+            f"model.{self.space_name}"
+        )
+        if torus:
+            matches = all(
+                abs(low - outer_low) <= tolerance
+                and abs(high - outer_high) <= tolerance
+                for (low, high), (outer_low, outer_high) in axes
+            )
+            if not (outer_torus and matches):
+                raise ValueError(
+                    f"{where} is a torus that doesn't match model."
+                    f"{primary.space_name}: a torus grid must wrap where its "
+                    "primary's space wraps, with the same bounds and torus=True."
+                )
+        elif any(
+            low < outer_low - tolerance or high > outer_high + tolerance
+            for (low, high), (outer_low, outer_high) in axes
+        ):
+            raise ValueError(
+                f"{where} extends beyond the torus model.{primary.space_name}, "
+                "which would wrap a cell outside it to another place."
+            )
 
     def _resolve(self, agent: Agent, point) -> Cell:
         """Return the cell of this location's space at a point."""

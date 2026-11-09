@@ -499,6 +499,84 @@ def test_follower_of_a_cell_with_shifted_origins(model):
     assert agent.district is model.districts[1, 1]
 
 
+def torus_pair(air_torus, shape, grid_torus, origin=(0, 0)):
+    """Return a model with a 100 by 100 air space and a ground grid of 2 by 2 cells."""
+    model = Model(rng=42)
+    model.air = ContinuousSpace(
+        [[0, 100], [0, 100]], torus=air_torus, random=model.random
+    )
+    model.ground = OrthogonalMooreGrid(
+        shape, cell_size=2.0, origin=origin, torus=grid_torus, random=model.random
+    )
+    return model
+
+
+@pytest.mark.parametrize(
+    ("air_torus", "shape", "grid_torus", "origin", "message"),
+    [
+        (True, (40, 40), True, (0, 0), "doesn't match"),  # wraps too early
+        (True, (60, 60), True, (0, 0), "doesn't match"),  # wraps too late
+        (True, (50, 50), True, (10, 0), "doesn't match"),  # wraps elsewhere
+        (False, (50, 50), True, (0, 0), "doesn't match"),  # air doesn't wrap
+        (True, (60, 60), False, (0, 0), "extends beyond"),  # cells outside the air
+    ],
+)
+def test_torus_mismatch_raises_on_first_move(
+    air_torus, shape, grid_torus, origin, message
+):
+    """A torus mismatch would silently give a wrong cell, so it raises instead."""
+    model = torus_pair(air_torus, shape, grid_torus, origin)
+    bird = Bird(model)
+    with pytest.raises(ValueError, match=message):
+        bird.position = [90.0, 90.0]
+    assert bird.position is None
+    assert bird.cell is None
+    assert len(model.air.active_agents) == 0
+    assert all(cell.is_empty for cell in model.ground.all_cells)
+
+    with pytest.raises(ValueError, match=message):
+        bird.cell = model.ground[1, 1]
+    assert bird.position is None
+
+
+@pytest.mark.parametrize(
+    ("air_torus", "shape", "grid_torus", "origin"),
+    [
+        (True, (50, 50), True, (0, 0)),  # the same torus
+        (True, (50, 50), False, (0, 0)),  # a bounded grid covering a torus
+        (True, (10, 10), False, (40, 40)),  # an island in a torus
+        (False, (40, 40), False, (0, 0)),  # a partial grid, as before
+    ],
+)
+def test_aligned_torus_setups_are_allowed(air_torus, shape, grid_torus, origin):
+    """Spaces that wrap in the same place, or not at all, can follow each other."""
+    model = torus_pair(air_torus, shape, grid_torus, origin)
+    bird = Bird(model)
+    bird.position = [45.0, 45.0]
+    assert bird.cell is model.ground.find_nearest_cell([45.0, 45.0])
+
+
+def test_torus_check_between_cell_locations(model):
+    """A cell that follows a cell is checked the same way."""
+    model.ground = OrthogonalMooreGrid(
+        (50, 50), cell_size=2.0, torus=True, random=model.random
+    )
+    model.districts = OrthogonalMooreGrid(
+        (5, 5), cell_size=20.0, torus=True, random=model.random
+    )
+    walker = Walker(model)
+    walker.cell = model.ground[0, 0]
+    assert walker.district is model.districts[0, 0]
+
+    model.districts = OrthogonalMooreGrid(
+        (4, 4), cell_size=20.0, torus=True, random=model.random
+    )
+    walker = Walker(model)
+    with pytest.raises(ValueError, match="doesn't match"):
+        walker.cell = model.ground[0, 0]
+    assert walker.cell is None
+
+
 def test_follower_rules(model):
     """Followers need a space, a real primary, and cannot be cleared on their own."""
     with pytest.raises(TypeError):
