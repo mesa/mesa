@@ -262,6 +262,65 @@ def test_subclasses_inherit_and_override_locations(model):
     assert Commuter.work is not Citizen.work
 
 
+class Lefty(Agent):
+    """An agent with one location, to combine with Righty."""
+
+    left = ContinuousLocation("opinion")
+
+
+class Righty(Agent):
+    """An agent with one location, to combine with Lefty."""
+
+    right = ContinuousLocation("traits")
+
+
+@pytest.mark.parametrize("bases", [(Lefty, Righty), (Righty, Lefty)])
+def test_multiple_inheritance_collects_every_base(model, bases):
+    """A class without locations of its own has those of all its bases."""
+    combined = type("Combined", bases, {})
+    agent = combined(model)
+    agent.left = [0.5, 0.5]
+    agent.right = [0.5, 0.5]
+    assert sorted(loc.name for loc in combined._mesa_locations) == ["left", "right"]
+
+    agent.remove()
+    assert agent.left is None
+    assert agent.right is None
+    assert len(model.opinion.active_agents) == 0
+    assert len(model.traits.active_agents) == 0
+
+
+def test_locations_from_a_diamond_and_a_mixin(model):
+    """Each location counts once, also when declared on a class that isn't an Agent."""
+
+    class Sees:
+        sight = CellLocation("ground")
+
+    class Both(Lefty, Righty, Sees):
+        pass
+
+    class Twice(Both, Lefty):
+        pass
+
+    names = [location.name for location in Twice._mesa_locations]
+    assert sorted(names) == ["left", "right", "sight"]
+
+    agent = Twice(model)
+    agent.sight = model.ground[1, 1]
+    agent.remove()
+    assert agent not in model.ground[1, 1].agents
+
+
+def test_plain_attribute_hides_a_location(model):
+    """A subclass attribute with the name of a location replaces the location."""
+
+    class Plain(Lefty):
+        left = None
+
+    assert Plain._mesa_locations == ()
+    Plain(model).remove()
+
+
 # ----------------------------------------------------------------------
 # follows
 # ----------------------------------------------------------------------

@@ -47,9 +47,10 @@ class _Location:
     """Shared behavior of locations: registration, space lookup, and followers.
 
     A location installs a plain ``property`` under its name on the agent class, so
-    reading it is as fast as reading any property, and registers itself in the
-    class's ``_mesa_locations`` so that ``Agent.remove`` can take the agent out of
-    its spaces.
+    reading it is as fast as reading any property, and records itself in the
+    class's ``_mesa_declared_locations``. ``Agent`` collects those of a class and
+    all its bases into ``_mesa_locations``, so that ``Agent.remove`` can take the
+    agent out of its spaces.
     """
 
     def __init__(self, space: str | None = None, *, follows: str | None = None):
@@ -63,9 +64,10 @@ class _Location:
     def __set_name__(self, owner, name: str) -> None:
         self.name = name
         self._key = f"_mesa_location_{name}"
-        inherited = getattr(owner, "_mesa_locations", ())
-        owner._mesa_locations = (
-            *(loc for loc in inherited if loc.name != name),
+        # Only the class's own declarations; Agent.__init_subclass__, which runs
+        # after this, adds those of the bases
+        owner._mesa_declared_locations = (
+            *owner.__dict__.get("_mesa_declared_locations", ()),
             self,
         )
         # Agents without the location read None from the class
