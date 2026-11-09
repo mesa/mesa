@@ -76,6 +76,30 @@ class TestRunUntil:
         model = SimpleModel()
         model.run_until(5.0)
         assert model.time == 5.0
+        assert isinstance(model.time, float)
+
+    def test_run_until_int_retains_float_type(self):
+        model = SimpleModel()
+        model.run_until(5)
+        assert model.time == 5.0
+        assert isinstance(model.time, float)
+        model.step()
+        assert model.time == 6.0
+        assert isinstance(model.time, float)
+
+    def test_scheduled_event_int_retains_float_type(self):
+        model = SimpleModel()
+        seen = []
+
+        def fire():
+            seen.append(model.time)
+
+        model.schedule_event(fire, at=2)
+        model.run_until(4)
+        assert seen == [2.0]
+        assert isinstance(seen[0], float)
+        assert model.time == 4.0
+        assert isinstance(model.time, float)
 
     def test_already_past(self):
         model = SimpleModel()

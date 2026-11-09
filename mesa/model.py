@@ -160,6 +160,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             until: The time to advance to
 
         """
+        until = float(until)
         if until < self.time:
             warnings.warn(
                 f"end time {until} is earlier than current time {self.time}",
@@ -175,7 +176,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
                 break
 
             if event.time <= until:
-                self.time = event.time
+                self.time = float(event.time)
                 event.execute()
             else:
                 self._event_list.add_event(event)

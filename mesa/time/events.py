@@ -111,7 +111,7 @@ class Event:
             function_kwargs: keyword arguments for the callable
         """
         super().__init__()
-        self.time = time
+        self.time = float(time)
         self.priority = priority.value
         self._canceled = False
 
