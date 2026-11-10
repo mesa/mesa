@@ -203,7 +203,11 @@ def run_scenarios(
             Execution backend. If None, scenarios run sequentially in the
             calling thread (useful for debugging and small experiments).
             Otherwise, pass a user-constructed executor; its lifetime is the
-            caller's responsibility (use a ``with`` block).
+            caller's responsibility (use a ``with`` block). Do not combine a
+            thread-backed executor (``ThreadPoolExecutor``) with a
+            ``DiskStore``: threads share one stream writer and silently
+            corrupt the output. Use a ``ProcessPoolExecutor`` or run
+            sequentially instead.
         store: the Storage backend to use
         progress: whether to display the progress
             Display a progress bar via ``tqdm`` if installed.

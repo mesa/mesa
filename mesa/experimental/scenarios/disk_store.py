@@ -67,7 +67,13 @@ _ID_COLUMNS = ["scenario_id", "replication_id"]
 
 
 class DiskStore:
-    """A durable Store persisting scenarios, status, and outcomes to disk."""
+    """A durable Store persisting scenarios, status, and outcomes to disk.
+
+    Not safe with thread-backed executors (``ThreadPoolExecutor``): worker
+    threads share one stream writer, which silently corrupts the output
+    files. Use a ``ProcessPoolExecutor`` or run sequentially
+    (``executor=None``).
+    """
 
     def __init__(
         self,
