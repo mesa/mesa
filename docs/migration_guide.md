@@ -168,7 +168,7 @@ config = RunConfiguration(MyModel, until=100)
 store = run_scenarios(scenarios, config)
 ```
 
-See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) silently corrupt the output.
+See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) can silently corrupt the output.
 
 - Ref: [PR #3325](https://github.com/mesa/mesa/pull/3325), background in [Issue #3134](https://github.com/mesa/mesa/issues/3134)
 

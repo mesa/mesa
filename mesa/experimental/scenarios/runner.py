@@ -205,7 +205,7 @@ def run_scenarios(
             Otherwise, pass a user-constructed executor; its lifetime is the
             caller's responsibility (use a ``with`` block). Do not combine a
             thread-backed executor (``ThreadPoolExecutor``) with a
-            ``DiskStore``: threads share one stream writer and silently
+            ``DiskStore``: threads share one stream writer and can silently
             corrupt the output. Use a ``ProcessPoolExecutor`` or run
             sequentially instead.
         store: the Storage backend to use

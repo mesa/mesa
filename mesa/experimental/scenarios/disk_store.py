@@ -70,7 +70,7 @@ class DiskStore:
     """A durable Store persisting scenarios, status, and outcomes to disk.
 
     Not safe with thread-backed executors (``ThreadPoolExecutor``): worker
-    threads share one stream writer, which silently corrupts the output
+    threads share one stream writer, which can silently corrupt the output
     files. Use a ``ProcessPoolExecutor`` or run sequentially
     (``executor=None``).
     """
