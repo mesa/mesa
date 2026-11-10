@@ -299,3 +299,19 @@ class TestEdgeCases:
 
         assert one_off_events == [2.5]
         assert recurring_events == [2.0, 4.0, 6.0]
+
+    def test_time_stays_float_with_int_times(self):
+        """model.time stays a float when run_until or schedule_event get ints."""
+        model = SimpleModel()
+        seen = []
+
+        def fire():
+            seen.append(model.time)
+
+        model.schedule_event(fire, at=2)
+        model.run_until(4)
+        model.step()
+
+        assert isinstance(seen[0], float)
+        assert isinstance(model.time, float)
+        assert model.time == 5.0
