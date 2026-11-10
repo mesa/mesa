@@ -287,6 +287,15 @@ class ContinuousState(BaseObservable):
         state["base_value"] = float(value)
         state["last_time"] = current_time
 
+        # A rate that is itself a ContinuousState keeps changing without ever
+        # being marked dirty, so the cached rate is the one from the previous
+        # anchor. Read it again at this moment, or the new baseline would move
+        # at an old speed.
+        comp_state = state["rate_computed"]
+        if comp_state is not None:
+            state["current_rate"] = self._evaluate_rate(instance)
+            state["second_order_rate"] = self._find_chained_rate(comp_state, instance)
+
         if has_subscribers:
             instance.notify(
                 self.public_name,

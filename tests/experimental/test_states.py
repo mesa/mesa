@@ -252,6 +252,26 @@ class TestChainedExtrapolationWithoutThreshold:
         assert mover.position == pytest.approx(0.5 * 2.0 * elapsed**2)
         assert mover.speed == pytest.approx(2.0 * elapsed)
 
+    @pytest.mark.parametrize("threshold_on", [None, "position"])
+    def test_reassigning_a_state_keeps_the_speed_it_has_at_that_moment(
+        self, threshold_on
+    ) -> None:
+        """Resetting position mid-run carries on at the speed reached by then.
+
+        Speed keeps growing without ever being marked dirty, so the rate cached
+        for position was the one from the previous anchor, 0.0 here.
+        """
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+        model.run_for(3.0)
+        assert mover.speed == pytest.approx(6.0)
+
+        mover.position = 100.0
+        model.run_for(2.0)
+
+        assert mover.position == pytest.approx(100.0 + 6.0 * 2.0 + 0.5 * 2.0 * 2.0**2)
+
     def test_nonzero_initial_rate_is_anchored(self) -> None:
         """A state assigned while already moving keeps its own starting rate."""
         model = Model(rng=1)
