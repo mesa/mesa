@@ -26,31 +26,17 @@ def make_space_altair(*args, **kwargs):  # noqa: D103
     return _make_altair_space(*args, **kwargs)
 
 
-def make_altair_space(*args, **kwargs):
-    """Create an Altair-based space visualization component.
-
-    .. deprecated:: 3.5.3
-        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
-        will be removed in Mesa 4.0. See :func:`_make_altair_space` for the
-        arguments.
-    """
-    warnings.warn(
-        "make_altair_space() is deprecated and will be removed in Mesa 4.0. "
-        "Use SpaceRenderer instead. "
-        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
-        FutureWarning,
-        stacklevel=2,
-    )
-    return _make_altair_space(*args, **kwargs)
-
-
-def _make_altair_space(
+def make_altair_space(
     agent_portrayal,
     propertylayer_portrayal=None,
     post_process=None,
     **space_drawing_kwargs,
 ):
     """Create an Altair-based space visualization component.
+
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0.
 
     Args:
         agent_portrayal: Function to portray agents.
@@ -65,6 +51,25 @@ def _make_altair_space(
     Returns:
         function: A function that creates a SpaceMatplotlib component
     """
+    warnings.warn(
+        "make_altair_space() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _make_altair_space(
+        agent_portrayal, propertylayer_portrayal, post_process, **space_drawing_kwargs
+    )
+
+
+def _make_altair_space(
+    agent_portrayal,
+    propertylayer_portrayal=None,
+    post_process=None,
+    **space_drawing_kwargs,
+):
+    """Implementation of :func:`make_altair_space`, without the deprecation warning."""
     if agent_portrayal is None:
 
         def agent_portrayal(a):

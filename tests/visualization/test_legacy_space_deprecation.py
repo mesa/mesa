@@ -65,12 +65,12 @@ def test_legacy_space_api_warns_once(name, call):
 @pytest.mark.parametrize(
     "page",
     [
-        lambda: SolaraViz(GridModel()),
+        lambda: SolaraViz(GridModel(), components="default"),
         lambda: SpaceMatplotlib(GridModel(), portrayal, None),
     ],
 )
 def test_internal_paths_do_not_warn(page):
-    """SolaraViz's default space and SpaceMatplotlib use the legacy code without warning."""
+    """SolaraViz(components="default") and SpaceMatplotlib use the legacy code without warning."""
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
         solara.render(page(), handle_error=False)

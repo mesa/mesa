@@ -249,8 +249,22 @@ def draw_space(
     """Draw a Matplotlib-based visualization of the space.
 
     .. deprecated:: 3.5.3
-        Use :class:`~mesa.visualization.SpaceRenderer` instead. ``draw_space``
-        will be removed in Mesa 4.0. See :func:`_draw_space` for the arguments.
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0.
+
+    Args:
+        space: the space of the mesa model
+        agent_portrayal: A callable that returns a AgnetPortrayalStyle specifying how to show the agent
+        propertylayer_portrayal: A callable that returns a PropertyLayerStyle specifying how to show the property layer
+        ax: the axes upon which to draw the plot
+        space_drawing_kwargs: any additional keyword arguments to be passed on to the underlying function for drawing the space.
+
+    Returns:
+        Returns the Axes object with the plot drawn onto it.
+
+    ``agent_portrayal`` is called with an agent and should return a AgentPortrayalStyle. Valid fields in this object are "color",
+    "size", "marker", "zorder", alpha, linewidths, and edgecolors. Other field are ignored and will result in a user warning.
+
     """
     warnings.warn(
         "draw_space() is deprecated and will be removed in Mesa 4.0. "
@@ -271,22 +285,7 @@ def _draw_space(
     ax: Axes | None = None,
     **space_drawing_kwargs,
 ):
-    """Draw a Matplotlib-based visualization of the space.
-
-    Args:
-        space: the space of the mesa model
-        agent_portrayal: A callable that returns a AgnetPortrayalStyle specifying how to show the agent
-        propertylayer_portrayal: A callable that returns a PropertyLayerStyle specifying how to show the property layer
-        ax: the axes upon which to draw the plot
-        space_drawing_kwargs: any additional keyword arguments to be passed on to the underlying function for drawing the space.
-
-    Returns:
-        Returns the Axes object with the plot drawn onto it.
-
-    ``agent_portrayal`` is called with an agent and should return a AgentPortrayalStyle. Valid fields in this object are "color",
-    "size", "marker", "zorder", alpha, linewidths, and edgecolors. Other field are ignored and will result in a user warning.
-
-    """
+    """Implementation of :func:`draw_space`, without the deprecation warning."""
     if ax is None:
         _, ax = plt.subplots()
 

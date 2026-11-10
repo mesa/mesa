@@ -24,31 +24,17 @@ def make_space_matplotlib(*args, **kwargs):  # noqa: D103
     return _make_mpl_space_component(*args, **kwargs)
 
 
-def make_mpl_space_component(*args, **kwargs) -> SpaceMatplotlib:
-    """Create a Matplotlib-based space visualization component.
-
-    .. deprecated:: 3.5.3
-        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
-        will be removed in Mesa 4.0. See :func:`_make_mpl_space_component` for
-        the arguments.
-    """
-    warnings.warn(
-        "make_mpl_space_component() is deprecated and will be removed in Mesa 4.0. "
-        "Use SpaceRenderer instead. "
-        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
-        FutureWarning,
-        stacklevel=2,
-    )
-    return _make_mpl_space_component(*args, **kwargs)
-
-
-def _make_mpl_space_component(
+def make_mpl_space_component(
     agent_portrayal: Callable | None = None,
     propertylayer_portrayal: dict | None = None,
     post_process: Callable | None = None,
     **space_drawing_kwargs,
 ) -> SpaceMatplotlib:
     """Create a Matplotlib-based space visualization component.
+
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0.
 
     Args:
         agent_portrayal: Function to portray agents.
@@ -63,6 +49,25 @@ def _make_mpl_space_component(
     Returns:
         function: A function that creates a SpaceMatplotlib component
     """
+    warnings.warn(
+        "make_mpl_space_component() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _make_mpl_space_component(
+        agent_portrayal, propertylayer_portrayal, post_process, **space_drawing_kwargs
+    )
+
+
+def _make_mpl_space_component(
+    agent_portrayal: Callable | None = None,
+    propertylayer_portrayal: dict | None = None,
+    post_process: Callable | None = None,
+    **space_drawing_kwargs,
+) -> SpaceMatplotlib:
+    """Implementation of :func:`make_mpl_space_component`, without the deprecation warning."""
     if agent_portrayal is None:
 
         def agent_portrayal(a):
