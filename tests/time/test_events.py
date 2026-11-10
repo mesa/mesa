@@ -22,6 +22,10 @@ from mesa.time import (
 pytestmark = pytest.mark.filterwarnings("ignore::FutureWarning")
 
 
+def _noop():
+    """Module-level callback, so Event's weak reference stays alive."""
+
+
 # ---------------------------------------------------------------------------
 # Schedule
 # ---------------------------------------------------------------------------
@@ -698,6 +702,72 @@ def setup():
     return model, MagicMock()
 
 
+class TestEventListDuplicateAdd:
+    """Adding one Event twice to the same list corrupts the canceled count."""
+
+    def test_duplicate_add_is_refused(self):
+        """A second add of a queued event raises rather than double-queueing it."""
+        event_list = EventList()
+        event = Event(1.0, _noop, Priority.DEFAULT)
+        event_list.add_event(event)
+
+        with pytest.raises(ValueError, match="already in this event list"):
+            event_list.add_event(event)
+
+        assert len(event_list) == 1
+
+    def test_len_and_is_empty_stay_consistent_while_draining(self):
+        """len(), is_empty() and pop_event() must agree. See #3973.
+
+        One event in two heap slots was counted once by cancel() and twice by
+        pop_event(), so len() overcounted, is_empty() claimed events remained
+        after the heap was drained, and the canceled total went negative --
+        which also disables compaction, since a negative count never exceeds
+        the ratio.
+        """
+        event_list = EventList()
+        events = [Event(float(i), _noop, Priority.DEFAULT) for i in range(4)]
+        for event in events:
+            event_list.add_event(event)
+
+        with pytest.raises(ValueError):
+            event_list.add_event(events[0])
+
+        events[0].cancel()
+        live = sum(1 for e in event_list._events if not e.CANCELED)
+        assert len(event_list) == live
+
+        drained = 0
+        while not event_list.is_empty():
+            event_list.pop_event()
+            drained += 1
+
+        assert drained == live
+        assert len(event_list) == 0
+        assert event_list._n_canceled >= 0
+
+    def test_ownership_still_transfers_between_lists(self):
+        """Handing an event to a second list stays allowed, as documented."""
+        first, second = EventList(), EventList()
+        event = Event(1.0, _noop, Priority.DEFAULT)
+
+        first.add_event(event)
+        second.add_event(event)
+
+        assert len(second) == 1
+
+    def test_a_popped_event_can_be_added_again(self):
+        """pop_event() releases ownership, so rescheduling the event is fine."""
+        event_list = EventList()
+        event = Event(1.0, _noop, Priority.DEFAULT)
+        event_list.add_event(event)
+
+        popped = event_list.pop_event()
+        event_list.add_event(popped)
+
+        assert len(event_list) == 1
+
+
 class TestEventGeneratorInit:
     def test_defaults(self, setup):
         model, fn = setup
@@ -1019,6 +1089,50 @@ class TestEventGeneratorIntrospection:
         gen.stop()
         assert not gen.is_active
         assert gen.next_scheduled_time is None
+
+    def test_is_paused_through_lifecycle(self, setup):
+        """is_paused tells a paused generator apart from a running or stopped one."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0))
+        assert (gen.is_active, gen.is_paused) == (False, False)
+
+        # pausing before start does nothing
+        gen.pause()
+        assert gen.is_paused is False
+
+        gen.start()
+        assert (gen.is_active, gen.is_paused) == (True, False)
+
+        gen.pause()
+        assert (gen.is_active, gen.is_paused) == (True, True)
+
+        gen.resume()
+        assert (gen.is_active, gen.is_paused) == (True, False)
+
+        # stopping a paused generator clears the paused state too
+        gen.pause()
+        gen.stop()
+        assert (gen.is_active, gen.is_paused) == (False, False)
+
+    def test_is_paused_inside_callback(self, setup):
+        """is_paused gives a direct answer inside the generator's own callback."""
+        model, _ = setup
+        seen = []
+        gen = None
+
+        def cb():
+            # while firing, next_scheduled_time is the current event, not a future one
+            seen.append((gen.is_paused, gen.next_scheduled_time == model.time))
+            gen.pause()
+            seen.append((gen.is_paused, gen.next_scheduled_time))
+
+        gen = EventGenerator(model, cb, Schedule(interval=1.0))
+        gen.start()
+        model.run_for(3.0)
+
+        assert seen == [(False, True), (True, None)]  # fired once, then paused
+        assert gen.is_active
+        assert gen.is_paused
 
 
 class TestEventGeneratorPauseResume:

@@ -262,6 +262,14 @@ class EventGenerator:
         return self._active
 
     @property
+    def is_paused(self) -> bool:
+        """Return whether the generator is paused.
+
+        A paused generator is still active, so running is ``is_active and not is_paused``.
+        """
+        return self._paused
+
+    @property
     def execution_count(self) -> int:
         """Return the number of times this generator has executed."""
         return self._execution_count
@@ -484,12 +492,22 @@ class EventList:
         Raises:
             ValueError: If the event has already been canceled. Cancellation is
                 terminal, so such an event could never execute.
+            ValueError: If the event is already queued in this list. One event
+                would then occupy several heap slots while ``cancel()`` only
+                counts it once, so the canceled total, ``len()`` and
+                ``is_empty()`` would all drift apart.
 
         """
         if event.CANCELED:
             raise ValueError(
                 "Cannot add a canceled event to an event list. Cancellation is "
                 "terminal, so the event would never execute."
+            )
+
+        if event._owner is not None and event._owner() is self:
+            raise ValueError(
+                "Event is already in this event list. Schedule a new Event "
+                "instead of re-adding one that is still queued."
             )
 
         event._owner = self._self_ref
