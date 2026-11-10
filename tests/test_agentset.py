@@ -1273,6 +1273,37 @@ def test_select_random_weighted_sequence():
     assert all(a in agentset for a in sampled)
 
 
+@pytest.mark.parametrize("array_type", ["ndarray", "series"])
+def test_select_random_weighted_array_like(array_type):
+    """Weighted selection accepts numpy arrays and pandas Series, like set()."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    values = [0.1, 0.1, 0.8]
+    if array_type == "ndarray":
+        weights = np.array(values)
+    else:
+        pd = pytest.importorskip("pandas")
+        weights = pd.Series(values)
+
+    sampled = agentset.select_random(2, weights=weights, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_weighted_array_length_mismatch():
+    """An array-like of the wrong length still raises ValueError."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(ValueError, match="does not match"):
+        agentset.select_random(2, weights=np.array([1.0, 2.0]))
+
+
 @pytest.mark.parametrize("invalid_weight", [np.nan, np.inf])
 def test_select_random_rejects_nonfinite_weights(invalid_weight):
     """Weighted sampling rejects values that cannot define probabilities."""
@@ -1320,6 +1351,23 @@ def test_select_random_weighted_without_replacement_excludes_zero_weights():
 
     assert len(sampled) == 3
     assert agents[3] not in sampled
+
+
+def test_select_random_weighted_without_replacement_with_probabilities():
+    """Weights normalized to probabilities select the same agents as the raw weights."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2000)]
+    fitness = [float(1 + i % 5) for i in range(2000)]
+    total = sum(fitness)
+    # The normalized weights are O(1e-4), small enough to expose key underflow.
+    probabilities = [f / total for f in fitness]
+
+    expected = AgentSet(agents, random=Random(42)).select_random(1000, weights=fitness)
+    sampled = AgentSet(agents, random=Random(42)).select_random(
+        1000, weights=probabilities
+    )
+
+    assert set(sampled) == set(expected)
 
 
 def test_select_random_edge_cases_and_errors():
