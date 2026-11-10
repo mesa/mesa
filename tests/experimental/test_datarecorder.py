@@ -493,6 +493,43 @@ def test_json_recorder_numpy_dataset_keeps_agent_ids_and_field_names(tmp_path):
     assert saved[0]["data"][2] == {"agent_id": 3, "value": 2.0, "other_value": 4.0}
 
 
+def test_json_recorder_numpy_dataset_ids_stay_aligned_after_removal(tmp_path):
+    """Removing an agent swaps the last row in; each id must keep its own values."""
+    model = MockModel(n=4)  # agent ids 1-4 hold value 0-3 (other_value is 2 * value)
+    recorder = JSONDataRecorder(
+        model, {"numpy_data": DatasetConfig()}, output_dir=tmp_path
+    )
+    recorder.collect()
+
+    # Removing agent 1 moves agent 4's row into row 0 (swap-with-last).
+    next(agent for agent in model.agents if agent.unique_id == 1).remove()
+    recorder.collect()
+
+    before, after = recorder.data["numpy_data"]
+    assert {row["agent_id"]: row["value"] for row in before["data"]} == {
+        1: 0.0,
+        2: 1.0,
+        3: 2.0,
+        4: 3.0,
+    }
+    # Row order changed, so this only passes if ids travel with their values.
+    assert after["data"][0]["agent_id"] == 4
+    assert {row["agent_id"]: row["value"] for row in after["data"]} == {
+        2: 1.0,
+        3: 2.0,
+        4: 3.0,
+    }
+    assert all(row["other_value"] == 2 * row["value"] for row in after["data"])
+
+    recorder.save_to_json()
+    with open(tmp_path / "numpy_data.json") as f:
+        saved = json.load(f)
+    assert [snapshot["data"] for snapshot in saved] == [
+        before["data"],
+        after["data"],
+    ]
+
+
 def test_json_recorder_stores_a_plain_array_as_a_list(tmp_path):
     """An array from a dataset without agent ids is stored as nested lists."""
     model = MockModel(n=2)
