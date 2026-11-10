@@ -22,8 +22,7 @@ To avoid errors, it is recommended to define your model constructor with keyword
 
 ```python
 class MyModel(Model):
-    def __init__(self, *, width, height, rng=None):
-        ...
+    def __init__(self, *, width, height, rng=None): ...
 ```
 
 

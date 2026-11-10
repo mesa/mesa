@@ -1,4 +1,4 @@
-# logging
+# Logging
 
 ```{eval-rst}
 .. automodule:: mesa.mesa_logging

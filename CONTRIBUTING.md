@@ -315,8 +315,7 @@ When implementing a replacement feature:
 
 ```python
 warnings.warn(
-    "old_feature() will be deprecated in a future release. "
-    "Use new_feature() instead.",
+    "old_feature() will be deprecated in a future release. Use new_feature() instead.",
     PendingDeprecationWarning,
     stacklevel=2,
 )

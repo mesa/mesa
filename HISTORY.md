@@ -210,15 +210,16 @@ The headline feature of 3.5.0 is a new public API for event scheduling and time 
 
 ```python
 # Run the model for a duration
-model.run_for(10)       # Advance 10 time units
-model.run_until(50.0)   # Run until absolute time 50
+model.run_for(10)  # Advance 10 time units
+model.run_until(50.0)  # Run until absolute time 50
 
 # Schedule one-off events
-model.schedule_event(callback, at=25.0)    # At absolute time
+model.schedule_event(callback, at=25.0)  # At absolute time
 model.schedule_event(callback, after=5.0)  # Relative to now
 
 # Schedule recurring events
 from mesa.time import Schedule
+
 model.schedule_recurring(func, Schedule(interval=10, start=0))
 ```
 
@@ -258,12 +259,16 @@ Explicit `Scenario` support (#3103, #3168) provides a structured way to define a
 class MyScenario(Scenario):
     density: float = 0.7
 
+
 class MyModel(Model):
     def __init__(self, width=40, scenario=None):
         super().__init__(scenario=scenario)
 
+
 # 'density' is auto-detected as a Scenario parameter
-page = SolaraViz(MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)})
+page = SolaraViz(
+    MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)}
+)
 ```
 
 #### Reactive model and data collection
@@ -271,7 +276,9 @@ The Model class is now reactive (#3212): `model.time` is observable, and signals
 
 ```python
 self.recorder = DataRecorder(self)
-self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(self.recorder)
+self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(
+    self.recorder
+)
 self.data_registry.track_model(self, "model_data", "gini").record(
     self.recorder, configuration=DatasetConfig(start_time=4, interval=2)
 )
@@ -861,11 +868,7 @@ Here's a quick look at the new API:
 
 ```python
 # Create a 2D continuous space
-space = ContinuousSpace(
-    dimensions=[[0, 1], [0, 1]],
-    torus=True,
-    random=model.random
-)
+space = ContinuousSpace(dimensions=[[0, 1], [0, 1]], torus=True, random=model.random)
 
 # Create and position an agent
 agent = ContinuousSpaceAgent(space, model)
@@ -1060,11 +1063,9 @@ wealthy_agents = model.agents.select(lambda a: a.wealth > 1000)
 
 # Group and analyze agents
 grouped = model.agents.groupby("state")
-state_stats = grouped.agg({
-     "count": len,
-     "avg_age": ("age", np.mean),
-     "total_wealth": ("wealth", sum)
- })
+state_stats = grouped.agg(
+    {"count": len, "avg_age": ("age", np.mean), "total_wealth": ("wealth", sum)}
+)
 
 # Activate agents in different patterns
 model.agents.shuffle_do("step")  # Random activation
@@ -1084,9 +1085,9 @@ visualization = SolaraViz(
     [
         make_space_component(agent_portrayal),
         make_plot_component(["population", "average_wealth"]),
-        lambda m: f"Step {m.steps}: {len(m.agents)} agents"  # Custom text component
+        lambda m: f"Step {m.steps}: {len(m.agents)} agents",  # Custom text component
     ],
-    model_params=parameter_controls
+    model_params=parameter_controls,
 )
 ```
 
@@ -1110,8 +1111,8 @@ self.datacollector = DataCollector(
     agent_reporters={"age": "age", "wealth": "wealth"},
     agenttype_reporters={
         Predator: {"kills": "kills_count"},
-        Prey: {"distance_fled": "total_flight_distance"}
-    }
+        Prey: {"distance_fled": "total_flight_distance"},
+    },
 )
 ```
 
@@ -1283,7 +1284,13 @@ The rarely used `mesa startproject` cookiecutter feature was removed. We updated
 ## Highlights
 Mesa 3.0 beta 1 is our last beta release before the Mesa 3.0 stable release. We are restructuring our examples and have move 9 core examples from [mesa-examples](https://github.com/mesa/mesa-examples) to mesa itself ([#2358](https://github.com/mesa/mesa/pull/2358)). The 5 basic examples are now directly importable ([#2381](https://github.com/mesa/mesa/pull/2381)):
 ```Python
-from examples.basic import BoidFlockers, BoltzmannWealthModel, ConwaysGameOfLife, Schelling, VirusOnNetwork
+from examples.basic import (
+    BoidFlockers,
+    BoltzmannWealthModel,
+    ConwaysGameOfLife,
+    Schelling,
+    VirusOnNetwork,
+)
 ```
 The 5 basic examples will always use stable Mesa features, we are also working on 4 more advanced example which can also include experimental features.
 
@@ -1379,7 +1386,7 @@ The DataCollector now supports collecting data from specific Agent subclasses us
 self.datacollector = DataCollector(
     agenttype_reporters={
         Wolf: {"sheep_eaten": "sheep_eaten"},
-        Sheep: {"wool": "wool_amount"}
+        Sheep: {"wool": "wool_amount"},
     }
 )
 ```
@@ -1818,10 +1825,12 @@ The new `AgentSet` class encapsulates and manages collections of agents, streaml
 **Example:**
 ```Python
 # Applying a method to each agent
-model.agents.do('step')
+model.agents.do("step")
 
 # Filtering and shuffling agents
-shuffled_agents = model.agents.select(lambda agent: agent.attribute > threshold).shuffle()
+shuffled_agents = model.agents.select(
+    lambda agent: agent.attribute > threshold
+).shuffle()
 ```
 _The AgentSet is an experimental feature. We would love feedback on it in #1919._
 
@@ -1845,7 +1854,9 @@ grid.add_property_layer(property_layer)
 grid.properties["elevation"].modify_cells(np.multiply, 2)
 
 # Select cells that have an elevation of at least 50
-high_elevation_cells = grid.properties["elevation"].select_cells(condition=lambda x: x > 50)
+high_elevation_cells = grid.properties["elevation"].select_cells(
+    condition=lambda x: x > 50
+)
 ```
 _The PropertyLayer is an experimental feature. We would love feedback on it in #1932._
 
