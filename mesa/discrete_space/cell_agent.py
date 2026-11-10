@@ -77,8 +77,10 @@ class BasicMovement:
 class FixedCell(HasCell):
     """Mixin for agents that are fixed to a cell.
 
-    Once assigned to a cell, the agent cannot be moved to a different cell.
-    The assignment is atomic: if cell.add_agent() raises (e.g. capacity
+    The cell can be assigned once, after the agent is created. Until then the
+    agent is unplaced and its cell is None; assigning None while unplaced does
+    nothing. Once assigned to a cell, the agent cannot be moved to a different
+    cell. The assignment is atomic: if cell.add_agent() raises (e.g. capacity
     reached), the agent's _mesa_cell reference is left unchanged.
     """
 
@@ -91,6 +93,8 @@ class FixedCell(HasCell):
     def cell(self, cell: Cell | None) -> None:
         if self._mesa_cell is not None:
             raise ValueError("Cannot move agent in FixedCell")
+        if cell is None:
+            return  # still unplaced, nothing to do
         cell.add_agent(self)
         self._mesa_cell = cell
 
@@ -112,7 +116,19 @@ class FixedAgent(Agent, FixedCell):
     """A patch in a 2D grid."""
 
     def remove(self):
-        """Remove the agent from the model."""
+        """Remove the agent from the model and from its cell.
+
+        Raises:
+            ValueError: If the agent is not in a cell. An unplaced fixed agent is
+                treated as an error. The check runs before anything is removed, so
+                the agent is left untouched.
+        """
+        if self.cell is None:
+            raise ValueError(
+                f"Cannot remove {type(self).__name__} {self.unique_id}: it is not "
+                "in a cell. A fixed agent has to be placed in a cell before it "
+                "can be removed."
+            )
         super().remove()
 
         self.cell.remove_agent(self)

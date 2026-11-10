@@ -147,13 +147,11 @@ class Cell:
             agent (CellAgent): agent to add to this Cell
 
         """
-        n = len(self._agents)
-        self.empty = False
-
-        if self.capacity is not None and n >= self.capacity:
+        if self.capacity is not None and len(self._agents) >= self.capacity:
             raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
+        self.empty = False
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -221,8 +219,6 @@ class Cell:
             random=self.random,
         )
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -241,6 +237,8 @@ class Cell:
             }
             if include_center:
                 neighborhood[self] = self._agents
+            else:
+                neighborhood.pop(self, None)
             return neighborhood
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
@@ -292,4 +290,3 @@ class Cell:
     def _clear_cache(self):
         """Helper function to clear local cache."""
         self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()
