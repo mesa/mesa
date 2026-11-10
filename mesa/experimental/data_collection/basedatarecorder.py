@@ -38,8 +38,10 @@ if TYPE_CHECKING:
     from .dataset import DataRegistry, DataSet
 
 # Values of these types cannot change after they are recorded, so a snapshot
-# can hold them as they are.
-_IMMUTABLE_TYPES = (str, int, float, bool, tuple, type(None), np.generic)
+# can hold them as they are. A tuple is left out on purpose: it is immutable
+# itself but can hold a list, so it goes through deepcopy, which hands back the
+# same tuple when everything inside it is immutable.
+_IMMUTABLE_TYPES = (str, int, float, bool, type(None), np.generic)
 
 # The exact types that make up nearly every snapshot. Checking for these is
 # much cheaper than isinstance, which keeps the common case fast.

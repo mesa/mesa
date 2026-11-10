@@ -1148,6 +1148,29 @@ def test_snapshot_keeps_the_value_it_was_taken_with(tmp_path, recorder_class):
     assert [len(log) for log in model_df["log"]] == [0, 1, 2, 3]
 
 
+@pytest.mark.parametrize("recorder_class", [DataRecorder, JSONDataRecorder])
+def test_snapshot_copies_a_mutable_value_held_in_a_tuple(tmp_path, recorder_class):
+    """A tuple is immutable, but a list inside it is not."""
+
+    class TupleModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.values = ([0],)
+            self.data_registry.track_model(self, "model_data", fields=["values"])
+
+        def step(self):
+            self.values[0].append(0)
+
+    kwargs = {} if recorder_class is DataRecorder else {"output_dir": tmp_path}
+    model = TupleModel()
+    recorder = recorder_class(model, {"model_data": DatasetConfig()}, **kwargs)
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    assert [len(values[0]) for values in df["values"]] == [1, 2, 3]
+
+
 def test_detach_snapshot_handles_rows_that_are_not_dicts():
     """A list snapshot of plain values is detached value by value."""
     live = [1, 2]
