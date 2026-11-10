@@ -1171,6 +1171,46 @@ def test_snapshot_copies_a_mutable_value_held_in_a_tuple(tmp_path, recorder_clas
     assert [len(values[0]) for values in df["values"]] == [1, 2, 3]
 
 
+@pytest.mark.parametrize("recorder_class", [DataRecorder, JSONDataRecorder])
+def test_snapshot_copies_a_structured_numpy_scalar(tmp_path, recorder_class):
+    """A structured numpy scalar is a view into its array, so it is copied."""
+
+    class StructuredModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.backing = np.array([(0,)], dtype=[("value", "i8")])
+            self.record = self.backing[0]
+            self.data_registry.track_model(self, "model_data", fields=["record"])
+
+        def step(self):
+            self.backing["value"][0] += 1
+
+    kwargs = {} if recorder_class is DataRecorder else {"output_dir": tmp_path}
+    model = StructuredModel()
+    recorder = recorder_class(model, {"model_data": DatasetConfig()}, **kwargs)
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    assert [int(record["value"]) for record in df["record"]] == [0, 1, 2]
+
+
+def test_snapshot_keeps_immutable_numpy_scalars_as_they_are():
+    """Numeric, boolean, string and time numpy scalars are not copied."""
+    values = [
+        np.float32(1.5),
+        np.int8(3),
+        np.bool_(True),
+        np.str_("a"),
+        np.datetime64("2026-11-10"),
+    ]
+    row = {f"v{i}": value for i, value in enumerate(values)}
+
+    snapshot = _detach_snapshot([row])
+
+    assert snapshot[0] is row
+
+
 def test_detach_snapshot_handles_rows_that_are_not_dicts():
     """A list snapshot of plain values is detached value by value."""
     live = [1, 2]
