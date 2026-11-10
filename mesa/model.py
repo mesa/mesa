@@ -225,13 +225,13 @@ class Model[A: Agent, S: Scenario](HasObservables):
                 break
 
             if event.time <= until:
-                self.time = event.time
+                self.time = float(event.time)
                 event.execute()
             else:
                 self._event_list.add_event(event)
                 break
 
-        self.time = until
+        self.time = float(until)
 
     def _do_step(self) -> None:
         """Execute one step. Rescheduling is handled by the EventGenerator."""
