@@ -17,14 +17,34 @@ from mesa.visualization.utils import update_counter
 
 def make_space_altair(*args, **kwargs):  # noqa: D103
     warnings.warn(
-        "make_space_altair has been renamed to make_altair_space",
+        "make_space_altair() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
         FutureWarning,
         stacklevel=2,
     )
-    return make_altair_space(*args, **kwargs)
+    return _make_altair_space(*args, **kwargs)
 
 
-def make_altair_space(
+def make_altair_space(*args, **kwargs):
+    """Create an Altair-based space visualization component.
+
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0. See :func:`_make_altair_space` for the
+        arguments.
+    """
+    warnings.warn(
+        "make_altair_space() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _make_altair_space(*args, **kwargs)
+
+
+def _make_altair_space(
     agent_portrayal,
     propertylayer_portrayal=None,
     post_process=None,

@@ -6,6 +6,7 @@ NOTE: This file can be removed when legacy support is dropped.
 
 import random
 
+import pytest
 import solara
 
 import mesa
@@ -15,6 +16,11 @@ from mesa.visualization import SolaraViz
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 from mesa.visualization.components.altair_components import make_altair_space
 from mesa.visualization.components.matplotlib_components import make_mpl_space_component
+
+# the legacy space components are deprecated (#4053); these tests cover them until removal
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.* is deprecated and will be removed in Mesa 4.0. Use SpaceRenderer:FutureWarning"
+)
 
 
 def test_legacy_dict_portrayal_support(mocker):

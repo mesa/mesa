@@ -9,20 +9,40 @@ import matplotlib.pyplot as plt
 import solara
 from matplotlib.figure import Figure
 
-from mesa.visualization.mpl_space_drawing import draw_space
+from mesa.visualization.mpl_space_drawing import _draw_space
 from mesa.visualization.utils import update_counter
 
 
 def make_space_matplotlib(*args, **kwargs):  # noqa: D103
     warnings.warn(
-        "make_space_matplotlib has been renamed to make_mpl_space_component",
+        "make_space_matplotlib() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
         FutureWarning,
         stacklevel=2,
     )
-    return make_mpl_space_component(*args, **kwargs)
+    return _make_mpl_space_component(*args, **kwargs)
 
 
-def make_mpl_space_component(
+def make_mpl_space_component(*args, **kwargs) -> SpaceMatplotlib:
+    """Create a Matplotlib-based space visualization component.
+
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0. See :func:`_make_mpl_space_component` for
+        the arguments.
+    """
+    warnings.warn(
+        "make_mpl_space_component() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _make_mpl_space_component(*args, **kwargs)
+
+
+def _make_mpl_space_component(
     agent_portrayal: Callable | None = None,
     propertylayer_portrayal: dict | None = None,
     post_process: Callable | None = None,
@@ -79,7 +99,7 @@ def SpaceMatplotlib(
     fig = Figure()
     ax = fig.add_subplot()
 
-    draw_space(
+    _draw_space(
         space,
         agent_portrayal,
         propertylayer_portrayal=propertylayer_portrayal,

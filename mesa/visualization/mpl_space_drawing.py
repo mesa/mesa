@@ -248,6 +248,31 @@ def draw_space(
 ):
     """Draw a Matplotlib-based visualization of the space.
 
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. ``draw_space``
+        will be removed in Mesa 4.0. See :func:`_draw_space` for the arguments.
+    """
+    warnings.warn(
+        "draw_space() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _draw_space(
+        space, agent_portrayal, propertylayer_portrayal, ax, **space_drawing_kwargs
+    )
+
+
+def _draw_space(
+    space,
+    agent_portrayal: Callable,
+    propertylayer_portrayal: Callable | None = None,
+    ax: Axes | None = None,
+    **space_drawing_kwargs,
+):
+    """Draw a Matplotlib-based visualization of the space.
+
     Args:
         space: the space of the mesa model
         agent_portrayal: A callable that returns a AgnetPortrayalStyle specifying how to show the agent

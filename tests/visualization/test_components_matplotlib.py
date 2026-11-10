@@ -48,6 +48,9 @@ def agent_portrayal(agent):
     )
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.* is deprecated and will be removed in Mesa 4.0. Use SpaceRenderer:FutureWarning"
+)
 def test_draw_space():
     """Test draw_space helper method."""
 
