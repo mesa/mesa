@@ -20,6 +20,7 @@ from mesa.experimental.data_collection import (
     ParquetDataRecorder,
     SQLDataRecorder,
 )
+from mesa.experimental.data_collection.basedatarecorder import _detach_snapshot
 from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.model import Model
 
@@ -1083,6 +1084,78 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+class WalkingAgent(Agent):
+    """An agent that changes its mutable attributes in place."""
+
+    def __init__(self, model):
+        """Initialize the agent."""
+        super().__init__(model)
+        self.position = np.array([0.0, 0.0])
+        self.visited = [0]
+
+    def step(self):
+        """Move, and remember the new time."""
+        self.position += 1.0
+        self.visited.append(len(self.visited))
+
+
+class WalkingModel(Model):
+    """A model whose own and whose agents' mutable attributes change in place."""
+
+    def __init__(self):
+        """Initialize the model."""
+        super().__init__()
+        self.log = []
+        WalkingAgent(self)
+        self.data_registry.track_model(self, "model_data", fields=["log"])
+        self.data_registry.track_agents(
+            self.agents, "agent_data", fields=["position", "visited"]
+        )
+
+    def step(self):
+        """Advance the agents and the log."""
+        self.log.append(self.time)
+        self.agents.do("step")
+
+
+@pytest.mark.parametrize(
+    "recorder_class", [DataRecorder, JSONDataRecorder, ParquetDataRecorder]
+)
+def test_snapshot_keeps_the_value_it_was_taken_with(tmp_path, recorder_class):
+    """A value mutated in place after a snapshot does not change that snapshot."""
+    kwargs = {}
+    if recorder_class is not DataRecorder:
+        kwargs["output_dir"] = tmp_path
+    if recorder_class is ParquetDataRecorder:
+        pytest.importorskip("pyarrow")
+
+    model = WalkingModel()
+    recorder = recorder_class(
+        model,
+        config={"model_data": DatasetConfig(), "agent_data": DatasetConfig()},
+        **kwargs,
+    )
+
+    model.run_for(3)
+
+    agent_df = recorder.get_table_dataframe("agent_data")
+    assert [position[0] for position in agent_df["position"]] == [0.0, 1.0, 2.0, 3.0]
+    assert [len(visited) for visited in agent_df["visited"]] == [1, 2, 3, 4]
+
+    model_df = recorder.get_table_dataframe("model_data")
+    assert [len(log) for log in model_df["log"]] == [0, 1, 2, 3]
+
+
+def test_detach_snapshot_handles_rows_that_are_not_dicts():
+    """A list snapshot of plain values is detached value by value."""
+    live = [1, 2]
+
+    snapshot = _detach_snapshot([live, "label"])
+    live.append(3)
+
+    assert snapshot == [[1, 2], "label"]
 
 
 @pytest.mark.parametrize(

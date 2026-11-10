@@ -24,8 +24,10 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from itertools import chain
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 
 from mesa.experimental.mesa_signals import ModelSignals, ObservableSignals
@@ -34,6 +36,62 @@ if TYPE_CHECKING:
     from mesa import Model
 
     from .dataset import DataRegistry, DataSet
+
+# Values of these types cannot change after they are recorded, so a snapshot
+# can hold them as they are.
+_IMMUTABLE_TYPES = (str, int, float, bool, tuple, type(None), np.generic)
+
+# The exact types that make up nearly every snapshot. Checking for these is
+# much cheaper than isinstance, which keeps the common case fast.
+_ATOMIC_TYPES = frozenset(
+    {str, int, float, bool, type(None), np.float64, np.int64, np.bool_}
+)
+
+
+def _detach(value: Any) -> Any:
+    """Return ``value`` itself if it is immutable, otherwise a deep copy of it."""
+    return value if isinstance(value, _IMMUTABLE_TYPES) else copy.deepcopy(value)
+
+
+def _detach_row(row: Any) -> Any:
+    """Detach the values of one row, building a new row only if it is needed."""
+    if not isinstance(row, dict):
+        return _detach(row)
+    for value in row.values():
+        if not isinstance(value, _IMMUTABLE_TYPES):
+            return {key: _detach(value) for key, value in row.items()}
+    return row
+
+
+def _is_atomic(rows: list) -> bool:
+    """Whether every value in a list of row dicts has an atomic type."""
+    try:
+        values = chain.from_iterable(map(dict.values, rows))
+        return _ATOMIC_TYPES.issuperset(map(type, values))
+    except TypeError:  # a row that is not a dict
+        return False
+
+
+def _detach_snapshot(data: Any) -> Any:
+    """Cut a snapshot loose from the live objects it was read from.
+
+    A dataset hands out the attribute values themselves. If a list, an array
+    or any other mutable value were stored as it is, later changes to it would
+    show up in every snapshot already recorded. Mutable values are therefore
+    deep-copied; immutable ones are kept as they are.
+
+    Numpy snapshots are left alone, because each recorder copies them when it
+    stores them.
+    """
+    match data:
+        case dict():
+            return _detach_row(data)
+        case list():
+            if _is_atomic(data):
+                return data
+            return [_detach_row(row) for row in data]
+        case _:
+            return data
 
 
 @dataclass
@@ -197,7 +255,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = _detach_snapshot(dataset.data)
 
             self._store_dataset_snapshot(
                 name, current_time, data_snapshot, is_overwrite
@@ -224,7 +282,10 @@ class BaseDataRecorder(ABC):
             is_overwrite = current_time == config._last_collection
 
             dataset = self.registry.datasets[name]
-            self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)
+            data_snapshot = _detach_snapshot(dataset.data)
+            self._store_dataset_snapshot(
+                name, current_time, data_snapshot, is_overwrite
+            )
 
             config._last_collection = current_time
 
@@ -251,7 +312,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = _detach_snapshot(dataset.data)
             self._store_dataset_snapshot(name, current_time, data_snapshot)
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
