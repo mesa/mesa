@@ -160,9 +160,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             until: The time to advance to
 
         """
-        if until <= self.time:
+        if until < self.time:
             warnings.warn(
-                f"end time {until} is not larger than current time {self.time}",
+                f"end time {until} is earlier than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -175,13 +175,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
                 break
 
             if event.time <= until:
-                self.time = event.time
+                self.time = float(event.time)
                 event.execute()
             else:
                 self._event_list.add_event(event)
                 break
 
-        self.time = until
+        self.time = float(until)
 
     @property
     def agents(self) -> _HardKeyAgentSet[A]:
@@ -408,7 +408,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if self.time > end_time:
             warnings.warn(
-                f"end_time {end_time} is not larger than current time {self.time}",
+                f"end_time {end_time} is earlier than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )

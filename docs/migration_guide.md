@@ -8,6 +8,27 @@ Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing 
 
 Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
 
+### `Grid.select_random_empty_cell` raises `SpaceException` on a full grid
+On a full grid, `select_random_empty_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raises `SpaceException` instead of `ValueError`, matching `Network` and `VoronoiGrid`.
+
+```python
+from mesa.exceptions import SpaceException
+
+# Old
+try:
+    cell = grid.select_random_empty_cell()
+except ValueError:
+    ...
+
+# New
+try:
+    cell = grid.select_random_empty_cell()
+except SpaceException:
+    ...
+```
+
+- Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
@@ -108,6 +129,23 @@ if model.time >= 100:
 
 - Ref: [PR #3328](https://github.com/mesa/mesa/pull/3328)
 
+### Any sized sequence is spread across agents
+`create_agents()` and `AgentSet.set()` used to spread only `list`, `tuple`, `numpy.ndarray` and `pandas.Series`, and broadcast everything else as one shared value. Any sized, ordered sequence is now spread, which adds `range`, `collections.deque`, `array.array` and `pandas.Index`. The length check applies to all of them, so a mismatch raises instead of silently broadcasting.
+
+```python
+# Old
+MyAgent.create_agents(model, n, wealth=range(n))   # every agent got the same range object
+MyAgent.create_agents(model, 4, wealth=range(3))   # silently broadcast, no error
+
+# New
+MyAgent.create_agents(model, n, wealth=range(n))   # agent i gets i
+MyAgent.create_agents(model, 4, wealth=range(3))   # ValueError
+```
+
+Strings, bytes, `collections.UserString`, `dict` and every `collections.abc.Set` are still broadcast, so sharing a group with every agent -- a `set`, an `AgentSet`, a team of neighbours -- is unchanged. If you were relying on a `range` or a `deque` being broadcast as a single value, wrap it: `wealth=[my_range] * n`, or pass it as a scalar the agent stores itself.
+
+- Ref: [PR #3956](https://github.com/mesa/mesa/pull/3956)
+
 ### `batch_run` removed
 `mesa.batch_run` no longer exists. Parameter sweeps go through `Scenario` + `RunConfiguration` + `run_scenarios()` in `mesa.experimental.scenarios`. This isn't a drop-in replacement — it separates *what varies between runs* (`Scenario`) from *how a single run is executed and what's extracted* (`RunConfiguration`), and returns a queryable `Store` rather than a single DataFrame.
 
@@ -150,7 +188,7 @@ grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
 ```
 Networks migrate the same way — `NetworkGrid` becomes `discrete_space.Network`, and placing an agent becomes assigning its `cell` rather than calling a `place_agent` method:
 
-​```python
+```python
 # Old
 from mesa.space import NetworkGrid
 
@@ -162,7 +200,7 @@ from mesa.discrete_space import Network
 
 grid = Network(some_networkx_graph, random=model.random)
 agent.cell = grid[node_id]
-​```
+```
 
 - Ref: [PR #3337](https://github.com/mesa/mesa/pull/3337)
 

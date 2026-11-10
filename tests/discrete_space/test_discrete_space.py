@@ -368,6 +368,43 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
 
+def test_neighborhood_cache_invalidated_on_topology_change():
+    """connect() and disconnect() must invalidate the cached neighborhood.
+
+    get_neighborhood() is cached, so a topology change has to clear that cache
+    or callers keep seeing the old neighbourhood. See #3379.
+    """
+    c1 = Cell((1,), capacity=None, random=random.Random())
+    c2 = Cell((2,), capacity=None, random=random.Random())
+    c3 = Cell((3,), capacity=None, random=random.Random())
+
+    c1.connect(c2)
+    assert set(c1.get_neighborhood().cells) == {c2}  # warms the cache
+
+    c1.connect(c3)
+    assert set(c1.get_neighborhood().cells) == {c2, c3}
+
+    c1.disconnect(c2)
+    assert set(c1.get_neighborhood().cells) == {c3}
+
+
+def test_neighborhood_cache_invalidated_for_larger_radius():
+    """A connect() one hop away must invalidate a radius > 1 neighborhood.
+
+    `cells[1].connect(cells[2])` changes a cell that `cells[0]` only reaches at
+    radius 2, so `cells[0]`'s warmed entry has to be invalidated even though
+    `cells[0]` itself was not touched. See #3379.
+    """
+    cells = [Cell((i,), capacity=None, random=random.Random()) for i in range(3)]
+    cells[0].connect(cells[1], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1]}  # warms
+
+    cells[1].connect(cells[2], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1], cells[2]}
+
+
 def test_cell_neighborhood():
     """Test neighborhood method of cell in different GridSpaces."""
     # orthogonal grid
@@ -1424,7 +1461,7 @@ def test_select_random_cell_empty_safe():
 
 
 def test_infinite_loop_on_full_grid():
-    """Test that select_random_empty_cell raises ValueError with informative message on a full grid."""
+    """Test that select_random_empty_cell raises SpaceException with informative message on a full grid."""
     # 1. Create a small 2x2 model
     model = Model()
     grid = OrthogonalMooreGrid((2, 2), random=model.random)
@@ -1437,8 +1474,8 @@ def test_infinite_loop_on_full_grid():
     # 3. Verify grid is full
     assert len(grid.empties) == 0
 
-    # 4. Ensure ValueError is raised with a clear message
-    with pytest.raises(ValueError, match="Grid is completely full"):
+    # 4. Ensure SpaceException is raised with a clear message
+    with pytest.raises(SpaceException, match="OrthogonalMooreGrid is completely full"):
         grid.select_random_empty_cell()
 
 
@@ -1966,3 +2003,49 @@ def test_cell_neighborhood_self_loop_bug_3885():
     assert net_cell.coordinate not in net_neighborhood, (
         f"Node {net_cell.coordinate} found in its own neighborhood!"
     )
+
+
+def _spy_on_fallback_scan(monkeypatch):
+    """Count calls made by the O(n) fallback (np.argwhere or np.flatnonzero)."""
+    calls = []
+
+    def wrap(real):
+        def spy(*args, **kwargs):
+            calls.append(1)
+            return real(*args, **kwargs)
+
+        return spy
+
+    monkeypatch.setattr(np, "argwhere", wrap(np.argwhere))
+    monkeypatch.setattr(np, "flatnonzero", wrap(np.flatnonzero))
+    return calls
+
+
+def test_select_random_empty_cell_no_scan_when_grid_has_room(monkeypatch):
+    """With plenty of empty cells the O(n) fallback must (practically) never run.
+
+    Half of the cells are empty, so all 50 probes missing has probability 0.5**50.
+    This protects models such as Schelling (~20% empty) from paying for the scan.
+    """
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    for _ in range(500):
+        assert grid.select_random_empty_cell().is_empty
+    assert not calls
+
+
+def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
+    """A probe budget of zero goes straight to the deterministic fallback."""
+    model = Model()
+    grid = OrthogonalMooreGrid((20, 20), random=model.random, capacity=1)
+    for cell in list(grid.all_cells)[::2]:
+        CellAgent(model).cell = cell
+    monkeypatch.setattr(grid, "_MAX_RANDOM_PROBES", 0)
+
+    calls = _spy_on_fallback_scan(monkeypatch)
+    assert grid.select_random_empty_cell().is_empty
+    assert len(calls) == 1

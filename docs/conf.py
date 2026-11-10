@@ -50,6 +50,9 @@ extensions = [
     "sphinx_copybutton",  # For copying the code in the documentation
 ]
 
+# Render $...$ and $$...$$ as math in Markdown and notebook cells
+myst_enable_extensions = ["dollarmath"]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
