@@ -114,8 +114,6 @@ def _build_meta_agent_class(
     )
 
 
-# TODO(typing): Replace the dynamic creation path's Any return with a
-# statically checkable MetaAgent or protocol type.
 def _create_meta_agent_instance(
     model: Any,
     new_agent_class: str,
@@ -124,7 +122,7 @@ def _create_meta_agent_instance(
     meta_attributes: dict[str, Any] | None = None,
     meta_methods: dict[str, Callable] | None = None,
     _membership_api: Any | None = None,
-) -> Any:
+) -> MetaAgent:
     """Create or reuse a meta-agent instance without recording backend edges."""
     if _membership_api is None:
         raise RuntimeError("Use model.meta_agents.create() to create a meta-agent")
