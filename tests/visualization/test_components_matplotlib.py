@@ -173,6 +173,25 @@ def test_draw_orthogonal_grid():
     draw_orthogonal_grid(grid, agent_portrayal, ax)
 
 
+def test_draw_orthogonal_grid_uses_size_and_alpha():
+    """Test that the portrayal's size and alpha reach the scatter plot."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((5, 5), random=model.random)
+    for i in range(3):
+        agent = CellAgent(model)
+        agent.cell = grid[i, i]
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_orthogonal_grid(
+        grid, lambda _: AgentPortrayalStyle(size=200, alpha=0.3, marker="o"), ax
+    )
+
+    points = ax.collections[-1]
+    assert list(points.get_sizes()) == [200, 200, 200]
+    assert list(points.get_alpha()) == [0.3, 0.3, 0.3]
+
+
 def test_draw_network():
     """Test drawing network."""
     n = 10

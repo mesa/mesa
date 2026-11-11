@@ -37,14 +37,24 @@ def _normalize_agent_bases(
 
 
 def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] | None:
-    """Return the existing model agent class named ``new_agent_class`` if present."""
+    """Look up a registered agent class by its name.
+
+    ``agents_by_type`` is keyed by the agent class itself, so the class is
+    read from the key. The result therefore depends only on which types are
+    registered, not on how many agents of a type currently exist.
+
+    Args:
+        agents_by_type: The model's agent registry, keyed by agent class.
+        new_agent_class: Name of the class to look up.
+
+    Returns:
+        The registered class with that name, or ``None`` if no registered
+        type has it.
+    """
     agent_type_names = {
         agent_type.__name__: agent_type for agent_type in agents_by_type
     }
-    agent_type = agent_type_names.get(new_agent_class)
-    if agent_type is None:
-        return None
-    return type(next(iter(agents_by_type[agent_type])))
+    return agent_type_names.get(new_agent_class)
 
 
 def _apply_meta_attributes(

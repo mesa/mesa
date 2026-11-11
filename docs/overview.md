@@ -313,7 +313,6 @@ This will create an interactive visualization of your model, including:
 :hidden: true
 :maxdepth: 7
 
-Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
 AgentSet <tutorials/1_agentset>
 Agent Activation <tutorials/2_agent_activation>
@@ -325,6 +324,8 @@ Dynamic Agent Visualization <tutorials/7_visualization_dynamic_agents>
 Visualisation using SpaceRenderer <tutorials/8_visualization_rendering_with_space_renderer>
 Property Layer Visualization <tutorials/9_visualization_property_layer_visualization>
 Custom Visualization Components <tutorials/10_visualization_custom>
+Discrete Event Simulation <tutorials/11_discrete_event_simulation>
+Hybrid ABM-DEVS Models <tutorials/12_hybrid_abm_devs>
 Best Practices <best-practices>
 
 
