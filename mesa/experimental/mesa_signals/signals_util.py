@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-__all__ = ["ALL", "Message", "SignalType", "create_weakref"]
+import numpy as np
+
+__all__ = ["ALL", "Message", "SignalType", "create_weakref", "has_changed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,3 +75,19 @@ class _AllSentinel:
 
 
 ALL = _AllSentinel()
+
+
+def has_changed(old: Any, new: Any) -> bool:
+    """Return True if ``new`` differs from ``old``.
+
+    Behaves like ``old != new``, but also works for values whose comparison does
+    not give a single bool, such as NumPy arrays. Those are compared with
+    ``np.array_equal``, so a change of shape or content counts as a change.
+    """
+    try:
+        result = old != new
+        if isinstance(result, np.ndarray):
+            raise ValueError("elementwise comparison")
+        return bool(result)
+    except ValueError:
+        return not np.array_equal(old, new)
