@@ -84,6 +84,8 @@ def has_changed(old: Any, new: Any) -> bool:
     not give a single bool, such as NumPy arrays. Those are compared with
     ``np.array_equal``, so a change of shape or content counts as a change.
     """
+    # For NumPy arrays `old != new` is not a single bool: it gives an array, or
+    # raises ValueError when the shapes differ. Both cases go to np.array_equal.
     try:
         result = old != new
         if isinstance(result, np.ndarray):
