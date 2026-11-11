@@ -1261,6 +1261,8 @@ def test_peek():
         (np.array([1, 2]), np.array([1.0, 2.0]), False),  # dtype only
         (np.array([1]), np.array([2]), True),  # single element
         (np.array([]), np.array([]), False),
+        (np.array([np.nan]), np.array([np.nan]), True),  # nan != nan, like floats
+        (float("nan"), float("nan"), True),
         (np.zeros((2, 2)), np.zeros((2, 2)), False),
         (np.zeros((2, 2)), np.ones((2, 2)), True),
         (None, np.array([1, 2]), True),
