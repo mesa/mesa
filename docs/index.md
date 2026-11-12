@@ -53,7 +53,7 @@ pip install -U mesa[rec]
 
 The `[rec]` option installs additional recommended dependencies needed for visualization, plotting, and network modeling capabilities.
 
-On a Mac, this command might cause an error stating `zsh: no matches found: mesa[all]`.
+On a Mac, this command might cause an error stating `zsh: no matches found: mesa[rec]`.
 In that case, change the command to `pip install -U "mesa[rec]"`.
 
 Furthermore, if you are using `nix`, Mesa comes with a flake with devShells and a runnable app:
