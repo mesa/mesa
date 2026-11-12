@@ -161,6 +161,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             until: The time to advance to
 
         """
+        if not math.isfinite(until):
+            raise ValueError("until must be a finite number")
+
         if until < self.time:
             warnings.warn(
                 f"end time {until} is earlier than current time {self.time}",
