@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.discrete_space.property_layer import PropertyLayer
@@ -224,6 +225,43 @@ def test_matplotlib_backend_draw_propertylayer():
             space._mesa_property_layers,
             propertylayer_portrayal_no_color_colormap,
         )
+
+
+def test_matplotlib_backend_preserves_colorbar_from_previous_layer(monkeypatch):
+    """A layer without a colorbar does not clear the previous layer's colorbar."""
+    mb = MatplotlibBackend(space_drawer=MagicMock())
+    mb.initialize_canvas()
+
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
+    space.create_property_layer("layer_a", default_value=0.0)
+    space.create_property_layer("layer_b", default_value=1.0)
+
+    created_colorbars = []
+    original_colorbar = plt.colorbar
+
+    def track_colorbar(*args, **kwargs):
+        colorbar = original_colorbar(*args, **kwargs)
+        created_colorbars.append(colorbar)
+        return colorbar
+
+    monkeypatch.setattr(plt, "colorbar", track_colorbar)
+
+    result = mb.draw_propertylayer(
+        space,
+        space._mesa_property_layers,
+        lambda layer: PropertyLayerStyle(
+            colormap="viridis",
+            alpha=0.5,
+            vmin=0,
+            vmax=1,
+            colorbar=layer.name == "layer_a",
+        ),
+    )
+
+    assert len(mb.ax.images) == 2
+    assert len(created_colorbars) == 1
+    assert result[0] is mb.ax
+    assert result[1] is created_colorbars[0]
 
 
 def test_altair_backend_draw_structure():

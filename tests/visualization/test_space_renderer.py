@@ -317,3 +317,38 @@ def test_network_race_condition_graceful():
         # Missing nodes become NaN (hidden, not crashed)
         assert np.all(np.isnan(mapped["loc"][3]))
         assert np.all(np.isnan(mapped["loc"][4]))
+
+
+def test_empty_property_layer_portrayal_returns_none_colorbar():
+    """An empty legacy portrayal skips all layers and returns no colorbar."""
+    sr = SpaceRenderer(CustomModel(), backend="matplotlib")
+
+    with pytest.warns(FutureWarning):
+        result = sr.setup_propertylayer({}).draw_propertylayer()
+
+    assert result[0] is sr.backend_renderer.ax
+    assert result[1] is None
+
+
+def test_none_property_layer_portrayal_returns_none_colorbar():
+    """A callable that skips all layers returns no colorbar."""
+    sr = SpaceRenderer(CustomModel(), backend="matplotlib")
+
+    result = sr.setup_propertylayer(lambda _: None).draw_propertylayer()
+
+    assert result[0] is sr.backend_renderer.ax
+    assert result[1] is None
+
+
+def test_mismatched_property_layer_dimensions_returns_none_colorbar():
+    """A property layer with mismatched dimensions is skipped with a warning."""
+    model = CustomModel()
+    model.grid._mesa_property_layers["test"] = PropertyLayer("test", (1, 1))
+    sr = SpaceRenderer(model, backend="matplotlib")
+
+    with pytest.warns(UserWarning, match="Layer test dimensions"):
+        result = sr.setup_propertylayer(
+            lambda _: PropertyLayerStyle(color="red")
+        ).draw_propertylayer()
+
+    assert result == (sr.backend_renderer.ax, None)
