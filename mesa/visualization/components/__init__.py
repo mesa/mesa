@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 
 from .altair_components import (
     SpaceAltair,
+    _make_altair_space,
     make_altair_plot_component,
     make_altair_space,
 )
 from .matplotlib_components import (
     SpaceMatplotlib,
+    _make_mpl_space_component,
     make_mpl_plot_component,
     make_mpl_space_component,
 )
@@ -49,16 +52,27 @@ def make_space_component(
 
     Returns:
         function: A function that creates a space component
+
+    .. deprecated:: 3.5.3
+        Use :class:`~mesa.visualization.SpaceRenderer` instead. This function
+        will be removed in Mesa 4.0.
     """
+    warnings.warn(
+        "make_space_component() is deprecated and will be removed in Mesa 4.0. "
+        "Use SpaceRenderer instead. "
+        "See: https://mesa.readthedocs.io/latest/migration_guide.html#default-space-visualization",
+        FutureWarning,
+        stacklevel=2,
+    )
     if backend == "matplotlib":
-        return make_mpl_space_component(
+        return _make_mpl_space_component(
             agent_portrayal,
             propertylayer_portrayal,
             post_process,
             **space_drawing_kwargs,
         )
     elif backend == "altair":
-        return make_altair_space(
+        return _make_altair_space(
             agent_portrayal,
             propertylayer_portrayal,
             post_process,

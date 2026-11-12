@@ -139,7 +139,7 @@ def SolaraViz(
     if components == "default":
         components = [
             (
-                components_altair.make_altair_space(
+                components_altair._make_altair_space(
                     agent_portrayal=None,
                     propertylayer_portrayal=None,
                     post_process=None,
