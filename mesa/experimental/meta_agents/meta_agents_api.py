@@ -14,6 +14,7 @@ from mesa.experimental.mesa_signals.signals_util import Message
 
 from .backend import MembershipBackend, RelationKey, Triplet
 from .meta_agent import (
+    MetaAgent,
     _create_meta_agent_instance,
     _deduplicate_preserving_order,
 )
@@ -152,7 +153,7 @@ class MetaAgents:
         meta_methods: dict[str, Callable] | None = None,
         relation: RelationKey = "member",
         memberships: Iterable[tuple[Any, RelationKey]] | None = None,
-    ) -> Any:
+    ) -> MetaAgent:
         """Create a meta-agent group and record its memberships.
 
         A group is identified by its class name, ``new_agent_class``. When at
