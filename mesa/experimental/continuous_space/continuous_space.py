@@ -385,7 +385,7 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
     [lambda obj: pickle.loads(pickle.dumps(obj)), copy.deepcopy],  # noqa: S301
     ids=["pickle", "deepcopy"],
 )
-    
+
 def test_continuous_space_roundtrip_keeps_positions(roundtrip):
     """Test that a pickled or deepcopied space keeps one position array.
 
