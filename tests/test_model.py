@@ -1,6 +1,9 @@
 """Tests for model.py."""
 
+import warnings
+
 import numpy as np
+import pytest
 
 from mesa.agent import Agent, AgentSet
 from mesa.model import Model
@@ -23,6 +26,76 @@ def test_model_time_increment():
     for i in range(5):
         model.step()
         assert model.time == float(i + 1)
+
+
+class TimeTestModel(Model):
+    """Model used for testing time-related behavior."""
+
+    def step(self):
+        """Execute a model step."""
+
+
+def test_schedule_event_rejects_nan():
+    """Test that scheduling an event at NaN time is rejected."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError, match="finite"):
+        model.schedule_event(lambda: None, at=float("nan"))
+
+
+@pytest.mark.parametrize("time", [float("inf"), float("-inf")])
+def test_schedule_event_rejects_infinite_time(time):
+    """Test that scheduling an event at infinite time is rejected."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError, match="finite"):
+        model.schedule_event(lambda: None, at=time)
+
+
+def test_run_for_rejects_negative_duration():
+    """Test that run_for rejects negative durations."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError, match="non-negative"):
+        model.run_for(-5)
+
+
+def test_run_for_rejects_nan():
+    """Test that run_for rejects NaN duration."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError):
+        model.run_for(float("nan"))
+
+
+def test_run_until_rejects_nan():
+    """Test that run_until rejects NaN end time."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError):
+        model.run_until(float("nan"))
+
+
+def test_run_for_zero_duration_does_not_warn():
+    """Test that zero-duration execution does not produce a warning."""
+    model = TimeTestModel()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        model.run_for(0)
+
+    assert model.time == 0
+
+
+def test_run_until_current_time_does_not_warn():
+    """Test that running until the current time does not produce a warning."""
+    model = TimeTestModel()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        model.run_until(model.time)
+
+    assert model.time == 0
 
 
 def test_running():

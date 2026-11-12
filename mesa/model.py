@@ -6,6 +6,7 @@ Core Objects: Model
 # Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
+import math
 import random
 import warnings
 from collections.abc import Callable, Sequence
@@ -348,6 +349,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         time = at if at is not None else self.time + after
         # Enforce monotonic time progression
+        if not math.isfinite(time):
+            raise ValueError("Event time must be a finite number.")
+
         if time < self.time:
             raise ValueError(
                 f"Cannot schedule event in the past. "
@@ -392,8 +396,17 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """Run the model for the specified duration.
 
         Args:
-            duration: Time units to advance
+        duration: The duration to run the model for.
+
+        Raises:
+            ValueError: If duration is negative.
         """
+        if duration < 0:
+            raise ValueError("duration must be non-negative")
+
+        if duration == 0:
+            return
+
         self._advance_time(self.time + duration)
 
     @emit("model", ModelSignals.RUN_ENDED, when="after")
@@ -404,7 +417,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             end_time: Absolute time to run until
 
         If model.time is larger than end_time, the method returns directly.
-
+        If equal, it returns without warning.
         """
         if self.time > end_time:
             warnings.warn(
@@ -412,6 +425,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
                 RuntimeWarning,
                 stacklevel=2,
             )
+            return
+
+        if self.time == end_time:
             return
 
         self._advance_time(end_time)
