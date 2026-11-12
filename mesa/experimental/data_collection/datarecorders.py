@@ -329,6 +329,10 @@ class JSONDataRecorder(BaseDataRecorder):
             case _:
                 self.data[dataset_name].append({"time": time, "data": data})
 
+        window_size = self.configs[dataset_name].window_size
+        if window_size and len(self.data[dataset_name]) > window_size:
+            del self.data[dataset_name][0]
+
     def get_table_dataframe(self, name: str) -> pd.DataFrame:
         """Convert stored JSON-like data to DataFrame."""
         if name not in self.data:

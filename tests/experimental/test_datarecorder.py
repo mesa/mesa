@@ -555,6 +555,27 @@ def test_json_recorder_clear_nonexistent_dataset():
             recorder.clear("nonexistent")
 
 
+def test_json_recorder_keeps_only_the_last_window_size_snapshots(tmp_path):
+    """window_size bounds the snapshots JSONDataRecorder keeps, as in DataRecorder."""
+    model = MockModel(n=2)
+    config = {"model_data": DatasetConfig(window_size=2)}
+    recorder = JSONDataRecorder(model, config, output_dir=tmp_path)
+    memory = DataRecorder(model, config)
+
+    model.run_for(4)
+
+    assert [snap["time"] for snap in recorder.data["model_data"]] == [3.0, 4.0]
+    assert (
+        list(recorder.get_table_dataframe("model_data")["time"])
+        == list(memory.get_table_dataframe("model_data")["time"])
+        == [3.0, 4.0]
+    )
+
+    recorder.save_to_json()
+    with open(tmp_path / "model_data.json") as f:
+        assert [snap["time"] for snap in json.load(f)] == [3.0, 4.0]
+
+
 def test_json_recorder_summary():
     """Test JSONDataRecorder summary."""
     with tempfile.TemporaryDirectory() as temp_dir:
