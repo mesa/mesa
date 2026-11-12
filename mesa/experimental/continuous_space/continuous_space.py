@@ -12,6 +12,10 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.spatial.distance import cdist
 
+import copy
+import pickle
+from unittest.mock import patch
+
 from mesa.agent import Agent, AgentSet
 
 if TYPE_CHECKING:
@@ -361,3 +365,55 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         return self.dimensions[:, 0] + np.mod(
             np.asanyarray(point) - self.dimensions[:, 0], self.size
         )
+
+    def __getstate__(self) -> dict:
+        """Return the state for pickling and deepcopy.
+
+        agent_positions is a view into _agent_positions. Pickle and deepcopy
+        would store it as a separate array, so it is rebuilt in __setstate__.
+        """
+        state = self.__dict__.copy()
+        state.pop("agent_positions", None)
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore the state and rebuild agent_positions as a view."""
+        self.__dict__.update(state)
+        self.agent_positions = self._agent_positions[0 : self._n_agents]
+    @pytest.mark.parametrize(
+    "roundtrip",
+    [lambda obj: pickle.loads(pickle.dumps(obj)), copy.deepcopy],  # noqa: S301
+    ids=["pickle", "deepcopy"],
+)
+    
+def test_continuous_space_roundtrip_keeps_positions(roundtrip):
+    """Test that a pickled or deepcopied space keeps one position array.
+
+    Regression test for GitHub issue #3965.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    a = ContinuousSpaceAgent(space, model)
+    a.position = [1.0, 1.0]
+    b = ContinuousSpaceAgent(space, model)
+    b.position = [2.0, 2.0]
+
+    model, space, a, b = roundtrip((model, space, a, b))
+    assert np.shares_memory(space.agent_positions, space._agent_positions)
+
+    a.position = [9.0, 9.0]
+    dists, _ = space.calculate_distances([9.0, 9.0], agents=[a])
+    assert dists[0] == pytest.approx(0.0)
+
+    # adding or removing agents must not reset positions
+    c = ContinuousSpaceAgent(space, model)
+    c.position = [5.0, 5.0]
+    np.testing.assert_array_equal(a.position, [9.0, 9.0])
+    b.remove()
+    np.testing.assert_array_equal(a.position, [9.0, 9.0])
+    np.testing.assert_array_equal(c.position, [5.0, 5.0])
+
+    # a restored space can be round tripped again
+    model, space, a, c = roundtrip((model, space, a, c))
+    np.testing.assert_array_equal(a.position, [9.0, 9.0])
+    np.testing.assert_array_equal(c.position, [5.0, 5.0])
