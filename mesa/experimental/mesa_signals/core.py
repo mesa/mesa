@@ -28,6 +28,7 @@ from mesa.experimental.mesa_signals.signals_util import (
     Message,
     SignalType,
     create_weakref,
+    has_changed,
 )
 
 from .signal_types import ObservableSignals
@@ -138,7 +139,7 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            if old_value != value:
+            if has_changed(old_value, value):
                 send_notify = True
         setattr(instance, self.private_name, value)
 
@@ -327,7 +328,7 @@ def computed_property(
                             break
                         for attr, old_val in observations.items():
                             current_val = getattr(parent, attr)
-                            if current_val != old_val:
+                            if has_changed(old_val, current_val):
                                 changed = True
                                 break
                         if changed:
