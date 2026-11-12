@@ -12,10 +12,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.spatial.distance import cdist
 
-import copy
-import pickle
-from unittest.mock import patch
-
 from mesa.agent import Agent, AgentSet
 
 if TYPE_CHECKING:
