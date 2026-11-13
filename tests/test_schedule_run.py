@@ -175,13 +175,10 @@ class TestScheduleEvent:
     def test_at_and_after_exclusive(self):
         model = SimpleModel()
 
-        def noop():
-            pass
-
         with pytest.raises(ValueError):
-            model.schedule_event(noop, at=1.0, after=1.0)
+            model.schedule_event(lambda: None, at=1.0, after=1.0)
         with pytest.raises(ValueError):
-            model.schedule_event(noop)
+            model.schedule_event(lambda: None)
 
     def test_inline_lambda_with_strong_reference(self):
         model = SimpleModel()

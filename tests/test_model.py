@@ -35,15 +35,21 @@ class TimeTestModel(Model):
         """Execute a model step."""
 
 
+@pytest.mark.parametrize("until", [float("nan"), float("inf"), float("-inf")])
+def test_advance_time_rejects_non_finite_until(until):
+    """_advance_time should reject non-finite target times."""
+    model = TimeTestModel()
+
+    with pytest.raises(ValueError, match="until must be a finite number"):
+        model._advance_time(until)
+
+
 def test_schedule_event_rejects_nan():
     """Test that scheduling an event at NaN time is rejected."""
     model = TimeTestModel()
 
-    def callback():
-        pass
-
     with pytest.raises(ValueError, match="NaN"):
-        model.schedule_event(callback, at=float("nan"))
+        model.schedule_event(lambda: None, at=float("nan"))
 
 
 def test_run_for_rejects_nan():
