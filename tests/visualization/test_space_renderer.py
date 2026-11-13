@@ -221,6 +221,41 @@ def test_property_layer_style_instance():
     assert portrayal_arg("any_layer") == style
 
 
+def test_empty_property_layer_portrayal_returns_none_colorbar():
+    """An empty legacy portrayal skips all layers and returns no colorbar."""
+    sr = SpaceRenderer(CustomModel(), backend="matplotlib")
+
+    with pytest.warns(FutureWarning):
+        result = sr.setup_property_layer({}).draw_property_layer()
+
+    assert result[0] is sr.backend_renderer.ax
+    assert result[1] is None
+
+
+def test_none_property_layer_portrayal_returns_none_colorbar():
+    """A callable that skips all layers returns no colorbar."""
+    sr = SpaceRenderer(CustomModel(), backend="matplotlib")
+
+    result = sr.setup_property_layer(lambda _: None).draw_property_layer()
+
+    assert result[0] is sr.backend_renderer.ax
+    assert result[1] is None
+
+
+def test_mismatched_property_layer_dimensions_returns_none_colorbar():
+    """A property layer with mismatched dimensions is skipped with a warning."""
+    model = CustomModel()
+    model.grid.property_layers["test"] = np.zeros((1, 1))
+    sr = SpaceRenderer(model, backend="matplotlib")
+
+    with pytest.warns(UserWarning, match="Layer test dimensions"):
+        result = sr.setup_property_layer(
+            lambda _: PropertyLayerStyle(color="red")
+        ).draw_property_layer()
+
+    assert result == (sr.backend_renderer.ax, None)
+
+
 @pytest.mark.parametrize("with_agents", [False, True])
 def test_altair_canvas_with_property_layer(with_agents):
     """The Altair canvas should work when a property layer is drawn.
