@@ -166,12 +166,13 @@ def PlotMatplotlib(
             ax.plot(df.loc[:, m], label=m)
         ax.legend(loc="best")
 
-    if post_process is not None:
-        post_process(ax)
-
     ax.set_xlabel("Step")
     # Set integer x axis
     ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    if post_process is not None:
+        post_process(ax)
+
     solara.FigureMatplotlib(
         fig, format=save_format, bbox_inches="tight", dependencies=dependencies
     )
