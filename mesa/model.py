@@ -352,8 +352,8 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         time = at if at is not None else self.time + after
         # Enforce monotonic time progression
-        if math.isnan(time):
-            raise ValueError("Event time cannot be NaN.")
+        if not math.isfinite(time):
+            raise ValueError("Event time must be a finite number.")
 
         if time < self.time:
             raise ValueError(
@@ -417,16 +417,4 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         if not math.isfinite(end_time):
             raise ValueError("end_time must be a finite number")
-
-        # if self.time > end_time:
-        #     warnings.warn(
-        #         f"end_time {end_time} is earlier than current time {self.time}",
-        #         RuntimeWarning,
-        #         stacklevel=2,
-        #     )
-        #     return
-
-        # if self.time == end_time:
-        #     return
-
         self._advance_time(end_time)

@@ -48,7 +48,7 @@ def test_schedule_event_rejects_nan():
     """Test that scheduling an event at NaN time is rejected."""
     model = TimeTestModel()
 
-    with pytest.raises(ValueError, match="NaN"):
+    with pytest.raises(ValueError, match="finite"):
         model.schedule_event(lambda: None, at=float("nan"))
 
 

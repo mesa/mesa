@@ -218,11 +218,20 @@ class TestScheduleEvent:
         """schedule_event should reject NaN event times."""
         model = SimpleModel()
 
-        def noop():
-            pass
+        with pytest.raises(ValueError, match="finite"):
+            model.schedule_event(lambda: None, at=float("nan"))
 
-        with pytest.raises(ValueError, match="NaN"):
-            model.schedule_event(noop, at=float("nan"))
+    @pytest.mark.parametrize("time", [float("nan"), float("inf"), float("-inf")])
+    @pytest.mark.parametrize("argument", ["at", "after"])
+    def test_schedule_event_rejects_non_finite_time(self, time, argument):
+        """Scheduling an event with a non-finite time should raise ValueError."""
+        model = SimpleModel()
+        initial_event_count = len(model._event_list)
+
+        with pytest.raises(ValueError, match="finite"):
+            model.schedule_event(lambda: None, **{argument: time})
+
+        assert len(model._event_list) == initial_event_count
 
 
 # --- schedule_recurring ---
