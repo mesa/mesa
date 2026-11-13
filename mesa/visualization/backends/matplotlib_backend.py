@@ -397,7 +397,8 @@ class MatplotlibBackend(AbstractRenderer):
             elif isinstance(space, HexGrid):
                 hexagons = self.space_drawer.hexagons
                 norm = Normalize(vmin=vmin, vmax=vmax)
-                colors = data.T.ravel()
+                # hexagons follow space.all_cells, which is x-major like data
+                colors = data.ravel()
 
                 if color:
                     normalized_colors = np.clip(norm(colors), 0, 1)
