@@ -5,9 +5,7 @@ import logging
 import pytest
 
 from mesa import mesa_logging
-
 from mesa.mesa_logging import method_logger
-
 
 
 @pytest.fixture(autouse=True)
