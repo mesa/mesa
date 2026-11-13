@@ -214,11 +214,25 @@ def run_scenarios(
 
     Returns: a Store instance
 
+    Raises:
+        ValueError: If the input contains duplicate (scenario_id, replication_id)
+            pairs. Each run must have a unique pair.
+
     """
     if store is None:
         store = InMemoryStore()
 
     scenarios = list(scenarios)
+    seen: set[RunId] = set()
+    for scenario in scenarios:
+        run_id = RunId(scenario.scenario_id, scenario.replication_id)
+        if run_id in seen:
+            raise ValueError(
+                f"Duplicate run id {run_id}. Each scenario must have a unique "
+                "(scenario_id, replication_id) pair."
+            )
+        seen.add(run_id)
+
     writer = store.writer()
     store.write_scenarios(scenarios, config)
 

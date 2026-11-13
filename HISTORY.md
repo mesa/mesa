@@ -4,6 +4,9 @@
 title: Release History
 ---
 # 4.0.0a0 (2026-03-14)
+## Fixes
+- `run_scenarios` now rejects duplicate `(scenario_id, replication_id)` pairs before writing or running the input, rather than silently replacing results (#4076).
+
 ## Highlights
 Mesa 4.0 alpha 0 is the first pre-release of the next major version of Mesa. It removes long-deprecated APIs, cleans up the core architecture, and introduces experimental timed actions for agents. This is an alpha release intended for early testing , expect rough edges and further breaking changes before the stable 4.0 release.
 

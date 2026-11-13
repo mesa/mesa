@@ -18,7 +18,12 @@ from conftest import (
 
 from mesa import Model
 from mesa.experimental.data_collection import DataRecorder
-from mesa.experimental.scenarios import RunConfiguration, Scenario, run_scenarios
+from mesa.experimental.scenarios import (
+    DiskStore,
+    RunConfiguration,
+    Scenario,
+    run_scenarios,
+)
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
 from mesa.experimental.scenarios.runner import _safe_call
 from mesa.experimental.scenarios.store import InMemoryStore, InMemoryWriter, RunId
@@ -334,3 +339,80 @@ def test_failure_info_is_picklable():
     assert restored.origin is FailureOrigin.RUNNING
     assert restored.exception_type == "RuntimeError"
     assert restored.message == "boom"
+
+
+@pytest.mark.parametrize("input_kind", ["list", "generator"])
+@pytest.mark.parametrize("store_kind", ["default", "memory", "disk"])
+def test_run_scenarios_rejects_duplicate_ids_before_side_effects(
+    basic_config, mocker, tmp_path, input_kind, store_kind
+):
+    """Reject repeated spawn batches before writing, running, or submitting work."""
+    parent = Scenario(rng=42, scenario_id=10)
+    scenarios = parent.spawn_replications(2) + parent.spawn_replications(2)
+    assert [s.seed_sequence.spawn_key for s in scenarios] == [(0,), (1,), (2,), (3,)]
+    store = DiskStore(tmp_path) if store_kind == "disk" else InMemoryStore()
+    writer = mocker.spy(store, "writer")
+    register = mocker.spy(store, "write_scenarios")
+    call = mocker.patch("mesa.experimental.scenarios.runner._safe_call")
+    executor = mocker.Mock()
+    executor.submit.side_effect = AssertionError("work dispatched before validation")
+    kwargs = {} if store_kind == "default" else {"store": store}
+    if store_kind == "default":
+        mocker.patch(
+            "mesa.experimental.scenarios.runner.InMemoryStore", return_value=store
+        )
+    inputs = iter(scenarios) if input_kind == "generator" else scenarios
+
+    with pytest.raises(
+        ValueError, match=r"Duplicate run id RunId\(scenario_id=10, replication_id=0\)"
+    ):
+        run_scenarios(inputs, basic_config, executor=executor, progress=False, **kwargs)
+
+    writer.assert_not_called()
+    register.assert_not_called()
+    call.assert_not_called()
+    executor.submit.assert_not_called()
+    assert store.read_scenarios() == []
+    assert not (tmp_path / "store.json").exists()
+    assert not (tmp_path / "scenarios.json").exists()
+
+
+def test_run_scenarios_rejects_same_instance_twice(basic_config):
+    """A duplicate identity is invalid even if both inputs are the same object."""
+    scenario = Scenario(rng=42, scenario_id=10)
+    with pytest.raises(ValueError, match="Duplicate run id"):
+        run_scenarios([scenario, scenario], basic_config, progress=False)
+
+
+@pytest.mark.parametrize("input_kind", ["list", "generator"])
+@pytest.mark.parametrize(
+    "case", ["empty", "single_batch", "distinct_parents", "parent_and_children"]
+)
+def test_run_scenarios_accepts_unique_ids(basic_config, case, input_kind):
+    """Keep valid inputs, including repeated replication ids on different parents."""
+    parent = Scenario(rng=42, scenario_id=10)
+    if case == "empty":
+        scenarios = []
+    elif case == "single_batch":
+        scenarios = parent.spawn_replications(4)
+    elif case == "distinct_parents":
+        scenarios = parent.spawn_replications(2) + Scenario(
+            rng=43, scenario_id=11
+        ).spawn_replications(2)
+    else:
+        scenarios = [parent, *parent.spawn_replications(2)]
+    expected = [RunId(s.scenario_id, s.replication_id) for s in scenarios]
+    inputs = iter(scenarios) if input_kind == "generator" else scenarios
+    store = run_scenarios(inputs, basic_config, progress=False)
+    assert list(store.succeeded()) == expected
+    assert len(store.read_scenarios()) == len(scenarios)
+
+
+def test_run_scenarios_rejects_manual_duplicate_ids(basic_config):
+    """Reject different objects with the same explicit pair before execution."""
+    scenarios = [
+        Scenario(rng=42, scenario_id=10, replication_id=7),
+        Scenario(rng=43, scenario_id=10, replication_id=7),
+    ]
+    with pytest.raises(ValueError, match="replication_id=7"):
+        run_scenarios(scenarios, basic_config, progress=False)
