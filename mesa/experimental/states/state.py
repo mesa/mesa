@@ -272,6 +272,13 @@ class ContinuousState(BaseObservable):
         state = self._get_state(instance)
         current_time = instance.model.peek("time", 0.0)
 
+        # Anchor the rate to this moment before moving the baseline. Reading the
+        # state refreshes a dirty rate, but only something subscribing to this
+        # name made that happen, so an unobserved state kept a stale rate while
+        # last_time jumped forward, and the next read applied the newer rate
+        # across the whole interval.
+        self._refresh_rate_if_dirty(state, instance)
+
         has_subscribers = instance._has_subscribers(
             self.public_name, ObservableSignals.CHANGED
         )
@@ -279,6 +286,15 @@ class ContinuousState(BaseObservable):
 
         state["base_value"] = float(value)
         state["last_time"] = current_time
+
+        # A rate that is itself a ContinuousState keeps changing without ever
+        # being marked dirty, so the cached rate is the one from the previous
+        # anchor. Read it again at this moment, or the new baseline would move
+        # at an old speed.
+        comp_state = state["rate_computed"]
+        if comp_state is not None:
+            state["current_rate"] = self._evaluate_rate(instance)
+            state["second_order_rate"] = self._find_chained_rate(comp_state, instance)
 
         if has_subscribers:
             instance.notify(
