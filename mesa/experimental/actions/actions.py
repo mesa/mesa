@@ -304,11 +304,7 @@ class Action:
         """
         resuming = self.state is ActionState.INTERRUPTED
 
-        if self.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
-            raise ValueError(
-                f"Cannot start action in {self.state.name} state. "
-                f"Only PENDING or INTERRUPTED actions can be started."
-            )
+        self._validate_start()
 
         # Gate entry before duration and priority are resolved, so a failing
         # action neither fires on_start() nor schedules a completion event.
@@ -425,6 +421,14 @@ class Action:
         if self.agent.current_action is self:
             self.agent.current_action = None
             self.agent._schedule_wake(self)
+
+    def _validate_start(self) -> None:
+        """Reject lifecycle states that cannot be started."""
+        if self.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
+            raise ValueError(
+                f"Cannot start action in {self.state.name} state. "
+                f"Only PENDING or INTERRUPTED actions can be started."
+            )
 
     def _resolve_priority(self) -> None:
         """Resolve the priority spec against the agent, at most once.
@@ -575,8 +579,17 @@ class HasActions:
                 f"this agent (id={self.unique_id})."
             )
 
+        action._validate_start()
         self.current_action = action
-        action.start()
+        try:
+            action.start()
+        except Exception:
+            # Leave the slot usable when validation or a callable raises before
+            # activation. Lifecycle hooks may have side effects; do not roll back
+            # an action that has already become active.
+            if self.current_action is action and action.state is not ActionState.ACTIVE:
+                self.current_action = None
+            raise
 
         # If the action completed instantly (duration=0), start() already
         # called _do_complete which cleared current_action via the Action.
@@ -618,12 +631,22 @@ class HasActions:
             action failed its start requirements.
 
         Notes:
+            Ownership and lifecycle state are checked before interruption.
+            Requirements and duration are evaluated afterward, so errors in
+            user-supplied callbacks do not roll the interruption back.
+
             The False cases differ in what they leave behind. A refusal
             changes nothing. A failed requirement does not roll the
             interruption back: the old action is already INTERRUPTED and
             the agent is left idle, since whether to resume it is the
             model's decision.
         """
+        if new_action.agent is not self:
+            raise ValueError(
+                f"Action's agent (id={new_action.agent.unique_id}) does not match "
+                f"this agent (id={self.unique_id})."
+            )
+        new_action._validate_start()
         if self.current_action is not None:
             new_action._resolve_priority()
             if not self.should_interrupt(self.current_action, new_action):

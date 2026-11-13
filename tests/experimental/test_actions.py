@@ -1529,3 +1529,116 @@ class TestOnIdle:
 
         assert agent.wakes == []
         assert agent._wake_event is None
+
+
+class TestRejectedActionSafety:
+    @staticmethod
+    def make_bad(model, agent, kind):
+        if kind == "foreign":
+            return TrackedAction(ActionAgent(model)), "does not match"
+        if kind == "completed":
+            bad = TrackedAction(agent, duration=0)
+            agent.start_action(bad)
+            return bad, "COMPLETED"
+        if kind == "failed":
+            bad = TrackedAction(agent, start_requirements=lambda a: False)
+            agent.start_action(bad)
+            return bad, "FAILED"
+        if kind == "negative":
+            return TrackedAction(agent, duration=-1), "duration must be >= 0"
+        return TrackedAction(agent, duration=lambda a: -1), "duration must be >= 0"
+
+    @pytest.mark.parametrize("path", ["start_action", "interrupt_for"])
+    @pytest.mark.parametrize(
+        "kind", ["foreign", "completed", "failed", "negative", "callable_negative"]
+    )
+    def test_rejected_action_leaves_idle_agent_usable(self, path, kind):
+        """Rejected inactive actions must not occupy an idle slot."""
+        model, agent = make_model_and_agent()
+        bad, match = self.make_bad(model, agent, kind)
+        with pytest.raises(ValueError, match=match):
+            getattr(agent, path)(bad)
+        assert agent.current_action is None
+        good = TrackedAction(agent, duration=1)
+        agent.start_action(good)
+        model.run_for(1)
+        assert good.completed
+
+    @pytest.mark.parametrize("kind", ["foreign", "completed", "failed"])
+    def test_invalid_identity_or_state_preserves_running_action(self, kind):
+        """Early static validation preserves the original completion event."""
+        model, agent = make_model_and_agent()
+        bad, match = self.make_bad(model, agent, kind)
+        model.run_for(0)
+        current = TrackedAction(agent, duration=5)
+        agent.start_action(current)
+        model.run_for(2)
+        event = current._event
+        with pytest.raises(ValueError, match=match):
+            agent.interrupt_for(bad)
+        assert agent.current_action is current
+        assert current._event is event
+        assert current.progress == pytest.approx(0.4)
+        assert not current.interrupted
+        model.run_for(3)
+        assert current.completed
+
+    def test_false_requirement_still_skips_negative_duration(self):
+        """False gates run after interruption and never evaluate duration."""
+        _model, agent = make_model_and_agent()
+        old = TrackedAction(agent, duration=5)
+        agent.start_action(old)
+        calls = []
+        incoming = TrackedAction(
+            agent,
+            duration=lambda a: calls.append("duration") or -1,
+            start_requirements=lambda a: (
+                calls.append(("requirement", old.state)) or False
+            ),
+        )
+        assert agent.interrupt_for(incoming) is False
+        assert calls == [("requirement", ActionState.INTERRUPTED)]
+        assert incoming.has_failed
+        assert old.interrupted
+        assert agent.current_action is None
+
+    def test_duration_observes_original_callback_order(self):
+        """Duration still runs after interruption with the replacement slot."""
+        model, agent = make_model_and_agent()
+        old = TrackedAction(agent, duration=5)
+        agent.start_action(old)
+        calls = []
+
+        def duration(a):
+            calls.append((a.current_action is incoming, old.state))
+            return 1
+
+        incoming = TrackedAction(agent, duration=duration)
+        assert agent.interrupt_for(incoming)
+        assert calls == [(True, ActionState.INTERRUPTED)]
+        model.run_for(1)
+        assert incoming.completed
+
+    def test_negative_duration_after_interruption_does_not_strand_slot(self):
+        """Duration errors retain callback order but leave an idle usable slot."""
+        _model, agent = make_model_and_agent()
+        old = TrackedAction(agent, duration=5)
+        agent.start_action(old)
+        with pytest.raises(ValueError, match="duration must be >= 0"):
+            agent.interrupt_for(TrackedAction(agent, duration=lambda a: -1))
+        assert old.interrupted
+        assert agent.current_action is None
+        # This intentionally does not promise rollback of old.on_interrupt().
+
+    @pytest.mark.parametrize("field", ["duration", "priority", "start_requirements"])
+    def test_callback_exception_leaves_idle_slot_usable(self, field):
+        """Exceptions before activation must not leave a pending busy slot."""
+        _model, agent = make_model_and_agent()
+
+        def fail(a):
+            raise RuntimeError("callback failed")
+
+        incoming = TrackedAction(agent, **{field: fail})
+        with pytest.raises(RuntimeError, match="callback failed"):
+            agent.start_action(incoming)
+        assert agent.current_action is None
