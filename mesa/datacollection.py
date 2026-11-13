@@ -130,6 +130,12 @@ class DataCollector:
         self._agenttype_records = {}
         self.tables = {}
 
+        # Agents present at the previous collect() call, keyed by unique_id. Used to
+        # detect agents removed between collect() calls so their last reporter values
+        # can still be captured (the agent instance survives removal from model.agents,
+        # it just stops being iterated - see _record_agents's removed-agent branch).
+        self._agents_at_last_collect = {}
+
         # add the signal of the validation of model reporter
         self._validated = False
 
@@ -316,7 +322,18 @@ class DataCollector:
         self.tables[table_name] = new_table
 
     def _record_agents(self, model):
-        """Record agents data in a mapping of functions and agents."""
+        """Record agents data in a mapping of functions and agents.
+
+        Also captures one last snapshot for any agent that was present at the
+        previous collect() call but has since been removed from the model, so a
+        reporter value (e.g. a terminal state) set immediately before removal is
+        not silently dropped. An agent removed between two collect() calls would
+        otherwise never appear for the tick it was removed in, even though it was
+        live for part or all of that tick, because this method only iterates
+        model.agents and a removed agent is no longer in it. The removed agent's
+        Python object itself is unaffected by removal (only deregistered from the
+        model), so its reporter values are still readable here.
+        """
         rep_funcs = self.agent_reporters.values()
         # Immutable types that don't need deepcopy
         python_immutable_types = (str, int, bool, float, tuple)
@@ -333,7 +350,17 @@ class DataCollector:
                     reports.append(deepcopy(value))
             return _prefix + tuple(reports)
 
-        agent_records = map(get_reports, model.agents)
+        current_agents = {agent.unique_id: agent for agent in model.agents}
+        removed_agents = [
+            agent
+            for unique_id, agent in self._agents_at_last_collect.items()
+            if unique_id not in current_agents
+        ]
+        self._agents_at_last_collect = current_agents
+
+        agent_records = itertools.chain(
+            map(get_reports, model.agents), map(get_reports, removed_agents)
+        )
         return agent_records
 
     def _record_agenttype(self, model, agent_type):

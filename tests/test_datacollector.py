@@ -223,19 +223,38 @@ class TestDataCollector(unittest.TestCase):
         assert "double_value" in list(agent_table.columns)
         assert "value_with_params" in list(agent_table.columns)
 
+        # agents[3] (unique_id 4) is removed at step 4, right before the step-5
+        # collect(). Every row up to and including step 4 follows the normal
+        # live-agent formula below. The one extra row at step 5 is its final
+        # snapshot, captured once with its value frozen at removal (8, since it
+        # was last incremented reaching step 4) - that row intentionally does not
+        # fit the live-agent formula, since the agent stopped being stepped.
+        removed_agent_id = 4
+        removed_final_step = 5
+        removed_final_value = 8
+
         # Check the double_value column
         for (step, agent_id), value in agent_table["double_value"].items():
+            if agent_id == removed_agent_id and step == removed_final_step:
+                self.assertEqual(value, removed_final_value * 2)
+                continue
             expected_value = (step + agent_id) * 2
             self.assertEqual(value, expected_value)
 
         # Check the value_with_params column
         for (step, agent_id), value in agent_table["value_with_params"].items():
+            if agent_id == removed_agent_id and step == removed_final_step:
+                self.assertEqual(value, (removed_final_value * 2) + 3)
+                continue
             expected_value = ((step + agent_id) * 2) + 3
             self.assertEqual(value, expected_value)
 
         assert len(data_collector._agent_records) == 8
         for step, records in data_collector._agent_records.items():
             if step < 5:
+                assert len(records) == 10
+            elif step == 5:
+                # the 9 still-live agents, plus the removed agent's one final row
                 assert len(records) == 10
             else:
                 assert len(records) == 9
@@ -287,7 +306,9 @@ class TestDataCollector(unittest.TestCase):
         agent_vars = data_collector.get_agent_vars_dataframe()
         table_df = data_collector.get_table_dataframe("Final_Values")
         assert model_vars.shape == (8, 4)
-        assert agent_vars.shape == (77, 4)
+        # 77 live-agent rows, plus 1 final-snapshot row for the agent removed at
+        # step 4 (see test_agent_records for why that row exists).
+        assert agent_vars.shape == (78, 4)
         assert table_df.shape == (9, 2)
 
         with self.assertRaises(Exception):
@@ -946,6 +967,73 @@ def test_get_agent_vars_dataframe_empty_records():
     assert len(df_after) == 0
     assert list(df_after.columns) == ["energy"]
     assert df_after.index.names == ["Step", "AgentID"]
+
+
+def test_agent_vars_captures_final_state_of_removed_agent():
+    """An agent removed during its own step() must still get a row for the tick.
+
+    It must have a row for the tick it was removed in, with whatever reporter
+    values it had right before removal (e.g. a terminal state set immediately
+    before calling self.remove()). Without this, _record_agents only iterates
+    model.agents, which no longer contains the removed agent by the time
+    collect() runs, so that tick's data (and the agent's very last values) is
+    silently dropped - the agent can even end up with zero rows at all if it is
+    removed on its first step.
+    """
+
+    class DyingAgent(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.state = "alive"
+
+        def step(self):
+            if self.unique_id == 2:
+                self.state = "dying"
+                self.remove()
+
+    class DyingModel(Model):
+        def __init__(self):
+            super().__init__()
+            for _ in range(3):
+                DyingAgent(self)
+            self.datacollector = DataCollector(agent_reporters={"state": "state"})
+            # Establish the initial alive-agents baseline, same as every Mesa
+            # example (e.g. wolf_sheep) collecting once at construction before
+            # the first step. Without this there is no "previous collect()" to
+            # diff a later removal against.
+            self.datacollector.collect(self)
+
+        def step(self):
+            self.agents.do("step")
+            self.datacollector.collect(self)
+
+    model = DyingModel()  # __init__ collects once: agent 2 recorded alive
+    model.step()  # agent 2 sets state="dying" then removes itself, same tick
+
+    df = model.datacollector.get_agent_vars_dataframe()
+    agent_2_rows = df.xs(2, level="AgentID")
+
+    assert len(agent_2_rows) == 2, (
+        "removed agent must have its initial row plus one final row for the "
+        "tick it died in, not be missing from that tick entirely"
+    )
+    assert agent_2_rows.iloc[0]["state"] == "alive"
+    assert agent_2_rows.iloc[-1]["state"] == "dying", (
+        "the last row must carry the value set immediately before remove(), "
+        "not be missing"
+    )
+
+    # Agents that stayed alive are unaffected and still get one row per tick.
+    agent_1_rows = df.xs(1, level="AgentID")
+    assert len(agent_1_rows) == 2
+    assert (agent_1_rows["state"] == "alive").all()
+
+    # A second step with no further removals must not re-report agent 2.
+    model.step()
+    df2 = model.datacollector.get_agent_vars_dataframe()
+    assert len(df2.xs(2, level="AgentID")) == 2, (
+        "a removed agent must be captured once, not re-captured on later ticks"
+    )
 
 
 def test_add_table_row_nonexistent_table():

@@ -86,8 +86,13 @@ class TestAgentLifespan(unittest.TestCase):  # noqa: D101
         assert self.df.steps.max() == 1
 
     def test_agent_lifetime(self):  # noqa: D102
+        # Was 2 before DataCollector started capturing an agent's state at the
+        # tick it's removed on (see test_datacollector.py). With agent_lifetime=1,
+        # an agent's 3rd and final row is its remaining_life=-1 decrement inside
+        # deactivate() right before self.remove() - a real value now visible
+        # rather than silently dropped.
         lifetimes = self.df.groupby(["AgentID"]).agg({"Step": len})
-        assert lifetimes.Step.max() == 2
+        assert lifetimes.Step.max() == 3
 
 
 if __name__ == "__main__":
