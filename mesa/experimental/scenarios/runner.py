@@ -247,11 +247,11 @@ def run_scenarios(
         for scenario in _bar(scenarios):
             _record(scenario, _safe_call(config, scenario, writer))
     else:
-        futures = {
-            executor.submit(_safe_call, config, scenario, writer): scenario
-            for scenario in scenarios
-        }
         try:
+            futures = {
+                executor.submit(_safe_call, config, scenario, writer): scenario
+                for scenario in scenarios
+            }
             for future in _bar(as_completed(futures)):
                 scenario = futures[future]
                 try:

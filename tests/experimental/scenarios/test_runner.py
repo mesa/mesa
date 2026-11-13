@@ -1,7 +1,7 @@
 """Tests for RunConfiguration, _safe_call, and run_scenarios."""
 
 import pickle
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import BrokenExecutor, Executor, Future, ProcessPoolExecutor
 
 import pandas as pd
 import pytest
@@ -231,6 +231,42 @@ def test_run_scenarios_aborts_on_broken_pool():
 
     for rec in store.aborted().values():
         assert rec.failure.origin is FailureOrigin.ABORTED
+
+
+@pytest.mark.parametrize("fail_on", [1, 2, 4])
+@pytest.mark.parametrize("with_cause", [False, True])
+def test_run_scenarios_aborts_on_broken_submit(mocker, fail_on, with_cause):
+    """A pool breaking during submission aborts all registered runs and returns."""
+    scenarios = [Scenario(rng=i) for i in range(4)]
+    store = InMemoryStore()
+    executor = mocker.Mock(spec=Executor)
+    error = BrokenExecutor("pool broke during submission")
+    if with_cause:
+        error.__cause__ = RuntimeError("worker initialization failed")
+    executor.submit.side_effect = [Future() for _ in range(fail_on - 1)] + [error]
+
+    returned = run_scenarios(
+        scenarios,
+        RunConfiguration(_DummyModel, until=1),
+        executor=executor,
+        store=store,
+        progress=False,
+    )
+
+    assert returned is store
+    assert executor.submit.call_count == fail_on
+    assert set(store.aborted()) == {
+        RunId(s.scenario_id, s.replication_id) for s in scenarios
+    }
+    assert not store.pending()
+    assert not store.succeeded()
+    assert not store.failed()
+    cause = error.__cause__ or error
+    for record in store.aborted().values():
+        assert record.failure.origin is FailureOrigin.ABORTED
+        assert record.failure.exception_type == type(cause).__name__
+        assert record.failure.message == str(cause)
+        assert "BrokenExecutor" in record.failure.traceback
 
 
 def test_run_scenarios_partial_abort():
