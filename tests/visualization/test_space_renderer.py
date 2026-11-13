@@ -3,6 +3,7 @@
 import random
 from unittest.mock import MagicMock, patch
 
+import altair as alt
 import numpy as np
 import pytest
 
@@ -253,3 +254,30 @@ def test_mismatched_property_layer_dimensions_returns_none_colorbar():
         ).draw_property_layer()
 
     assert result == (sr.backend_renderer.ax, None)
+
+
+@pytest.mark.parametrize("with_agents", [False, True])
+def test_altair_canvas_with_property_layer(with_agents):
+    """The Altair canvas should work when a property layer is drawn.
+
+    The Altair backend returns the property layers as one chart, so canvas
+    must not try to unpack it into a chart and a colorbar.
+    """
+    model = CustomModel()
+    sr = SpaceRenderer(model, backend="altair")
+    sr.setup_property_layer(lambda _: PropertyLayerStyle(colormap="viridis"))
+    if with_agents:
+        CellAgent(model).cell = model.grid[(1, 1)]
+        sr.setup_agents(lambda _: AgentPortrayalStyle())
+    sr.render()
+
+    chart = sr.canvas
+
+    assert isinstance(chart, alt.LayerChart)
+    chart.to_dict()  # raises if the combined chart is not a valid spec
+
+    # the grid structure, the property layer chart, then the agents on top
+    assert len(chart.layer) == (3 if with_agents else 2)
+    assert isinstance(chart.layer[1], alt.LayerChart)
+    if with_agents:
+        assert chart.layer[2].to_dict()["mark"]["type"] == "point"
