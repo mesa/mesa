@@ -166,7 +166,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         if until < self.time:
             warnings.warn(
-                f"end time {until} is earlier than current time {self.time}",
+                f"end_time {until} is earlier than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -352,8 +352,8 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         time = at if at is not None else self.time + after
         # Enforce monotonic time progression
-        if not math.isfinite(time):
-            raise ValueError("Event time must be a finite number.")
+        if math.isnan(time):
+            raise ValueError("Event time cannot be NaN.")
 
         if time < self.time:
             raise ValueError(
@@ -400,15 +400,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
         duration: The duration to run the model for.
-
-        Raises:
-            ValueError: If duration is negative.
         """
-        if duration < 0:
-            raise ValueError("duration must be non-negative")
-
-        if duration == 0:
-            return
+        if not math.isfinite(duration):
+            raise ValueError("duration must be a finite number")
 
         self._advance_time(self.time + duration)
 
@@ -420,17 +414,19 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             end_time: Absolute time to run until
 
         If model.time is larger than end_time, the method returns directly.
-        If equal, it returns without warning.
         """
-        if self.time > end_time:
-            warnings.warn(
-                f"end_time {end_time} is earlier than current time {self.time}",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            return
+        if not math.isfinite(end_time):
+            raise ValueError("end_time must be a finite number")
 
-        if self.time == end_time:
-            return
+        # if self.time > end_time:
+        #     warnings.warn(
+        #         f"end_time {end_time} is earlier than current time {self.time}",
+        #         RuntimeWarning,
+        #         stacklevel=2,
+        #     )
+        #     return
+
+        # if self.time == end_time:
+        #     return
 
         self._advance_time(end_time)

@@ -39,25 +39,11 @@ def test_schedule_event_rejects_nan():
     """Test that scheduling an event at NaN time is rejected."""
     model = TimeTestModel()
 
-    with pytest.raises(ValueError, match="finite"):
-        model.schedule_event(lambda: None, at=float("nan"))
+    def callback():
+        pass
 
-
-@pytest.mark.parametrize("time", [float("inf"), float("-inf")])
-def test_schedule_event_rejects_infinite_time(time):
-    """Test that scheduling an event at infinite time is rejected."""
-    model = TimeTestModel()
-
-    with pytest.raises(ValueError, match="finite"):
-        model.schedule_event(lambda: None, at=time)
-
-
-def test_run_for_rejects_negative_duration():
-    """Test that run_for rejects negative durations."""
-    model = TimeTestModel()
-
-    with pytest.raises(ValueError, match="non-negative"):
-        model.run_for(-5)
+    with pytest.raises(ValueError, match="NaN"):
+        model.schedule_event(callback, at=float("nan"))
 
 
 def test_run_for_rejects_nan():

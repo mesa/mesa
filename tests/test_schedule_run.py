@@ -65,10 +65,18 @@ class TestRunFor:
         model = SimpleModel()
         model.run_for(5)
         with pytest.warns(
-            RuntimeWarning, match=r"end time 4\.0 is earlier than current time 5\.0"
+            RuntimeWarning, match=r"end_time 4\.0 is earlier than current time 5\.0"
         ):
             model.run_for(-1)
         assert model.time == 5.0
+
+    @pytest.mark.parametrize("duration", [float("nan"), float("inf"), float("-inf")])
+    def test_rejects_non_finite_duration(self, duration):
+        """run_for should reject non-finite durations."""
+        model = SimpleModel()
+
+        with pytest.raises(ValueError, match="duration must be a finite number"):
+            model.run_for(duration)
 
 
 class TestRunUntil:
@@ -105,6 +113,14 @@ class TestRunUntil:
         model.run_until(model.time)
         assert fired == [3.0]
         assert not [w for w in recwarn if issubclass(w.category, RuntimeWarning)]
+
+    @pytest.mark.parametrize("end_time", [float("nan"), float("inf"), float("-inf")])
+    def test_rejects_non_finite_end_time(self, end_time):
+        """run_until should reject non-finite end times."""
+        model = SimpleModel()
+
+        with pytest.raises(ValueError, match="end_time must be a finite number"):
+            model.run_until(end_time)
 
 
 # --- schedule_event ---
@@ -200,6 +216,16 @@ class TestScheduleEvent:
 
         with pytest.raises(ValueError, match="Cannot schedule event in the past"):
             model.schedule_event(noop, at=5)
+
+    def test_rejects_nan_event_time(self):
+        """schedule_event should reject NaN event times."""
+        model = SimpleModel()
+
+        def noop():
+            pass
+
+        with pytest.raises(ValueError, match="NaN"):
+            model.schedule_event(noop, at=float("nan"))
 
 
 # --- schedule_recurring ---
