@@ -67,7 +67,7 @@ def test_caplog_capture_after_teardown(caplog):
     logger.info("testing caplog propagation")
     assert "testing caplog propagation" in caplog.text
 
-import logging
+
 from mesa.mesa_logging import method_logger
 
 
