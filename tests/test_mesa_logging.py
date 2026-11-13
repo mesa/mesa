@@ -6,6 +6,9 @@ import pytest
 
 from mesa import mesa_logging
 
+from mesa.mesa_logging import method_logger
+
+
 
 @pytest.fixture(autouse=True)
 def tear_down():
@@ -66,9 +69,6 @@ def test_caplog_capture_after_teardown(caplog):
     logger.setLevel(logging.INFO)
     logger.info("testing caplog propagation")
     assert "testing caplog propagation" in caplog.text
-
-
-from mesa.mesa_logging import method_logger
 
 
 def test_method_logger_logs_qualname(caplog):
