@@ -598,7 +598,7 @@ class SQLDataRecorder(BaseDataRecorder):
             columns = ["agent_id", *columns]
 
         if not self.metadata[dataset_name]["table_created"]:
-            col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+            col_defs = ", ".join([f'"{col}"' for col in columns])
             self.conn.execute(
                 f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
             )
@@ -606,6 +606,7 @@ class SQLDataRecorder(BaseDataRecorder):
             self.metadata[dataset_name]["columns"] = columns
 
         df = pd.DataFrame(data, columns=columns)
+        df["agent_id"] = df["agent_id"].astype(int)
         df["time"] = time
         df.to_sql(dataset_name, self.conn, if_exists="append", index=False)
 
@@ -613,7 +614,7 @@ class SQLDataRecorder(BaseDataRecorder):
         """Store list of dicts as SQL records."""
         if not self.metadata[dataset_name]["table_created"]:
             columns = [k for k in data[0] if k != "time"]
-            col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+            col_defs = ", ".join([f'"{col}"' for col in columns])
             self.conn.execute(
                 f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
             )
@@ -628,7 +629,7 @@ class SQLDataRecorder(BaseDataRecorder):
         """Store single dict as SQL record."""
         if not self.metadata[dataset_name]["table_created"]:
             columns = [k for k in data if k != "time"]
-            col_defs = ", ".join([f'"{col}" REAL' for col in columns])
+            col_defs = ", ".join([f'"{col}"' for col in columns])
             self.conn.execute(
                 f'CREATE TABLE IF NOT EXISTS "{dataset_name}" (time REAL, {col_defs})'
             )
