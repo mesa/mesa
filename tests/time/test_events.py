@@ -999,6 +999,25 @@ class TestEventGeneratorExecution:
         assert fn.call_count == 3  # t=0, 1, 2
         assert not gen.is_active
 
+    def test_first_event_after_end_does_not_fire(self, setup):
+        """A generator whose first event would fall after schedule.end never fires.
+
+        With start=None the first event is at now + interval, which can already
+        be past end. See https://github.com/mesa/mesa/issues/4083.
+        """
+        model, fn = setup
+        model.run_for(10.0)
+        gen = EventGenerator(model, fn, Schedule(interval=5.0, end=12.0))
+        gen.start()
+
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen not in model._event_generators
+
+        model.run_for(20.0)
+        fn.assert_not_called()
+        assert gen.execution_count == 0
+
     def test_schedule_count(self, setup):
         """Test schedule.count limits executions."""
         model, fn = setup
