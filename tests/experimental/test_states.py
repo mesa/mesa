@@ -6,6 +6,8 @@ analytical threshold crossing detection, and initialization race condition safet
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 import mesa.experimental.mesa_signals.core as signals_core
@@ -294,6 +296,26 @@ class TestThresholdCrossing:
         # then coasts the remaining 18.75m at 15 m/s, taking exactly 1.25s.
         # Total crossing time = 10.0 (start) + 7.5 (accelerating) + 1.25 (coasting) = 18.75
         assert tram.brake_events[1] == pytest.approx(18.75)
+
+    def test_limit_change_mid_acceleration_uses_current_rate(
+        self, model: TramModel
+    ) -> None:
+        """A limit rewritten while the state accelerates must project from the current rate.
+
+        current_rate is cached at the trajectory's base time. Solving the crossing
+        from the current value with that stale rate projects too late (here t=4.0
+        instead of 1 + sqrt(10) - 1), and a later rate change can then disarm the
+        threshold entirely because the limit is already behind the state.
+        """
+        tram = Tram(model)
+        tram.depart()  # acceleration 2.0: position(t) = t^2, speed(t) = 2t
+        model.run_until(1.0)  # position 1.0, speed 2.0
+
+        tram.brake_point = 10.0
+        model.run_until(10.0)
+
+        # 1.0 + 2.0 t + 0.5 * 2.0 t^2 = 10.0  ->  t = -1 + sqrt(10), from t = 1.0
+        assert tram.brake_events == [pytest.approx(math.sqrt(10.0))]
 
 
 class TestDemoIntegration:
