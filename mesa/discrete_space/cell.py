@@ -219,8 +219,6 @@ class Cell:
             random=self.random,
         )
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -292,4 +290,3 @@ class Cell:
     def _clear_cache(self):
         """Helper function to clear local cache."""
         self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()

@@ -129,6 +129,23 @@ if model.time >= 100:
 
 - Ref: [PR #3328](https://github.com/mesa/mesa/pull/3328)
 
+### Any sized sequence is spread across agents
+`create_agents()` and `AgentSet.set()` used to spread only `list`, `tuple`, `numpy.ndarray` and `pandas.Series`, and broadcast everything else as one shared value. Any sized, ordered sequence is now spread, which adds `range`, `collections.deque`, `array.array` and `pandas.Index`. The length check applies to all of them, so a mismatch raises instead of silently broadcasting.
+
+```python
+# Old
+MyAgent.create_agents(model, n, wealth=range(n))   # every agent got the same range object
+MyAgent.create_agents(model, 4, wealth=range(3))   # silently broadcast, no error
+
+# New
+MyAgent.create_agents(model, n, wealth=range(n))   # agent i gets i
+MyAgent.create_agents(model, 4, wealth=range(3))   # ValueError
+```
+
+Strings, bytes, `collections.UserString`, `dict` and every `collections.abc.Set` are still broadcast, so sharing a group with every agent -- a `set`, an `AgentSet`, a team of neighbours -- is unchanged. If you were relying on a `range` or a `deque` being broadcast as a single value, wrap it: `wealth=[my_range] * n`, or pass it as a scalar the agent stores itself.
+
+- Ref: [PR #3956](https://github.com/mesa/mesa/pull/3956)
+
 ### `batch_run` removed
 `mesa.batch_run` no longer exists. Parameter sweeps go through `Scenario` + `RunConfiguration` + `run_scenarios()` in `mesa.experimental.scenarios`. This isn't a drop-in replacement — it separates *what varies between runs* (`Scenario`) from *how a single run is executed and what's extracted* (`RunConfiguration`), and returns a queryable `Store` rather than a single DataFrame.
 
@@ -151,7 +168,7 @@ config = RunConfiguration(MyModel, until=100)
 store = run_scenarios(scenarios, config)
 ```
 
-See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have.
+See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) can silently corrupt the output.
 
 - Ref: [PR #3325](https://github.com/mesa/mesa/pull/3325), background in [Issue #3134](https://github.com/mesa/mesa/issues/3134)
 
@@ -171,7 +188,7 @@ grid = OrthogonalMooreGrid((width, height), torus=True, random=model.random)
 ```
 Networks migrate the same way — `NetworkGrid` becomes `discrete_space.Network`, and placing an agent becomes assigning its `cell` rather than calling a `place_agent` method:
 
-​```python
+```python
 # Old
 from mesa.space import NetworkGrid
 
@@ -183,7 +200,7 @@ from mesa.discrete_space import Network
 
 grid = Network(some_networkx_graph, random=model.random)
 agent.cell = grid[node_id]
-​```
+```
 
 - Ref: [PR #3337](https://github.com/mesa/mesa/pull/3337)
 

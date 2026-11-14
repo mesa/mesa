@@ -214,7 +214,11 @@ class BaseDataRecorder(ABC):
         current_time = self.model.time
 
         for name, config in self.configs.items():
-            if not config.enabled or current_time < config._last_collection:
+            if (
+                not config.enabled
+                or current_time < config.start_time
+                or current_time < config._last_collection
+            ):
                 continue
 
             is_overwrite = current_time == config._last_collection
