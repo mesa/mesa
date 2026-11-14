@@ -310,11 +310,17 @@ class EventGenerator:
             self.stop()
             return  # Silent no-op (no error raised)
 
-        # Execute the function
+        # Execute the function. Reschedule even if it raises, so one failing
+        # call does not silently end the generator (and with it model.step()).
         firing_event = self._current_event
-        fn()
-        self._execution_count += 1
+        try:
+            fn()
+        finally:
+            self._execution_count += 1
+            self._reschedule(firing_event)
 
+    def _reschedule(self, firing_event: Event | None) -> None:
+        """Schedule the next event after ``firing_event``, unless the generator is done."""
         # The callback may have stopped, paused, restarted, or resumed this
         # generator. Both start() and resume() schedule a new event and replace
         # _current_event, so in that case do not schedule a second one.
