@@ -399,7 +399,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """Run the model for the specified duration.
 
         Args:
-        duration: The duration to run the model for.
+            duration: The duration to run the model for.
         """
         if not math.isfinite(duration):
             raise ValueError("duration must be a finite number")
@@ -412,8 +412,6 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
             end_time: Absolute time to run until
-
-        If model.time is larger than end_time, the method returns directly.
         """
         if not math.isfinite(end_time):
             raise ValueError("end_time must be a finite number")
