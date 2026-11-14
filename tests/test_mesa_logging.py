@@ -5,6 +5,7 @@ import logging
 import pytest
 
 from mesa import mesa_logging
+from mesa.mesa_logging import method_logger
 
 
 @pytest.fixture(autouse=True)
@@ -66,3 +67,23 @@ def test_caplog_capture_after_teardown(caplog):
     logger.setLevel(logging.INFO)
     logger.info("testing caplog propagation")
     assert "testing caplog propagation" in caplog.text
+
+
+def test_method_logger_logs_qualname(caplog):
+    """Test that method_logger logs the class and method qualname rather than outer frame."""
+
+    class SampleAgent:
+        @method_logger("mesa")
+        def step(self, value, flag=False):
+            return value
+
+    agent = SampleAgent()
+    with caplog.at_level(logging.DEBUG, logger="MESA.mesa"):
+        result = agent.step(42, flag=True)
+
+    assert result == 42
+    assert any(
+        "calling test_method_logger_logs_qualname.<locals>.SampleAgent.step with (42,) and {'flag': True}"
+        in record.getMessage()
+        for record in caplog.records
+    )

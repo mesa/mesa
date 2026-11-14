@@ -99,16 +99,13 @@ def method_logger(name: str):
 
     """
     logger = get_module_logger(name)
-    classname = inspect.getouterframes(inspect.currentframe())[1][3]
 
     def real_decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # hack, because log is applied to methods, we can get
             # object instance as first arguments in args
-            logger.debug(
-                f"calling {classname}.{func.__name__} with {args[1::]} and {kwargs}"
-            )
+            logger.debug(f"calling {func.__qualname__} with {args[1::]} and {kwargs}")
             res = func(*args, **kwargs)
             return res
 
