@@ -555,6 +555,69 @@ def test_networkgrid():
     assert grid._cells[0] not in cell.neighborhood
 
 
+def _connected_to(cell):
+    return {c.coordinate for c in cell.connections.values()}
+
+
+def test_network_directed_remove_cell():
+    """Removing a cell from a directed Network removes it everywhere.
+
+    Connections follow successors only, so remove_cell must also disconnect
+    predecessors. See https://github.com/mesa/mesa/issues/4085.
+    """
+    # directed cycle: the removed cell's successor does not point back to it
+    grid = Network(nx.DiGraph([(0, 1), (1, 2), (2, 0)]), random=random.Random(42))
+    removed = grid._cells[1]
+    grid.remove_cell(removed)
+
+    assert 1 not in grid._cells
+    assert 1 not in grid.G
+    assert _connected_to(grid._cells[0]) == set()
+    assert _connected_to(grid._cells[2]) == {0}
+    assert removed.connections == {}
+
+    # cell with only incoming edges: no dangling connection to the removed cell
+    model = Model(rng=42)
+    grid = Network(nx.DiGraph([(0, 1)]), random=model.random)
+    grid.remove_cell(grid._cells[1])
+    assert _connected_to(grid._cells[0]) == set()
+    assert len(grid._cells[0].neighborhood) == 0
+
+    # self-loop on a directed graph
+    grid = Network(nx.DiGraph([(0, 0), (0, 1)]), random=random.Random(42))
+    grid.remove_cell(grid._cells[0])
+    assert list(grid._cells) == [1]
+    assert list(grid.G.nodes) == [1]
+
+    with pytest.raises(CellMissingException):
+        grid.remove_cell(Cell(5, random=random.Random(42)))
+
+
+def test_network_directed_connections():
+    """add_connection and remove_connection on a directed Network are one-way."""
+    grid = Network(nx.DiGraph([(0, 1)]), random=random.Random(42))
+    cell = Cell(2, random=random.Random(42))
+    grid.add_cell(cell)
+
+    grid.add_connection(grid._cells[0], cell)
+    assert list(grid.G.edges) == [(0, 1), (0, 2)]
+    assert _connected_to(grid._cells[0]) == {1, 2}
+    assert _connected_to(cell) == set()
+
+    grid.remove_connection(grid._cells[0], cell)
+    assert list(grid.G.edges) == [(0, 1)]
+    assert _connected_to(grid._cells[0]) == {1}
+
+
+def test_network_undirected_remove_cell_unchanged():
+    """Undirected networks keep connecting and disconnecting both ways."""
+    grid = Network(nx.Graph([(0, 1), (1, 2)]), random=random.Random(42))
+    grid.remove_cell(grid._cells[1])
+    assert _connected_to(grid._cells[0]) == set()
+    assert _connected_to(grid._cells[2]) == set()
+    assert list(grid.G.nodes) == [0, 2]
+
+
 def test_voronoigrid():
     """Test VoronoiGrid."""
     # Index 0: [0, 1]

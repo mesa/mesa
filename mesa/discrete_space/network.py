@@ -21,7 +21,7 @@ from scipy.spatial import KDTree
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
-from mesa.exceptions import SpaceException
+from mesa.exceptions import CellMissingException, SpaceException
 
 
 class Network(DiscreteSpace[Cell]):
@@ -155,20 +155,55 @@ class Network(DiscreteSpace[Cell]):
             self._kdtree_dirty = True
 
     def remove_cell(self, cell: Cell):
-        """Remove a cell from the space."""
-        super().remove_cell(cell)
+        """Remove a cell from the space.
+
+        On a directed graph, cells are connected to their successors only, so the
+        cell is also disconnected from every predecessor that points to it.
+        """
+        if self.G.is_directed():
+            self._remove_cell_directed(cell)
+        else:
+            super().remove_cell(cell)
         self.G.remove_node(cell.coordinate)
 
         if cell._position is not None and cell in self._kdtree_cells:
             self._kdtree_cells.remove(cell)
             self._kdtree_dirty = True
 
+    def _remove_cell_directed(self, cell: Cell):
+        """Remove a cell whose connections follow the edges of a directed graph."""
+        node = cell.coordinate
+        try:
+            self._cells.pop(node)
+        except KeyError as e:
+            raise CellMissingException(node) from e
+        self.__dict__.pop("all_cells", None)
+
+        for predecessor in list(self.G.predecessors(node)):
+            if predecessor != node:
+                self._cells[predecessor].disconnect(cell)
+        cell.connections.clear()
+        cell._clear_cache()
+
     def add_connection(self, cell1: Cell, cell2: Cell):
-        """Add a connection between the two cells."""
-        super().add_connection(cell1, cell2)
+        """Add a connection between the two cells.
+
+        On a directed graph, only cell1 is connected to cell2, matching the
+        single edge added to the graph.
+        """
+        if self.G.is_directed():
+            cell1.connect(cell2)
+        else:
+            super().add_connection(cell1, cell2)
         self.G.add_edge(cell1.coordinate, cell2.coordinate)
 
     def remove_connection(self, cell1: Cell, cell2: Cell):
-        """Remove a connection between the two cells."""
-        super().remove_connection(cell1, cell2)
+        """Remove a connection between the two cells.
+
+        On a directed graph, only the connection from cell1 to cell2 is removed.
+        """
+        if self.G.is_directed():
+            cell1.disconnect(cell2)
+        else:
+            super().remove_connection(cell1, cell2)
         self.G.remove_edge(cell1.coordinate, cell2.coordinate)
