@@ -932,11 +932,20 @@ def test_cell_collection():
     cells = collection.select(at_most=0.5)
     assert len(cells) == 5
 
+    for np_at_most in (
+        np.int64(2),
+        np.int32(2),
+        np.uint8(2),
+        np.float64(0.5),
+        np.float32(0.5),
+    ):
+        assert len(collection.select(at_most=np_at_most)) in (2, 5)
+
     for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             collection.select(at_most=bad_at_most)
 
-    for bad_type in (False, True, "1", [1], None):
+    for bad_type in (False, True, np.True_, np.False_, "1", [1], None):
         with pytest.raises(TypeError, match="must be an integer or float"):
             collection.select(at_most=bad_type)
 
