@@ -93,6 +93,14 @@ class ContinuousSpaceAgent(Agent):
         agents, dists = self.space.get_k_nearest_agents(
             self.position, k=k + 1, _in_bounds=True
         )
-        logical = np.asarray([agent is not self for agent in agents])
-        agents = list(compress(agents, logical))
-        return agents, dists[logical]
+        # self is not always among the k+1 nearest when more than k other agents
+        # share its position, so stop at k neighbors instead of dropping one entry.
+        neighbors = []
+        neighbor_dists = []
+        for agent, dist in zip(agents, dists):
+            if agent is not self:
+                neighbors.append(agent)
+                neighbor_dists.append(dist)
+                if len(neighbors) == k:
+                    break
+        return neighbors, np.asarray(neighbor_dists, dtype=float)
