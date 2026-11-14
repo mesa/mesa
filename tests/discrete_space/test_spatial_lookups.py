@@ -53,17 +53,15 @@ def test_hex_grid_lookups():
         found_cell = grid.find_nearest_cell(pos)
         assert cell == found_cell
 
-    # Specific Geometry Checks (Odd-R Pointy-Topped)
+    # Specific Geometry Checks (Even-R Pointy-Topped, even rows shifted right)
     cell_0_0 = grid._cells[(0, 0)]
-    np.testing.assert_array_almost_equal(cell_0_0.position, [0.0, 0.0])
+    np.testing.assert_array_almost_equal(cell_0_0.position, [math.sqrt(3) * 0.5, 0.0])
 
     cell_1_0 = grid._cells[(1, 0)]
-    np.testing.assert_array_almost_equal(cell_1_0.position, [math.sqrt(3), 0.0])
+    np.testing.assert_array_almost_equal(cell_1_0.position, [math.sqrt(3) * 1.5, 0.0])
 
     cell_0_1 = grid._cells[(0, 1)]
-    expected_x = math.sqrt(3) * 0.5
-    expected_y = 1.5
-    np.testing.assert_array_almost_equal(cell_0_1.position, [expected_x, expected_y])
+    np.testing.assert_array_almost_equal(cell_0_1.position, [0.0, 1.5])
 
     torus_hex = HexGrid((4, 4), torus=True, random=random.Random(42))
     width_px = 4 * math.sqrt(3)
@@ -71,6 +69,28 @@ def test_hex_grid_lookups():
     wrapped_cell = torus_hex.find_nearest_cell([-0.1, 0])
     expected_wrapped_cell = torus_hex.find_nearest_cell([width_px - 0.1, 0])
     assert wrapped_cell == expected_wrapped_cell
+
+
+@pytest.mark.parametrize("torus", [False, True])
+def test_hex_grid_positions_match_connections(torus):
+    """Hexagons that touch (centres sqrt(3) apart) must be connected cells."""
+    grid = HexGrid((6, 4), torus=torus, random=random.Random(42))
+
+    for cell in grid.all_cells:
+        touching = {
+            other
+            for other in grid.all_cells
+            if other is not cell
+            and math.isclose(
+                np.linalg.norm(other.position - cell.position), math.sqrt(3)
+            )
+        }
+        connected = set(cell.connections.values())
+        if torus:
+            # wrapped connections are not drawn next to each other
+            assert touching <= connected
+        else:
+            assert touching == connected
 
 
 def test_voronoi_lookups():
