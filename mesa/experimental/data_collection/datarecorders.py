@@ -336,7 +336,11 @@ class JSONDataRecorder(BaseDataRecorder):
         return pd.DataFrame(records) if records else pd.DataFrame()
 
     def clear(self, dataset_name: str | None = None) -> None:
-        """Clear recorded data, keeping the datasets so recording can continue."""
+        """Clear recorded data, keeping the datasets so recording can continue.
+
+        Files already written by :meth:`save_to_json` are left on disk. The next
+        ``save_to_json()`` overwrites them.
+        """
         if dataset_name is None:
             for snapshots in self.data.values():
                 snapshots.clear()
@@ -454,7 +458,11 @@ class ParquetDataRecorder(BaseDataRecorder):
         return pd.read_parquet(filepath)
 
     def clear(self, dataset_name: str | None = None) -> None:
-        """Delete Parquet files."""
+        """Clear recorded data by deleting the Parquet file(s).
+
+        This recorder keeps its data in the Parquet files, not in memory, so
+        clearing a dataset deletes its file and empties its write buffer.
+        """
         if dataset_name is None:
             for name in self.buffers:
                 filepath = self.output_dir / f"{name}.parquet"
