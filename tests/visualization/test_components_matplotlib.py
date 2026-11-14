@@ -1,6 +1,7 @@
 """tests for matplotlib components."""
 
 import networkx as nx
+import numpy as np
 import pytest
 from matplotlib.figure import Figure
 
@@ -142,6 +143,27 @@ def test_draw_hex_grid():
     fig = Figure()
     ax = fig.add_subplot()
     draw_hex_grid(grid, agent_portrayal, ax)
+
+
+def test_draw_hex_grid_agents_at_hexagon_centre():
+    """Test that agents are drawn at the centre of the hexagon of their cell."""
+    model = Model(rng=42)
+    grid = HexGrid((6, 6), random=model.random)
+    coordinates = [(0, 0), (0, 1), (2, 2), (3, 3), (5, 4), (5, 5)]
+    for coordinate in coordinates:
+        agent = CellAgent(model)
+        agent.cell = grid[coordinate]
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_hex_grid(grid, lambda _: AgentPortrayalStyle(marker="o"), ax)
+
+    mesh = _get_hexmesh(6, 6)
+    expected = [np.mean(mesh[row * 6 + col], axis=0) for col, row in coordinates]
+    drawn = ax.collections[0].get_offsets()
+    np.testing.assert_allclose(
+        sorted(map(tuple, drawn)), sorted(map(tuple, expected)), atol=1e-9
+    )
 
 
 def test_draw_voronoi_grid():

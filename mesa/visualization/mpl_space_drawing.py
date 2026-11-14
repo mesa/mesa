@@ -553,7 +553,9 @@ def draw_hex_grid(
     ax.set_xlim(-2 * x_padding, x_max + x_padding)
     ax.set_ylim(-2 * y_padding, y_max + y_padding)
 
-    loc = arguments["loc"].astype(float)
+    # cell.position is already in pixels, so start from the grid coordinate (same
+    # agent order as collect_agent_data) and place it like _get_hexmesh does.
+    loc = np.array([agent.cell.coordinate for agent in space.agents], dtype=float)
     # Calculate hexagon centers for agents if agents are present and plot them.
     if loc.size > 0:
         loc[:, 0] = loc[:, 0] * x_spacing + ((loc[:, 1] - 1) % 2) * (x_spacing / 2)
