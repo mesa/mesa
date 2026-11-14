@@ -880,6 +880,41 @@ class TestEventGeneratorStartStop:
         fn.assert_not_called()
         assert model.time == 8.0
 
+    def test_restart_after_count_exhausted_does_not_fire(self, setup):
+        """Restarting a generator whose count is used up must not exceed count.
+
+        execution_count is kept across stop/start, so start() must not schedule
+        an event once count is reached. Previously it fired one extra time.
+        """
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0, count=2)).start()
+        model.run_for(5.0)
+        assert fn.call_count == 2
+        assert not gen.is_active
+
+        gen.start()
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen not in model._event_generators
+
+        model.run_for(5.0)
+        assert fn.call_count == 2
+        assert gen.execution_count == 2
+
+    def test_restart_after_stop_runs_remaining_count(self, setup):
+        """Restarting after stop() before count is reached runs the remaining executions."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0, count=3)).start()
+        model.run_for(1.5)
+        assert fn.call_count == 1
+        gen.stop()
+
+        gen.start()
+        model.run_for(10.0)
+        assert fn.call_count == 3
+        assert gen.execution_count == 3
+        assert not gen.is_active
+
     def test_start_when_active_is_noop(self, setup):
         """Test that starting when active does nothing."""
         model, fn = setup
@@ -998,6 +1033,25 @@ class TestEventGeneratorExecution:
         model.run_for(5.0)
         assert fn.call_count == 3  # t=0, 1, 2
         assert not gen.is_active
+
+    def test_first_event_after_end_does_not_fire(self, setup):
+        """A generator whose first event would fall after schedule.end never fires.
+
+        With start=None the first event is at now + interval, which can already
+        be past end. See https://github.com/mesa/mesa/issues/4083.
+        """
+        model, fn = setup
+        model.run_for(10.0)
+        gen = EventGenerator(model, fn, Schedule(interval=5.0, end=12.0))
+        gen.start()
+
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen not in model._event_generators
+
+        model.run_for(20.0)
+        fn.assert_not_called()
+        assert gen.execution_count == 0
 
     def test_schedule_count(self, setup):
         """Test schedule.count limits executions."""
