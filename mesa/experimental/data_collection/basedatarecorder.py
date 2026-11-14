@@ -45,7 +45,7 @@ class DatasetConfig:
         start_time: First time to begin collection
         end_time: Last time to collect (None = collect forever)
         window_size: Max snapshots to keep (None = keep all, N = sliding window)
-        enabled: Whether collection is active
+        enabled: Whether collection is active (independent of the time window)
         _next_collection: Next scheduled collection time (internal)
 
     Examples:
@@ -115,10 +115,6 @@ class DatasetConfig:
             current_time: The current simulation time
         """
         self._next_collection = current_time + self.interval
-
-        # Auto-disable if we've passed end_time
-        if self.end_time is not None and self._next_collection > self.end_time:
-            self.enabled = False
 
 
 class BaseDataRecorder(ABC):
@@ -191,6 +187,7 @@ class BaseDataRecorder(ABC):
 
             if (
                 not config.enabled
+                or (config.end_time is not None and current_time > config.end_time)
                 or current_time < config._last_collection
                 or (current_time < config._next_collection and not is_overwrite)
             ):
@@ -205,7 +202,7 @@ class BaseDataRecorder(ABC):
 
             config._last_collection = current_time
 
-            # Update next collection time (may auto-disable)
+            # Update the next scheduled collection time.
             if current_time >= config._next_collection:
                 config.update_next_collection(current_time)
 
@@ -216,6 +213,7 @@ class BaseDataRecorder(ABC):
         for name, config in self.configs.items():
             if (
                 not config.enabled
+                or (config.end_time is not None and current_time > config.end_time)
                 or current_time < config.start_time
                 or current_time < config._last_collection
             ):
@@ -247,7 +245,9 @@ class BaseDataRecorder(ABC):
         current_time = self.model.time
 
         for name, config in self.configs.items():
-            if not config.enabled:
+            if not config.enabled or (
+                config.end_time is not None and current_time > config.end_time
+            ):
                 continue
 
             dataset = self.registry.datasets[name]
