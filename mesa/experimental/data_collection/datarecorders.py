@@ -490,7 +490,7 @@ class ParquetDataRecorder(BaseDataRecorder):
         return pd.read_parquet(filepath)
 
     def clear(self, dataset_name: str | None = None) -> None:
-        """Clear recorded data by deleting the Parquet files.
+        """Clear recorded data by deleting the Parquet file(s).
 
         This recorder keeps its data in the Parquet files, not in memory, so
         clearing a dataset deletes its file and empties its write buffer.
