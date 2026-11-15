@@ -196,6 +196,14 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         """Update the AbstractAgentSet A with new set of agents."""
         ...
 
+    def _from_iterable(self, it: Iterable[A]) -> AgentSet[A]:
+        """Construct an AgentSet from an iterable, preserving the random generator.
+
+        This hook is called by collections.abc.Set binary operators (&, |, -, ^).
+        It ensures returned sets hold weak references and preserve self.random.
+        """
+        return AgentSet(it, random=self.random)
+
     def __repr__(self) -> str:
         """Return a concise, programmer-facing representation of the AbstractAgentSet."""
         return f"<{type(self).__name__} ({len(self)} agents)>"
