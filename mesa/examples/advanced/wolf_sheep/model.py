@@ -7,6 +7,10 @@ Replication of the model found in NetLogo:
     http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.
     Center for Connected Learning and Computer-Based Modeling,
     Northwestern University, Evanston, IL.
+
+The animals move through a continuous meadow, and the grass grows on a grid
+over the same area. Each animal's grid cell follows its position in the meadow,
+using ``mesa.experimental.locations``.
 """
 
 import math
@@ -15,6 +19,7 @@ from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalVonNeumannGrid
 from mesa.examples.advanced.wolf_sheep.agents import GrassPatch, Sheep, Wolf
+from mesa.experimental.continuous_space import ContinuousSpace
 from mesa.experimental.scenarios import Scenario
 
 
@@ -78,6 +83,11 @@ class WolfSheep(Model):
             capacity=math.inf,
             random=self.random,
         )
+        # The meadow the animals move through, covering the same area as the grid
+        size = [self.height, self.width]
+        self.meadow = ContinuousSpace(
+            [[0, self.height], [0, self.width]], torus=True, random=self.random
+        )
 
         # Set up data collection
         model_reporters = {
@@ -100,9 +110,7 @@ class WolfSheep(Model):
             * scenario.sheep_gain_from_food,
             p_reproduce=scenario.sheep_reproduce,
             energy_from_food=scenario.sheep_gain_from_food,
-            cell=self.random.choices(
-                self.grid.all_cells.cells, k=scenario.initial_sheep
-            ),
+            position=self.rng.random((scenario.initial_sheep, 2)) * size,
         )
         # Create Wolves:
         Wolf.create_agents(
@@ -113,9 +121,7 @@ class WolfSheep(Model):
             * scenario.wolf_gain_from_food,
             p_reproduce=scenario.wolf_reproduce,
             energy_from_food=scenario.wolf_gain_from_food,
-            cell=self.random.choices(
-                self.grid.all_cells.cells, k=scenario.initial_wolves
-            ),
+            position=self.rng.random((scenario.initial_wolves, 2)) * size,
         )
 
         # Create grass patches if enabled
