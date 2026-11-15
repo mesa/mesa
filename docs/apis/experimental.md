@@ -13,18 +13,6 @@ This namespace contains experimental features. These are under development, and 
    :members:
 ```
 
-## Continuous Space
-
-```{eval-rst}
-.. automodule:: experimental.continuous_space.continuous_space
-   :members:
-```
-
-```{eval-rst}
-.. automodule:: experimental.continuous_space.continuous_space_agents
-   :members:
-```
-
 ## Scenarios
 
 ```{eval-rst}
@@ -34,6 +22,11 @@ This namespace contains experimental features. These are under development, and 
 
 ```{eval-rst}
 .. automodule:: experimental.scenarios.runner
+   :members:
+```
+
+```{eval-rst}
+.. automodule:: experimental.scenarios.disk_store
    :members:
 ```
 

@@ -10,7 +10,7 @@ time
 discrete_space
 datacollection
 visualization
-logging
+mesa_logging
 meta_agents
 experimental
 ```

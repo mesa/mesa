@@ -60,6 +60,16 @@ class TestRunFor:
         model.run_for(5)
         assert model.time == 10.0
 
+    def test_negative_duration(self):
+        """run_for with a negative duration should warn and leave time unchanged."""
+        model = SimpleModel()
+        model.run_for(5)
+        with pytest.warns(
+            RuntimeWarning, match=r"end time 4\.0 is earlier than current time 5\.0"
+        ):
+            model.run_for(-1)
+        assert model.time == 5.0
+
 
 class TestRunUntil:
     def test_basic(self):
@@ -70,7 +80,9 @@ class TestRunUntil:
     def test_already_past(self):
         model = SimpleModel()
         model.run_for(10)
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(
+            RuntimeWarning, match=r"end_time 5\.0 is earlier than current time 10\.0"
+        ):
             model.run_until(5.0)  # already past t=5
             assert model.time == 10
 
@@ -79,6 +91,20 @@ class TestRunUntil:
         model.run_until(3.0)
         model.run_until(7.0)
         assert model.time == 7.0
+
+    def test_events_due_at_end_time_run(self, recwarn):
+        """run_until at the current time should process events scheduled for that time."""
+        model = SimpleModel()
+        model.run_for(3)
+        fired = []
+
+        def fire():
+            fired.append(model.time)
+
+        model.schedule_event(fire, at=model.time)
+        model.run_until(model.time)
+        assert fired == [3.0]
+        assert not [w for w in recwarn if issubclass(w.category, RuntimeWarning)]
 
 
 # --- schedule_event ---
@@ -273,3 +299,19 @@ class TestEdgeCases:
 
         assert one_off_events == [2.5]
         assert recurring_events == [2.0, 4.0, 6.0]
+
+    def test_time_stays_float_with_int_times(self):
+        """model.time stays a float when run_until or schedule_event get ints."""
+        model = SimpleModel()
+        seen = []
+
+        def fire():
+            seen.append(model.time)
+
+        model.schedule_event(fire, at=2)
+        model.run_until(4)
+        model.step()
+
+        assert isinstance(seen[0], float)
+        assert isinstance(model.time, float)
+        assert model.time == 5.0

@@ -2,6 +2,7 @@
 
 import unittest
 import warnings
+from copy import deepcopy
 from functools import partial
 
 import pandas as pd
@@ -56,6 +57,51 @@ class MockAgentB(MockAgent):
     def step(self):  # noqa: D102
         super().step()
         self.type_b_val = self.val * 3
+
+
+@pytest.mark.parametrize("failing_type", [MockAgentA, MockAgentB])
+@pytest.mark.parametrize("collection", ["first", "replace", "next_time"])
+def test_failed_agenttype_reporter_preserves_snapshots(failing_type, collection):
+    """Publish all agent type records together, including on repeated collection."""
+    model = Model()
+    agents = [MockAgentA(model, val=1), MockAgentB(model, val=2)]
+    model.fail = False
+    error = ValueError("agent type reporter failed")
+
+    def report(agent):
+        if model.fail and type(agent) is failing_type:
+            raise error
+        return agent.val
+
+    collector = DataCollector(
+        agenttype_reporters={
+            MockAgentA: {"value": report},
+            MockAgentB: {"value": report},
+        }
+    )
+    if collection != "first":
+        collector.collect(model)
+    if collection == "next_time":
+        model.step()
+    expected = deepcopy(collector._agenttype_records)
+
+    for agent in agents:
+        agent.val += 10
+    model.fail = True
+    with pytest.raises(ValueError, match="agent type reporter failed") as exc_info:
+        collector.collect(model)
+    assert exc_info.value is error
+    assert collector._agenttype_records == expected
+
+    model.fail = False
+    collector.collect(model)
+    expected[model.time] = {
+        type(agent): [(model.time, agent.unique_id, agent.val)] for agent in agents
+    }
+    assert collector._agenttype_records == expected
+    for agent in agents:
+        frame = collector.get_agenttype_vars_dataframe(type(agent))
+        assert frame.loc[(model.time, agent.unique_id), "value"] == agent.val
 
 
 def agent_function_with_params(agent, multiplier, offset):  # noqa: D103

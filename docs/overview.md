@@ -313,7 +313,6 @@ This will create an interactive visualization of your model, including:
 :hidden: true
 :maxdepth: 7
 
-Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
 AgentSet <tutorials/1_agentset>
 Agent Activation <tutorials/2_agent_activation>
