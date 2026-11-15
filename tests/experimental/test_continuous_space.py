@@ -9,6 +9,7 @@ import pytest
 from mesa import Model
 from mesa.agent import AgentSet
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
+from mesa.experimental.data_collection import NumpyAgentDataSet
 
 
 def test_continuous_space():
@@ -796,3 +797,38 @@ def test_continuous_space_agent_repeated_remove():
     agent.remove()
     assert agent.space is None
     assert agent._mesa_index is None
+
+
+def test_continuous_space_agent_repeated_remove_with_dataset():
+    """Test that repeated removal is safe even when agent is registered with a NumpyAgentDataSet."""
+
+    class DatasetContinuousAgent(ContinuousSpaceAgent):
+        pass
+
+    model = Model(rng=42)
+    dataset = model.data_registry.create_dataset(
+        NumpyAgentDataSet,
+        "energy_data",
+        agent_type=DatasetContinuousAgent,
+        fields=["energy"],
+    )
+    dimensions = np.asarray([[0, 10], [0, 10]])
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+
+    agent = DatasetContinuousAgent(space, model)
+    agent.position = [5.0, 5.0]
+    agent.energy = 50.0
+
+    assert agent in space.active_agents
+    assert agent in model.agents
+    assert agent in dataset._agent_to_index
+
+    agent.remove()
+    assert agent.space is None
+    assert agent not in space.active_agents
+    assert agent not in model.agents
+    assert agent not in dataset._agent_to_index
+
+    # Second removal must not raise ValueError from NumpyAgentDataSet
+    agent.remove()
+    assert agent.space is None
