@@ -603,6 +603,28 @@ class TestErrorHandling:
         with pytest.raises(ValueError, match="already performing"):
             TrackedAction(agent, duration=5.0).start()
 
+    @pytest.mark.parametrize("rejected", ["other_agent", "completed"])
+    def test_interrupt_for_rejects_before_interrupting(self, rejected):
+        model, agent = make_model_and_agent()
+        if rejected == "other_agent":
+            incoming = TrackedAction(ActionAgent(model))
+        else:
+            incoming = agent.start_action(Action(agent, duration=0))
+        current = agent.start_action(TrackedAction(agent, duration=5.0))
+
+        with pytest.raises(ValueError):
+            agent.interrupt_for(incoming)
+
+        model.run_for(5)
+        assert current.state is ActionState.COMPLETED
+
+    def test_interrupt_for_current_action_restarts_it(self):
+        _model, agent = make_model_and_agent()
+        current = agent.start_action(TrackedAction(agent, duration=5.0))
+
+        assert agent.interrupt_for(current)
+        assert agent.current_action is current
+
     def test_cancel_idle_returns_false(self):
         _model, agent = make_model_and_agent()
         assert agent.cancel_action() is False
