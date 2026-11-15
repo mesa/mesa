@@ -2112,3 +2112,28 @@ def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
     calls = _spy_on_fallback_scan(monkeypatch)
     assert grid.select_random_empty_cell().is_empty
     assert len(calls) == 1
+
+
+def test_voronoi_callable_capacity_passes_numeric_capacity_to_cell():
+    """VoronoiGrid should pass numeric_capacity (None), not the callable, to cell_klass."""
+
+    class StrictCell(Cell):
+        def __init__(self, coordinate, position=None, capacity=None, random=None):
+            if capacity is not None and not isinstance(capacity, int):
+                raise TypeError(
+                    f"Expected int | None for capacity, got {type(capacity).__name__}"
+                )
+            super().__init__(
+                coordinate, position=position, capacity=capacity, random=random
+            )
+
+    centroids = [(0, 0), (1, 0), (0, 1), (1, 1)]
+    grid = VoronoiGrid(
+        centroids,
+        capacity=lambda area: max(1, int(area)),
+        random=random.Random(42),
+        cell_klass=StrictCell,
+    )
+    assert len(grid.all_cells) == 4
+    for cell in grid.all_cells:
+        assert isinstance(cell.capacity, int)

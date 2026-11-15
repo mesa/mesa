@@ -223,7 +223,7 @@ class VoronoiGrid(DiscreteSpace):
         self._cells = {
             i: cell_klass(
                 coordinate=i,  # Integer index
-                capacity=capacity,
+                capacity=numeric_capacity,
                 random=self.random,
                 position=self.centroids_coordinates[i],  # Physical centroid position
             )
