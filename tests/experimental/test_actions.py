@@ -572,6 +572,37 @@ class TestErrorHandling:
         with pytest.raises(ValueError, match="duration"):
             agent.start_action(action)
 
+    def test_failing_duration_leaves_idle_agent_usable(self):
+        _model, agent = make_model_and_agent()
+
+        def bad_duration(a):
+            raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            agent.start_action(Action(agent, duration=bad_duration))
+
+        assert agent.current_action is None
+        action = agent.start_action(TrackedAction(agent))
+        assert agent.current_action is action
+
+    def test_completed_action_does_not_occupy_slot(self):
+        _model, agent = make_model_and_agent()
+        action = Action(agent, duration=0)
+        agent.start_action(action)
+
+        with pytest.raises(ValueError, match="COMPLETED"):
+            agent.start_action(action)
+
+        assert agent.current_action is None
+
+    def test_direct_start_claims_the_slot(self):
+        _model, agent = make_model_and_agent()
+        first = TrackedAction(agent, duration=10.0).start()
+
+        assert agent.current_action is first
+        with pytest.raises(ValueError, match="already performing"):
+            TrackedAction(agent, duration=5.0).start()
+
     def test_cancel_idle_returns_false(self):
         _model, agent = make_model_and_agent()
         assert agent.cancel_action() is False
