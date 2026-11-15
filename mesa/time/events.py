@@ -67,8 +67,8 @@ class Priority(IntEnum):
 class Event:
     """A simulation event.
 
-    The callable is wrapped using weakref, so there is no need to explicitly cancel event if e.g., an agent
-    is removed from the simulation.
+    The callable is wrapped using weakref, so a pending event does not keep its callback alive.
+    Events scheduled through the model on an agent's method are canceled when that agent is removed.
 
     Attributes:
         time (float): The simulation time of the event
@@ -81,8 +81,7 @@ class Event:
 
     Notes:
         Simulation events use a weak reference to the callable.
-        If the callback no longer exists at execution time (e.g., because an agent
-        has been removed), execution will fail silently.
+        If the callback no longer exists at execution time, execution will fail silently.
         Lambda callbacks are rejected at Event creation.
 
     """
@@ -125,9 +124,22 @@ class Event:
 
         # Set by EventList.add_event, so cancel() can update the list's count.
         self._owner: ReferenceType[EventList] | None = None
+        # The scheduled events of the agent this event belongs to, if any.
+        self._registry: dict | None = None
+
+    def _attach(self, registry: dict) -> None:
+        """Record this event in an agent's scheduled events, until it runs or is canceled."""
+        self._registry = registry
+        registry[self] = None
+
+    def _detach(self) -> None:
+        if self._registry is not None:
+            self._registry.pop(self, None)
+            self._registry = None
 
     def execute(self) -> None:
         """Execute this event."""
+        self._detach()
         if not self._canceled:
             fn = self.fn()
             if fn is not None:
@@ -139,6 +151,7 @@ class Event:
             return
 
         self._canceled = True
+        self._detach()
         self.fn = None
         self.function_args = []
         self.function_kwargs = {}
@@ -224,8 +237,9 @@ class EventGenerator:
 
     Notes:
         Event generators use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
-        A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        A generator created through the model on an agent's method is stopped when that agent is removed.
+        A simulation event where the callable no longer exists will fail silently.
+        If you want to use functools.partial, please assign the partial function to a variable
         prior to creating the generator.
 
     """
@@ -255,6 +269,8 @@ class EventGenerator:
         self._paused: bool = False
         self._current_event: Event | None = None
         self._execution_count: int = 0
+        # The scheduled events of the agent this generator belongs to, if any.
+        self._registry: dict | None = None
 
     @property
     def is_active(self) -> bool:
@@ -328,7 +344,7 @@ class EventGenerator:
         else:
             self._active = False
             self._current_event = None
-            self.model._event_generators.discard(self)
+            self._release()
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
@@ -369,6 +385,8 @@ class EventGenerator:
 
         self._active = True
         self.model._event_generators.add(self)
+        if self._registry is not None:
+            self._registry[self] = None
         self._schedule_next(start_time)
         return self
 
@@ -379,7 +397,13 @@ class EventGenerator:
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
+        self._release()
+
+    def _release(self) -> None:
+        """Drop the references that keep an active generator alive."""
         self.model._event_generators.discard(self)
+        if self._registry is not None:
+            self._registry.pop(self, None)
 
     def pause(self) -> None:
         """Pause the event generator temporarily.
@@ -409,7 +433,7 @@ class EventGenerator:
             self._schedule_next(next_time)
         else:
             self._active = False
-            self.model._event_generators.discard(self)
+            self._release()
 
     def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""

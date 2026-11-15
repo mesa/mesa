@@ -466,6 +466,8 @@ class Threshold:
             # Retrieve the trigger
             trigger_func = getattr(instance, f"_{self.public_name}_trigger")
             new_event = instance.model.schedule_event(trigger_func, at=projected_time)
+            # The trigger is a closure, not a method, so the model can't tell it belongs to the agent
+            new_event._attach(instance._scheduled)
             setattr(instance, self.event_attr, new_event)
 
     def _never_crosses(self, instance: Agent) -> None:

@@ -361,6 +361,8 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             raise ValueError("function must be alive at Event creation.")
 
         event = Event(time, function, priority=priority)
+        if isinstance(owner := getattr(function, "__self__", None), Agent):
+            event._attach(owner._scheduled)
         self._event_list.add_event(event)
         return event
 
@@ -384,6 +386,8 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             ValueError: If the schedule start time is in the past.
         """
         generator = EventGenerator(self, function, schedule, priority)
+        if isinstance(owner := getattr(function, "__self__", None), Agent):
+            generator._registry = owner._scheduled
         generator.start()
         return generator
 

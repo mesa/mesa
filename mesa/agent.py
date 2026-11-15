@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from mesa.model import Model
 
 from mesa.agentset import AgentSet, _resolve_per_agent_values
+from mesa.time.events import Event, EventGenerator
 
 
 class Agent[M: Model]:
@@ -59,6 +60,9 @@ class Agent[M: Model]:
             to make proper use of python's super, in each class remove the arguments and
             keyword arguments you need and pass on the rest to super
         """
+        # Pending events and active generators scheduled on this agent's methods,
+        # canceled by remove(). Insertion-ordered, so removal is deterministic.
+        self._scheduled: dict[Event | EventGenerator, None] = {}
         super().__init__(*args, **kwargs)
 
         self.model: M = model
@@ -76,6 +80,13 @@ class Agent[M: Model]:
         # ensures models are also removed from datasets
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
+
+        # a removed agent doesn't act anymore
+        for item in list(self._scheduled):
+            if isinstance(item, EventGenerator):
+                item.stop()
+            else:
+                item.cancel()
 
     def step(self) -> None:
         """A single step of the agent."""

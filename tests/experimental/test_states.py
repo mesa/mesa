@@ -397,6 +397,19 @@ class TestCyclicalDependency:
             signals_core.PROCESSING_SIGNALS.clear()
 
 
+class TestThresholdRemoval:
+    """Tests for removing an agent with a pending Threshold."""
+
+    def test_removed_agent_does_not_trigger(self):
+        """A removed wolf doesn't starve later, even while it is still referenced."""
+        model = Model()
+        wolf = Wolf(model, initial_energy=10.0)
+        model.run_until(3)
+        wolf.remove()
+        model.run_until(20)
+        assert wolf.died_at is None
+
+
 class TestThresholdBinding:
     """Validates the threshold binding lifecycle and class-level registration."""
 

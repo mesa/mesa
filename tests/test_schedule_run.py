@@ -315,3 +315,26 @@ class TestEdgeCases:
         assert isinstance(seen[0], float)
         assert isinstance(model.time, float)
         assert model.time == 5.0
+
+
+class TestRemovedAgent:
+    def test_remove_cancels_events_and_generators(self):
+        """A removed agent stops acting, even while it is still referenced."""
+        model = Model()
+        agent = StepAgent(model)
+        model.schedule_event(agent.step, after=0.5)
+        model.schedule_recurring(agent.step, Schedule(interval=1))
+        model.run_until(2.5)
+
+        agent.remove()
+        model.run_until(5)
+        assert agent.steps_taken == 3
+
+    def test_finished_events_are_released(self):
+        model = Model()
+        agent = StepAgent(model)
+        for t in range(1, 6):
+            model.schedule_event(agent.step, at=t)
+        model.schedule_event(agent.step, at=10).cancel()
+        model.run_until(5)
+        assert agent._scheduled == {}
