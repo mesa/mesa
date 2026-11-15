@@ -1556,3 +1556,19 @@ class TestStartActionRejection:
             agent.start_action(action)
 
         assert agent.current_action is None
+
+    def test_action_already_active_keeps_slot_when_on_start_raises(self):
+        _model, agent = make_model_and_agent()
+
+        class FailingOnStart(Action):
+            def on_start(self):
+                raise RuntimeError("boom")
+
+        action = FailingOnStart(agent, duration=5)
+
+        with pytest.raises(RuntimeError):
+            agent.start_action(action)
+
+        assert action.state is ActionState.ACTIVE
+        assert agent.current_action is action
+        assert agent.is_busy is True
