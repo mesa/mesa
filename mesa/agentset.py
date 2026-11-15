@@ -124,6 +124,9 @@ def _resolve_per_agent_values(value: Any, n: int, *, strict: bool = True) -> Ite
         ValueError: If ``strict`` and ``value`` is a sequence whose length is
             not ``n``.
     """
+    # Treat zero-dimensional NumPy arrays as scalar values.
+    if isinstance(value, np.ndarray) and value.ndim == 0:
+        return itertools.repeat(value[()], n)
     if isinstance(
         value, (Sequence, np.ndarray, pd.Series, pd.Index)
     ) and not isinstance(value, (str, bytes, bytearray, UserString, AbstractSet)):

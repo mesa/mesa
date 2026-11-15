@@ -478,6 +478,31 @@ def test_agentset_set_method():
         assert agent.status == "active"
 
 
+def test_agentset_set_zero_dimensional_numpy_array():
+    """Test broadcasting a zero-dimensional NumPy array."""
+    model = Model()
+    agents = [Agent(model) for _ in range(3)]
+
+    model.agents.set("energy", np.array(10))
+
+    assert [agent.energy for agent in agents] == [10, 10, 10]
+
+
+def test_create_agents_zero_dimensional_numpy_array():
+    """Test broadcasting a scalar NumPy array during creation."""
+
+    class EnergyAgent(Agent):
+        def __init__(self, model, energy):
+            super().__init__(model)
+            self.energy = energy
+
+    model = Model()
+
+    agents = EnergyAgent.create_agents(model, 3, energy=np.array(10))
+
+    assert [agent.energy for agent in agents] == [10, 10, 10]
+
+
 def test_agentset_set_element_wise():
     """Test AgentSet.set element-wise vs broadcast, derived from the value."""
 
