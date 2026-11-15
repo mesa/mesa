@@ -364,8 +364,6 @@ class EventGenerator:
             # Default: start at next interval from now
             start_time = self.model.time + self._get_interval()
 
-        # The first event can already lie past schedule.end (e.g. when start is
-        # None and now + interval > end). Don't schedule it, as resume() does.
         if self._should_stop(start_time):
             return self
 
