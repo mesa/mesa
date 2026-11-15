@@ -101,6 +101,10 @@ def test_grid_cell_size_validation():
         OrthogonalMooreGrid((3, 3), origin=(0.0, 0.0, 0.0), random=random.Random(42))
     with pytest.raises(ValueError):
         OrthogonalMooreGrid((3, 3), cell_size=0, random=random.Random(42))
+    # numpy scalars count as a single number
+    for size in (np.int64(2), np.float32(2.0)):
+        grid = OrthogonalMooreGrid((3, 3), cell_size=size, random=random.Random(42))
+        np.testing.assert_array_equal(grid.cell_size, [2.0, 2.0])
 
 
 def test_grids_share_coordinates():
@@ -118,6 +122,15 @@ def test_grid_cell_position_is_read_only():
     grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
     with pytest.raises(ValueError):
         grid._cells[(1, 1)].position[0] = 9.0
+    # and so are the cell size and origin it is computed from
+    with pytest.raises(ValueError):
+        grid.cell_size[0] = 2.0
+    with pytest.raises(ValueError):
+        grid.origin[0] = 1.0
+    with pytest.raises(AttributeError):
+        grid.cell_size = np.array([2.0, 2.0])
+    with pytest.raises(AttributeError):
+        grid.origin = np.array([1.0, 1.0])
 
 
 def test_hex_grid_lookups():
@@ -295,6 +308,8 @@ def test_grid_mapping_survives_pickle():
     np.testing.assert_array_equal(restored[3, 3].position, [2.0, 7.0])
     for cell in restored.all_cells:
         assert restored.find_nearest_cell(cell.position) is cell
+    assert not restored.cell_size.flags.writeable
+    assert not restored.origin.flags.writeable
 
 
 def test_network_lookups():

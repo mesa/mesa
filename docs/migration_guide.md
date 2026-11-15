@@ -30,7 +30,7 @@ except SpaceException:
 - Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
 ### Grid cell positions are cell centers
-`Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position of a grid cell is now read-only.
+`Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position array of a grid cell can no longer be modified in place.
 
 ```python
 # Old

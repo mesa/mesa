@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copyreg
 import math
+import numbers
 from collections.abc import Sequence
 from itertools import chain, product
 from random import Random
@@ -156,7 +157,7 @@ class Grid(DiscreteSpace[T]):
         and ``find_nearest_cell`` use it, so it can grow into an affine transform.
         """
         n = self._ndims
-        if isinstance(cell_size, int | float):
+        if isinstance(cell_size, numbers.Real):
             sizes = [float(cell_size)] * n
         else:
             sizes = [float(size) for size in cell_size]
@@ -170,8 +171,25 @@ class Grid(DiscreteSpace[T]):
             raise ValueError("cell_size must be positive.")
         # Plain floats keep find_nearest_cell fast for the handful of values involved
         self._mapping = (origins, sizes)
-        self.cell_size = np.array(sizes)
-        self.origin = np.array(origins)
+        self._cell_size = np.array(sizes)
+        self._origin = np.array(origins)
+        self._freeze_mapping()
+
+    def _freeze_mapping(self) -> None:
+        # Lookups use _mapping, so changing these in place would move cell centers
+        # away from the cells that find_nearest_cell returns
+        self._cell_size.flags.writeable = False
+        self._origin.flags.writeable = False
+
+    @property
+    def cell_size(self) -> np.ndarray:
+        """The size of a cell in each dimension (read-only)."""
+        return self._cell_size
+
+    @property
+    def origin(self) -> np.ndarray:
+        """The position of the corner of cell (0, 0, ...) (read-only)."""
+        return self._origin
 
     def create_property_layer(
         self,
@@ -500,6 +518,7 @@ class Grid(DiscreteSpace[T]):
         without a setter so the read-only constraint survives the round trip.
         """
         super().__setstate__(state)
+        self._freeze_mapping()  # pickling doesn't keep arrays read-only
         base_klass = self.cell_klass
         self.cell_klass = type(
             "GridCell",
