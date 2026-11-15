@@ -130,7 +130,9 @@ class Event:
         """Execute this event."""
         if not self._canceled:
             fn = self.fn()
-            if fn is not None:
+            if fn is not None and not getattr(
+                getattr(fn, "__self__", None), "_removed", False
+            ):
                 fn(*self.function_args, **self.function_kwargs)
 
     def cancel(self) -> None:
@@ -305,8 +307,8 @@ class EventGenerator:
         # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         fn = self.function()
-        if fn is None:
-            # Stop the generator if weakref is dead
+        if fn is None or getattr(getattr(fn, "__self__", None), "_removed", False):
+            # Stop the generator if weakref is dead or its agent was removed
             self.stop()
             return  # Silent no-op (no error raised)
 

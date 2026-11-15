@@ -50,6 +50,7 @@ class Agent[M: Model]:
     """
 
     _datasets: ClassVar = set()
+    _removed: bool = False
     _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action", "unique_id"}
     # Locations declared on the class, see mesa.experimental.locations
     _mesa_locations: ClassVar[tuple] = ()
@@ -99,6 +100,8 @@ class Agent[M: Model]:
         # ensures the agent also leaves the spaces of its declared locations
         for location in self._mesa_locations:
             location._remove(self)
+
+        self._removed = True
 
     def step(self) -> None:
         """A single step of the agent."""
