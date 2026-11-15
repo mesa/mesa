@@ -1571,3 +1571,41 @@ def test_agentset_set_operations_with_python_set():
     assert type(diff) is AgentSet
     assert diff.random is model.random
     assert list(diff) == [a2]
+
+
+def test_agentset_subclass_set_operations():
+    """Binary set operations on an AgentSet subclass must preserve the subclass type."""
+
+    class CustomAgentSet(AgentSet):
+        pass
+
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+
+    cset = CustomAgentSet([a1, a2], random=model.random)
+    diff = cset - {a1}
+    assert isinstance(diff, CustomAgentSet)
+    assert type(diff) is CustomAgentSet
+    assert diff.random is model.random
+    assert list(diff) == [a2]
+
+
+def test_model_agents_set_operations_no_leak_on_remove():
+    """Agents removed from model should be garbage collected even if referenced by set operation results."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    subset = AgentSet([a1], random=model.random)
+    diff = model.agents - subset
+    assert set(diff) == {a2, a3}
+
+    ref2 = weakref.ref(a2)
+    a2.remove()
+    del a2
+    gc.collect()
+
+    assert ref2() is None
+    assert set(diff) == {a3}

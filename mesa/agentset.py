@@ -196,13 +196,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         """Update the AbstractAgentSet A with new set of agents."""
         ...
 
-    def _from_iterable(self, it: Iterable[A]) -> AgentSet[A]:
-        """Construct an AgentSet from an iterable, preserving the random generator.
-
-        This hook is called by collections.abc.Set binary operators (&, |, -, ^).
-        It ensures returned sets hold weak references and preserve self.random.
-        """
-        return AgentSet(it, random=self.random)
+    def _from_iterable(self, it: Iterable[A]) -> AbstractAgentSet[A]:
+        """Build the result of a set operator (&, |, -, ^), keeping self.random."""
+        return type(self)(it, self.random)
 
     def __repr__(self) -> str:
         """Return a concise, programmer-facing representation of the AbstractAgentSet."""
@@ -1045,6 +1041,10 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             }
 
         return groups
+
+    def _from_iterable(self, it: Iterable[A]) -> AgentSet[A]:
+        """Build the result of a set operator as a standard AgentSet (Weak Refs)."""
+        return AgentSet(it, self.random)
 
     def copy(self) -> AgentSet[A]:
         """Return a shallow copy as a standard AgentSet (Weak Refs)."""
