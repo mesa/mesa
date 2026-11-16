@@ -22,6 +22,7 @@ from mesa.experimental.data_collection import (
 )
 from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.model import Model
+from mesa.time.events import Schedule
 
 
 class MockAgent(Agent):
@@ -120,6 +121,55 @@ def test_dataset_config_update_next_collection_auto_disable():
     config.update_next_collection(18)
     assert config._next_collection == 23
     assert not config.enabled  # Should auto-disable
+
+
+@pytest.mark.parametrize(
+    ("tick", "interval"), [(0.1, 0.2), (0.1, 0.3), (0.01, 0.05), (0.25, 1.0)]
+)
+def test_data_recorder_decimal_interval(tick, interval):
+    """Decimal intervals collect on the expected grid despite float rounding."""
+
+    class TickModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.val = 0
+            self.data_registry.track_model(self, "model", fields=["val"])
+            self.schedule_recurring(self.tick, Schedule(interval=tick))
+
+        def tick(self):
+            self.val += 1
+
+    end = 3.0
+    model = TickModel()
+    recorder = DataRecorder(model, {"model": DatasetConfig(interval=interval)})
+    model.run_until(end)
+
+    times = recorder.get_table_dataframe("model")["time"].tolist()
+    expected = [k * interval for k in range(round(end / interval) + 1)]
+    assert len(times) == len(expected)
+    assert times == pytest.approx(expected)
+
+
+def test_data_recorder_decimal_end_time():
+    """A collection due exactly at a decimal end_time is not dropped."""
+
+    class TickModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.val = 0
+            self.data_registry.track_model(self, "model", fields=["val"])
+            self.schedule_recurring(self.tick, Schedule(interval=0.1))
+
+        def tick(self):
+            self.val += 1
+
+    model = TickModel()
+    config = DatasetConfig(interval=0.2, end_time=0.6)
+    recorder = DataRecorder(model, {"model": config})
+    model.run_until(1.0)
+
+    times = recorder.get_table_dataframe("model")["time"].tolist()
+    assert times == pytest.approx([0.0, 0.2, 0.4, 0.6])
 
 
 def test_base_recorder_no_registry():
