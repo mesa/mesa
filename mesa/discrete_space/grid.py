@@ -13,7 +13,6 @@ or Hex for more uniform distances.
 
 from __future__ import annotations
 
-import copyreg
 import math
 import numbers
 from collections.abc import Sequence
@@ -31,23 +30,25 @@ from mesa.exceptions import SpaceException
 T = TypeVar("T", bound=Cell)
 
 
+def _new_gridcell(base):
+    """Allocate a Cell without rerunning its constructor during restoration."""
+    return base.__new__(base)
+
+
 def pickle_gridcell(obj):
-    """Helper function for pickling GridCell instances."""
-    # we have the base class and the state via __getstate__
-    args = obj.__class__.__bases__[0], obj.__getstate__()
-    return unpickle_gridcell, args
+    """Reduce a GridCell for pickle or deepcopy without a global registration."""
+    # Restore state after memoizing the cell so agent references reuse it.
+    return _new_gridcell, (obj.__class__.__bases__[0],), obj.__getstate__()
 
 
 def unpickle_gridcell(parent, fields):
-    """Helper function for unpickling GridCell instances.
+    """Helper function for unpickling GridCell instances from older pickles.
 
     The cell is restored as an instance of ``parent``, the base cell class of the
     grid. ``Grid.__setstate__`` then moves all restored cells to a single, freshly
     created GridCell class and re-attaches the property_layer accessors to it.
     """
-    instance = parent(
-        (0, 0)
-    )  # we use a default coordinate and overwrite it with the correct value next
+    instance = _new_gridcell(parent)
 
     # __getstate__ returns a (dict, slots) tuple. The slots part holds Cell's own
     # attributes; the dict part is only non-empty for a user-supplied cell class
@@ -120,6 +121,7 @@ class Grid(DiscreteSpace[T]):
         self._ndims = len(dimensions)
         self._validate_parameters()
         self._set_mapping(cell_size, origin)
+        # A class-local reducer avoids copyreg retaining the class and its layers.
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
@@ -128,15 +130,13 @@ class Grid(DiscreteSpace[T]):
                 "__slots__": (),
                 "_mesa_scale": self.cell_size,
                 "_mesa_offset": self.origin,
+                "__reduce__": pickle_gridcell,
             },
         )
         self.property_layers: dict[str, np.ndarray] = {}
         # Track which property layers are read-only so the constraint survives
         # pickling and deepcopy (see __getstate__/__setstate__).
         self._read_only_layers: set[str] = set()
-
-        # we register the pickle_gridcell helper function
-        copyreg.pickle(self.cell_klass, pickle_gridcell)
 
         coordinates = product(*(range(dim) for dim in self.dimensions))
 
@@ -511,8 +511,8 @@ class Grid(DiscreteSpace[T]):
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state and re-attach property_layer accessors to the cell class.
 
-        ``unpickle_gridcell`` restores every cell as an instance of the base cell
-        class, so a single GridCell class is recreated here, exactly as in
+        Cells are restored as instances of the base cell class, so a single
+        GridCell class is recreated here, exactly as in
         ``__init__``, and all cells are moved to it before the accessors are
         attached. Read-only layers (tracked in ``_read_only_layers``) are restored
         without a setter so the read-only constraint survives the round trip.
@@ -528,9 +528,9 @@ class Grid(DiscreteSpace[T]):
                 "__slots__": (),
                 "_mesa_scale": self.cell_size,
                 "_mesa_offset": self.origin,
+                "__reduce__": pickle_gridcell,
             },
         )
-        copyreg.pickle(self.cell_klass, pickle_gridcell)
         for cell in self._cells.values():
             # cells of other classes added at runtime are left untouched
             if type(cell) is base_klass:
