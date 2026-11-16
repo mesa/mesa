@@ -1198,20 +1198,37 @@ def test_read_only_property_layer_survives_pickle_and_deepcopy():
         assert cell.sugar == 5.0, label
 
 
+class RequiredInitCell(Cell):
+    """A custom cell whose constructor needs the grid's capacity and RNG."""
+
+    __slots__ = ("temperature",)
+
+    def __init__(self, coordinate, *, capacity, random):
+        """Initialise state using required keyword-only arguments."""
+        super().__init__(coordinate, capacity=capacity, random=random)
+        self.temperature = random.random()
+
+
+@pytest.mark.parametrize("cell_klass", [Cell, RequiredInitCell])
 @pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
-def test_legacy_gridcell_pickle_is_readable(monkeypatch, protocol):
+def test_legacy_gridcell_pickle_is_readable(monkeypatch, protocol, cell_klass):
     """The old reducer's constructor-state format must remain readable."""
-    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    grid = OrthogonalMooreGrid(
+        (3, 3), capacity=3, random=random.Random(42), cell_klass=cell_klass
+    )
     grid.create_property_layer("sugar", default_value=1.0)
     grid.create_property_layer("terrain", default_value=2, read_only=True)
 
     def legacy_reducer(cell, protocol):
-        return unpickle_gridcell, (Cell, cell.__getstate__())
+        return unpickle_gridcell, (type(cell).__bases__[0], cell.__getstate__())
 
     monkeypatch.setattr(grid.cell_klass, "__reduce_ex__", legacy_reducer)
     restored = pickle.loads(pickle.dumps(grid, protocol=protocol))  # noqa: S301
 
     for cell in restored.all_cells:
+        assert isinstance(cell, cell_klass)
+        if cell_klass is RequiredInitCell:
+            assert cell.temperature == grid[cell.coordinate].temperature
         assert cell.sugar == 1.0
         cell.sugar = 5.0
         assert restored.sugar[cell.coordinate] == 5.0
@@ -1219,6 +1236,63 @@ def test_legacy_gridcell_pickle_is_readable(monkeypatch, protocol):
         restored[(1, 1)].terrain = 99
     twice = pickle.loads(pickle.dumps(restored, protocol=protocol))  # noqa: S301
     np.testing.assert_array_equal(twice.sugar, restored.sugar)
+
+
+@pytest.mark.parametrize(
+    "grid_class", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid, HexGrid]
+)
+@pytest.mark.parametrize("cell_klass", [Cell, RequiredInitCell])
+@pytest.mark.parametrize("method", ["deepcopy", "pickle"])
+def test_grid_mapping_and_required_cell_init_survive_round_trip(
+    grid_class, cell_klass, method
+):
+    """Copy mapped grids without rerunning a custom Cell constructor."""
+    mapping = (
+        {}
+        if grid_class is HexGrid
+        else {"cell_size": (2.0, 3.0), "origin": (7.0, -4.0)}
+    )
+    grid = grid_class(
+        (3, 3),
+        capacity=3,
+        random=random.Random(42),
+        cell_klass=cell_klass,
+        **mapping,
+    )
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid.create_property_layer("terrain", default_value=2, read_only=True)
+    grid[(1, 1)].sugar = 7.0
+
+    for _ in range(2):
+        if method == "deepcopy":
+            restored = copy.deepcopy(grid)
+        else:
+            restored = pickle.loads(pickle.dumps(grid))  # noqa: S301
+
+        assert restored.random.getstate() == grid.random.getstate()
+        np.testing.assert_array_equal(restored.cell_size, grid.cell_size)
+        np.testing.assert_array_equal(restored.origin, grid.origin)
+        assert not restored.cell_size.flags.writeable
+        assert not restored.origin.flags.writeable
+        assert not np.shares_memory(restored.sugar, grid.sugar)
+        for cell in restored.all_cells:
+            original = grid[cell.coordinate]
+            assert isinstance(cell, cell_klass)
+            assert cell.capacity == original.capacity
+            assert cell.random is restored.random
+            np.testing.assert_array_equal(cell.position, original.position)
+            assert cell.sugar == original.sugar
+            if cell_klass is RequiredInitCell:
+                assert cell.temperature == original.temperature
+            for neighbor in cell.connections.values():
+                assert neighbor is restored[neighbor.coordinate]
+        with pytest.raises(AttributeError):
+            restored[(1, 1)].terrain = 99
+        restored[(1, 1)].sugar = 11.0
+        assert restored.sugar[1, 1] == 11.0
+        assert grid.sugar[1, 1] == 7.0
+        restored[(1, 1)].sugar = 7.0
+        grid = restored
 
 
 @pytest.mark.parametrize(

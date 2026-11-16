@@ -30,10 +30,15 @@ from mesa.exceptions import SpaceException
 T = TypeVar("T", bound=Cell)
 
 
-def pickle_gridcell(obj, protocol=None):
+def _new_gridcell(base):
+    """Allocate a Cell without rerunning its constructor during restoration."""
+    return base.__new__(base)
+
+
+def pickle_gridcell(obj):
     """Reduce a GridCell for pickle or deepcopy without a global registration."""
     # Restore state after memoizing the cell so agent references reuse it.
-    return obj.__class__.__bases__[0], ((0, 0),), obj.__getstate__()
+    return _new_gridcell, (obj.__class__.__bases__[0],), obj.__getstate__()
 
 
 def unpickle_gridcell(parent, fields):
@@ -43,9 +48,7 @@ def unpickle_gridcell(parent, fields):
     grid. ``Grid.__setstate__`` then moves all restored cells to a single, freshly
     created GridCell class and re-attaches the property_layer accessors to it.
     """
-    instance = parent(
-        (0, 0)
-    )  # we use a default coordinate and overwrite it with the correct value next
+    instance = _new_gridcell(parent)
 
     # __getstate__ returns a (dict, slots) tuple. The slots part holds Cell's own
     # attributes; the dict part is only non-empty for a user-supplied cell class
@@ -127,7 +130,7 @@ class Grid(DiscreteSpace[T]):
                 "__slots__": (),
                 "_mesa_scale": self.cell_size,
                 "_mesa_offset": self.origin,
-                "__reduce_ex__": pickle_gridcell,
+                "__reduce__": pickle_gridcell,
             },
         )
         self.property_layers: dict[str, np.ndarray] = {}
@@ -508,8 +511,8 @@ class Grid(DiscreteSpace[T]):
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state and re-attach property_layer accessors to the cell class.
 
-        ``unpickle_gridcell`` restores every cell as an instance of the base cell
-        class, so a single GridCell class is recreated here, exactly as in
+        Cells are restored as instances of the base cell class, so a single
+        GridCell class is recreated here, exactly as in
         ``__init__``, and all cells are moved to it before the accessors are
         attached. Read-only layers (tracked in ``_read_only_layers``) are restored
         without a setter so the read-only constraint survives the round trip.
@@ -525,7 +528,7 @@ class Grid(DiscreteSpace[T]):
                 "__slots__": (),
                 "_mesa_scale": self.cell_size,
                 "_mesa_offset": self.origin,
-                "__reduce_ex__": pickle_gridcell,
+                "__reduce__": pickle_gridcell,
             },
         )
         for cell in self._cells.values():
