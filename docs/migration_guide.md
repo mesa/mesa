@@ -29,6 +29,22 @@ except SpaceException:
 
 - Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
+### Grid cell positions are cell centers
+`Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position array of a grid cell can no longer be modified in place.
+
+```python
+# Old
+x, y = cell.position  # 5.0, 5.0: the integer index, as floats
+
+# New
+x, y = cell.coordinate  # 5, 5: the index
+x, y = cell.position  # 5.5, 5.5: the center of the cell
+```
+
+Grids also take two new arguments, `cell_size` and `origin`, that place them in the same coordinates as other spaces. A 50 by 50 grid with `cell_size=2.0` covers the same area as a `ContinuousSpace` of 100 by 100.
+
+- Ref: [Discussion #2585](https://github.com/mesa/mesa/discussions/2585)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
@@ -168,7 +184,7 @@ config = RunConfiguration(MyModel, until=100)
 store = run_scenarios(scenarios, config)
 ```
 
-See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have.
+See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) can silently corrupt the output.
 
 - Ref: [PR #3325](https://github.com/mesa/mesa/pull/3325), background in [Issue #3134](https://github.com/mesa/mesa/issues/3134)
 

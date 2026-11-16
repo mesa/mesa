@@ -53,6 +53,9 @@ extensions = [
 # Render $...$ and $$...$$ as math in Markdown and notebook cells
 myst_enable_extensions = ["dollarmath"]
 
+# Link [source] to the module where an object is defined, not to a re-export
+viewcode_follow_imported_members = False
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

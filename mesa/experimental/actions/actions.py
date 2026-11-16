@@ -299,8 +299,10 @@ class Action:
             Self, for chaining.
 
         Raises:
-            ValueError: If the action is not in PENDING or INTERRUPTED state.
-                A FAILED action cannot be restarted; create a new one.
+            ValueError: If the action is not in PENDING or INTERRUPTED state,
+                if its agent is already performing an action, or if its
+                duration is negative. A FAILED action cannot be restarted;
+                create a new one.
         """
         resuming = self.state is ActionState.INTERRUPTED
 
@@ -310,10 +312,19 @@ class Action:
                 f"Only PENDING or INTERRUPTED actions can be started."
             )
 
+        if self.agent.current_action is not None:
+            raise ValueError(
+                f"Agent {self.agent.unique_id} is already performing an action "
+                f"({self.agent.current_action!r}). Use interrupt_for() or "
+                f"cancel_action() first."
+            )
+
         # Gate entry before duration and priority are resolved, so a failing
         # action neither fires on_start() nor schedules a completion event.
         if not self._requirements_met(self.start_requirements):
             self._fail()
+            # The slot was never claimed, so _release_agent() did not wake.
+            self.agent._schedule_wake(self)
             return self
 
         # Resolve callables on first start only
@@ -330,6 +341,7 @@ class Action:
 
         self._start_time = self.model.time
         self.state = ActionState.ACTIVE
+        self.agent.current_action = self
 
         if resuming:
             self.on_resume()
@@ -417,10 +429,10 @@ class Action:
 
         Completion, interruption, cancellation, and failure all funnel
         through here, so the wake contract has a single path. An action
-        that never held the slot (started directly, without
-        start_action()) wakes nobody. HasActions.remove() is the one end
-        that does not come through here: it abandons the action, and a
-        dying agent must not wake.
+        no longer in the slot, because its agent was removed, wakes
+        nobody. HasActions.remove() is the one end that does not come
+        through here: it abandons the action, and a dying agent must not
+        wake.
         """
         if self.agent.current_action is self:
             self.agent.current_action = None
@@ -559,28 +571,17 @@ class HasActions:
             The started Action.
 
         Raises:
-            ValueError: If the agent is already performing an action,
-                or if the action doesn't belong to this agent.
+            ValueError: If the action doesn't belong to this agent, or if
+                Action.start() rejects it. The agent's slot is left as it
+                was.
         """
-        if self.current_action is not None:
-            raise ValueError(
-                f"Agent {self.unique_id} is already performing an action "
-                f"({self.current_action!r}). Use interrupt_for() or "
-                f"cancel_action() first."
-            )
-
         if action.agent is not self:
             raise ValueError(
                 f"Action's agent (id={action.agent.unique_id}) does not match "
                 f"this agent (id={self.unique_id})."
             )
 
-        self.current_action = action
-        action.start()
-
-        # If the action completed instantly (duration=0), start() already
-        # called _do_complete which cleared current_action via the Action.
-        return action
+        return action.start()
 
     def should_interrupt(self, current: Action, incoming: Action) -> bool:
         """Decide whether an incoming action may preempt the current one.
