@@ -102,15 +102,12 @@ def _build_meta_agent_class(
     mesa_agent_type: tuple[type[Agent], ...],
 ) -> type[MetaAgent]:
     """Create a dynamic meta-agent class with the requested Mesa base types."""
-    return cast(
-        type[MetaAgent],
-        type(
-            new_agent_class,
-            (MetaAgent, *mesa_agent_type),
-            {
-                "unique_id": None,
-            },
-        ),
+    return type(
+        new_agent_class,
+        (MetaAgent, *mesa_agent_type),
+        {
+            "unique_id": None,
+        },
     )
 
 
@@ -140,7 +137,10 @@ def _create_meta_agent_instance(
         _apply_meta_methods(meta_agent, meta_methods)
         return meta_agent
 
-    agent_class = extract_class(model.agents_by_type, new_agent_class)
+    agent_class = cast(
+        type[MetaAgent] | None,
+        extract_class(model.agents_by_type, new_agent_class),
+    )
     if agent_class is None:
         agent_class = _build_meta_agent_class(new_agent_class, agent_bases)
 
