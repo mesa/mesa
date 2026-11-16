@@ -172,6 +172,29 @@ def test_solara_viz_backends(mocker, backend):
     assert spy_properties.call_count == 0
 
 
+def test_solara_viz_default_components(mocker):
+    """components="default" draws the space with an Altair SpaceRenderer."""
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+
+    model = mesa.Model(rng=42)
+    model.grid = OrthogonalMooreGrid((5, 5), random=model.random)
+    CellAgent(model).cell = model.grid[(2, 2)]
+
+    solara.render(SolaraViz(model, components="default"), handle_error=False)
+
+    renderer = spy_structure.call_args.args[0]
+    assert renderer.backend == "altair"
+    assert renderer.space is model.grid
+    spy_agents.assert_called_with(renderer)
+
+    # An explicit renderer replaces the default one
+    explicit = SpaceRenderer(model, backend="matplotlib").render()
+    spy_structure.reset_mock()
+    solara.render(SolaraViz(model, explicit, components="default"), handle_error=False)
+    assert {call.args[0] for call in spy_structure.call_args_list} == {explicit}
+
+
 def test_slider():
     """Test the Slider component."""
     slider_float = Slider("Agent density", 0.8, 0.1, 1.0, 0.1)

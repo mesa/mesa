@@ -18,13 +18,60 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
 )
 from mesa.visualization.backends.abstract_renderer import AbstractRenderer
-from mesa.visualization.mpl_space_drawing import _to_numpy_argument_array
 
 OrthogonalGrid = OrthogonalMooreGrid | OrthogonalVonNeumannGrid
 HexGrid = mesa.discrete_space.HexGrid
 
 
 CORRECTION_FACTOR_MARKER_ZOOM = 0.01
+
+
+def _to_numpy_argument_array(key: str, value: list) -> np.ndarray:
+    """Convert a per-agent argument list into a NumPy array for Matplotlib.
+
+    It keeps the array-construction rules for "tricky" arguments in one place.
+
+    Args:
+        key: the argument name (e.g. "marker", "edgecolors", "s", "c", ...).
+        value: the list of per-agent values collected for that argument, with
+            exactly one entry per agent so positions stay aligned.
+
+    Returns:
+        A NumPy array suitable for passing to Matplotlib's scatter call.
+    """
+    if key == "marker":
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
+
+    if key == "edgecolors":
+        if not any(edgecolor is not None for edgecolor in value):
+            return np.asarray([])
+
+        normalized = [
+            edgecolor if edgecolor is not None else "none" for edgecolor in value
+        ]
+        return _coerce_color_array(normalized)
+
+    if key == "c":
+        return _coerce_color_array(value)
+    return np.asarray(value)
+
+
+def _coerce_color_array(value: list) -> np.ndarray:
+    """Try a normal array first; fall back to a manual 1D object array.
+
+    Color-like argument lists can freely mix plain color-name strings, RGBA/RGB tuples,
+    and (for edge colors) the "none" sentinel. When every entry has a consistent shape, and (for edgecolors) the "none" sentinel.
+    When every entry has a consistent shape, we can use np.asarray() does the right thing on its own. When it doesn't
+    e.g. a string next to a 4 tuple -- it raises ValueError, and we build the array by hand instead so each entry stays intact as one element.
+    """
+    try:
+        return np.asarray(value)
+    except ValueError:
+        arr = np.empty(len(value), dtype=object)
+        arr[:] = value
+        return arr
 
 
 class MatplotlibBackend(AbstractRenderer):
