@@ -401,6 +401,7 @@ class Cell:
     def _clear_cache(self):
         """Helper function to clear local cache."""
         self.get_neighborhood.cache_clear()
+
     def _clear_cache(self) -> None:
         """Invalidate all live neighborhood caches after a topology change.
 
