@@ -3,6 +3,79 @@
 ---
 title: Release History
 ---
+# 3.5.3 (2026-11-16)
+## Highlights
+Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15.
+
+The legacy space drawing API (`draw_space`, `make_space_component`, `make_mpl_space_component` and `make_altair_space`) is now deprecated in favour of `SpaceRenderer` and emits a `FutureWarning`. It will be removed in Mesa 4.0; see the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html) (#4064).
+
+Several fixes may change results in models that were hitting a bug. Events and event generators that call a method of a removed agent are now skipped as soon as `agent.remove()` is called, instead of running until Python garbage-collects the agent (#4119). `run_until()` and `run_for(0)` now run events scheduled for the current time instead of skipping them (#4048), and `model.time` is always a float (#4052). `HexGrid` cell positions now follow the even-r layout that its connections already use, which changes `cell.position` and `find_nearest_cell()` (#3959). In the experimental `ContinuousSpace`, torus distances wrap the query point correctly (#3932), ties in `get_k_nearest_agents()` are broken by insertion order as documented (#3946), and `get_nearest_neighbors()` returns at most `k` agents (#3995).
+
+Other fixes cover pickling and deep-copying (property layers on every cell of a `Grid` #3914, continuous spaces #4108), the discrete space (directed `Network` graphs #4090), the `DataCollector` (empty agent records #3945, agent type snapshots when a reporter fails #3916), `EventGenerator` start times past `schedule.end` (#4084), `method_logger` (#4082), the experimental meta-agents (#3970) and data recorders (#4015), and visualization (SolaraViz reset #3951 and stopping #4024, Altair canvas with property layers #3953, matplotlib property layers #4046, #4050, portrayal size and alpha #4028, and `post_process` on plots #4086).
+
+## What's Changed
+### 🐛 Bugs fixed
+* Keep one GridCell class for all cells after unpickling a Grid by @amanbn8 in #3914
+* Preserve agent type snapshots when reporters fail by @SahilKumar75 in #3916
+* fix: wrap torus query points before distance calculations by @ARYAMANN7279 in #3932
+* Remove the dead inner cache on Cell._neighborhood by @lahari936 in #3934
+* Fix DataCollector.get_agent_vars_dataframe() on empty records by @Gracy769 in #3945
+* Fix insertion-order tie-breaking in k-nearest agents by @CraftierTen5 in #3946
+* Keep SpaceRenderer setup kwargs when SolaraViz resets by @AshNicolus in #3951
+* Fix SpaceRenderer.canvas crash for Altair with property layers by @AshNicolus in #3953
+* Use even-r layout for HexGrid cell positions by @Aeshvarya in #3959
+* Answer the meta-agent class lookup from the dict key, not from a live agent by @lahari936 in #3970
+* fix(continuous_space): return at most k agents from get_nearest_neighbors by @Shriraj1901 in #3995
+* Keep recording after JSONDataRecorder.clear() by @AshNicolus in #4015
+* Stop stepping in ModelController once model.running is False by @ShreyanshuGhosh in #4024
+* Pass portrayal size and alpha to scatter in draw_space by @AshNicolus in #4028
+* fix: support iterable agents in continuous space distances by @Jenil1905 in #4040
+* fix(viz): align HexGrid property layer values with hexagon mesh by @pojeesahil in #4046
+* Fix run_until skipping events scheduled for the current time by @atul-upadhyay-7 in #4048
+* fix: handle skipped property layers in matplotlib backend by @Jenil1905 in #4050
+* Keep model.time a float when run_until or events get ints by @AshNicolus in #4052
+* fix(logging): resolve qualified method name dynamically in method_logger by @priyanshux-dev in #4082
+* Don't schedule an EventGenerator's first event past schedule.end by @RITVIKKAMASETTY in #4084
+* Let post_process customize the x axis of matplotlib plots by @Darshanpawar7 in #4086
+* Handle directed graphs in Network cell and connection removal by @RITVIKKAMASETTY in #4090
+* Fix unpickling of continuous spaces by @EwoutH in #4108
+* Skip the scheduled events of removed agents by @EwoutH in #4119
+
+### ⚡ Performance improvements
+* perf(discrete_space): use flatnonzero in select_random_empty_cell fallback by @dietcoke-17 in #4004
+
+### ⚠️ Deprecations
+* Deprecate the legacy space drawing API in favour of SpaceRenderer by @AshNicolus in #4064
+
+### 🔍 Examples updated
+* fix(examples): fix inverted grid dimensions in Conway Streamlit app by @pojeesahil in #4037
+
+### 📜 Documentation improvements
+* docs: fix broken toctree entries, duplicate API docs and a broken code fence by @arzaanxeng in #4055
+* docs: fix extension name in zsh error note on index page by @arzaanxeng in #4068
+* docs: update build instructions in docs/README.md by @arzaanxeng in #4077
+* Explain what clear() does with files on disk in the JSON and Parquet recorders by @AshNicolus in #4079
+
+### 🔧 Maintenance
+* CI: Start testing Python 3.15 by @EwoutH in #3830
+* Take the initial viz test screenshots from the newest image by @AshNicolus in #4095
+
+## New Contributors
+* @amanbn8 made their first contribution in #3914
+* @ARYAMANN7279 made their first contribution in #3932
+* @Gracy769 made their first contribution in #3945
+* @Aeshvarya made their first contribution in #3959
+* @Shriraj1901 made their first contribution in #3995
+* @ShreyanshuGhosh made their first contribution in #4024
+* @Jenil1905 made their first contribution in #4040
+* @atul-upadhyay-7 made their first contribution in #4048
+* @arzaanxeng made their first contribution in #4055
+* @priyanshux-dev made their first contribution in #4082
+* @RITVIKKAMASETTY made their first contribution in #4084
+* @Darshanpawar7 made their first contribution in #4086
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.2...v3.5.3
+
 # 3.5.2 (2026-10-28)
 ## Highlights
 Mesa 3.5.2 is a maintenance release that backports bug fixes, performance improvements, and small enhancements from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes.
