@@ -12,6 +12,6 @@ discrete_space
 datacollection
 batchrunner
 visualization
-logging
+mesa_logging
 experimental
 ```

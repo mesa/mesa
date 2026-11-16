@@ -3,6 +3,79 @@
 ---
 title: Release History
 ---
+# 3.5.3 (2026-11-16)
+## Highlights
+Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15.
+
+The legacy space drawing API (`draw_space`, `make_space_component`, `make_mpl_space_component` and `make_altair_space`) is now deprecated in favour of `SpaceRenderer` and emits a `FutureWarning`. It will be removed in Mesa 4.0; see the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html) (#4064).
+
+Several fixes may change results in models that were hitting a bug. Events and event generators that call a method of a removed agent are now skipped as soon as `agent.remove()` is called, instead of running until Python garbage-collects the agent (#4119). `run_until()` and `run_for(0)` now run events scheduled for the current time instead of skipping them (#4048), and `model.time` is always a float (#4052). `HexGrid` cell positions now follow the even-r layout that its connections already use, which changes `cell.position` and `find_nearest_cell()` (#3959). In the experimental `ContinuousSpace`, torus distances wrap the query point correctly (#3932), ties in `get_k_nearest_agents()` are broken by insertion order as documented (#3946), and `get_nearest_neighbors()` returns at most `k` agents (#3995).
+
+Other fixes cover pickling and deep-copying (property layers on every cell of a `Grid` #3914, continuous spaces #4108), the discrete space (directed `Network` graphs #4090), the `DataCollector` (empty agent records #3945, agent type snapshots when a reporter fails #3916), `EventGenerator` start times past `schedule.end` (#4084), `method_logger` (#4082), the experimental meta-agents (#3970) and data recorders (#4015), and visualization (SolaraViz reset #3951 and stopping #4024, Altair canvas with property layers #3953, matplotlib property layers #4046, #4050, portrayal size and alpha #4028, and `post_process` on plots #4086).
+
+## What's Changed
+### 🐛 Bugs fixed
+* Keep one GridCell class for all cells after unpickling a Grid by @amanbn8 in #3914
+* Preserve agent type snapshots when reporters fail by @SahilKumar75 in #3916
+* fix: wrap torus query points before distance calculations by @ARYAMANN7279 in #3932
+* Remove the dead inner cache on Cell._neighborhood by @lahari936 in #3934
+* Fix DataCollector.get_agent_vars_dataframe() on empty records by @Gracy769 in #3945
+* Fix insertion-order tie-breaking in k-nearest agents by @CraftierTen5 in #3946
+* Keep SpaceRenderer setup kwargs when SolaraViz resets by @AshNicolus in #3951
+* Fix SpaceRenderer.canvas crash for Altair with property layers by @AshNicolus in #3953
+* Use even-r layout for HexGrid cell positions by @Aeshvarya in #3959
+* Answer the meta-agent class lookup from the dict key, not from a live agent by @lahari936 in #3970
+* fix(continuous_space): return at most k agents from get_nearest_neighbors by @Shriraj1901 in #3995
+* Keep recording after JSONDataRecorder.clear() by @AshNicolus in #4015
+* Stop stepping in ModelController once model.running is False by @ShreyanshuGhosh in #4024
+* Pass portrayal size and alpha to scatter in draw_space by @AshNicolus in #4028
+* fix: support iterable agents in continuous space distances by @Jenil1905 in #4040
+* fix(viz): align HexGrid property layer values with hexagon mesh by @pojeesahil in #4046
+* Fix run_until skipping events scheduled for the current time by @atul-upadhyay-7 in #4048
+* fix: handle skipped property layers in matplotlib backend by @Jenil1905 in #4050
+* Keep model.time a float when run_until or events get ints by @AshNicolus in #4052
+* fix(logging): resolve qualified method name dynamically in method_logger by @priyanshux-dev in #4082
+* Don't schedule an EventGenerator's first event past schedule.end by @RITVIKKAMASETTY in #4084
+* Let post_process customize the x axis of matplotlib plots by @Darshanpawar7 in #4086
+* Handle directed graphs in Network cell and connection removal by @RITVIKKAMASETTY in #4090
+* Fix unpickling of continuous spaces by @EwoutH in #4108
+* Skip the scheduled events of removed agents by @EwoutH in #4119
+
+### ⚡ Performance improvements
+* perf(discrete_space): use flatnonzero in select_random_empty_cell fallback by @dietcoke-17 in #4004
+
+### ⚠️ Deprecations
+* Deprecate the legacy space drawing API in favour of SpaceRenderer by @AshNicolus in #4064
+
+### 🔍 Examples updated
+* fix(examples): fix inverted grid dimensions in Conway Streamlit app by @pojeesahil in #4037
+
+### 📜 Documentation improvements
+* docs: fix broken toctree entries, duplicate API docs and a broken code fence by @arzaanxeng in #4055
+* docs: fix extension name in zsh error note on index page by @arzaanxeng in #4068
+* docs: update build instructions in docs/README.md by @arzaanxeng in #4077
+* Explain what clear() does with files on disk in the JSON and Parquet recorders by @AshNicolus in #4079
+
+### 🔧 Maintenance
+* CI: Start testing Python 3.15 by @EwoutH in #3830
+* Take the initial viz test screenshots from the newest image by @AshNicolus in #4095
+
+## New Contributors
+* @amanbn8 made their first contribution in #3914
+* @ARYAMANN7279 made their first contribution in #3932
+* @Gracy769 made their first contribution in #3945
+* @Aeshvarya made their first contribution in #3959
+* @Shriraj1901 made their first contribution in #3995
+* @ShreyanshuGhosh made their first contribution in #4024
+* @Jenil1905 made their first contribution in #4040
+* @atul-upadhyay-7 made their first contribution in #4048
+* @arzaanxeng made their first contribution in #4055
+* @priyanshux-dev made their first contribution in #4082
+* @RITVIKKAMASETTY made their first contribution in #4084
+* @Darshanpawar7 made their first contribution in #4086
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.2...v3.5.3
+
 # 3.5.2 (2026-10-28)
 ## Highlights
 Mesa 3.5.2 is a maintenance release that backports bug fixes, performance improvements, and small enhancements from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes.
@@ -210,15 +283,16 @@ The headline feature of 3.5.0 is a new public API for event scheduling and time 
 
 ```python
 # Run the model for a duration
-model.run_for(10)       # Advance 10 time units
-model.run_until(50.0)   # Run until absolute time 50
+model.run_for(10)  # Advance 10 time units
+model.run_until(50.0)  # Run until absolute time 50
 
 # Schedule one-off events
-model.schedule_event(callback, at=25.0)    # At absolute time
+model.schedule_event(callback, at=25.0)  # At absolute time
 model.schedule_event(callback, after=5.0)  # Relative to now
 
 # Schedule recurring events
 from mesa.time import Schedule
+
 model.schedule_recurring(func, Schedule(interval=10, start=0))
 ```
 
@@ -258,12 +332,16 @@ Explicit `Scenario` support (#3103, #3168) provides a structured way to define a
 class MyScenario(Scenario):
     density: float = 0.7
 
+
 class MyModel(Model):
     def __init__(self, width=40, scenario=None):
         super().__init__(scenario=scenario)
 
+
 # 'density' is auto-detected as a Scenario parameter
-page = SolaraViz(MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)})
+page = SolaraViz(
+    MyModel(), model_params={"width": 40, "density": Slider("Density", 0.7, 0, 1, 0.1)}
+)
 ```
 
 #### Reactive model and data collection
@@ -271,7 +349,9 @@ The Model class is now reactive (#3212): `model.time` is observable, and signals
 
 ```python
 self.recorder = DataRecorder(self)
-self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(self.recorder)
+self.data_registry.track_agents(self.agents, "agent_data", "wealth").record(
+    self.recorder
+)
 self.data_registry.track_model(self, "model_data", "gini").record(
     self.recorder, configuration=DatasetConfig(start_time=4, interval=2)
 )
@@ -861,11 +941,7 @@ Here's a quick look at the new API:
 
 ```python
 # Create a 2D continuous space
-space = ContinuousSpace(
-    dimensions=[[0, 1], [0, 1]],
-    torus=True,
-    random=model.random
-)
+space = ContinuousSpace(dimensions=[[0, 1], [0, 1]], torus=True, random=model.random)
 
 # Create and position an agent
 agent = ContinuousSpaceAgent(space, model)
@@ -1060,11 +1136,9 @@ wealthy_agents = model.agents.select(lambda a: a.wealth > 1000)
 
 # Group and analyze agents
 grouped = model.agents.groupby("state")
-state_stats = grouped.agg({
-     "count": len,
-     "avg_age": ("age", np.mean),
-     "total_wealth": ("wealth", sum)
- })
+state_stats = grouped.agg(
+    {"count": len, "avg_age": ("age", np.mean), "total_wealth": ("wealth", sum)}
+)
 
 # Activate agents in different patterns
 model.agents.shuffle_do("step")  # Random activation
@@ -1084,9 +1158,9 @@ visualization = SolaraViz(
     [
         make_space_component(agent_portrayal),
         make_plot_component(["population", "average_wealth"]),
-        lambda m: f"Step {m.steps}: {len(m.agents)} agents"  # Custom text component
+        lambda m: f"Step {m.steps}: {len(m.agents)} agents",  # Custom text component
     ],
-    model_params=parameter_controls
+    model_params=parameter_controls,
 )
 ```
 
@@ -1110,8 +1184,8 @@ self.datacollector = DataCollector(
     agent_reporters={"age": "age", "wealth": "wealth"},
     agenttype_reporters={
         Predator: {"kills": "kills_count"},
-        Prey: {"distance_fled": "total_flight_distance"}
-    }
+        Prey: {"distance_fled": "total_flight_distance"},
+    },
 )
 ```
 
@@ -1283,7 +1357,13 @@ The rarely used `mesa startproject` cookiecutter feature was removed. We updated
 ## Highlights
 Mesa 3.0 beta 1 is our last beta release before the Mesa 3.0 stable release. We are restructuring our examples and have move 9 core examples from [mesa-examples](https://github.com/mesa/mesa-examples) to mesa itself ([#2358](https://github.com/mesa/mesa/pull/2358)). The 5 basic examples are now directly importable ([#2381](https://github.com/mesa/mesa/pull/2381)):
 ```Python
-from examples.basic import BoidFlockers, BoltzmannWealthModel, ConwaysGameOfLife, Schelling, VirusOnNetwork
+from examples.basic import (
+    BoidFlockers,
+    BoltzmannWealthModel,
+    ConwaysGameOfLife,
+    Schelling,
+    VirusOnNetwork,
+)
 ```
 The 5 basic examples will always use stable Mesa features, we are also working on 4 more advanced example which can also include experimental features.
 
@@ -1379,7 +1459,7 @@ The DataCollector now supports collecting data from specific Agent subclasses us
 self.datacollector = DataCollector(
     agenttype_reporters={
         Wolf: {"sheep_eaten": "sheep_eaten"},
-        Sheep: {"wool": "wool_amount"}
+        Sheep: {"wool": "wool_amount"},
     }
 )
 ```
@@ -1818,10 +1898,12 @@ The new `AgentSet` class encapsulates and manages collections of agents, streaml
 **Example:**
 ```Python
 # Applying a method to each agent
-model.agents.do('step')
+model.agents.do("step")
 
 # Filtering and shuffling agents
-shuffled_agents = model.agents.select(lambda agent: agent.attribute > threshold).shuffle()
+shuffled_agents = model.agents.select(
+    lambda agent: agent.attribute > threshold
+).shuffle()
 ```
 _The AgentSet is an experimental feature. We would love feedback on it in #1919._
 
@@ -1845,7 +1927,9 @@ grid.add_property_layer(property_layer)
 grid.properties["elevation"].modify_cells(np.multiply, 2)
 
 # Select cells that have an elevation of at least 50
-high_elevation_cells = grid.properties["elevation"].select_cells(condition=lambda x: x > 50)
+high_elevation_cells = grid.properties["elevation"].select_cells(
+    condition=lambda x: x > 50
+)
 ```
 _The PropertyLayer is an experimental feature. We would love feedback on it in #1932._
 

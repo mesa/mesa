@@ -1,10 +1,14 @@
 """tests for matplotlib components."""
 
 import networkx as nx
+import numpy as np
 import pytest
+import solara
 from matplotlib.figure import Figure
+from matplotlib.ticker import MaxNLocator, MultipleLocator
 
 from mesa import Agent, Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import (
     CellAgent,
     HexGrid,
@@ -20,6 +24,7 @@ from mesa.space import (
     SingleGrid,
 )
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.components.matplotlib_components import PlotMatplotlib
 from mesa.visualization.mpl_space_drawing import (
     _get_hexmesh,
     _to_numpy_argument_array,
@@ -259,6 +264,25 @@ def test_draw_continuous_space():
     draw_continuous_space(space, agent_portrayal, ax)
 
 
+def test_draw_orthogonal_grid_uses_size_and_alpha():
+    """Test that the portrayal's size and alpha reach the scatter plot."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((5, 5), random=model.random)
+    for i in range(3):
+        agent = CellAgent(model)
+        agent.cell = grid[i, i]
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_orthogonal_grid(
+        grid, lambda _: AgentPortrayalStyle(size=200, alpha=0.3, marker="o"), ax
+    )
+
+    points = ax.collections[-1]
+    assert list(points.get_sizes()) == [200, 200, 200]
+    assert list(points.get_alpha()) == [0.3, 0.3, 0.3]
+
+
 def test_draw_network():
     """Test drawing network."""
     n = 10
@@ -425,3 +449,59 @@ def test_get_hexmesh_returns_immutable_shared_safe_mesh():
         mesh.append(("x", "y"))  # tuples have no append
     with pytest.raises(TypeError):
         mesh[0][0] = (0.0, 0.0)  # nested tuples are immutable too
+
+
+def test_plot_matplotlib_post_process_can_change_x_axis():
+    """post_process runs after the default x label and ticks, so it can change them."""
+    model = Model(rng=42)
+    model.datacollector = DataCollector(model_reporters={"value": lambda m: 1})
+    for _ in range(3):
+        model.datacollector.collect(model)
+
+    axes = []
+    every_five_steps = MultipleLocator(5)
+
+    def keep_x_axis(ax):
+        axes.append(ax)
+
+    def change_x_axis(ax):
+        axes.append(ax)
+        ax.set_xlabel("Time Step")
+        ax.xaxis.set_major_locator(every_five_steps)
+
+    for post_process in (keep_x_axis, change_x_axis):
+        solara.render(
+            PlotMatplotlib(model, "value", post_process=post_process),
+            handle_error=False,
+        )
+
+    default_ax, changed_ax = axes
+    # the defaults still apply when post_process leaves the x axis alone;
+    # exact type, because matplotlib's default AutoLocator subclasses MaxNLocator
+    assert default_ax.get_xlabel() == "Step"
+    assert type(default_ax.xaxis.get_major_locator()) is MaxNLocator
+    # x axis changes made in post_process are kept
+    assert changed_ax.get_xlabel() == "Time Step"
+    assert changed_ax.xaxis.get_major_locator() is every_five_steps
+
+
+def test_draw_property_layers_hexgrid():
+    """Test drawing property layers on a HexGrid aligns values correctly."""
+    model = Model(rng=42)
+    grid = HexGrid((4, 2), random=model.random)
+    grid.create_property_layer("sugar", default_value=0.0)
+    grid.sugar.data[3, 0] = 10.0
+
+    fig = Figure()
+    ax = fig.add_subplot()
+    draw_property_layers(
+        grid,
+        lambda _: PropertyLayerStyle(colormap="viridis"),
+        ax,
+    )
+
+    poly = ax.collections[0]
+    facecolors = np.array(poly.get_facecolors())
+    max_idx = np.argmax(facecolors[:, 0])
+    hex_coords = [(col, row) for row in range(2) for col in range(4)]
+    assert hex_coords[max_idx] == (3, 0)

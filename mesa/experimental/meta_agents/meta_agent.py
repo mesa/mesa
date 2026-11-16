@@ -130,23 +130,25 @@ def find_combinations(
 
 
 def extract_class(agents_by_type: dict, new_agent_class: object) -> type[Agent] | None:
-    """Helper function for create_meta_agents extracts the types of agents.
+    """Look up a registered agent class by its name.
+
+    ``agents_by_type`` is keyed by the agent class itself, so the class is
+    read from the key. The result therefore depends only on which types are
+    registered, not on how many agents of a type currently exist.
 
     Args:
-        agents_by_type (dict): The dictionary of agents by type.
-        new_agent_class (str): The name of the agent class to be created
+        agents_by_type: The model's agent registry, keyed by agent class.
+        new_agent_class: Name of the class to look up.
 
     Returns:
-        type(Agent) if agent type exists
-        None otherwise
+        The registered class with that name, or ``None`` if no registered
+        type has it.
     """
     agent_type_names = {}
     for agent in agents_by_type:
         agent_type_names[agent.__name__] = agent
 
-    if new_agent_class in agent_type_names:
-        return type(next(iter(agents_by_type[agent_type_names[new_agent_class]])))
-    return None
+    return agent_type_names.get(new_agent_class)
 
 
 def create_meta_agent(

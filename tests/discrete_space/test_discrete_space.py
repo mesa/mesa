@@ -365,6 +365,43 @@ def test_dynamic_modifications_to_space():
         assert cell1 in neighbor.neighborhood
 
 
+def test_neighborhood_cache_invalidated_on_topology_change():
+    """connect() and disconnect() must invalidate the cached neighborhood.
+
+    get_neighborhood() is cached, so a topology change has to clear that cache
+    or callers keep seeing the old neighbourhood. See #3379.
+    """
+    c1 = Cell((1,), capacity=None, random=random.Random())
+    c2 = Cell((2,), capacity=None, random=random.Random())
+    c3 = Cell((3,), capacity=None, random=random.Random())
+
+    c1.connect(c2)
+    assert set(c1.get_neighborhood().cells) == {c2}  # warms the cache
+
+    c1.connect(c3)
+    assert set(c1.get_neighborhood().cells) == {c2, c3}
+
+    c1.disconnect(c2)
+    assert set(c1.get_neighborhood().cells) == {c3}
+
+
+def test_neighborhood_cache_invalidated_for_larger_radius():
+    """A connect() one hop away must invalidate a radius > 1 neighborhood.
+
+    `cells[1].connect(cells[2])` changes a cell that `cells[0]` only reaches at
+    radius 2, so `cells[0]`'s warmed entry has to be invalidated even though
+    `cells[0]` itself was not touched. See #3379.
+    """
+    cells = [Cell((i,), capacity=None, random=random.Random()) for i in range(3)]
+    cells[0].connect(cells[1], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1]}  # warms
+
+    cells[1].connect(cells[2], key=(1,))
+
+    assert set(cells[0].get_neighborhood(radius=2).cells) == {cells[1], cells[2]}
+
+
 def test_cell_neighborhood():
     """Test neighborhood method of cell in different GridSpaces."""
     # orthogonal grid
@@ -513,6 +550,69 @@ def test_networkgrid():
     grid.remove_cell(cell)  # this also removes all connections
     assert cell not in grid._cells[0].neighborhood
     assert grid._cells[0] not in cell.neighborhood
+
+
+def _connected_to(cell):
+    return {c.coordinate for c in cell.connections.values()}
+
+
+def test_network_directed_remove_cell():
+    """Removing a cell from a directed Network removes it everywhere.
+
+    Connections follow successors only, so remove_cell must also disconnect
+    predecessors. See https://github.com/mesa/mesa/issues/4085.
+    """
+    # directed cycle: the removed cell's successor does not point back to it
+    grid = Network(nx.DiGraph([(0, 1), (1, 2), (2, 0)]), random=random.Random(42))
+    removed = grid._cells[1]
+    grid.remove_cell(removed)
+
+    assert 1 not in grid._cells
+    assert 1 not in grid.G
+    assert _connected_to(grid._cells[0]) == set()
+    assert _connected_to(grid._cells[2]) == {0}
+    assert removed.connections == {}
+
+    # cell with only incoming edges: no dangling connection to the removed cell
+    model = Model(rng=42)
+    grid = Network(nx.DiGraph([(0, 1)]), random=model.random)
+    grid.remove_cell(grid._cells[1])
+    assert _connected_to(grid._cells[0]) == set()
+    assert len(grid._cells[0].neighborhood) == 0
+
+    # self-loop on a directed graph
+    grid = Network(nx.DiGraph([(0, 0), (0, 1)]), random=random.Random(42))
+    grid.remove_cell(grid._cells[0])
+    assert list(grid._cells) == [1]
+    assert list(grid.G.nodes) == [1]
+
+    with pytest.raises(KeyError):
+        grid.remove_cell(Cell(5, random=random.Random(42)))
+
+
+def test_network_directed_connections():
+    """add_connection and remove_connection on a directed Network are one-way."""
+    grid = Network(nx.DiGraph([(0, 1)]), random=random.Random(42))
+    cell = Cell(2, random=random.Random(42))
+    grid.add_cell(cell)
+
+    grid.add_connection(grid._cells[0], cell)
+    assert list(grid.G.edges) == [(0, 1), (0, 2)]
+    assert _connected_to(grid._cells[0]) == {1, 2}
+    assert _connected_to(cell) == set()
+
+    grid.remove_connection(grid._cells[0], cell)
+    assert list(grid.G.edges) == [(0, 1)]
+    assert _connected_to(grid._cells[0]) == {1}
+
+
+def test_network_undirected_remove_cell_unchanged():
+    """Undirected networks keep connecting and disconnecting both ways."""
+    grid = Network(nx.Graph([(0, 1), (1, 2)]), random=random.Random(42))
+    grid.remove_cell(grid._cells[1])
+    assert _connected_to(grid._cells[0]) == set()
+    assert _connected_to(grid._cells[2]) == set()
+    assert list(grid.G.nodes) == [0, 2]
 
 
 def test_voronoigrid():
@@ -906,6 +1006,111 @@ def test_copy_pickle_with_propertylayers():
     data = grid2._mesa_property_layers["empty"].data
     grid2._cells[(0, 0)].empty = False
     assert grid2._cells[(0, 0)].empty == data[0, 0]
+
+
+def test_property_layer_accessors_survive_copy_on_all_cells():
+    """Every cell, not just the first one, keeps its property_layer accessors after a round trip.
+
+    Previously unpickle_gridcell created a separate GridCell class for every cell
+    and Grid.__setstate__ re-attached the accessors only to the class of the first
+    cell. As a result cell.sugar raised AttributeError on all other cells,
+    cell.empty no longer tracked the "empty" layer, and pickling the restored
+    grid a second time failed.
+    """
+    grid = OrthogonalMooreGrid((3, 3), torus=False, random=random.Random(42))
+    grid.create_property_layer("sugar", default_value=1.0)
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # all cells share one class, and it is the grid's cell_klass
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass._mesa_properties == {"empty", "sugar"}, label
+
+        for cell in restored.all_cells:
+            assert cell.sugar == 1.0, label
+            cell.sugar = 5.0
+            assert (
+                restored._mesa_property_layers["sugar"].data[cell.coordinate] == 5.0
+            ), label
+
+        cell = restored._cells[(2, 2)]
+        cell.empty = False
+        assert not restored._mesa_property_layers["empty"].data[2, 2], label
+
+        # layers created after the round trip reach every cell as well
+        restored.create_property_layer("water", default_value=2.0)
+        assert all(cell.water == 2.0 for cell in restored.all_cells), label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert all(cell.sugar == 5.0 for cell in twice.all_cells), label
+        assert all(cell.water == 2.0 for cell in twice.all_cells), label
+
+
+class SlottedCustomCell(Cell):
+    """A user cell class with an extra slot, as the tutorials recommend."""
+
+    __slots__ = ("temperature",)
+
+    def __init__(self, coordinate, capacity=None, random=None):
+        """Create the cell with a default temperature."""
+        super().__init__(coordinate, capacity=capacity, random=random)
+        self.temperature = 20.0
+
+
+class DictCustomCell(Cell):
+    """A user cell class without __slots__, so its instances carry a __dict__."""
+
+
+@pytest.mark.parametrize("cell_klass", [SlottedCustomCell, DictCustomCell])
+def test_custom_cell_klass_survives_copy_and_pickle(cell_klass):
+    """A grid built on a user-supplied cell class survives deepcopy and pickle.
+
+    The restored cells keep the user's class as their base, their own attributes
+    (in a slot or in __dict__) and the property_layer accessors.
+    """
+    grid = OrthogonalMooreGrid(
+        (3, 3), torus=False, random=random.Random(42), cell_klass=cell_klass
+    )
+    grid.create_property_layer("sugar", default_value=1.0)
+    grid._cells[(1, 1)].temperature = 99.0
+    grid._cells[(1, 1)].sugar = 3.0
+
+    for label, restored in [
+        ("deepcopy", copy.deepcopy(grid)),
+        ("pickle", pickle.loads(pickle.dumps(grid))),  # noqa: S301
+    ]:
+        # one GridCell class, derived from the user's class
+        assert {type(cell) for cell in restored.all_cells} == {restored.cell_klass}, (
+            label
+        )
+        assert restored.cell_klass.__bases__ == (cell_klass,), label
+        assert all(isinstance(cell, cell_klass) for cell in restored.all_cells), label
+
+        # the cells' own attributes survive, whether stored in a slot or in __dict__
+        assert restored._cells[(1, 1)].temperature == 99.0, label
+        if cell_klass is SlottedCustomCell:
+            assert restored._cells[(0, 0)].temperature == 20.0, label
+
+        # property layers work on every cell and write through to the array
+        assert restored._cells[(1, 1)].sugar == 3.0, label
+        for cell in restored.all_cells:
+            cell.sugar += 1.0
+        assert (
+            restored._mesa_property_layers["sugar"].data
+            == grid._mesa_property_layers["sugar"].data + 1
+        ).all(), label
+        restored._cells[(2, 2)].empty = False
+        assert not restored._mesa_property_layers["empty"].data[2, 2], label
+
+        # and the restored grid can be pickled again
+        twice = pickle.loads(pickle.dumps(restored))  # noqa: S301
+        assert twice._cells[(1, 1)].temperature == 99.0, label
+        assert twice._cells[(1, 1)].sugar == 4.0, label
 
 
 def test_multiple_property_layers():

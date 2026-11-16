@@ -594,7 +594,7 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
-                if not playing.value:
+                if not playing.value or not running.value:
                     break
             if not use_threads.value:
                 force_update()
@@ -603,6 +603,8 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
+                if not running.value:
+                    break
             force_update()
 
     @function_logger(__name__)
@@ -1057,8 +1059,8 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     attributes_to_copy = [
         "agent_portrayal",
         "propertylayer_portrayal",
-        "space_kwargs",
-        "agent_kwargs",
+        "draw_space_kwargs",
+        "draw_agent_kwargs",
         "space_mesh",
         "agent_mesh",
         "propertylayer_mesh",
@@ -1068,6 +1070,9 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     for attr in attributes_to_copy:
         if getattr(renderer, attr, None) is not None:
             value_to_copy = getattr(renderer, attr)
+            # copy dicts so the old and new renderer don't share the same kwargs
+            if isinstance(value_to_copy, dict):
+                value_to_copy = dict(value_to_copy)
             setattr(new_renderer, attr, value_to_copy)
 
     return new_renderer

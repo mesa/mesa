@@ -20,6 +20,7 @@ The skeleton of a model might look like this:
 ```python
 import mesa
 
+
 class MyAgent(mesa.Agent):
     def __init__(self, model, age):
         super().__init__(model)
@@ -29,6 +30,7 @@ class MyAgent(mesa.Agent):
         self.age += 1
         print(f"Agent {self.unique_id} now is {self.age} years old")
         # Whatever else the agent does when activated
+
 
 class MyModel(mesa.Model):
     def __init__(self, n_agents):
@@ -115,7 +117,7 @@ Use the time advancement methods on `Model` to run your simulation:
 
 ```python
 model = MyModel()
-model.run_for(100)     # Run for 100 time units
+model.run_for(100)  # Run for 100 time units
 model.run_until(50.0)  # Run until absolute time 50
 ```
 By default, the model's `step()` method is scheduled to run every 1.0 time units, so `model.run_for(10)` executes 10 steps.
@@ -144,8 +146,8 @@ Mesa supports event-based time progression directly on the `Model`:
 
 ```python
 # Schedule one-off events
-model.schedule_event(some_function, at=25.0)     # At absolute time
-model.schedule_event(some_function, after=5.0)   # Relative to now
+model.schedule_event(some_function, at=25.0)  # At absolute time
+model.schedule_event(some_function, after=5.0)  # Relative to now
 
 # Cancel a scheduled event
 event = model.schedule_event(callback, at=100.0)
@@ -154,9 +156,11 @@ event.cancel()
 # Schedule recurring events
 from mesa.time import Schedule
 
-model.schedule_recurring(func, Schedule(interval=10))            # Every 10 time units
-model.schedule_recurring(func, Schedule(interval=10, start=0))   # Starting immediately
-model.schedule_recurring(func, Schedule(interval=1.0, count=10)) # Limited to 10 executions
+model.schedule_recurring(func, Schedule(interval=10))  # Every 10 time units
+model.schedule_recurring(func, Schedule(interval=10, start=0))  # Starting immediately
+model.schedule_recurring(
+    func, Schedule(interval=1.0, count=10)
+)  # Limited to 10 executions
 
 # Stop a recurring event
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
@@ -210,7 +214,7 @@ AgentSet offers several methods for efficient agent management:
    grouped_agents = model.agents.groupby("species")
 
    for _, agent_group in grouped_agents:
-      agent_group.shuffle_do("step")
+       agent_group.shuffle_do("step")
    species_counts = grouped_agents.count()
    mean_age_by_group = grouped_agents.agg("age", np.mean)
    ```
@@ -233,13 +237,14 @@ import numpy as np
 
 # ...
 
+
 class MyModel(mesa.Model):
     def __init__(self, n_agents):
         super().__init__()
         # ... (model initialization code)
         self.datacollector = mesa.DataCollector(
             model_reporters={"mean_age": lambda m: m.agents.agg("age", np.mean)},
-            agent_reporters={"age": "age"}
+            agent_reporters={"age": "age"},
         )
 
     def step(self):
@@ -273,7 +278,7 @@ results = mesa.batch_run(
     rng=rng_values.tolist(),
     max_steps=100,
     data_collection_period=1,
-    number_processes=1  # Change to use multiple CPU cores for parallel execution
+    number_processes=1,  # Change to use multiple CPU cores for parallel execution
 )
 ```
 
@@ -307,13 +312,7 @@ def agent_portrayal(agent):
 
 
 model_params = {
-    "n_agents": Slider(
-        label="Number of agents:",
-        value=50,
-        min=1,
-        max=100,
-        step=1
-    )
+    "n_agents": Slider(label="Number of agents:", value=50, min=1, max=100, step=1)
 }
 
 model = MyModel(n_agents=42)
@@ -323,7 +322,7 @@ page = SolaraViz(
     model,
     renderer,
     components=[make_plot_component("mean_age")],
-    model_params=model_params
+    model_params=model_params,
 )
 page
 ```
@@ -337,7 +336,6 @@ This will create an interactive visualization of your model, including:
 :hidden: true
 :maxdepth: 7
 
-Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
 AgentSet <tutorials/1_agentset>
 Agent Activation <tutorials/2_agent_activation>

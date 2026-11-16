@@ -40,19 +40,21 @@ def pickle_gridcell(obj):
 
 
 def unpickle_gridcell(parent, fields):
-    """Helper function for unpickling GridCell instances."""
-    # since the class is dynamically created, we recreate it here
-    cell_klass = type(
-        "GridCell",
-        (parent,),
-        {"_mesa_properties": set(), "__slots__": ()},
-    )
-    instance = cell_klass(
+    """Helper function for unpickling GridCell instances.
+
+    The cell is restored as an instance of ``parent``, the base cell class of the
+    grid. ``Grid.__setstate__`` then moves all restored cells to a single, freshly
+    created GridCell class and re-attaches the property layer accessors to it.
+    """
+    instance = parent(
         (0, 0)
     )  # we use a default coordinate and overwrite it with the correct value next
 
-    # __gestate__ returns a tuple with dict and slots, but slots contains the dict so we can just use the
-    # second item only
+    # __getstate__ returns a (dict, slots) tuple. The slots part holds Cell's own
+    # attributes; the dict part is only non-empty for a user-supplied cell class
+    # without __slots__, whose instance attributes would otherwise be lost.
+    if fields[0]:
+        instance.__dict__.update(fields[0])
     for k, v in fields[1].items():
         setattr(instance, k, v)
 
@@ -192,15 +194,16 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                 if cell.is_empty:
                     return cell
 
-        empty_coords = np.argwhere(self.empty.data)
+        empty_layer = self.empty.data
+        empty_indices = np.flatnonzero(empty_layer)
         try:
-            random_coord = self.random.choice(empty_coords)
+            random_index = self.random.choice(empty_indices)
         except IndexError as e:
             raise ValueError(
                 "Grid is completely full. No empty cells available. "
                 "Cannot select a random empty cell."
             ) from e
-        return self._cells[tuple(random_coord)]
+        return self._cells[np.unravel_index(random_index, empty_layer.shape)]
 
     def _connect_single_cell_nd(self, cell: T, offsets: list[tuple[int, ...]]) -> None:
         coord = cell.coordinate
@@ -225,13 +228,32 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
 
     def __getstate__(self) -> dict[str, Any]:
         """Custom __getstate__ for handling dynamic GridCell class and PropertyDescriptors."""
-        state = super().__getstate__()
-        state = {k: v for k, v in state.items() if k != "cell_klass"}
+        state = dict(super().__getstate__())
+        # GridCell is created dynamically, so it cannot be pickled by reference. Store
+        # its base class instead; __setstate__ recreates GridCell from it.
+        state["cell_klass"] = self.cell_klass.__bases__[0]
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Custom __setstate__ for handling dynamic GridCell class and PropertyDescriptors."""
+        """Restore state and re-attach property layer accessors to the cell class.
+
+        ``unpickle_gridcell`` restores every cell as an instance of the base cell
+        class, so a single GridCell class is recreated here, exactly as in
+        ``__init__``, and all cells are moved to it before the accessors are
+        attached.
+        """
         super().__setstate__(state)
+        base_klass = self.cell_klass
+        self.cell_klass = type(
+            "GridCell",
+            (base_klass,),
+            {"_mesa_properties": set(), "__slots__": ()},
+        )
+        copyreg.pickle(self.cell_klass, pickle_gridcell)
+        for cell in self._cells.values():
+            # cells of other classes added at runtime are left untouched
+            if type(cell) is base_klass:
+                cell.__class__ = self.cell_klass
 
         for layer in self._mesa_property_layers.values():
             setattr(
@@ -241,6 +263,7 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
                     layer.data, docstring=f"accessor for {layer.name}"
                 ),
             )
+            self.cell_klass._mesa_properties.add(layer.name)
 
 
 class OrthogonalMooreGrid(Grid[T]):
@@ -360,7 +383,8 @@ class HexGrid(Grid[T]):
         size = 1.0
         for coord, cell in self._cells.items():
             col, row = coord
-            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            # even-r: even rows are shifted right, matching _connect_cells_2d
+            x = size * math.sqrt(3) * (col + 0.5 * ((row + 1) % 2))
             y = size * 1.5 * row
             position = np.array([x, y])
 

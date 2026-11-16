@@ -54,8 +54,8 @@ After running benchmarks at different times (e.g., before and after code changes
 1. Rename your benchmark files to distinguish them (e.g., `timings_before.pickle` and `timings_after.pickle`)
 2. Edit `compare_timings.py` to use your file names:
    ```python
-   filename1 = "timings_1" # Or the name of your 1st timings file
-   filename2 = "timings_2" # Or the name of your 2nd timings file
+   filename1 = "timings_1"  # Or the name of your 1st timings file
+   filename2 = "timings_2"  # Or the name of your 2nd timings file
    ```
 3. Run the comparison:
    ```bash

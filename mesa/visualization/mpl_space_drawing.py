@@ -490,7 +490,8 @@ def draw_property_layers(
             width, height = data.shape
             hexagons = _get_hexmesh(width, height)
             norm = Normalize(vmin=vmin, vmax=vmax)
-            colors = data.ravel()
+            # _get_hexmesh is row-major, data is (width, height)
+            colors = data.T.ravel()
 
             if color:
                 normalized_colors = np.clip(norm(colors), 0, 1)
@@ -861,8 +862,8 @@ def _scatter(ax: Axes, arguments, **kwargs):
     loc_y = loc[:, 1]
     marker = arguments.pop("marker")
     zorder = arguments.pop("zorder")
-    malpha = arguments.pop("alpha")
-    msize = arguments.pop("s")
+    malpha = arguments["alpha"]
+    msize = arguments["s"]
 
     # we check if edgecolor, linewidth, and alpha are specified
     # at the agent level, if not, we remove them from the arguments dict

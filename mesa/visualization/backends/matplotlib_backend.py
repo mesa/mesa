@@ -332,8 +332,10 @@ class MatplotlibBackend(AbstractRenderer):
             propertylayer_portrayal (Callable): Function that returns PropertyLayerStyle.
 
         Returns:
-            tuple: (matplotlib.axes.Axes, colorbar) - The matplotlib axes and colorbar objects.
+            tuple: (matplotlib.axes.Axes, colorbar), where colorbar is None if no
+            property layer is drawn or no colorbar is created.
         """
+        cbar = None
         # Draw each layer
         for layer_name in property_layers:
             if layer_name == "empty":
@@ -420,7 +422,6 @@ class MatplotlibBackend(AbstractRenderer):
                 )
 
             # Add colorbar if requested
-            cbar = None
             if portrayal.colorbar:
                 norm = Normalize(vmin=vmin, vmax=vmax)
                 sm = ScalarMappable(norm=norm, cmap=cmap)
