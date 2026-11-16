@@ -769,3 +769,30 @@ def test_pickled_space_keeps_position_view():
     space = restored_agent.space
     assert space._agent_positions[restored_agent._mesa_index].tolist() == [5.0, 5.0]
     assert np.shares_memory(space.agent_positions, space._agent_positions)
+
+
+def test_continuous_space_agent_repeated_remove():
+    """Test that removing a ContinuousSpaceAgent repeatedly is a safe no-op."""
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 10], [0, 10]])
+    space = ContinuousSpace(dimensions, torus=False, random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [5.0, 5.0]
+
+    assert agent in space.active_agents
+    assert agent in model.agents
+    assert agent._mesa_index is not None
+    assert agent.space is space
+
+    # First removal removes agent from model and space
+    agent.remove()
+    assert agent.space is None
+    assert agent._mesa_index is None
+    assert agent not in model.agents
+    assert agent not in space.active_agents
+
+    # Repeated removal should safely no-op, preserving idempotency
+    agent.remove()
+    assert agent.space is None
+    assert agent._mesa_index is None

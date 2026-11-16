@@ -59,9 +59,10 @@ class ContinuousSpaceAgent(Agent):
     def remove(self) -> None:
         """Remove and delete the agent from the model and continuous space."""
         super().remove()
-        self.space._remove_agent(self)
-        self._mesa_index = None
-        self.space = None
+        if self.space is not None:
+            self.space._remove_agent(self)
+            self._mesa_index = None
+            self.space = None
 
     def get_neighbors_in_radius(
         self, radius: float | int = 1
