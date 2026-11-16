@@ -301,6 +301,24 @@ class TestEventListBasics:
         el.clear()
         assert len(el) == 0
 
+    def test_remove_event_from_different_list(self):
+        """Removing an event from another list must not cancel it."""
+        queue_a = EventList()
+        queue_b = EventList()
+        fn = MagicMock()
+
+        event = Event(5, fn)
+        queue_b.add_event(event)
+
+        queue_a.remove(event)
+
+        assert not event.CANCELED
+        assert len(queue_b) == 1
+        assert event in queue_b
+
+        queue_b.pop_event().execute()
+        fn.assert_called_once()
+
 
 class TestEventListPeekAhead:
     def test_basic_peek(self):
