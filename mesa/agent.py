@@ -38,6 +38,7 @@ class Agent[M: Model]:
     """
 
     _datasets: ClassVar = set()
+    _removed: bool = False
     _repr_excluded_fields: ClassVar[set[str]] = {"model", "current_action", "unique_id"}
 
     def __init_subclass__(cls, **kwargs):
@@ -85,6 +86,8 @@ class Agent[M: Model]:
         # ensures models are also removed from datasets
         for dataset in self._datasets:
             self.model.data_registry[dataset].remove_agent(self)
+
+        self._removed = True
 
     def step(self) -> None:
         """A single step of the agent."""
