@@ -53,12 +53,12 @@ def run_model_test(
         # Display and capture the initial visualizations
         display(space_viz)
         page_session.wait_for_selector("img")  # buffer for rendering
-        initial_space = page_session.locator("img").screenshot()
+        initial_space = page_session.locator("img").last.screenshot()
 
         if measure_config:
             display(graph_viz)
             page_session.wait_for_selector("img")
-            initial_graph = page_session.locator("img").screenshot()
+            initial_graph = page_session.locator("img").last.screenshot()
 
         # Run the model for specified number of steps
         model.run_for(steps)
