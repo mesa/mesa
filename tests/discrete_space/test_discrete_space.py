@@ -24,6 +24,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.discrete_space.cell_agent import BasicMovement, HasCell
 from mesa.discrete_space.voronoi import round_float
 from mesa.exceptions import (
     AgentMissingException,
@@ -1447,6 +1448,62 @@ def test_hexGridMovingAgent():
     assert agent.cell.coordinate == (4, 2)
 
 
+def test_move_unplaced_agent_raises():
+    """Moving an unplaced discrete-space agent raises SpaceException with context."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+    hex_grid = HexGrid((5, 5), torus=False, random=random.Random(42))
+    model = Model()
+
+    cell_agent = CellAgent(model)
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot move CellAgent {cell_agent.unique_id}:.*not in a cell",
+    ):
+        cell_agent.move_relative((1, 0))
+    assert cell_agent.cell is None
+
+    # Removing from cell leaves agent unplaced and still raises cleanly
+    cell_agent.cell = grid[2, 2]
+    cell_agent.move_relative((1, 0))
+    assert cell_agent.cell == grid[3, 2]
+    cell_agent.cell = None
+    with pytest.raises(SpaceException, match="not in a cell"):
+        cell_agent.move_relative((1, 0))
+
+    grid_agent = Grid2DMovingAgent(model)
+    for distance in (1, 0):
+        with pytest.raises(
+            SpaceException,
+            match=f"Cannot move Grid2DMovingAgent {grid_agent.unique_id}:.*not in a cell",
+        ):
+            grid_agent.move("up", distance=distance)
+    assert grid_agent.cell is None
+    grid_agent.cell = grid[2, 2]
+    grid_agent.move("up")
+    assert grid_agent.cell == grid[1, 2]
+
+    hex_agent = HexGridMovingAgent(model)
+    for distance in (1, 0):
+        with pytest.raises(
+            SpaceException,
+            match=f"Cannot move HexGridMovingAgent {hex_agent.unique_id}:.*not in a cell",
+        ):
+            hex_agent.move("nw", distance=distance)
+    assert hex_agent.cell is None
+    hex_agent.cell = hex_grid[2, 2]
+    hex_agent.move("nw")
+    assert hex_agent.cell.coordinate == (2, 1)
+
+    class BareMover(HasCell, BasicMovement):
+        pass
+
+    bare_mover = BareMover()
+    with pytest.raises(
+        SpaceException, match="Cannot move BareMover: it is not in a cell"
+    ):
+        bare_mover.move_relative((1, 0))
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())
@@ -1640,11 +1697,14 @@ def test_fixed_agent_assign_none_while_unplaced():
 
 
 def test_fixed_agent_remove_unplaced_raises():
-    """Removing an unplaced fixed agent raises and leaves the agent untouched."""
+    """Removing an unplaced fixed agent raises SpaceException and leaves it untouched."""
     model = Model()
     agent = FixedAgent(model)
 
-    with pytest.raises(ValueError, match="not in a cell"):
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot remove FixedAgent {agent.unique_id}:.*not in a cell",
+    ):
         agent.remove()
 
     # the check runs before anything is removed
@@ -1653,14 +1713,17 @@ def test_fixed_agent_remove_unplaced_raises():
 
 
 def test_fixed_agent_remove_twice_raises():
-    """A second remove() raises, since the agent is no longer in a cell."""
+    """A second remove() raises SpaceException, since the agent is no longer in a cell."""
     model = Model()
     cell = Cell((1,), capacity=None, random=random.Random())
     agent = FixedAgent(model)
     agent.cell = cell
 
     agent.remove()
-    with pytest.raises(ValueError, match="not in a cell"):
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot remove FixedAgent {agent.unique_id}:.*not in a cell",
+    ):
         agent.remove()
 
 
