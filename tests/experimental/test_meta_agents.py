@@ -9,6 +9,7 @@ from mesa.experimental.meta_agents.meta_agent import (
     MetaAgent,
     create_meta_agent,
     evaluate_combination,
+    extract_class,
     find_combinations,
 )
 
@@ -511,3 +512,24 @@ def test_create_meta_agent_repeated_instances_with_descriptor_parent():
 
     # First instance should be unaffected
     assert swarm1.cell == grid[2, 2]
+
+
+def test_create_meta_agent_after_last_instance_removed():
+    """A meta-agent class can be reused by name after its last instance is removed.
+
+    ``extract_class`` reads the class from the ``agents_by_type`` key, so it does
+    not need a live instance of that class.
+    """
+    model = Model(rng=42)
+    a, b = Agent(model), Agent(model)
+
+    team = create_meta_agent(model, "Team", [a, b], Agent)
+    team_class = type(team)
+    team.remove()
+    assert len(model.agents_by_type[team_class]) == 0
+
+    assert extract_class(model.agents_by_type, "Team") is team_class
+    assert extract_class(model.agents_by_type, "Unknown") is None
+
+    again = create_meta_agent(model, "Team", [a, b], Agent)
+    assert type(again) is team_class
