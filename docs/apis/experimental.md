@@ -25,6 +25,11 @@ This namespace contains experimental features. These are under development, and 
    :members:
 ```
 
+```{eval-rst}
+.. automodule:: experimental.scenarios.disk_store
+   :members:
+```
+
 ## States
 
 ```{eval-rst}

@@ -110,6 +110,15 @@ class ContinuousSpace[A: ContinuousSpaceAgent]:
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, Agent] = {}
 
+    def __setstate__(self, state):
+        """Restore the state, and the view on the position array.
+
+        Pickling turns a view into an independent array, so the view has to be
+        taken again.
+        """
+        self.__dict__.update(state)
+        self.agent_positions = self._agent_positions[0 : self._n_agents]
+
     @property
     def agents(self) -> AgentSet[A]:
         """Return an AgentSet with the agents in the space."""

@@ -1,5 +1,6 @@
 """Tests for continuous space."""
 
+import pickle
 from unittest.mock import patch
 
 import numpy as np
@@ -688,6 +689,24 @@ def test_continuous_space_k_zero():
     assert len(dists) == 0
 
 
+def test_get_nearest_neighbors_co_located_agents():
+    """Test that co-located agents get exactly k neighbors, never themselves."""
+    model = Model(rng=1)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(5)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+
+    for agent in agents:
+        for k in (1, 2, 4):
+            neighbors, distances = agent.get_nearest_neighbors(k=k)
+            assert len(neighbors) == k
+            assert len(distances) == k
+            assert agent not in neighbors
+            # repeated queries return the same neighbors
+            assert agent.get_nearest_neighbors(k=k)[0] == neighbors
+
+
 def test_continuous_space_k_exact():
     """Test that exact k nearest agents are returned."""
     model = Model(rng=42)
@@ -734,3 +753,19 @@ def test_continuous_space_generics():
     k_nearest, _ = space.get_k_nearest_agents([1.0, 1.0], k=1)
     assert len(k_nearest) == 1
     assert isinstance(k_nearest[0], CustomAgent)
+
+
+def test_pickled_space_keeps_position_view():
+    """After unpickling, positions written through agents must reach the space array."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [1.0, 1.0]
+
+    restored = pickle.loads(pickle.dumps(model))  # noqa: S301
+    restored_agent = next(iter(restored.agents))
+    restored_agent.position = [5.0, 5.0]
+
+    space = restored_agent.space
+    assert space._agent_positions[restored_agent._mesa_index].tolist() == [5.0, 5.0]
+    assert np.shares_memory(space.agent_positions, space._agent_positions)
