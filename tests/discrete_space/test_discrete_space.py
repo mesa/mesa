@@ -645,6 +645,45 @@ def test_voronoigrid():
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
 
 
+def test_voronoigrid_callable_capacity_is_not_passed_to_the_cell_class():
+    """A callable capacity is resolved from the cell area, never handed to cell_klass."""
+    received = []
+
+    class RecordingCell(Cell):
+        def __init__(self, *args, capacity=None, **kwargs):
+            received.append(capacity)
+            super().__init__(*args, capacity=capacity, **kwargs)
+
+    points = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
+    grid = VoronoiGrid(
+        points,
+        capacity=lambda area: 3,
+        random=random.Random(42),
+        cell_klass=RecordingCell,
+    )
+
+    assert received == [None] * len(points)
+    assert [cell.capacity for cell in grid.all_cells] == [3] * len(points)
+
+
+def test_voronoigrid_numeric_capacity_reaches_the_cell_class():
+    """A fixed capacity is still given to every cell when it is created."""
+    received = []
+
+    class RecordingCell(Cell):
+        def __init__(self, *args, capacity=None, **kwargs):
+            received.append(capacity)
+            super().__init__(*args, capacity=capacity, **kwargs)
+
+    points = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
+    grid = VoronoiGrid(
+        points, capacity=2, random=random.Random(42), cell_klass=RecordingCell
+    )
+
+    assert received == [2] * len(points)
+    assert [cell.capacity for cell in grid.all_cells] == [2] * len(points)
+
+
 def test_empties_space():
     """Test empties method for Discrete Spaces."""
     n = 10
