@@ -217,24 +217,31 @@ class Cell:
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
-        This is equivalent to cell.get_neighborhood(radius=1)
-
+        This is equivalent to cell.get_neighborhood(radius=1).
         """
         try:
             neighborhood = self._neighborhood_radius1
-        except AttributeError:  # Older pickles predate the derived cache slots.
+        except AttributeError:
+            # Older pickles lack these cache slots because unpickling does not
+            # invoke __init__.
             self._initialize_neighborhood_cache()
             neighborhood = None
 
         if neighborhood is None:
-            neighborhood = CellCollection[Cell](
-                self._neighborhood(radius=1, include_center=False),
-                random=self.random,
-            )
+            neighborhood = self._create_neighborhood(1, False)
             self._neighborhood_radius1 = neighborhood
             _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
 
         return neighborhood
+
+    def _create_neighborhood(
+        self, radius: int, include_center: bool
+    ) -> CellCollection[Cell]:
+        """Create a CellCollection for the requested neighborhood."""
+        return CellCollection[Cell](
+            self._neighborhood(radius=radius, include_center=include_center),
+            random=self.random,
+        )
 
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
@@ -250,11 +257,12 @@ class Cell:
 
         Returns:
             a CellCollection of all neighboring cells
-
         """
         try:
             radius1_neighborhood = self._neighborhood_radius1
-        except AttributeError:  # Older pickles predate the derived cache slots.
+        except AttributeError:
+            # Older pickles lack these cache slots because unpickling does not
+            # invoke __init__.
             self._initialize_neighborhood_cache()
             radius1_neighborhood = None
 
@@ -265,51 +273,43 @@ class Cell:
                 neighborhood = self._neighborhood_radius1_with_center
                 if neighborhood is not None:
                     return neighborhood
-                neighborhood = CellCollection[Cell](
-                    self._neighborhood(radius=1, include_center=True),
-                    random=self.random,
-                )
+
+                neighborhood = self._create_neighborhood(1, True)
                 self._neighborhood_radius1_with_center = neighborhood
             else:
                 if radius1_neighborhood is not None:
                     return radius1_neighborhood
-                neighborhood = CellCollection[Cell](
-                    self._neighborhood(radius=1, include_center=False),
-                    random=self.random,
-                )
+
+                neighborhood = self._create_neighborhood(1, False)
                 self._neighborhood_radius1 = neighborhood
+
         elif radius == 2:
             if include_center:
                 neighborhood = self._neighborhood_radius2_with_center
                 if neighborhood is not None:
                     return neighborhood
-                neighborhood = CellCollection[Cell](
-                    self._neighborhood(radius=2, include_center=True),
-                    random=self.random,
-                )
+
+                neighborhood = self._create_neighborhood(2, True)
                 self._neighborhood_radius2_with_center = neighborhood
             else:
                 neighborhood = self._neighborhood_radius2
                 if neighborhood is not None:
                     return neighborhood
-                neighborhood = CellCollection[Cell](
-                    self._neighborhood(radius=2, include_center=False),
-                    random=self.random,
-                )
+
+                neighborhood = self._create_neighborhood(2, False)
                 self._neighborhood_radius2 = neighborhood
+
         else:
             neighborhood_cache = self._neighborhood_cache
             if neighborhood_cache is None:
                 neighborhood_cache = {}
                 self._neighborhood_cache = neighborhood_cache
+
             cache_key = (radius, include_center)
             try:
                 return neighborhood_cache[cache_key]
             except KeyError:
-                neighborhood = CellCollection[Cell](
-                    self._neighborhood(radius=radius, include_center=include_center),
-                    random=self.random,
-                )
+                neighborhood = self._create_neighborhood(radius, include_center)
                 neighborhood_cache[cache_key] = neighborhood
 
         _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
@@ -398,15 +398,13 @@ class Cell:
         }
         return state
 
-    def _clear_cache(self):
-        """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
-
     def _clear_cache(self) -> None:
         """Invalidate all live neighborhood caches after a topology change.
 
-        A weak registry preserves graph-wide invalidation (including radius > 1)
-        without keeping cached Cells or their models alive.
+        The weak registry tracks cells with populated caches without retaining
+        them. Cached CellCollections may hold strong references to neighboring
+        cells, but those references belong to the cell object graph rather than
+        making the global registry a root for that graph.
         """
         if not _ACTIVE_NEIGHBORHOOD_CELLS:
             return
