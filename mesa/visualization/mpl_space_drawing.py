@@ -112,13 +112,16 @@ def collect_agent_data(
     def get_agent_pos(agent, space):
         """Helper function to get the agent position depending on the grid type."""
         if isinstance(space, DiscreteSpace):
+            cell = space._cell_of(agent)
             # Orthogonal grids are drawn in cell coordinates
             if isinstance(space, OrthogonalGrid):
-                agent_x, agent_y = agent.cell.coordinate
+                agent_x, agent_y = cell.coordinate
             else:
-                agent_x, agent_y = agent.cell.position
+                agent_x, agent_y = cell.position
         else:
-            agent_x, agent_y = agent.position
+            position_of = getattr(space, "_position_of", None)
+            position = None if position_of is None else position_of(agent)
+            agent_x, agent_y = agent.position if position is None else position
         return agent_x, agent_y
 
     arguments = {
@@ -440,7 +443,8 @@ def draw_property_layers(
             width, height = data.shape
             hexagons = _get_hexmesh(width, height)
             norm = Normalize(vmin=vmin, vmax=vmax)
-            colors = data.ravel()
+            # _get_hexmesh is row-major, data is (width, height)
+            colors = data.T.ravel()
 
             if color:
                 normalized_colors = np.clip(norm(colors), 0, 1)
