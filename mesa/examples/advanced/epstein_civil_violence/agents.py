@@ -11,10 +11,7 @@ class CitizenState(Enum):
 
 
 class EpsteinAgent(mesa.discrete_space.CellAgent):
-    @property
-    def vision(self) -> int:
-        """Vision radius of the agent."""
-        raise NotImplementedError
+    vision: int
 
     def update_neighbors(self):
         """
