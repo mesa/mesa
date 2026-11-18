@@ -439,9 +439,10 @@ class TestThresholdBinding:
                 super().__init__(model)
                 self.drain_factor = 1.0
                 self.energy = 100.0
+                self.triggered = False
 
             def on_low_energy(self) -> None:
-                pass
+                self.triggered = True
 
         descriptor = DynamicAgent.energy
         original_get_state = descriptor._get_state
@@ -454,7 +455,8 @@ class TestThresholdBinding:
 
         monkeypatch.setattr(descriptor, "_get_state", recording_get_state)
 
-        agent = DynamicAgent(Model(rng=42))
+        model = Model(rng=42)
+        agent = DynamicAgent(model)
         final_state = getattr(agent, descriptor.private_state_name)
 
         assert returned_states
@@ -463,3 +465,6 @@ class TestThresholdBinding:
             "later replaced."
         )
         assert len(agent.subscribers[("energy_rate", ObservableSignals.CHANGED)]) == 1
+
+        model.run_until(100.0)
+        assert agent.triggered
