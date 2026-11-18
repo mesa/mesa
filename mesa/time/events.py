@@ -22,6 +22,7 @@ combining agent-based modeling with event scheduling.
 from __future__ import annotations
 
 import itertools
+import math
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -212,6 +213,15 @@ class Schedule:
             )
 
 
+def _past_end(time: float, end: float) -> bool:
+    """Return True if time is after end, ignoring float rounding.
+
+    Repeatedly adding a decimal interval accumulates rounding error: three steps
+    of 0.1 give 0.30000000000000004, which should still count as 0.3.
+    """
+    return time > end and not math.isclose(time, end, rel_tol=1e-9, abs_tol=1e-12)
+
+
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
 
@@ -297,7 +307,7 @@ class EventGenerator:
         return (
             self.schedule.count is not None
             and self._execution_count >= self.schedule.count
-        ) or (self.schedule.end is not None and next_time > self.schedule.end)
+        ) or (self.schedule.end is not None and _past_end(next_time, self.schedule.end))
 
     def _execute_and_reschedule(self) -> None:
         """Execute the function and schedule the next event."""

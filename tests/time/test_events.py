@@ -1013,6 +1013,22 @@ class TestEventGeneratorExecution:
         assert fn.call_count == 3  # t=0, 1, 2
         assert not gen.is_active
 
+    @pytest.mark.parametrize(
+        ("interval", "end", "expected"),
+        [(0.1, 0.3, 3), (0.2, 0.6, 3), (0.1, 0.6, 6), (0.1, 0.29, 2)],
+    )
+    def test_schedule_end_with_decimal_interval(self, setup, interval, end, expected):
+        """An event due at schedule.end fires even if rounding puts it just after.
+
+        Three steps of 0.1 give 0.30000000000000004, which must count as 0.3.
+        """
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=interval, end=end))
+        gen.start()
+
+        model.run_for(2.0)
+        assert fn.call_count == expected
+
     def test_first_event_after_end_does_not_fire(self, setup):
         """A generator whose first event would fall after schedule.end never fires."""
         model, fn = setup
