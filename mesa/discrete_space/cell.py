@@ -14,9 +14,9 @@ environmental conditions.
 
 from __future__ import annotations
 
-from functools import cache
 from random import Random
 from typing import TYPE_CHECKING
+from weakref import WeakSet
 
 import numpy as np
 
@@ -47,8 +47,14 @@ class Cell:
     """
 
     __slots__ = [
+        "__weakref__",
         "_agents",
         "_empty",
+        "_neighborhood_cache",
+        "_neighborhood_radius1",
+        "_neighborhood_radius1_with_center",
+        "_neighborhood_radius2",
+        "_neighborhood_radius2_with_center",
         "_position",  # physical position
         "capacity",
         "connections",
@@ -123,6 +129,13 @@ class Cell:
             Coordinate, object
         ] = {}  # fixme still used by voronoi mesh
         self.random = random
+        self._neighborhood_cache: (
+            dict[tuple[int, bool], CellCollection[Cell]] | None
+        ) = None
+        self._neighborhood_radius1: CellCollection[Cell] | None = None
+        self._neighborhood_radius1_with_center: CellCollection[Cell] | None = None
+        self._neighborhood_radius2: CellCollection[Cell] | None = None
+        self._neighborhood_radius2_with_center: CellCollection[Cell] | None = None
 
     def connect(self, other: Cell, key: Coordinate | None = None) -> None:
         """Connects this cell to another cell.
@@ -204,13 +217,32 @@ class Cell:
     def neighborhood(self) -> CellCollection[Cell]:
         """Returns the direct neighborhood of the cell.
 
-        This is equivalent to cell.get_neighborhood(radius=1)
-
+        This is equivalent to cell.get_neighborhood(radius=1).
         """
-        return self.get_neighborhood()
+        try:
+            neighborhood = self._neighborhood_radius1
+        except AttributeError:
+            # Older pickles lack these cache slots because unpickling does not
+            # invoke __init__.
+            self._initialize_neighborhood_cache()
+            neighborhood = None
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
+        if neighborhood is None:
+            neighborhood = self._create_neighborhood(1, False)
+            self._neighborhood_radius1 = neighborhood
+            _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
+
+        return neighborhood
+
+    def _create_neighborhood(
+        self, radius: int, include_center: bool
+    ) -> CellCollection[Cell]:
+        """Create a CellCollection for the requested neighborhood."""
+        return CellCollection[Cell](
+            self._neighborhood(radius=radius, include_center=include_center),
+            random=self.random,
+        )
+
     def get_neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> CellCollection[Cell]:
@@ -225,12 +257,71 @@ class Cell:
 
         Returns:
             a CellCollection of all neighboring cells
-
         """
-        return CellCollection[Cell](
-            self._neighborhood(radius=radius, include_center=include_center),
-            random=self.random,
-        )
+        try:
+            radius1_neighborhood = self._neighborhood_radius1
+        except AttributeError:
+            # Older pickles lack these cache slots because unpickling does not
+            # invoke __init__.
+            self._initialize_neighborhood_cache()
+            radius1_neighborhood = None
+
+        # Radius 1 and 2 are common model queries; dedicated slots avoid
+        # tuple creation and dictionary lookup on these cache-hit paths.
+        if radius == 1:
+            if include_center:
+                neighborhood = self._neighborhood_radius1_with_center
+                if neighborhood is not None:
+                    return neighborhood
+
+                neighborhood = self._create_neighborhood(1, True)
+                self._neighborhood_radius1_with_center = neighborhood
+            else:
+                if radius1_neighborhood is not None:
+                    return radius1_neighborhood
+
+                neighborhood = self._create_neighborhood(1, False)
+                self._neighborhood_radius1 = neighborhood
+
+        elif radius == 2:
+            if include_center:
+                neighborhood = self._neighborhood_radius2_with_center
+                if neighborhood is not None:
+                    return neighborhood
+
+                neighborhood = self._create_neighborhood(2, True)
+                self._neighborhood_radius2_with_center = neighborhood
+            else:
+                neighborhood = self._neighborhood_radius2
+                if neighborhood is not None:
+                    return neighborhood
+
+                neighborhood = self._create_neighborhood(2, False)
+                self._neighborhood_radius2 = neighborhood
+
+        else:
+            neighborhood_cache = self._neighborhood_cache
+            if neighborhood_cache is None:
+                neighborhood_cache = {}
+                self._neighborhood_cache = neighborhood_cache
+
+            cache_key = (radius, include_center)
+            try:
+                return neighborhood_cache[cache_key]
+            except KeyError:
+                neighborhood = self._create_neighborhood(radius, include_center)
+                neighborhood_cache[cache_key] = neighborhood
+
+        _ACTIVE_NEIGHBORHOOD_CELLS.add(self)
+        return neighborhood
+
+    def _initialize_neighborhood_cache(self) -> None:
+        """Initialize derived cache slots for cells restored from older pickles."""
+        self._neighborhood_cache = None
+        self._neighborhood_radius1 = None
+        self._neighborhood_radius1_with_center = None
+        self._neighborhood_radius2 = None
+        self._neighborhood_radius2_with_center = None
 
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
@@ -293,6 +384,13 @@ class Cell:
         while preserving the connection keys.
         """
         state = super().__getstate__()
+        # Neighborhoods are derived from connections and must not be serialized.
+        # Store empty cache slots so they are initialized after unpickling.
+        state[1]["_neighborhood_cache"] = None
+        state[1]["_neighborhood_radius1"] = None
+        state[1]["_neighborhood_radius1_with_center"] = None
+        state[1]["_neighborhood_radius2"] = None
+        state[1]["_neighborhood_radius2_with_center"] = None
         # Replace neighbor objects with their coordinates to avoid deep recursion
         # while preserving the connection keys.
         state[1]["connections"] = {
@@ -300,6 +398,25 @@ class Cell:
         }
         return state
 
-    def _clear_cache(self):
-        """Helper function to clear local cache."""
-        self.get_neighborhood.cache_clear()
+    def _clear_cache(self) -> None:
+        """Invalidate all live neighborhood caches after a topology change.
+
+        The weak registry tracks cells with populated caches without retaining
+        them. Cached CellCollections may hold strong references to neighboring
+        cells, but those references belong to the cell object graph rather than
+        making the global registry a root for that graph.
+        """
+        if not _ACTIVE_NEIGHBORHOOD_CELLS:
+            return
+
+        for cell in _ACTIVE_NEIGHBORHOOD_CELLS:
+            cell._neighborhood_cache = None
+            cell._neighborhood_radius1 = None
+            cell._neighborhood_radius1_with_center = None
+            cell._neighborhood_radius2 = None
+            cell._neighborhood_radius2_with_center = None
+        _ACTIVE_NEIGHBORHOOD_CELLS.clear()
+
+
+# Weak references avoid making this registry a root for Cells or their models.
+_ACTIVE_NEIGHBORHOOD_CELLS: WeakSet[Cell] = WeakSet()
