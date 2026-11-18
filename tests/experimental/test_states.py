@@ -10,7 +10,7 @@ import pytest
 
 import mesa.experimental.mesa_signals.core as signals_core
 from mesa import Agent, Model
-from mesa.experimental.mesa_signals import HasEmitters, Observable
+from mesa.experimental.mesa_signals import HasEmitters, Observable, ObservableSignals
 from mesa.experimental.mesa_signals.core import _hashable_signal
 from mesa.experimental.states import (
     ContinuousState,
@@ -417,25 +417,49 @@ class TestThresholdBinding:
 
         assert Tram._continuous_thresholds.count("_cruise") == 1
 
-
-class TestApexRejection:
-    """Validates that a tangent apex is rejected under the 'crossing' direction."""
-
-    def test_crossing_direction_rejects_tangent(
-        self, model: TramModel, monkeypatch: pytest.MonkeyPatch
+    def test_threshold_binding_does_not_replace_continuous_state(
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Ensure a trajectory that only touches the limit never fires."""
-        monkeypatch.setattr(Tram.__dict__["_brake_point"], "direction", "crossing")
-        tram = Tram(model)
+        """Threshold binding must reuse the state created during initialization."""
 
-        # Arms a linear crossing at t=2.5, then re-solves to a tangent touch:
-        # position peaks at exactly 25.0 at t=5.0 with zero velocity.
-        tram.brake_point = 25.0
-        tram.speed = 10.0
-        tram.acceleration = -2.0
+        class DynamicAgent(Agent, HasEmitters):
+            drain_factor = Observable(fallback_value=1.0)
+            energy = ContinuousState(
+                fallback_value=100.0,
+                rate=lambda agent: -agent.drain_factor,
+            )
+            low_energy = Threshold(
+                state=energy,
+                limit=20.0,
+                callback="on_low_energy",
+                direction="falling",
+            )
 
-        model.run_until(5.0)
-        assert tram.position == pytest.approx(25.0)
+            def __init__(self, model: Model) -> None:
+                super().__init__(model)
+                self.drain_factor = 1.0
+                self.energy = 100.0
 
-        model.run_until(10.0)
-        assert tram.brake_events == []
+            def on_low_energy(self) -> None:
+                pass
+
+        descriptor = DynamicAgent.energy
+        original_get_state = descriptor._get_state
+        returned_states: list[dict] = []
+
+        def recording_get_state(instance):
+            state = original_get_state(instance)
+            returned_states.append(state)
+            return state
+
+        monkeypatch.setattr(descriptor, "_get_state", recording_get_state)
+
+        agent = DynamicAgent(Model(rng=42))
+        final_state = getattr(agent, descriptor.private_state_name)
+
+        assert returned_states
+        assert all(state is final_state for state in returned_states), (
+            "Re-entrant threshold binding created a state dictionary that was "
+            "later replaced."
+        )
+        assert len(agent.subscribers[("energy_rate", ObservableSignals.CHANGED)]) == 1

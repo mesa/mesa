@@ -83,18 +83,6 @@ class ContinuousState(BaseObservable):
     def _get_state(self, instance: HasEmitters) -> dict[str, Any]:
         """Retrieve or initialize the internal state tracking dictionary."""
         if not hasattr(instance, self.private_state_name):
-            # Automatically bind any declarative Thresholds the first time
-            # a continuous state initializes, entirely bypassing the need for a scheduler.
-            if not getattr(instance, "_thresholds_bound", False):
-                instance._thresholds_bound = True
-                cls = instance.__class__
-                for klass in cls.__mro__:
-                    if "_continuous_thresholds" in klass.__dict__:
-                        for t_name in klass.__dict__["_continuous_thresholds"]:
-                            thresh = getattr(cls, t_name, None)
-                            if thresh is not None and hasattr(thresh, "bind"):
-                                thresh.bind(instance)
-
             time = instance.model.peek("time", 0.0)
 
             state: dict[str, Any] = {
@@ -130,6 +118,18 @@ class ContinuousState(BaseObservable):
                 )
             else:
                 state["current_rate"] = float(self._rate_input)
+
+            # Automatically bind any declarative Thresholds the first time
+            # a continuous state initializes, entirely bypassing the need for a scheduler.
+            if not getattr(instance, "_thresholds_bound", False):
+                instance._thresholds_bound = True
+                cls = instance.__class__
+                for klass in cls.__mro__:
+                    if "_continuous_thresholds" in klass.__dict__:
+                        for t_name in klass.__dict__["_continuous_thresholds"]:
+                            thresh = getattr(cls, t_name, None)
+                            if thresh is not None and hasattr(thresh, "bind"):
+                                thresh.bind(instance)
 
         return getattr(instance, self.private_state_name)
 
