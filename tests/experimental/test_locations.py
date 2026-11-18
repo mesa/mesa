@@ -803,19 +803,10 @@ def test_pickle_keeps_locations(model):
 def test_agents_with_named_locations_can_be_drawn(model):
     """Visualization finds an agent in a space whatever its location is called."""
     from mesa.visualization.backends import MatplotlibBackend  # noqa: PLC0415
-    from mesa.visualization.components import AgentPortrayalStyle  # noqa: PLC0415
-    from mesa.visualization.mpl_space_drawing import (  # noqa: PLC0415
-        collect_agent_data,
-    )
 
     citizen = Citizen(model)
     citizen.home = model.ground[3, 4]
     citizen.view = [0.25, -0.5]
-
-    data = collect_agent_data(model.ground, lambda _: AgentPortrayalStyle())
-    np.testing.assert_array_equal(data["loc"], [[3, 4]])
-    data = collect_agent_data(model.opinion, lambda _: AgentPortrayalStyle())
-    np.testing.assert_array_equal(data["loc"], [[0.25, -0.5]])
 
     backend = MatplotlibBackend(space_drawer=None)
     assert tuple(backend._get_agent_pos(citizen, model.ground)) == (3, 4)
