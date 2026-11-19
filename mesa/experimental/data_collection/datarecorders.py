@@ -300,12 +300,12 @@ class JSONDataRecorder(BaseDataRecorder):
         """Initialize JSON Recorder."""
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.data: dict[str, list] = {}
+        self.data: dict[str, deque] = {}
         super().__init__(model, config)
 
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
-        """Initialize empty list for dataset."""
-        self.data[dataset_name] = []
+        """Initialize an empty deque, bounded by the dataset's window_size."""
+        self.data[dataset_name] = deque(maxlen=self.configs[dataset_name].window_size)
 
     def _store_dataset_snapshot(
         self,
@@ -328,10 +328,6 @@ class JSONDataRecorder(BaseDataRecorder):
                 self.data[dataset_name].append({"time": time, "data": data.tolist()})
             case _:
                 self.data[dataset_name].append({"time": time, "data": data})
-
-        window_size = self.configs[dataset_name].window_size
-        if window_size and len(self.data[dataset_name]) > window_size:
-            del self.data[dataset_name][0]
 
     def get_table_dataframe(self, name: str) -> pd.DataFrame:
         """Convert stored JSON-like data to DataFrame."""
@@ -382,7 +378,7 @@ class JSONDataRecorder(BaseDataRecorder):
         for name, snapshots in self.data.items():
             filepath = self.output_dir / f"{name}.json"
             with open(filepath, "w") as f:
-                json.dump(snapshots, f, indent=2, cls=NumpyJSONEncoder)
+                json.dump(list(snapshots), f, indent=2, cls=NumpyJSONEncoder)
 
 
 class ParquetDataRecorder(BaseDataRecorder):
