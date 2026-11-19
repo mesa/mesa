@@ -22,7 +22,6 @@ Key Design Principles:
 from __future__ import annotations
 
 import copy
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -35,22 +34,6 @@ if TYPE_CHECKING:
     from mesa import Model
 
     from .dataset import DataRegistry, DataSet
-
-
-def _same_time(a: float, b: float) -> bool:
-    """Return True if two simulation times are equal up to float rounding.
-
-    Times built by repeatedly adding a decimal step (e.g. 0.1) pick up
-    floating-point error: eight steps of 0.1 give 0.7999999999999999, and
-    0.4 + 0.2 gives 0.6000000000000001. Treating such times as equal keeps
-    collections on the requested grid instead of skipping or shifting them.
-    """
-    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
-
-
-def _reached(current_time: float, target_time: float) -> bool:
-    """Return True if current_time has reached target_time (see _same_time)."""
-    return current_time >= target_time or _same_time(current_time, target_time)
 
 
 @dataclass
@@ -122,8 +105,13 @@ class DatasetConfig:
         if self.end_time is not None and current_time > self.end_time:
             return False
 
-        # Not at scheduled time
-        return _reached(current_time, self._next_collection)
+        # Not at scheduled time. Times built from decimal steps carry rounding
+        # error (0.4 + 0.2 gives 0.6000000000000001), so a time just below the
+        # scheduled one still counts as reached. The tolerance stays below half an
+        # interval, so that separate ticks at large times do not merge.
+        next_time = self._next_collection
+        tol = min(1e-9 * abs(next_time), 0.5 * self.interval) + 1e-12
+        return current_time >= next_time - tol
 
     def update_next_collection(self, current_time: float) -> None:
         """Update the next collection time.
@@ -133,13 +121,12 @@ class DatasetConfig:
         """
         self._next_collection = current_time + self.interval
 
-        # Auto-disable if we've passed end_time
-        if (
-            self.end_time is not None
-            and self._next_collection > self.end_time
-            and not _same_time(self._next_collection, self.end_time)
-        ):
-            self.enabled = False
+        # Auto-disable if we've passed end_time (same rounding tolerance as in
+        # should_collect)
+        if self.end_time is not None:
+            tol = min(1e-9 * abs(self.end_time), 0.5 * self.interval) + 1e-12
+            if self._next_collection > self.end_time + tol:
+                self.enabled = False
 
 
 class BaseDataRecorder(ABC):
@@ -208,15 +195,15 @@ class BaseDataRecorder(ABC):
         current_time = signal.additional_kwargs.get("old")
 
         for name, config in self.configs.items():
-            is_overwrite = _same_time(current_time, config._last_collection)
+            # Same rounding tolerance as in DatasetConfig.should_collect
+            tol = min(1e-9 * abs(current_time), 0.5 * config.interval) + 1e-12
+            is_overwrite = abs(current_time - config._last_collection) <= tol
+            reached = current_time >= config._next_collection - tol
 
             if (
                 not config.enabled
                 or current_time < config._last_collection
-                or (
-                    not _reached(current_time, config._next_collection)
-                    and not is_overwrite
-                )
+                or (not reached and not is_overwrite)
             ):
                 continue
 
@@ -230,7 +217,7 @@ class BaseDataRecorder(ABC):
             config._last_collection = current_time
 
             # Update next collection time (may auto-disable)
-            if _reached(current_time, config._next_collection):
+            if reached:
                 config.update_next_collection(current_time)
 
     def _on_run_ended(self, signal) -> None:
@@ -245,7 +232,8 @@ class BaseDataRecorder(ABC):
             ):
                 continue
 
-            is_overwrite = _same_time(current_time, config._last_collection)
+            tol = min(1e-9 * abs(current_time), 0.5 * config.interval) + 1e-12
+            is_overwrite = abs(current_time - config._last_collection) <= tol
 
             dataset = self.registry.datasets[name]
             self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)

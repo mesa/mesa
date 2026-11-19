@@ -172,6 +172,18 @@ def test_data_recorder_decimal_end_time():
     assert times == pytest.approx([0.0, 0.2, 0.4, 0.6])
 
 
+def test_dataset_config_keeps_ticks_apart_at_large_times():
+    """The rounding tolerance must not merge separate ticks at large times."""
+    config = DatasetConfig(interval=1, start_time=1e9, end_time=1e9 + 3)
+    assert config.should_collect(1e9)
+    config.update_next_collection(1e9)
+    assert not config.should_collect(1e9)
+    assert config.should_collect(1e9 + 1)
+
+    config.update_next_collection(1e9 + 3)
+    assert not config.enabled
+
+
 def test_base_recorder_no_registry():
     """Test that BaseDataRecorder raises error without DataRegistry."""
     model = Model()
