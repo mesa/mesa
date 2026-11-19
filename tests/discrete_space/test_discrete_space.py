@@ -1447,6 +1447,75 @@ def test_hexGridMovingAgent():
     assert agent.cell.coordinate == (4, 2)
 
 
+def test_move_distance_completes():
+    """A move of several cells that fits in the grid ends at the right cell."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+    agent = Grid2DMovingAgent(Model())
+    agent.cell = grid[2, 0]
+    agent.move("east", distance=3)
+    assert agent.cell is grid[2, 3]
+
+    hex_grid = HexGrid((5, 5), torus=False, random=random.Random(42))
+    hex_agent = HexGridMovingAgent(Model())
+    hex_agent.cell = hex_grid[0, 2]
+    hex_agent.move("e", distance=3)
+    assert hex_agent.cell is hex_grid[3, 2]
+
+
+def test_move_past_edge():
+    """Moving past the edge raises without moving, unless partial moves are allowed.
+
+    See https://github.com/mesa/mesa/issues/4099.
+    """
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+    agent = Grid2DMovingAgent(Model())
+    agent.cell = grid[2, 2]
+
+    with pytest.raises(ValueError, match="No cell in direction"):
+        agent.move("east", distance=5)
+    assert agent.cell is grid[2, 2]
+    assert agent in grid[2, 2].agents
+    assert grid[2, 4].is_empty
+
+    agent.move("east", distance=5, allow_partial_move=True)
+    assert agent.cell is grid[2, 4]
+    assert grid[2, 2].is_empty
+
+    # already at the edge: a partial move stays put without raising
+    agent.move("east", allow_partial_move=True)
+    assert agent.cell is grid[2, 4]
+
+    hex_grid = HexGrid((5, 5), torus=False, random=random.Random(42))
+    hex_agent = HexGridMovingAgent(Model())
+    hex_agent.cell = hex_grid[2, 2]
+
+    with pytest.raises(ValueError, match="No cell in direction"):
+        hex_agent.move("e", distance=5)
+    assert hex_agent.cell is hex_grid[2, 2]
+
+    hex_agent.move("e", distance=5, allow_partial_move=True)
+    assert hex_agent.cell is hex_grid[4, 2]
+
+
+def test_move_through_full_cell():
+    """A full cell on the way blocks the move like the edge of the grid does."""
+    model = Model()
+    grid = OrthogonalMooreGrid(
+        (5, 5), torus=False, random=random.Random(42), capacity=1
+    )
+    agent = Grid2DMovingAgent(model)
+    agent.cell = grid[2, 0]
+    blocker = CellAgent(model)
+    blocker.cell = grid[2, 2]
+
+    with pytest.raises(CellFullException):
+        agent.move("east", distance=3)
+    assert agent.cell is grid[2, 0]
+
+    agent.move("east", distance=3, allow_partial_move=True)
+    assert agent.cell is grid[2, 1]
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())

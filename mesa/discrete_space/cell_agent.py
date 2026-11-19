@@ -16,8 +16,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from mesa.agent import Agent
+from mesa.exceptions import CellFullException
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from mesa.discrete_space import Cell
 
 
@@ -72,6 +75,34 @@ class BasicMovement:
             self.cell = new_cell
         else:
             raise ValueError(f"No cell in direction {direction}")
+
+    def _move_steps(
+        self: HasCellProtocol,
+        step: Callable[[Cell], tuple[int, ...]],
+        distance: int,
+        allow_partial_move: bool,
+    ) -> None:
+        """Move up to distance steps, where step(cell) gives the direction from cell.
+
+        The whole path is checked before the agent moves. A step is blocked when
+        there is no cell in that direction or the next cell is full. If
+        allow_partial_move is False, a blocked step raises and the agent stays
+        where it is. If it is True, the agent moves to the last reachable cell.
+        """
+        target = self.cell
+        for _ in range(distance):
+            direction = step(target)
+            next_cell = target.connections.get(direction)
+            if next_cell is None:
+                if allow_partial_move:
+                    break
+                raise ValueError(f"No cell in direction {direction}")
+            if next_cell is not self.cell and next_cell.is_full:
+                if allow_partial_move:
+                    break
+                raise CellFullException(next_cell.coordinate)
+            target = next_cell
+        self.cell = target
 
 
 class FixedCell(HasCell):
@@ -151,12 +182,25 @@ class Grid2DMovingAgent(CellAgent):
     }
     # fmt: on
 
-    def move(self, direction: str, distance: int = 1):
+    def move(
+        self, direction: str, distance: int = 1, *, allow_partial_move: bool = False
+    ):
         """Move the agent in a cardinal direction.
 
         Args:
             direction: The cardinal direction to move in.
             distance: The distance to move.
+            allow_partial_move: If False (default), the move happens only if all
+                distance steps are possible; otherwise it raises and the agent
+                stays where it is. If True, the agent moves as far as it can,
+                stopping before the edge of the grid or a full cell, and nothing
+                is raised.
+
+        Raises:
+            ValueError: If the direction is invalid, or if allow_partial_move is
+                False and the grid ends before distance steps.
+            CellFullException: If allow_partial_move is False and a cell on the
+                way is full.
         """
         direction = direction.lower()  # Convert direction to lowercase
 
@@ -164,8 +208,7 @@ class Grid2DMovingAgent(CellAgent):
             raise ValueError(f"Invalid direction: {direction}")
 
         move_vector = self.DIRECTION_MAP[direction]
-        for _ in range(distance):
-            self.move_relative(move_vector)
+        self._move_steps(lambda _: move_vector, distance, allow_partial_move)
 
 
 class HexGridMovingAgent(CellAgent):
@@ -218,25 +261,37 @@ class HexGridMovingAgent(CellAgent):
         "south": (-1, 1),
     }
 
-    def move(self, direction: str, distance: int = 1) -> None:
+    def move(
+        self, direction: str, distance: int = 1, *, allow_partial_move: bool = False
+    ) -> None:
         """Move the agent in a hex direction respecting row parity.
 
         Args:
             direction: One of 'nw', 'ne', 'sw', 'se', 'w', 'e' (or aliases which are 'n' and 's').
             distance: Number of steps to take.
+            allow_partial_move: If False (default), the move happens only if all
+                distance steps are possible; otherwise it raises and the agent
+                stays where it is. If True, the agent moves as far as it can,
+                stopping before the edge of the grid or a full cell, and nothing
+                is raised.
+
+        Raises:
+            ValueError: If the direction is invalid, or if allow_partial_move is
+                False and the grid ends before distance steps.
+            CellFullException: If allow_partial_move is False and a cell on the
+                way is full.
         """
         direction = direction.lower()
 
-        for _ in range(distance):
-            row_index = self.cell.coordinate[1]
+        if direction not in self.DIRECTION_MAP_EVEN:
+            raise ValueError(f"Invalid hex direction: {direction}")
+
+        def step(cell: Cell) -> tuple[int, int]:
             offset_map = (
                 self.DIRECTION_MAP_EVEN
-                if row_index % 2 == 0
+                if cell.coordinate[1] % 2 == 0
                 else self.DIRECTION_MAP_ODD
             )
+            return offset_map[direction]
 
-            if direction not in offset_map:
-                raise ValueError(f"Invalid hex direction: {direction}")
-
-            move_vector = offset_map[direction]
-            self.move_relative(move_vector)
+        self._move_steps(step, distance, allow_partial_move)
