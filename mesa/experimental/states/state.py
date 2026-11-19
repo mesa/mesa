@@ -272,8 +272,6 @@ class ContinuousState(BaseObservable):
         state = self._get_state(instance)
         current_time = instance.model.peek("time", 0.0)
 
-        self._refresh_rate_if_dirty(state, instance)
-
         has_subscribers = instance._has_subscribers(
             self.public_name, ObservableSignals.CHANGED
         )

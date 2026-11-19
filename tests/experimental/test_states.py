@@ -252,6 +252,22 @@ class TestChainedExtrapolationWithoutThreshold:
 
         assert mover.position == pytest.approx(100.0 + 6.0 * 2.0 + 0.5 * 2.0 * 2.0**2)
 
+    @pytest.mark.parametrize("threshold_on", [None, "speed", "position"])
+    def test_reassigning_the_upstream_state_changes_the_downstream_trajectory(
+        self, threshold_on
+    ) -> None:
+        """Resetting speed mid-run changes how position carries on from there."""
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+        model.run_for(1.0)
+
+        mover.speed = 10.0
+        model.run_for(1.0)
+
+        # position at t=1 is 1; then 10 * 1 + 0.5 * 2 * 1**2 more
+        assert mover.position == pytest.approx(12.0)
+
 
 class TestContinuousStateExtrapolation:
     """Validates piecewise-linear and piecewise-quadratic trajectory logic."""
