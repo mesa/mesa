@@ -944,6 +944,42 @@ def test_cell_collection():
     assert len(cells) == len(collection)
 
 
+def test_cell_collection_cells_is_a_copy():
+    """Changing the list returned by .cells must not change the collection (#4142)."""
+    cell1, cell2 = (
+        Cell((0, 0), random=random.Random(1)),
+        Cell((0, 1), random=random.Random(1)),
+    )
+    collection = CellCollection([cell1, cell2], random=random.Random(1))
+
+    cells = collection.cells
+    assert cells == [cell1, cell2]
+    cells.clear()
+
+    assert len(collection) == 2
+    assert collection.cells == [cell1, cell2]
+    assert list(collection) == [cell1, cell2]
+    assert collection.select_random_cell() in {cell1, cell2}
+
+    # Every access gives its own list.
+    assert collection.cells is not collection.cells
+    collection.cells.append(Cell((9, 9), random=random.Random(1)))
+    assert len(collection.cells) == 2
+
+
+def test_cell_collection_random_cell_ignores_changes_to_cells_list():
+    """select_random_cell gives the same cells whether or not the caller reordered .cells."""
+    cells = [Cell((i,), random=random.Random(1)) for i in range(10)]
+    plain = CellCollection(cells, random=random.Random(42))
+    meddled = CellCollection(cells, random=random.Random(42))
+    meddled.cells.reverse()
+    meddled.cells.clear()
+
+    assert [plain.select_random_cell() for _ in range(20)] == [
+        meddled.select_random_cell() for _ in range(20)
+    ]
+
+
 def test_empty_cell_collection():
     """Test that CellCollection properly handles empty collections."""
     rng = random.Random(42)

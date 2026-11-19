@@ -91,8 +91,16 @@ class CellCollection[T: Cell]:
         return f"CellCollection({self._cells})"
 
     @cached_property
-    def cells(self) -> list[T]:  # noqa
+    def _cell_list(self) -> list[T]:
         return list(self._cells.keys())
+
+    @property
+    def cells(self) -> list[T]:
+        """The cells in this collection, as a new list.
+
+        Changing the returned list does not change the collection.
+        """
+        return list(self._cell_list)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa
@@ -116,7 +124,7 @@ class CellCollection[T: Cell]:
                 raise LookupError("Cannot select random cell from empty collection")
             return default
 
-        return self.random.choice(self.cells)
+        return self.random.choice(self._cell_list)
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
         """Select a random agent from the collection.
