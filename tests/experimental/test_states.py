@@ -468,3 +468,26 @@ class TestThresholdBinding:
 
         model.run_until(100.0)
         assert agent.triggered
+
+
+class TestApexRejection:
+    """Validates that a tangent apex is rejected under the 'crossing' direction."""
+
+    def test_crossing_direction_rejects_tangent(
+        self, model: TramModel, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ensure a trajectory that only touches the limit never fires."""
+        monkeypatch.setattr(Tram.__dict__["_brake_point"], "direction", "crossing")
+        tram = Tram(model)
+
+        # Arms a linear crossing at t=2.5, then re-solves to a tangent touch:
+        # position peaks at exactly 25.0 at t=5.0 with zero velocity.
+        tram.brake_point = 25.0
+        tram.speed = 10.0
+        tram.acceleration = -2.0
+
+        model.run_until(5.0)
+        assert tram.position == pytest.approx(25.0)
+
+        model.run_until(10.0)
+        assert tram.brake_events == []
