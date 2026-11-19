@@ -915,6 +915,60 @@ def test_sql_recorder_numpy_with_time_column():
     assert "agent_id" in df.columns
 
 
+class TypedAgent(Agent):
+    """An agent with an integer, a string and a float attribute."""
+
+    def __init__(self, model):
+        """Initialize the agent."""
+        super().__init__(model)
+        self.age = 31
+        self.zip_code = "01123"
+        self.income = 1.5
+
+
+def test_sql_recorder_returns_values_with_the_type_they_were_recorded_with():
+    """Integers stay integers, and a string of digits stays a string."""
+    model = Model()
+    model.households = 7
+    model.label = "007"
+    TypedAgent(model)
+    model.data_registry.track_model(model, "model_data", fields=["households", "label"])
+    model.data_registry.track_agents(
+        model.agents, "agent_data", fields=["age", "zip_code", "income"]
+    )
+    recorder = SQLDataRecorder(
+        model,
+        {"model_data": DatasetConfig(), "agent_data": DatasetConfig()},
+        db_path=":memory:",
+    )
+
+    model.step()
+
+    agent_df = recorder.get_table_dataframe("agent_data")
+    assert agent_df["zip_code"].tolist() == ["01123"]
+    assert pd.api.types.is_integer_dtype(agent_df["unique_id"])
+    assert pd.api.types.is_integer_dtype(agent_df["age"])
+    assert pd.api.types.is_float_dtype(agent_df["income"])
+
+    model_df = recorder.get_table_dataframe("model_data")
+    assert model_df["label"].tolist() == ["007"]
+    assert pd.api.types.is_integer_dtype(model_df["households"])
+
+
+def test_sql_recorder_numpy_agent_id_is_integer():
+    """agent_id of a numpy dataset is an integer column, as in the other recorders."""
+    model = MockModel(n=3)
+    recorder = SQLDataRecorder(
+        model, {"numpy_data": DatasetConfig()}, db_path=":memory:"
+    )
+
+    model.step()
+
+    df = recorder.get_table_dataframe("numpy_data")
+    assert pd.api.types.is_integer_dtype(df["agent_id"])
+    assert df["agent_id"].tolist() == [1, 2, 3]
+
+
 def test_sql_recorder_get_nonexistent_dataset():
     """Test getting nonexistent dataset."""
     model = MockModel(n=5)
