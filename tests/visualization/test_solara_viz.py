@@ -23,6 +23,7 @@ from mesa.visualization.solara_viz import (
     _build_model_init_kwargs,
     _check_model_params,
     _validate_model_params,
+    copy_renderer,
 )
 from mesa.visualization.space_renderer import SpaceRenderer
 
@@ -169,6 +170,29 @@ def test_solara_viz_backends(mocker, backend):
     assert spy_structure.call_count == 0
     assert spy_agents.call_count == 0
     assert spy_properties.call_count == 0
+
+
+def test_solara_viz_default_components(mocker):
+    """components="default" draws the space with an Altair SpaceRenderer."""
+    spy_structure = mocker.spy(SpaceRenderer, "draw_structure")
+    spy_agents = mocker.spy(SpaceRenderer, "draw_agents")
+
+    model = mesa.Model(rng=42)
+    model.grid = OrthogonalMooreGrid((5, 5), random=model.random)
+    CellAgent(model).cell = model.grid[(2, 2)]
+
+    solara.render(SolaraViz(model, components="default"), handle_error=False)
+
+    renderer = spy_structure.call_args.args[0]
+    assert renderer.backend == "altair"
+    assert renderer.space is model.grid
+    spy_agents.assert_called_with(renderer)
+
+    # An explicit renderer replaces the default one
+    explicit = SpaceRenderer(model, backend="matplotlib").render()
+    spy_structure.reset_mock()
+    solara.render(SolaraViz(model, explicit, components="default"), handle_error=False)
+    assert {call.args[0] for call in spy_structure.call_args_list} == {explicit}
 
 
 def test_slider():
@@ -550,3 +574,23 @@ def test_step_button_stops_when_model_stops_running():
 
     assert model.step_calls == 3
     assert not model.running
+
+
+def test_copy_renderer_keeps_setup_kwargs():
+    """Reset rebuilds the renderer with copy_renderer, which must keep the setup kwargs."""
+    model = mesa.Model(rng=42)
+    model.grid = OrthogonalMooreGrid((5, 5), random=random.Random(42))
+
+    renderer = (
+        SpaceRenderer(model, backend="matplotlib")
+        .setup_structure(grid_color="red")
+        .setup_agents(lambda _: AgentPortrayalStyle(), cmap="viridis")
+    )
+    new_renderer = copy_renderer(renderer, model)
+
+    assert new_renderer.draw_space_kwargs == {"grid_color": "red"}
+    assert new_renderer.draw_agent_kwargs == {"cmap": "viridis"}
+
+    # the copies should not share the same dict with the original renderer
+    assert new_renderer.draw_space_kwargs is not renderer.draw_space_kwargs
+    assert new_renderer.draw_agent_kwargs is not renderer.draw_agent_kwargs

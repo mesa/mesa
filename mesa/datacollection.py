@@ -400,12 +400,12 @@ class DataCollector:
             self._agent_records[model.time] = list(agent_records)
 
         if self.agenttype_reporters:
-            self._agenttype_records[model.time] = {}
+            # Preserve the previous snapshot until every reporter succeeds.
+            records_by_type = {}
             for agent_type in self.agenttype_reporters:
                 agenttype_records = self._record_agenttype(model, agent_type)
-                self._agenttype_records[model.time][agent_type] = list(
-                    agenttype_records
-                )
+                records_by_type[agent_type] = list(agenttype_records)
+            self._agenttype_records[model.time] = records_by_type
 
     def add_table_row(self, table_name, row, ignore_missing=False):
         """Add a row dictionary to a specific table.

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copyreg
 import math
+import numbers
 from collections.abc import Sequence
 from itertools import chain, product
 from random import Random
@@ -84,6 +85,10 @@ class Grid(DiscreteSpace[T]):
         """Convenience access to the height of the grid."""
         return self.dimensions[1]
 
+    # Number of random cells tried before select_random_empty_cell and
+    # select_random_cell_with_capacity fall back to an O(n) scan.
+    _MAX_RANDOM_PROBES: int = 50
+
     def __init__(
         self,
         dimensions: Sequence[int],
@@ -91,6 +96,8 @@ class Grid(DiscreteSpace[T]):
         capacity: float | None = None,
         random: Random | None = None,
         cell_klass: type[T] = Cell,
+        cell_size: float | Sequence[float] = 1.0,
+        origin: Sequence[float] | None = None,
     ) -> None:
         """Initialise the grid class.
 
@@ -100,6 +107,11 @@ class Grid(DiscreteSpace[T]):
             capacity: capacity of the grid cell
             random: a random number generator
             cell_klass: the base class to use for the cells
+            cell_size: the size of a cell, as one number or one per dimension. A 50
+                by 50 grid with ``cell_size=2.0`` covers the same area as a
+                continuous space of 100 by 100.
+            origin: the position of the corner of cell (0, 0, ...), by default
+                all zeros
         """
         super().__init__(capacity=capacity, random=random, cell_klass=cell_klass)
         self.torus = torus
@@ -107,10 +119,16 @@ class Grid(DiscreteSpace[T]):
         self._try_random = True
         self._ndims = len(dimensions)
         self._validate_parameters()
+        self._set_mapping(cell_size, origin)
         self.cell_klass = type(
             "GridCell",
             (self.cell_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "_mesa_scale": self.cell_size,
+                "_mesa_offset": self.origin,
+            },
         )
         self.property_layers: dict[str, np.ndarray] = {}
         # Track which property layers are read-only so the constraint survives
@@ -129,6 +147,49 @@ class Grid(DiscreteSpace[T]):
         self._celllist = list(self._cells.values())
         self._connect_cells()
         self.create_property_layer("empty", default_value=True, dtype=bool)
+
+    def _set_mapping(
+        self, cell_size: float | Sequence[float], origin: Sequence[float] | None
+    ) -> None:
+        """Store how cell coordinates map to positions.
+
+        The mapping is a scale and an offset per dimension. Only ``Cell.position``
+        and ``find_nearest_cell`` use it, so it can grow into an affine transform.
+        """
+        n = self._ndims
+        if isinstance(cell_size, numbers.Real):
+            sizes = [float(cell_size)] * n
+        else:
+            sizes = [float(size) for size in cell_size]
+        origins = [0.0] * n if origin is None else [float(o) for o in origin]
+        if len(sizes) != n or len(origins) != n:
+            raise ValueError(
+                f"cell_size and origin must be a number or have one value for each of "
+                f"the {n} dimensions."
+            )
+        if not all(size > 0 for size in sizes):
+            raise ValueError("cell_size must be positive.")
+        # Plain floats keep find_nearest_cell fast for the handful of values involved
+        self._mapping = (origins, sizes)
+        self._cell_size = np.array(sizes)
+        self._origin = np.array(origins)
+        self._freeze_mapping()
+
+    def _freeze_mapping(self) -> None:
+        # Lookups use _mapping, so changing these in place would move cell centers
+        # away from the cells that find_nearest_cell returns
+        self._cell_size.flags.writeable = False
+        self._origin.flags.writeable = False
+
+    @property
+    def cell_size(self) -> np.ndarray:
+        """The size of a cell in each dimension (read-only)."""
+        return self._cell_size
+
+    @property
+    def origin(self) -> np.ndarray:
+        """The position of the corner of cell (0, 0, ...) (read-only)."""
+        return self._origin
 
     def create_property_layer(
         self,
@@ -257,22 +318,41 @@ class Grid(DiscreteSpace[T]):
 
         Raises:
             ValueError: If position is outside grid bounds and not a torus
+
+        Notes:
+            A bounded grid includes its upper edge, like ``ContinuousSpace``: a
+            position on it belongs to the last cell. Positions within a billionth
+            of a cell of the edge count as on it, so that rounding in a cell size
+            such as ``1 / 49`` doesn't push the edge out of the grid.
         """
-        # Floor to get cell coordinate
-        coord = tuple(np.floor(position).astype(int))
+        if isinstance(position, np.ndarray):
+            position = position.tolist()
+        origin, cell_size = self._mapping
+        # Floor to get cell coordinate; plain floats are several times faster than
+        # numpy for the handful of values involved
+        coord = [
+            math.floor((p - o) / s)
+            for p, o, s in zip(position, origin, cell_size, strict=True)
+        ]
 
         # Handle torus wrapping
         if self.torus:
-            coord = tuple(c % d for c, d in zip(coord, self.dimensions))
+            coord = [c % d for c, d in zip(coord, self.dimensions)]
+        else:
+            for i, (c, d) in enumerate(zip(coord, self.dimensions)):
+                if (
+                    c == d
+                    and abs(position[i] - origin[i] - d * cell_size[i])
+                    <= 1e-9 * cell_size[i]
+                ):
+                    coord[i] = d - 1
+                elif not 0 <= c < d:
+                    raise ValueError(
+                        f"Position {position} is outside grid bounds. "
+                        f"Dimensions: {self.dimensions}"
+                    )
 
-        # Check bounds for non-torus grids
-        elif not all(0 <= c < d for c, d in zip(coord, self.dimensions)):
-            raise ValueError(
-                f"Position {position} is outside grid bounds. "
-                f"Dimensions: {self.dimensions}"
-            )
-
-        return self._cells[coord]
+        return self._cells[tuple(coord)]
 
     def _connect_cells(self) -> None:
         if self._ndims == 2:
@@ -300,20 +380,27 @@ class Grid(DiscreteSpace[T]):
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
-        # FIXME:: basically if grid is close to 99% full, creating empty list can be faster
-        # FIXME:: note however that the old results don't apply because in this implementation
-        # FIXME:: because empties list needs to be rebuild each time
+        # Fast path: probe up to ``_MAX_RANDOM_PROBES`` random cells. Each probe is O(1).
+        # If a fraction p of the cells is empty, all probes miss with probability
+        # (1 - p) ** 50: about 0.5% at p = 10% and about 1e-5 at p = 20%. Grids that
+        # are not nearly full therefore practically never pay for the O(n) fallback
+        # below, which matters for models such as Schelling (~20% empty). On nearly
+        # full grids the budget bounds the wasted work: one fallback scan costs about
+        # as much as 10 to 30 probes on grids up to ~1e5 cells, so a handful of
+        # probes is cheap compared to scanning but unbounded probing is not.
+        # Smaller budgets speed up near-full grids but make the scan fire far too
+        # often at p >= 10%, so do not lower this without re-running
+        # benchmarks/grid_empty_cell_cutoff_benchmark.py and the model benchmarks.
         # This method is based on Agents.jl's random_empty() implementation. See
         # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/mesa/mesa/issues/1052 and
-        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
-        # is the break-even comparison with the time taken in the else branching point.
+        # https://github.com/mesa/mesa/issues/1052, https://github.com/mesa/mesa/pull/1565,
+        # https://github.com/mesa/mesa/issues/3626 and https://github.com/mesa/mesa/issues/3999.
         random = self.random
         cells = self._celllist
 
         if self._try_random:
             # Limit attempts to avoid infinite loops on full grids
-            for _ in range(50):
+            for _ in range(self._MAX_RANDOM_PROBES):
                 cell = random.choice(cells)
                 if cell.is_empty:
                     return cell
@@ -374,12 +461,13 @@ class Grid(DiscreteSpace[T]):
         """
         random = self.random
         cells = self._celllist
-        # Fast path: up to 50 random samples, O(1) average when grid is sparse.
+        # Fast path: up to ``_MAX_RANDOM_PROBES`` random samples, O(1) average when
+        # the grid is sparse.
         # Fallback: build explicit list, O(n) worst case (mirrors select_random_empty_cell
         # heuristic, see https://github.com/JuliaDynamics/Agents.jl/pull/541).
 
         if self._try_random:
-            for _ in range(50):
+            for _ in range(self._MAX_RANDOM_PROBES):
                 cell = random.choice(cells)
                 if not cell.is_full:
                     return cell
@@ -430,11 +518,17 @@ class Grid(DiscreteSpace[T]):
         without a setter so the read-only constraint survives the round trip.
         """
         super().__setstate__(state)
+        self._freeze_mapping()  # pickling doesn't keep arrays read-only
         base_klass = self.cell_klass
         self.cell_klass = type(
             "GridCell",
             (base_klass,),
-            {"property_layers": set(), "__slots__": ()},
+            {
+                "property_layers": set(),
+                "__slots__": (),
+                "_mesa_scale": self.cell_size,
+                "_mesa_offset": self.origin,
+            },
         )
         copyreg.pickle(self.cell_klass, pickle_gridcell)
         for cell in self._cells.values():
@@ -583,7 +677,8 @@ class HexGrid(Grid[T]):
         size = 1.0
         for coord, cell in self._cells.items():
             col, row = coord
-            x = size * math.sqrt(3) * (col + 0.5 * (row % 2))
+            # even-r: even rows are shifted right, matching _connect_cells_2d
+            x = size * math.sqrt(3) * (col + 0.5 * ((row + 1) % 2))
             y = size * 1.5 * row
             position = np.array([x, y])
 

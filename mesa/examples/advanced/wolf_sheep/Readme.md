@@ -2,12 +2,12 @@
 
 ## Summary
 
-A simple ecological model, consisting of three agent types: wolves, sheep, and grass. The wolves and the sheep wander around the grid at random. Wolves and sheep both expend energy moving around, and replenish it by eating. Sheep eat grass, and wolves eat sheep if they end up on the same grid cell.
+A simple ecological model, consisting of three agent types: wolves, sheep, and grass. The wolves and the sheep wander around a continuous meadow at random, and the grass grows on a grid of patches over the same area. Wolves and sheep both expend energy moving around, and replenish it by eating. Sheep eat the grass on the patch below them, and wolves eat sheep on their patch.
 
 If wolves and sheep have enough energy, they reproduce, creating a new wolf or sheep (in this simplified model, only one parent is needed for reproduction). The grass on each cell regrows at a constant rate. If any wolves and sheep run out of energy, they die.
 
 The model is tests and demonstrates several Mesa concepts and features:
- - MultiGrid
+ - Locations (`mesa.experimental.locations`): each animal has a `position` in the continuous meadow, and a grid `cell` that follows it
  - Multiple agent types (wolves, sheep, grass)
  - Overlay arbitrary text (wolf's energy) on agent's shapes while drawing on CanvasGrid
  - Agents inheriting a behavior (random movement) from an abstract parent
