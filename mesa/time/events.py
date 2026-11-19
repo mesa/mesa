@@ -317,6 +317,17 @@ class EventGenerator:
         fn()
         self._execution_count += 1
 
+        # A callback may pause/resume or restart the generator, which schedules
+        # a replacement event before this execution count is updated. Cancel
+        # that event if this execution reached the schedule's maximum count.
+        if (
+            self._current_event is not firing_event
+            and self.schedule.count is not None
+            and self._execution_count >= self.schedule.count
+        ):
+            self.stop()
+            return
+
         # The callback may have stopped, paused, restarted, or resumed this
         # generator. Both start() and resume() schedule a new event and replace
         # _current_event, so in that case do not schedule a second one.
