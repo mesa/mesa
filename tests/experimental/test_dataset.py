@@ -1,5 +1,8 @@
 """Tests for experimental datasets."""
 
+import copy
+import pickle
+
 import numpy as np
 import pytest
 
@@ -364,6 +367,70 @@ def test_numpy_agent_dataset_property_cleanup_on_close():
 
     # Property should be removed
     assert not hasattr(MyAgent, "value")
+
+
+def test_numpy_agent_dataset_is_isolated_per_model():
+    """Agents of different models never share NumpyAgentDataSet storage."""
+
+    class MyAgent(Agent):
+        def __init__(self, model, value):
+            super().__init__(model)
+            self.value = value
+
+    def make_model(seed, value):
+        model = Model(rng=seed)
+        model.data_registry.track_agents_numpy(MyAgent, "test", "value", n=2)
+        for _ in range(3):
+            MyAgent(model, value)
+        return model
+
+    # a second model must not redirect the first model's agents
+    model_1 = make_model(1, 10.0)
+    model_2 = make_model(2, 99.0)
+    assert [agent.value for agent in model_1.agents] == [10.0, 10.0, 10.0]
+
+    for agent in model_1.agents:
+        agent.value = 0.0
+    assert [agent.value for agent in model_2.agents] == [99.0, 99.0, 99.0]
+
+    # a copy must not write into the original
+    clone = copy.deepcopy(model_2)
+    for agent in clone.agents:
+        agent.value = -1.0
+    assert [agent.value for agent in clone.agents] == [-1.0, -1.0, -1.0]
+    assert [agent.value for agent in model_2.agents] == [99.0, 99.0, 99.0]
+
+    # closing one model's datasets must not detach the accessors of another
+    model_1.remove_all_agents()
+    next(iter(model_2.agents)).value = 3.0
+    assert sorted(model_2.data_registry["test"].data[:, 0].tolist()) == [
+        3.0,
+        99.0,
+        99.0,
+    ]
+
+
+class _RestoredAgent(Agent):
+    """Module-level agent so models using it can be pickled."""
+
+    def __init__(self, model, value):
+        super().__init__(model)
+        self.value = value
+
+
+def test_numpy_agent_dataset_unpickle_reinstalls_accessors():
+    """Unpickling a model restores the accessors, as needed in a fresh process."""
+    model = Model(rng=42)
+    model.data_registry.track_agents_numpy(_RestoredAgent, "test", "value")
+    _RestoredAgent(model, 4.0)
+    state = pickle.dumps(model)
+
+    # closing the only dataset removes the accessor, like a fresh interpreter
+    model.data_registry.close()
+    assert not hasattr(_RestoredAgent, "value")
+
+    restored = pickle.loads(state)  # noqa: S301
+    assert [agent.value for agent in restored.agents] == [4.0]
 
 
 def test_model_dataset():
