@@ -77,7 +77,7 @@ def _resolve_weights(
         raise ValueError("All weights must be finite.")
     if any(x < 0 for x in w):
         raise ValueError("All weights must be non-negative.")
-    if sum(w) <= 0:
+    if not any(weight > 0 for weight in w):
         raise ValueError("Sum of weights must be strictly positive.")
 
     return w
@@ -338,7 +338,13 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
             w = _resolve_weights(items, weights)
 
             if replace:
+                # Scale weights only when their total overflows.
+                if not math.isfinite(sum(float(weight) for weight in w)):
+                    largest = max(w)
+                    w = [weight / largest for weight in w]
+
                 chosen = self.random.choices(items, weights=w, k=sample_size)
+
             else:
                 # Efraimidis & Spirakis (A-Res) algorithm for weighted sampling without replacement.
                 # Keys are log(u) / w, which orders agents like u ** (1 / w) but cannot

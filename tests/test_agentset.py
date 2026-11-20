@@ -1489,3 +1489,51 @@ def test_select_random_realistic_abm_evolution_scenario():
 
     # Evolutionary pressure via weighted sampling increases population fitness
     assert final_mean_fitness > initial_mean_fitness
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        [1e308, 1e308],
+        [8e307, 1e308],
+        np.array([1e308, 1e308]),
+    ],
+)
+def test_select_random_weighted_overflow(weights):
+    """Weighted sampling should accept large finite weights."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(2)]
+    agentset = AgentSet(agents, random=model.random)
+
+    selected = agentset.select_random(
+        1,
+        weights=weights,
+        replace=True,
+    )
+
+    assert len(selected) == 1
+    assert selected.to_list()[0] in agents
+
+
+def test_weighted_overflow_preserves_selection():
+    """Scaling large weights preserves seeded selections."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(3)]
+
+    large_weights = [8e307, 1e308, 9e307]
+    normalized = [w / max(large_weights) for w in large_weights]
+
+    large_set = AgentSet(agents, random=Random(42))
+    normalized_set = AgentSet(agents, random=Random(42))
+
+    large_draws = [
+        large_set.select_random(1, weights=large_weights, replace=True).to_list()[0]
+        for _ in range(100)
+    ]
+
+    normalized_draws = [
+        normalized_set.select_random(1, weights=normalized, replace=True).to_list()[0]
+        for _ in range(100)
+    ]
+
+    assert large_draws == normalized_draws
