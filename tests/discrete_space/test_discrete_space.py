@@ -694,10 +694,9 @@ def test_voronoigrid_callable_capacity_accepted_by_strict_cell_class():
         cell_klass=StrictCell,
     )
     assert all(isinstance(cell.capacity, int) for cell in grid.all_cells)
-    
+
     with pytest.raises(TypeError, match="capacity must be int"):
         StrictCell((0, 0), capacity="invalid")
-        
 
 
 @pytest.mark.parametrize("capacity", [2, None])
