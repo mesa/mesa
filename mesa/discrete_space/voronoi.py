@@ -158,26 +158,14 @@ class Delaunay:
 
         regions = {}
         for i in range(4, len(self.coords)):
-            fan = use_vertex[i]
-            start = fan[0]
-            region = [index[start]]
-            # Walk the fan forward from the start triangle.
-            vertex = start[1]
-            while len(region) < len(fan):
-                triangle = next((t for t in fan if t[0] == vertex), None)
-                if triangle is None:
-                    break
+            vertex = use_vertex[i][0][0]
+            region = []
+            for _ in range(len(use_vertex[i])):
+                triangle = next(
+                    triangle for triangle in use_vertex[i] if triangle[0] == vertex
+                )
                 region.append(index[triangle])
                 vertex = triangle[1]
-            # Cells on the convex hull have an open fan of triangles, so the
-            # forward walk can dead-end; collect the rest walking backward.
-            vertex = start[0]
-            while len(region) < len(fan):
-                triangle = next((t for t in fan if t[1] == vertex), None)
-                if triangle is None:
-                    break
-                region.insert(0, index[triangle])
-                vertex = triangle[0]
             regions[i - 4] = region
 
         return vor_coors, regions
