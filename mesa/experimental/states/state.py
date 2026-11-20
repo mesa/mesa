@@ -393,6 +393,9 @@ class Threshold:
         a = state_dict["second_order_rate"]
 
         current_value = self.state.__get__(instance)
+        # current_rate is the rate at the trajectory's base time (last_time); the
+        # crossing is solved from the current value, so bring the rate to now too.
+        v += a * (instance.model.time - state_dict["last_time"])
         limit = self._resolve_limit(instance)
 
         valid_times = []
