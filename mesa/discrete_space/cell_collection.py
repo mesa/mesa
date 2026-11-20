@@ -35,7 +35,7 @@ class CellCollection[T: Cell]:
     """An immutable collection of cells.
 
     Attributes:
-        cells (List[Cell]): The list of cells this collection represents
+        cells (tuple[Cell, ...]): The cells this collection represents
         agents (List[CellAgent]) : List of agents occupying the cells in this collection
         random (Random) : The random number generator
 
@@ -91,16 +91,9 @@ class CellCollection[T: Cell]:
         return f"CellCollection({self._cells})"
 
     @cached_property
-    def _cell_list(self) -> list[T]:
-        return list(self._cells.keys())
-
-    @property
-    def cells(self) -> list[T]:
-        """The cells in this collection, as a new list.
-
-        Changing the returned list does not change the collection.
-        """
-        return list(self._cell_list)
+    def cells(self) -> tuple[T, ...]:
+        """The cells in this collection, as a tuple."""
+        return tuple(self._cells)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa
@@ -124,7 +117,7 @@ class CellCollection[T: Cell]:
                 raise LookupError("Cannot select random cell from empty collection")
             return default
 
-        return self.random.choice(self._cell_list)
+        return self.random.choice(self.cells)
 
     def select_random_agent(self, default=RAISES) -> CellAgent | None:
         """Select a random agent from the collection.
