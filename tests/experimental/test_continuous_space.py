@@ -233,6 +233,22 @@ def test_continous_space_calculate_distances():
     )
 
 
+def test_agent_position_invalid_dimensions():
+    """Verify that setting an agent's position with mismatched dimensions raises a ValueError.
+
+    Initializes a 2D ContinuousSpace and assigns a 1D NumPy array to the
+    ContinuousSpaceAgent's position attribute. Confirms that the dimension
+    mismatch triggers a ValueError.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+
+    with pytest.raises(ValueError):
+        agent.position = np.array([5.0])
+
+
 def test_continuous_space_torus_out_of_bounds_query():
     """Test torus distances and difference vectors for out-of-bounds query points.
 
