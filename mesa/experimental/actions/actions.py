@@ -305,12 +305,7 @@ class Action:
                 create a new one.
         """
         resuming = self.state is ActionState.INTERRUPTED
-
-        if self.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
-            raise ValueError(
-                f"Cannot start action in {self.state.name} state. "
-                f"Only PENDING or INTERRUPTED actions can be started."
-            )
+        self._check_startable()
 
         if self.agent.current_action is not None:
             raise ValueError(
@@ -437,6 +432,14 @@ class Action:
         if self.agent.current_action is self:
             self.agent.current_action = None
             self.agent._schedule_wake(self)
+
+    def _check_startable(self) -> None:
+        """Raise unless the action is PENDING or INTERRUPTED."""
+        if self.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
+            raise ValueError(
+                f"Cannot start action in {self.state.name} state. "
+                f"Only PENDING or INTERRUPTED actions can be started."
+            )
 
     def _resolve_priority(self) -> None:
         """Resolve the priority spec against the agent, at most once.
@@ -575,13 +578,16 @@ class HasActions:
                 Action.start() rejects it. The agent's slot is left as it
                 was.
         """
+        self._check_owner(action)
+        return action.start()
+
+    def _check_owner(self, action: Action) -> None:
+        """Raise unless the action belongs to this agent."""
         if action.agent is not self:
             raise ValueError(
                 f"Action's agent (id={action.agent.unique_id}) does not match "
                 f"this agent (id={self.unique_id})."
             )
-
-        return action.start()
 
     def should_interrupt(self, current: Action, incoming: Action) -> bool:
         """Decide whether an incoming action may preempt the current one.
@@ -623,9 +629,16 @@ class HasActions:
             changes nothing. A failed requirement does not roll the
             interruption back: the old action is already INTERRUPTED and
             the agent is left idle, since whether to resume it is the
-            model's decision.
+            model's decision. A negative duration, resolved after interrupting, does the same.
+
+        Raises:
+            ValueError: Before interrupting, if the new action belongs to another agent or is finished.
         """
         if self.current_action is not None:
+            # Only checks on_interrupt() can't change; the current action itself restarts.
+            self._check_owner(new_action)
+            if new_action is not self.current_action:
+                new_action._check_startable()
             new_action._resolve_priority()
             if not self.should_interrupt(self.current_action, new_action):
                 return False
