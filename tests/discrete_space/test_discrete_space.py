@@ -689,6 +689,22 @@ def test_voronoigrid_far_from_origin_matches_near_origin_connectivity():
     assert edges(far) == edges(base)
 
 
+def test_voronoigrid_area_precision_far_from_origin():
+    """Polygon areas stay precise when centroids are far from the origin."""
+    rng = random.Random(7)
+    base = [[rng.uniform(0, 50), rng.uniform(0, 50)] for _ in range(60)]
+    near = VoronoiGrid(base, random=random.Random(42))
+    for offset in [(500_000.0, 4_100_000.0), (5e6, 4.1e7)]:
+        far = VoronoiGrid(
+            [[x + offset[0], y + offset[1]] for x, y in base],
+            random=random.Random(42),
+        )
+        for i in range(60):
+            a_far = far._cells[i].properties["area"]
+            a_near = near._cells[i].properties["area"]
+            assert abs(a_far - a_near) / a_near < 1e-6
+
+
 def test_empties_space():
     """Test empties method for Discrete Spaces."""
     n = 10

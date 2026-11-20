@@ -347,6 +347,11 @@ class VoronoiGrid(DiscreteSpace):
     @staticmethod
     def _compute_polygon_area(polygon: list) -> float:
         polygon = np.array(polygon)
+        # The shoelace formula is translation-invariant, so recentre on the
+        # first vertex before summing. At large absolute coordinates (e.g.
+        # utm) the cross products reach ~1e13 and their cancellation loses
+        # several digits of area precision.
+        polygon = polygon - polygon[0]
         x = polygon[:, 0]
         y = polygon[:, 1]
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
