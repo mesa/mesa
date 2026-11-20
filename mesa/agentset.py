@@ -55,6 +55,10 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         """Update the AbstractAgentSet A with new set of agents."""
         ...
 
+    def _from_iterable(self, it: Iterable[A]) -> AbstractAgentSet[A]:
+        """Build the result of a set operator (&, |, -, ^), keeping self.random."""
+        return type(self)(it, self.random)
+
     def __repr__(self) -> str:
         """Return a concise, programmer-facing representation of the AbstractAgentSet."""
         return f"<{type(self).__name__} ({len(self)} agents)>"
@@ -761,6 +765,10 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             }
 
         return groups
+
+    def _from_iterable(self, it: Iterable[A]) -> AgentSet[A]:
+        """Build the result of a set operator as a standard AgentSet (Weak Refs)."""
+        return AgentSet(it, self.random)
 
     def copy(self) -> AgentSet[A]:
         """Return a shallow copy as a standard AgentSet (Weak Refs)."""
