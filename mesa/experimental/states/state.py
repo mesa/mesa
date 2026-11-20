@@ -487,6 +487,8 @@ class Threshold:
         """
         setattr(instance, self.time_attr, math.inf)
         setattr(instance, self.event_attr, None)
+        if instance._removed:
+            return
 
         callback_method = getattr(instance, self.callback)
         callback_method()

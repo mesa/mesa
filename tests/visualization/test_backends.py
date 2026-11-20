@@ -7,11 +7,13 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from matplotlib import pyplot as plt
 
 from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.backends.matplotlib_backend import _to_numpy_argument_array
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
 
@@ -231,6 +233,43 @@ def test_matplotlib_backend_draw_property():
                 color=None, colormap=None, alpha=1.0, vmin=0, vmax=1, colorbar=False
             ),
         )
+
+
+def test_matplotlib_backend_preserves_colorbar_from_previous_layer(monkeypatch):
+    """A layer without a colorbar does not clear the previous layer's colorbar."""
+    mb = MatplotlibBackend(space_drawer=MagicMock())
+    mb.initialize_canvas()
+
+    space = OrthogonalMooreGrid([2, 2], random=random.Random(42))
+    space.create_property_layer("layer_a", default_value=0.0)
+    space.create_property_layer("layer_b", default_value=1.0)
+
+    created_colorbars = []
+    original_colorbar = plt.colorbar
+
+    def track_colorbar(*args, **kwargs):
+        colorbar = original_colorbar(*args, **kwargs)
+        created_colorbars.append(colorbar)
+        return colorbar
+
+    monkeypatch.setattr(plt, "colorbar", track_colorbar)
+
+    result = mb.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda layer_name: PropertyLayerStyle(
+            colormap="viridis",
+            alpha=0.5,
+            vmin=0,
+            vmax=1,
+            colorbar=layer_name == "layer_a",
+        ),
+    )
+
+    assert len(mb.ax.images) == 2
+    assert len(created_colorbars) == 1
+    assert result[0] is mb.ax
+    assert result[1] is created_colorbars[0]
 
 
 def test_altair_backend_draw_structure():
@@ -474,3 +513,35 @@ def test_backends_handle_errors():
     }
     with pytest.raises(ValueError):
         mb.draw_agents(arguments, edgecolors="blue")
+
+
+@pytest.mark.parametrize(
+    ("edgecolors", "expected"),
+    [
+        ([None, None], []),
+        (["black", None], ["black", "none"]),
+        ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
+    ],
+)
+def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
+    """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
+    result = _to_numpy_argument_array("edgecolors", edgecolors)
+    assert result.tolist() == expected
+
+
+def test_to_numpy_argument_array_preserves_tuple_markers():
+    """Equal-length tuple marker specs must not collapse into a 2D array."""
+    result = _to_numpy_argument_array("marker", [(3, 0, 0), (3, 0, 0)])
+    assert result.shape == (2,)
+    assert list(result) == [(3, 0, 0), (3, 0, 0)]
+
+
+def test_to_numpy_argument_array_mixed_face_colors():
+    """Face colors can be a mix of named and RGBA colors."""
+    mixed = ["blue", (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", mixed)
+    assert list(result) == mixed
+
+    uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", uniform)
+    assert result.shape == (2, 4)
