@@ -344,6 +344,11 @@ class EventGenerator:
     def start(self) -> EventGenerator:
         """Start the event generator.
 
+        Restarting a stopped generator continues where it left off: the
+        execution count is not reset, and schedule.start and schedule.end
+        stay absolute times. If the schedule has nothing left to run, the
+        generator stays inactive. For a fresh run, call model.schedule_recurring().
+
         Returns:
             Self for method chaining
 
@@ -375,7 +380,11 @@ class EventGenerator:
         return self
 
     def stop(self) -> None:
-        """Stop the event generator immediately."""
+        """Stop the event generator immediately.
+
+        Unlike pause(), this removes the generator from the model. It can be
+        restarted with start(), which continues the same schedule.
+        """
         self._active = False
         self._paused = False
         if self._current_event is not None:
