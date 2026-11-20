@@ -544,7 +544,7 @@ def test_json_recorder_stores_a_plain_array_as_a_list(tmp_path):
 
     recorder.collect()
 
-    assert recorder.data["custom_data"] == [{"time": 0.0, "data": [[1.0, 2.0]]}]
+    assert list(recorder.data["custom_data"]) == [{"time": 0.0, "data": [[1.0, 2.0]]}]
 
 
 def test_json_recorder_numpy_encoder_types():
