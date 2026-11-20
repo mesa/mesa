@@ -713,6 +713,61 @@ def test_grid_validate_parameters():
         OrthogonalMooreGrid((5, 5), capacity="invalid", random=random.Random(42))
 
 
+@pytest.mark.parametrize("grid_klass", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid])
+def test_grid_accepts_numpy_integers(grid_klass):
+    """Grid dimensions and capacity may be NumPy integers, e.g. from np.arange sweeps."""
+    plain = grid_klass((4, 3), torus=True, capacity=2, random=random.Random(42))
+    numpy_grid = grid_klass(
+        (np.int64(4), np.int32(3)),
+        torus=True,
+        capacity=np.int64(2),
+        random=random.Random(42),
+    )
+
+    assert len(numpy_grid.all_cells) == len(plain.all_cells) == 12
+    for coordinate in plain._cells:
+        assert len(numpy_grid[coordinate].connections) == len(
+            plain[coordinate].connections
+        )
+    assert all(cell.capacity == 2 for cell in numpy_grid.all_cells)
+
+    model = Model(rng=42)
+    cell = numpy_grid[(0, 0)]
+    CellAgent(model).cell = cell
+    CellAgent(model).cell = cell
+    with pytest.raises(CellFullException):
+        CellAgent(model).cell = cell
+
+
+def test_hexgrid_accepts_numpy_integers():
+    """HexGrid dimensions may be NumPy integers."""
+    grid = HexGrid((np.int64(4), np.int64(4)), torus=True, random=random.Random(42))
+    assert len(grid.all_cells) == 16
+    assert all(len(cell.neighborhood) == 6 for cell in grid.all_cells)
+
+
+def test_grid_still_rejects_non_integer_dimensions():
+    """Accepting NumPy integers must not let non-integral dimensions through."""
+    for dimensions in [(3.0, 3), (np.float64(3.0), 3), (3, np.float32(3.0))]:
+        with pytest.raises(
+            ValueError, match="Dimensions must be a list of positive integers"
+        ):
+            OrthogonalMooreGrid(dimensions, random=random.Random(42))
+
+    with pytest.raises(TypeError, match="Capacity must be a number or None"):
+        OrthogonalMooreGrid((3, 3), capacity=np.bool_(True), random=random.Random(42))
+
+
+def test_voronoi_accepts_numpy_integer_capacity():
+    """VoronoiGrid capacity may be a NumPy integer."""
+    grid = VoronoiGrid(
+        [(0, 0), (1, 0), (0, 1), (1, 1)],
+        capacity=np.int64(3),
+        random=random.Random(42),
+    )
+    assert all(cell.capacity == 3 for cell in grid.all_cells)
+
+
 def test_agents_property():
     """Test agents property for Discrete Spaces."""
     n = 10

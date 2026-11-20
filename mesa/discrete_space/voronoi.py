@@ -12,6 +12,7 @@ Useful for models requiring irregular but mathematically meaningful spatial
 divisions, like territories, service areas, or natural regions.
 """
 
+import numbers
 from collections.abc import Callable, Sequence
 from itertools import combinations
 from random import Random
@@ -308,7 +309,7 @@ class VoronoiGrid(DiscreteSpace):
                 self._cells[j].connect(self._cells[i], i)
 
     def _validate_parameters(self) -> None:
-        if self.capacity is not None and not isinstance(self.capacity, float | int):
+        if self.capacity is not None and not isinstance(self.capacity, numbers.Real):
             raise ValueError("Capacity must be a number or None.")
 
         if not isinstance(self.centroids_coordinates, Sequence) or not isinstance(

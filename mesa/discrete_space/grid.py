@@ -371,11 +371,13 @@ class Grid(DiscreteSpace[T]):
         )
 
     def _validate_parameters(self):
-        if not all(isinstance(dim, int) and dim > 0 for dim in self.dimensions):
+        if not all(
+            isinstance(dim, numbers.Integral) and dim > 0 for dim in self.dimensions
+        ):
             raise ValueError("Dimensions must be a list of positive integers.")
         if not isinstance(self.torus, bool):
             raise TypeError("Torus must be a boolean.")
-        if self.capacity is not None and not isinstance(self.capacity, float | int):
+        if self.capacity is not None and not isinstance(self.capacity, numbers.Real):
             raise TypeError("Capacity must be a number or None.")
 
     def select_random_empty_cell(self) -> T:  # noqa
