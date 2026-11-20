@@ -325,7 +325,16 @@ class JSONDataRecorder(BaseDataRecorder):
             case list():
                 self.data[dataset_name].append({"time": time, "data": data})
             case np.ndarray():
-                self.data[dataset_name].append({"time": time, "data": data.tolist()})
+                snapshot = data.tolist()
+                dataset = self.registry.datasets[dataset_name]
+                # A numpy agent dataset holds bare values. Name them and say
+                # whose they are, or the rows cannot be told apart later.
+                if hasattr(dataset, "agent_ids"):
+                    snapshot = [
+                        {"agent_id": agent_id, **dict(zip(dataset._attributes, row))}
+                        for agent_id, row in zip(dataset.agent_ids.tolist(), snapshot)
+                    ]
+                self.data[dataset_name].append({"time": time, "data": snapshot})
             case _:
                 self.data[dataset_name].append({"time": time, "data": data})
 
