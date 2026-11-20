@@ -142,6 +142,56 @@ def test_agentset():
     assert len(another_set) == len(other_agents)
 
 
+@pytest.mark.parametrize(
+    ("at_most", "expected"),
+    [
+        (np.int8(2), 2),
+        (np.int64(2), 2),
+        (np.uint8(2), 2),
+        (np.uint64(0), 0),
+        (np.float16(0.5), 5),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32(1.0), 10),
+        (np.float32("inf"), 10),
+    ],
+)
+def test_agentset_select_accepts_numpy_numbers(at_most, expected):
+    """Test that numpy integer and float scalars are accepted for at_most."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(10)], random=model.random)
+
+    assert len(agentset.select(lambda a: True, at_most=at_most)) == expected
+
+
+@pytest.mark.parametrize(
+    "at_most",
+    [
+        np.int64(-1),
+        np.float32(0.0),
+        np.float32(-0.5),
+        np.float32(1.5),
+        np.float32("nan"),
+    ],
+)
+def test_agentset_select_rejects_invalid_numpy_values(at_most):
+    """Test that out-of-range numpy values raise a ValueError."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(10)], random=model.random)
+
+    with pytest.raises(ValueError):
+        agentset.select(at_most=at_most)
+
+
+def test_agentset_select_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    with pytest.raises(TypeError, match="at_most must be an integer or float"):
+        agentset.select(at_most=np.True_)
+
+
 def test_agentset_initialization():
     """Test agentset initialization."""
     model = Model()
