@@ -1,7 +1,8 @@
 """Tests for RunConfiguration, _safe_call, and run_scenarios."""
 
 import pickle
-from concurrent.futures import ProcessPoolExecutor
+import warnings
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import pandas as pd
 import pytest
@@ -18,9 +19,14 @@ from conftest import (
 
 from mesa import Model
 from mesa.experimental.data_collection import DataRecorder
-from mesa.experimental.scenarios import RunConfiguration, Scenario, run_scenarios
+from mesa.experimental.scenarios import (
+    DiskStore,
+    RunConfiguration,
+    Scenario,
+    run_scenarios,
+)
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
-from mesa.experimental.scenarios.runner import _safe_call
+from mesa.experimental.scenarios.runner import _is_mpi_executor, _safe_call
 from mesa.experimental.scenarios.store import InMemoryStore, InMemoryWriter, RunId
 
 
@@ -383,3 +389,63 @@ class _DrawConfiguration(RunConfiguration):
 
     def extract_output(self, model):
         return {"draws": pd.DataFrame({"draw": [model.rng.random()]})}
+
+
+# ============================================================
+# MPI preflight
+# ============================================================
+
+
+class _FakeMPIExecutor(ThreadPoolExecutor):
+    """Stands in for mpi4py.futures.MPIPoolExecutor, which is keyed on its module."""
+
+
+_FakeMPIExecutor.__module__ = "mpi4py.futures.pool"
+
+
+def test_is_mpi_executor_keys_on_the_executor_module():
+    """Only executors from mpi4py count; None and stdlib executors do not."""
+    assert not _is_mpi_executor(None)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        assert not _is_mpi_executor(executor)
+    with _FakeMPIExecutor(max_workers=1) as executor:
+        assert _is_mpi_executor(executor)
+
+
+def test_mpi_executor_with_in_memory_store_warns(scenario_list, basic_config):
+    """Funnelling every outcome through MPI to rank 0 is allowed but worth a warning."""
+    with (
+        _FakeMPIExecutor(max_workers=1) as executor,
+        pytest.warns(UserWarning, match="MPI executor with an InMemoryStore"),
+    ):
+        store = run_scenarios(
+            scenario_list, basic_config, executor=executor, progress=False
+        )
+    assert len(store.succeeded()) == len(scenario_list)
+
+
+def test_mpi_executor_with_disk_store_does_not_warn(
+    tmp_path, scenario_list, basic_config
+):
+    """DiskStore is the recommended pairing, so it passes the preflight silently."""
+    with (
+        _FakeMPIExecutor(max_workers=1) as executor,
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("error")
+        run_scenarios(
+            scenario_list,
+            basic_config,
+            executor=executor,
+            store=DiskStore(tmp_path / "store"),
+            progress=False,
+        )
+
+
+def test_in_memory_store_with_regular_executor_does_not_warn(
+    scenario_list, basic_config
+):
+    """The warning is specific to MPI executors."""
+    with ThreadPoolExecutor(max_workers=1) as executor, warnings.catch_warnings():
+        warnings.simplefilter("error")
+        run_scenarios(scenario_list, basic_config, executor=executor, progress=False)

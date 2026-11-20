@@ -1,5 +1,6 @@
 """Tests for DiskStreamWriter, DiskReference, and disk_writer module helpers."""
 
+import os
 import pickle
 
 import pandas as pd
@@ -270,3 +271,38 @@ def test_disk_reference_is_picklable():
     restored = pickle.loads(pickle.dumps(ref))  # noqa: S301
     assert restored.run_id == RunId(1, 0)
     assert restored.payload is None
+
+
+# ============================================================
+# durability
+# ============================================================
+
+
+def test_writer_rejects_unknown_durability(tmp_path):
+    """Only 'flush' and 'fsync' are valid durability modes."""
+    with pytest.raises(ValueError, match="durability"):
+        DiskStreamWriter(tmp_path, session="s1", durability="always")
+
+
+def test_flush_durability_never_fsyncs(tmp_path, mocker):
+    """The default mode hands data to the OS and does not fsync."""
+    fsync = mocker.patch("os.fsync")
+    writer = DiskStreamWriter(tmp_path, session="s1")
+
+    writer.to_reference(RunId(0, -1), {"results": pd.DataFrame({"x": [1]})})
+
+    assert fsync.call_count == 0
+
+
+def test_fsync_durability_syncs_the_data_and_new_directory_entries(tmp_path, mocker):
+    """Fsync mode syncs the new file's directories once, and the data after every run."""
+    fsync = mocker.patch("os.fsync")
+    writer = DiskStreamWriter(tmp_path, session="s1", durability="fsync")
+    frame = pd.DataFrame({"x": [1]})
+    directory_syncs = 0 if os.name == "nt" else 2  # outputs/results and outputs
+
+    writer.to_reference(RunId(0, -1), {"results": frame})
+    assert fsync.call_count == directory_syncs + 1
+
+    writer.to_reference(RunId(1, -1), {"results": frame})  # stream already open
+    assert fsync.call_count == directory_syncs + 2

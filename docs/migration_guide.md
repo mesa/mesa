@@ -189,7 +189,7 @@ config = RunConfiguration(MyModel, until=100)
 store = run_scenarios(scenarios, config)
 ```
 
-See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) can silently corrupt the output.
+See the [`mesa.experimental.scenarios`](apis/experimental) API docs before porting a large sweep — `Store` supports distributed execution and partial-failure handling that `batch_run` didn't have. When persisting to disk with `DiskStore`, use a `ProcessPoolExecutor` or run sequentially: thread-backed executors (`ThreadPoolExecutor`) can silently corrupt the output. On a cluster, pass an `mpi4py.futures.MPIPoolExecutor` (launched e.g. with `mpiexec -n 8 python -m mpi4py.futures script.py`) together with a `DiskStore` whose directory is on a filesystem that every rank can reach; workers write their own output and only small references travel back to rank 0. Pairing an MPI executor with the default in-memory store works but warns, because every outcome is then pickled through MPI to rank 0. Pass `durability="fsync"` to `DiskStore` if node crashes are a concern or the filesystem is NFS-style.
 
 - Ref: [PR #3325](https://github.com/mesa/mesa/pull/3325), background in [Issue #3134](https://github.com/mesa/mesa/issues/3134)
 

@@ -19,8 +19,9 @@ from mesa.experimental.scenarios.store_metadata import (
     STATUS_LOG,
     STORE_FORMAT_VERSION,
     STORE_MANIFEST,
+    StatusEntry,
+    StatusLog,
     add_session,
-    append_status,
     collect_provenance,
     read_scenarios_manifest,
     read_status,
@@ -290,6 +291,12 @@ def test_read_scenarios_manifest_rejects_unsupported_generator_class(tmp_path):
 # ============================================================
 
 
+def append_status(store_dir, run_id, status, failure=None, session="s0"):
+    """Append a single status line through a short-lived StatusLog."""
+    with StatusLog(store_dir) as log:
+        log.append(run_id, status, failure, session=session)
+
+
 def test_append_and_read_status_basic(tmp_path):
     """Appended statuses, with and without failure detail, read back correctly."""
     run_ok = RunId(0, -1)
@@ -306,8 +313,8 @@ def test_append_and_read_status_basic(tmp_path):
 
     result = read_status(tmp_path)
 
-    assert result[run_ok] == (Status.SUCCEEDED, None)
-    status, recovered_failure = result[run_bad]
+    assert result[run_ok] == StatusEntry(Status.SUCCEEDED, None, "s0")
+    status, recovered_failure, _ = result[run_bad]
     assert status == Status.FAILED
     assert recovered_failure == failure
 
@@ -324,7 +331,7 @@ def test_read_status_last_write_wins(tmp_path):
     append_status(tmp_path, run_id, Status.SUCCEEDED)
 
     result = read_status(tmp_path)
-    assert result[run_id] == (Status.SUCCEEDED, None)
+    assert result[run_id] == StatusEntry(Status.SUCCEEDED, None, "s0")
 
 
 def test_read_status_tolerates_torn_final_line(tmp_path):
@@ -339,8 +346,8 @@ def test_read_status_tolerates_torn_final_line(tmp_path):
     with pytest.warns(UserWarning, match="torn"):
         result = read_status(tmp_path)
 
-    assert result[RunId(0, -1)] == (Status.SUCCEEDED, None)
-    assert result[RunId(1, -1)][0] == Status.FAILED
+    assert result[RunId(0, -1)] == StatusEntry(Status.SUCCEEDED, None, "s0")
+    assert result[RunId(1, -1)].status == Status.FAILED
     assert RunId(2, -1) not in result
 
 
@@ -350,7 +357,14 @@ def test_read_status_corrupt_line_not_at_tail_raises(tmp_path):
     with path.open("w") as f:
         f.write("not valid json\n")
         f.write(
-            json.dumps({"scenario_id": 0, "replication_id": -1, "status": "SUCCEEDED"})
+            json.dumps(
+                {
+                    "scenario_id": 0,
+                    "replication_id": -1,
+                    "status": "SUCCEEDED",
+                    "session": "s0",
+                }
+            )
             + "\n"
         )
 
@@ -367,3 +381,54 @@ def test_read_status_skips_blank_lines(tmp_path):
 
     result = read_status(tmp_path)
     assert set(result) == {RunId(0, -1), RunId(1, -1)}
+
+
+def test_read_status_records_the_session_of_each_run(tmp_path):
+    """Every line carries its session; the last line for a run decides which one."""
+    run_id = RunId(0, -1)
+    append_status(tmp_path, run_id, Status.FAILED, session="first")
+    append_status(tmp_path, RunId(1, -1), Status.SUCCEEDED, session="first")
+    append_status(tmp_path, run_id, Status.SUCCEEDED, session="second")
+
+    result = read_status(tmp_path)
+    assert result[run_id].session == "second"
+    assert result[RunId(1, -1)].session == "first"
+
+
+def test_status_log_lines_are_visible_before_close(tmp_path):
+    """The handle is line-buffered, so a reader sees each line without waiting for close."""
+    log = StatusLog(tmp_path)
+    try:
+        log.append(RunId(0, -1), Status.SUCCEEDED, session="s0")
+        assert RunId(0, -1) in read_status(tmp_path)
+    finally:
+        log.close()
+
+
+def test_status_log_syncs_on_close_but_not_every_append(tmp_path, mocker):
+    """Fsync happens when the interval has elapsed and on close, not on every append."""
+    fsync = mocker.patch("os.fsync")
+    with StatusLog(tmp_path, sync_interval=3600) as log:
+        for i in range(5):
+            log.append(RunId(i, -1), Status.SUCCEEDED, session="s0")
+        assert fsync.call_count == 0
+    assert fsync.call_count == 1  # close syncs once
+
+
+def test_status_log_syncs_when_interval_elapsed(tmp_path, mocker):
+    """With a zero interval every append is followed by an fsync."""
+    fsync = mocker.patch("os.fsync")
+    with StatusLog(tmp_path, sync_interval=0) as log:
+        log.append(RunId(0, -1), Status.SUCCEEDED, session="s0")
+        log.append(RunId(1, -1), Status.SUCCEEDED, session="s0")
+        assert fsync.call_count == 2
+
+
+def test_status_log_close_is_idempotent(tmp_path):
+    """Closing twice is harmless, and appending after close fails loudly."""
+    log = StatusLog(tmp_path)
+    log.append(RunId(0, -1), Status.SUCCEEDED, session="s0")
+    log.close()
+    log.close()
+    with pytest.raises(ValueError):
+        log.append(RunId(1, -1), Status.SUCCEEDED, session="s0")
