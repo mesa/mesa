@@ -645,6 +645,73 @@ def test_voronoigrid():
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
 
 
+def _recording_cell_class(received):
+    """Return a Cell subclass that records the capacity it is created with."""
+
+    class RecordingCell(Cell):
+        def __init__(self, *args, capacity=None, **kwargs):
+            received[kwargs["coordinate"]] = capacity
+            super().__init__(*args, capacity=capacity, **kwargs)
+
+    return RecordingCell
+
+
+VORONOI_POINTS = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
+
+
+def test_voronoigrid_callable_capacity_is_final_when_cell_is_created():
+    """A callable capacity is resolved from the cell area before cell_klass is called."""
+    received = {}
+    grid = VoronoiGrid(
+        VORONOI_POINTS,
+        capacity=lambda area: 1 + int(area * 10),
+        random=random.Random(42),
+        cell_klass=_recording_cell_class(received),
+    )
+
+    assert len(received) == len(VORONOI_POINTS)
+    for cell in grid.all_cells:
+        assert isinstance(received[cell.coordinate], int)
+        assert received[cell.coordinate] == cell.capacity
+        assert cell.capacity == 1 + int(cell.properties["area"] * 10)
+
+
+def test_voronoigrid_callable_capacity_accepted_by_strict_cell_class():
+    """A cell class that validates capacity in __init__ works with a callable capacity."""
+
+    class StrictCell(Cell):
+        def __init__(self, coordinate, position=None, capacity=None, random=None):
+            if capacity is not None and not isinstance(capacity, int):
+                raise TypeError(f"capacity must be int | None, got {type(capacity)}")
+            super().__init__(
+                coordinate, position=position, capacity=capacity, random=random
+            )
+
+    grid = VoronoiGrid(
+        VORONOI_POINTS,
+        capacity=lambda area: max(1, int(area)),
+        random=random.Random(42),
+        cell_klass=StrictCell,
+    )
+    assert all(isinstance(cell.capacity, int) for cell in grid.all_cells)
+
+
+@pytest.mark.parametrize("capacity", [2, None])
+def test_voronoigrid_fixed_or_no_capacity_reaches_the_cell_class(capacity):
+    """A fixed capacity, or no capacity, is given to every cell when it is created."""
+    received = {}
+    grid = VoronoiGrid(
+        VORONOI_POINTS,
+        capacity=capacity,
+        random=random.Random(42),
+        cell_klass=_recording_cell_class(received),
+    )
+    assert list(received.values()) == [capacity] * len(VORONOI_POINTS)
+    assert [cell.capacity for cell in grid.all_cells] == [capacity] * len(
+        VORONOI_POINTS
+    )
+
+
 def test_empties_space():
     """Test empties method for Discrete Spaces."""
     n = 10

@@ -218,12 +218,22 @@ class VoronoiGrid(DiscreteSpace):
         self.capacity_function = capacity_function
         self._validate_parameters()
 
+        self.regions = None
+        self.triangulation = None
+        self.voronoi_coordinates = None
+
+        # The tessellation only depends on the centroids, so it is computed first.
+        # This way every cell is created with its final capacity, an int or None,
+        # and cell_klass never sees a callable.
+        self._triangulate()
+        capacities = self._cell_capacities()
+
         # Create cells with Integer coordinates and physical positions
         # coordinate is now an integer index
         self._cells = {
             i: cell_klass(
                 coordinate=i,  # Integer index
-                capacity=capacity,
+                capacity=capacities[i],
                 random=self.random,
                 position=self.centroids_coordinates[i],  # Physical centroid position
             )
@@ -234,10 +244,6 @@ class VoronoiGrid(DiscreteSpace):
         self._kdtree = KDTree(np.array(centroids_coordinates))
         self._kdtree_cells: list[Cell] = list(self._cells.values())
         self._kdtree_dirty = False
-
-        self.regions = None
-        self.triangulation = None
-        self.voronoi_coordinates = None
 
         self._connect_cells()
         self._build_cell_polygons()
@@ -295,12 +301,33 @@ class VoronoiGrid(DiscreteSpace):
             self._kdtree_cells.remove(cell)
             self._kdtree_dirty = True
 
-    def _connect_cells(self) -> None:
-        """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
+    def _triangulate(self) -> None:
+        """Compute the Delaunay triangulation of the centroids."""
         self.triangulation = Delaunay()
         for centroid in self.centroids_coordinates:
             self.triangulation.add_point(centroid)
 
+    def _cell_capacities(self) -> list[int | float | None]:
+        """Return the capacity each cell is created with.
+
+        A fixed capacity applies to every cell. A callable capacity is evaluated on the
+        area of the cell's Voronoi polygon. Without either, cells have no capacity limit.
+        """
+        n = len(self.centroids_coordinates)
+        if self.capacity is not None:
+            return [self.capacity] * n
+        capacities: list[int | float | None] = [None] * n
+        if self.capacity_function is not None:
+            coordinates, regions = self._get_voronoi_regions()
+            for region, vertices in regions.items():
+                polygon = [coordinates[i] for i in vertices]
+                capacities[region] = self.capacity_function(
+                    self._compute_polygon_area(polygon)
+                )
+        return capacities
+
+    def _connect_cells(self) -> None:
+        """Connect cells to neighbors based on the Delaunay triangulation of the centroids."""
         for point in self.triangulation.export_triangles():
             for i, j in combinations(point, 2):
                 # Use integer indices as connection keys
@@ -342,10 +369,3 @@ class VoronoiGrid(DiscreteSpace):
             self._cells[region].properties["polygon"] = polygon
             polygon_area = self._compute_polygon_area(polygon)
             self._cells[region].properties["area"] = polygon_area
-            if self.capacity is not None:
-                # User provided a fixed capacity — use it directly.
-                self._cells[region].capacity = self.capacity
-            elif self.capacity_function is not None:
-                # No fixed capacity but a function was provided — derive from area.
-                self._cells[region].capacity = self.capacity_function(polygon_area)
-            # else: both are None — cell capacity stays None (no limit).
