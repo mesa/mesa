@@ -46,7 +46,8 @@ def _resolve_weights(
 
     Args:
         agents: The sequence of agents to extract weights for.
-        weights: Agent attribute name (str), weight callable, or sequence of floats.
+        weights: Agent attribute name (str), weight callable, or array-like of
+            floats (list, tuple, numpy.ndarray, or pandas.Series).
 
     Returns:
         list[float]: Validated list of non-negative weights with positive sum.
@@ -59,7 +60,7 @@ def _resolve_weights(
         w = [getattr(agent, weights) for agent in agents]
     elif callable(weights):
         w = [weights(agent) for agent in agents]
-    elif isinstance(weights, Sequence):
+    elif isinstance(weights, (Sequence, np.ndarray, pd.Series)):
         if len(weights) != len(agents):
             raise ValueError(
                 f"Length of weights ({len(weights)}) does not match AgentSet length ({len(agents)})"
@@ -68,7 +69,8 @@ def _resolve_weights(
     else:
         raise TypeError(
             f"Unsupported weights type: {type(weights).__name__}. "
-            "Expected str, Callable, Sequence[float], or None."
+            "Expected str, Callable, an array-like of floats "
+            "(list, tuple, numpy.ndarray, pandas.Series), or None."
         )
 
     if not all(map(math.isfinite, w)):
@@ -193,6 +195,10 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
     def _update(self, agents: Iterable[A]) -> AbstractAgentSet[A]:
         """Update the AbstractAgentSet A with new set of agents."""
         ...
+
+    def _from_iterable(self, it: Iterable[A]) -> AbstractAgentSet[A]:
+        """Build the result of a set operator (&, |, -, ^), keeping self.random."""
+        return type(self)(it, self.random)
 
     def __repr__(self) -> str:
         """Return a concise, programmer-facing representation of the AbstractAgentSet."""
@@ -1035,6 +1041,10 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
             }
 
         return groups
+
+    def _from_iterable(self, it: Iterable[A]) -> AgentSet[A]:
+        """Build the result of a set operator as a standard AgentSet (Weak Refs)."""
+        return AgentSet(it, self.random)
 
     def copy(self) -> AgentSet[A]:
         """Return a shallow copy as a standard AgentSet (Weak Refs)."""
