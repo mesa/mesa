@@ -208,6 +208,16 @@ class Grid2DMovingAgent(CellAgent):
             raise ValueError(f"Invalid direction: {direction}")
 
         move_vector = self.DIRECTION_MAP[direction]
+        if distance == 1:  # fast path: the cell setter already raises before moving
+            target = self.cell.connections.get(move_vector)
+            if target is None:
+                if allow_partial_move:
+                    return
+                raise ValueError(f"No cell in direction {move_vector}")
+            if allow_partial_move and target.is_full:
+                return
+            self.cell = target
+            return
         self._move_steps(lambda _: move_vector, distance, allow_partial_move)
 
 
@@ -285,6 +295,23 @@ class HexGridMovingAgent(CellAgent):
 
         if direction not in self.DIRECTION_MAP_EVEN:
             raise ValueError(f"Invalid hex direction: {direction}")
+
+        if distance == 1:  # fast path: the cell setter already raises before moving
+            offset_map = (
+                self.DIRECTION_MAP_EVEN
+                if self.cell.coordinate[1] % 2 == 0
+                else self.DIRECTION_MAP_ODD
+            )
+            move_vector = offset_map[direction]
+            target = self.cell.connections.get(move_vector)
+            if target is None:
+                if allow_partial_move:
+                    return
+                raise ValueError(f"No cell in direction {move_vector}")
+            if allow_partial_move and target.is_full:
+                return
+            self.cell = target
+            return
 
         def step(cell: Cell) -> tuple[int, int]:
             offset_map = (
