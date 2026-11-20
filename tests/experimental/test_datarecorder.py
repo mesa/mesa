@@ -336,13 +336,32 @@ def test_data_recorder_window_eviction_custom():
     recorder = DataRecorder(model, config={"custom_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
+    # Fill window with steps advancing model time
     recorder.collect()
+    model.step()
     recorder.collect()
+    model.step()
     recorder.collect()  # Should evict first
 
     storage = recorder.storage["custom_data"]
     assert len(storage.blocks) == 2
+
+
+def test_data_recorder_collect_overwrite_same_time():
+    """Test that multiple calls to collect() at the same time overwrite instead of duplicate."""
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"model_data": DatasetConfig(window_size=10)})
+    recorder.clear()
+
+    # Call collect multiple times at the same model time
+    recorder.collect()
+    recorder.collect()
+    recorder.collect()
+
+    storage = recorder.storage["model_data"]
+    assert len(storage.blocks) == 1
+    df = recorder.get_table_dataframe("model_data")
+    assert len(df) == 1
 
 
 def test_data_recorder_clear_nonexistent_dataset():

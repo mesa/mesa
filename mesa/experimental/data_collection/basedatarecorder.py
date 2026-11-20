@@ -246,9 +246,14 @@ class BaseDataRecorder(ABC):
             if not config.enabled:
                 continue
 
+            is_overwrite = current_time == config._last_collection
+
             dataset = self.registry.datasets[name]
             data_snapshot = dataset.data
-            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            self._store_dataset_snapshot(
+                name, current_time, data_snapshot, is_overwrite
+            )
+            config._last_collection = current_time
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
 
