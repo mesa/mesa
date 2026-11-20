@@ -1,6 +1,7 @@
 """Test the spatial lookups and physical positioning of different discrete spaces."""
 
 import math
+import pickle
 import random
 from unittest.mock import patch
 
@@ -22,7 +23,8 @@ def test_grid_lookups():
     grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
 
     cell = grid._cells[(5, 5)]
-    np.testing.assert_array_equal(cell.position, [5, 5])
+    # the position of a grid cell is its center
+    np.testing.assert_array_equal(cell.position, [5.5, 5.5])
 
     found_cell = grid.find_nearest_cell([5.2, 5.8])
     assert found_cell.coordinate == (5, 5)
@@ -44,6 +46,93 @@ def test_grid_lookups():
     assert cell.coordinate == (0, 5)
 
 
+def test_grid_upper_edge_belongs_to_last_cell():
+    """A bounded grid includes its upper edge, like ContinuousSpace."""
+    grid = OrthogonalMooreGrid((10, 10), torus=False, random=random.Random(42))
+    assert grid.find_nearest_cell([10.0, 10.0]).coordinate == (9, 9)
+    assert grid.find_nearest_cell([0.0, 10.0]).coordinate == (0, 9)
+
+    scaled = OrthogonalMooreGrid((5, 5), cell_size=2.0, random=random.Random(42))
+    assert scaled.find_nearest_cell([10.0, 3.0]).coordinate == (4, 1)
+
+
+@pytest.mark.parametrize(
+    ("n", "width", "origin"),
+    [(49, 1.0, 0.0), (98, 1.0, 0.1), (49, 1.0, -1.0), (161, 1.0, 0.0)],
+)
+def test_grid_upper_edge_survives_rounding(n, width, origin):
+    """The upper edge belongs to the grid when n * (width / n) rounds below width."""
+    grid = OrthogonalMooreGrid(
+        (n, n), cell_size=width / n, origin=(origin, origin), random=random.Random(42)
+    )
+    edge = origin + width
+    assert grid.find_nearest_cell([edge, edge]).coordinate == (n - 1, n - 1)
+    with pytest.raises(ValueError):
+        grid.find_nearest_cell([edge + 1e-6, edge])
+
+
+@pytest.mark.parametrize(
+    ("cell_size", "origin"),
+    [(1.0, None), (2.0, None), (1 / 3, None), ((0.5, 4.0), (-10.0, 7.5))],
+)
+def test_grid_cell_size_and_origin(cell_size, origin):
+    """Cell positions are centers in the grid's coordinates and round-trip exactly."""
+    grid = OrthogonalMooreGrid(
+        (6, 4), cell_size=cell_size, origin=origin, random=random.Random(42)
+    )
+    size = np.broadcast_to(np.asarray(cell_size, dtype=float), (2,))
+    offset = np.zeros(2) if origin is None else np.asarray(origin)
+
+    for cell in grid.all_cells:
+        expected = (np.asarray(cell.coordinate) + 0.5) * size + offset
+        np.testing.assert_allclose(cell.position, expected)
+        assert grid.find_nearest_cell(cell.position) is cell
+        # any point inside the cell, including its lower corner, maps to it
+        corner = np.asarray(cell.coordinate) * size + offset
+        assert grid.find_nearest_cell(corner + size * 0.999) is cell
+        assert grid.find_nearest_cell(corner) is cell
+
+
+def test_grid_cell_size_validation():
+    """cell_size and origin must match the dimensions, and sizes must be positive."""
+    with pytest.raises(ValueError):
+        OrthogonalMooreGrid((3, 3), cell_size=(1.0,), random=random.Random(42))
+    with pytest.raises(ValueError):
+        OrthogonalMooreGrid((3, 3), origin=(0.0, 0.0, 0.0), random=random.Random(42))
+    with pytest.raises(ValueError):
+        OrthogonalMooreGrid((3, 3), cell_size=0, random=random.Random(42))
+    # numpy scalars count as a single number
+    for size in (np.int64(2), np.float32(2.0)):
+        grid = OrthogonalMooreGrid((3, 3), cell_size=size, random=random.Random(42))
+        np.testing.assert_array_equal(grid.cell_size, [2.0, 2.0])
+
+
+def test_grids_share_coordinates():
+    """A fine and a coarse grid over the same area agree on what lies where."""
+    ground = OrthogonalMooreGrid((50, 50), cell_size=2.0, random=random.Random(42))
+    soil = OrthogonalMooreGrid((5, 5), cell_size=20.0, random=random.Random(42))
+
+    for cell in ground.all_cells:
+        coarse = soil.find_nearest_cell(cell.position)
+        assert coarse.coordinate == tuple(c // 10 for c in cell.coordinate)
+
+
+def test_grid_cell_position_is_read_only():
+    """The cached center of a grid cell cannot be changed in place."""
+    grid = OrthogonalMooreGrid((3, 3), random=random.Random(42))
+    with pytest.raises(ValueError):
+        grid._cells[(1, 1)].position[0] = 9.0
+    # and so are the cell size and origin it is computed from
+    with pytest.raises(ValueError):
+        grid.cell_size[0] = 2.0
+    with pytest.raises(ValueError):
+        grid.origin[0] = 1.0
+    with pytest.raises(AttributeError):
+        grid.cell_size = np.array([2.0, 2.0])
+    with pytest.raises(AttributeError):
+        grid.origin = np.array([1.0, 1.0])
+
+
 def test_hex_grid_lookups():
     """Test HexGrid Pointy-Topped positioning, KD-Tree, and Torus math."""
     grid = HexGrid((4, 4), torus=False, random=random.Random(42))
@@ -53,17 +142,15 @@ def test_hex_grid_lookups():
         found_cell = grid.find_nearest_cell(pos)
         assert cell == found_cell
 
-    # Specific Geometry Checks (Odd-R Pointy-Topped)
+    # Specific Geometry Checks (Even-R Pointy-Topped, even rows shifted right)
     cell_0_0 = grid._cells[(0, 0)]
-    np.testing.assert_array_almost_equal(cell_0_0.position, [0.0, 0.0])
+    np.testing.assert_array_almost_equal(cell_0_0.position, [math.sqrt(3) * 0.5, 0.0])
 
     cell_1_0 = grid._cells[(1, 0)]
-    np.testing.assert_array_almost_equal(cell_1_0.position, [math.sqrt(3), 0.0])
+    np.testing.assert_array_almost_equal(cell_1_0.position, [math.sqrt(3) * 1.5, 0.0])
 
     cell_0_1 = grid._cells[(0, 1)]
-    expected_x = math.sqrt(3) * 0.5
-    expected_y = 1.5
-    np.testing.assert_array_almost_equal(cell_0_1.position, [expected_x, expected_y])
+    np.testing.assert_array_almost_equal(cell_0_1.position, [0.0, 1.5])
 
     torus_hex = HexGrid((4, 4), torus=True, random=random.Random(42))
     width_px = 4 * math.sqrt(3)
@@ -71,6 +158,28 @@ def test_hex_grid_lookups():
     wrapped_cell = torus_hex.find_nearest_cell([-0.1, 0])
     expected_wrapped_cell = torus_hex.find_nearest_cell([width_px - 0.1, 0])
     assert wrapped_cell == expected_wrapped_cell
+
+
+@pytest.mark.parametrize("torus", [False, True])
+def test_hex_grid_positions_match_connections(torus):
+    """Hexagons that touch (centres sqrt(3) apart) must be connected cells."""
+    grid = HexGrid((6, 4), torus=torus, random=random.Random(42))
+
+    for cell in grid.all_cells:
+        touching = {
+            other
+            for other in grid.all_cells
+            if other is not cell
+            and math.isclose(
+                np.linalg.norm(other.position - cell.position), math.sqrt(3)
+            )
+        }
+        connected = set(cell.connections.values())
+        if torus:
+            # wrapped connections are not drawn next to each other
+            assert touching <= connected
+        else:
+            assert touching == connected
 
 
 def test_voronoi_lookups():
@@ -86,6 +195,121 @@ def test_voronoi_lookups():
     assert grid.find_nearest_cell([12, 10]) == grid._cells[0]
     assert grid.find_nearest_cell([18, 10]) == grid._cells[1]
     assert grid.find_nearest_cell([40, 40]) == grid._cells[2]
+
+
+def test_voronoi_remove_cell_updates_kdtree():
+    """Removing a cell should update the KDTree and prevent KeyError (#3984)."""
+    centroids = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    cell_to_remove = grid._cells[0]
+    grid.remove_cell(cell_to_remove)
+
+    assert grid._kdtree_dirty is True
+
+    # Query near the removed cell's position; should return nearest remaining cell without KeyError
+    nearest = grid.find_nearest_cell([0.05, 0.05])
+    assert nearest != cell_to_remove
+    assert nearest in grid.all_cells
+    assert grid._kdtree_dirty is False
+
+
+def test_voronoi_lazy_rebuild_deferred_until_query():
+    """VoronoiGrid KDTree rebuild should be deferred until nearest-cell query."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        new_cell = Cell(
+            coordinate=99, position=np.array([100.0, 100.0]), random=random.Random(42)
+        )
+        grid.add_cell(new_cell)
+
+        assert grid._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = grid.find_nearest_cell([101.0, 101.0])
+        assert found.coordinate == 99
+        assert rebuild_spy.call_count == 1
+        assert grid._kdtree_dirty is False
+
+
+def test_voronoi_lazy_rebuild_batches_mutations_to_single_rebuild():
+    """Multiple VoronoiGrid mutations should trigger a single rebuild at first query."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        cell_a = Cell(
+            coordinate=99, position=np.array([100.0, 100.0]), random=random.Random(42)
+        )
+        cell_b = Cell(
+            coordinate=100,
+            position=np.array([200.0, 200.0]),
+            random=random.Random(42),
+        )
+        grid.add_cell(cell_a)
+        grid.add_cell(cell_b)
+        grid.remove_cell(cell_a)
+
+        assert grid._kdtree_dirty is True
+        assert rebuild_spy.call_count == 0
+
+        found = grid.find_nearest_cell([201.0, 201.0])
+        assert found.coordinate == 100
+        assert rebuild_spy.call_count == 1
+        assert grid._kdtree_dirty is False
+
+
+def test_voronoi_empty_grid_raises_value_error():
+    """Querying an empty VoronoiGrid should raise ValueError."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    for cell in list(grid._cells.values()):
+        grid.remove_cell(cell)
+
+    with pytest.raises(ValueError, match="No cells found in VoronoiGrid"):
+        grid.find_nearest_cell([0.0, 0.0])
+
+
+def test_voronoi_non_spatial_cell_mutation_does_not_dirty_kdtree():
+    """Mutating non-spatial cells should not mark KDTree dirty."""
+    centroids = [(0.0, 0.0), (10.0, 0.0)]
+    grid = VoronoiGrid(centroids, random=random.Random(42))
+
+    with patch.object(
+        grid, "_rebuild_kdtree", wraps=grid._rebuild_kdtree
+    ) as rebuild_spy:
+        non_spatial = Cell(coordinate=999, position=None, random=random.Random(42))
+        grid.add_cell(non_spatial)
+        grid.remove_cell(non_spatial)
+
+        assert grid._kdtree_dirty is False
+        assert rebuild_spy.call_count == 0
+
+        # Query should not trigger rebuild because no spatial mutation happened.
+        _ = grid.find_nearest_cell([1.0, 0.0])
+        assert rebuild_spy.call_count == 0
+
+
+def test_grid_mapping_survives_pickle():
+    """Cell positions of an unpickled grid are still the centers, after two rounds."""
+    grid = OrthogonalMooreGrid(
+        (5, 5), cell_size=2.0, origin=(-5.0, 0.0), random=random.Random(42)
+    )
+    restored = pickle.loads(pickle.dumps(pickle.loads(pickle.dumps(grid))))  # noqa: S301
+
+    # (3, 3) was never read before pickling, so its position is computed afterwards
+    np.testing.assert_array_equal(restored[3, 3].position, [2.0, 7.0])
+    for cell in restored.all_cells:
+        assert restored.find_nearest_cell(cell.position) is cell
+    assert not restored.cell_size.flags.writeable
+    assert not restored.origin.flags.writeable
 
 
 def test_network_lookups():

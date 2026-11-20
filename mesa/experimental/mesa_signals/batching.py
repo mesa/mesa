@@ -230,8 +230,7 @@ class _BatchContext:
             aggregated = aggregate(signal_type, signals, value=value)
 
             for signal in aggregated:
-                key = (signal.name, signal.signal_type)
-                if key in self.instance.subscribers:
+                if self.instance._has_subscribers(signal.name, signal.signal_type):
                     self.instance._mesa_notify(signal)
 
     def capture_original_value_once(self, name, value):

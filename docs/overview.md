@@ -275,7 +275,7 @@ The core components for building your own visualizations reside in the [`mesa.vi
 Here's a basic example of how to set up a visualization:
 
 ```python
-from mesa.visualization import Slider, SolaraViz, make_space_component, make_plot_component
+from mesa.visualization import Slider, SolaraViz, SpaceRenderer, make_plot_component
 from mesa.visualization.components import AgentPortrayalStyle
 
 
@@ -293,12 +293,13 @@ model_params = {
     )
 }
 
+model = MyModel(n_agents=42)
+renderer = SpaceRenderer(model, backend="matplotlib").setup_agents(agent_portrayal).render()
+
 page = SolaraViz(
-    MyModel(n_agents=42),
-    [
-        make_space_component(agent_portrayal),
-        make_plot_component("mean_age")
-    ],
+    model,
+    renderer,
+    components=[make_plot_component("mean_age")],
     model_params=model_params
 )
 page
@@ -313,7 +314,6 @@ This will create an interactive visualization of your model, including:
 :hidden: true
 :maxdepth: 7
 
-Overview <overview>
 Creating Your First Model <tutorials/0_first_model>
 AgentSet <tutorials/1_agentset>
 Agent Activation <tutorials/2_agent_activation>

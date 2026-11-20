@@ -130,7 +130,9 @@ class Event:
         """Execute this event."""
         if not self._canceled:
             fn = self.fn()
-            if fn is not None:
+            if fn is not None and not getattr(
+                getattr(fn, "__self__", None), "_removed", False
+            ):
                 fn(*self.function_args, **self.function_kwargs)
 
     def cancel(self) -> None:
@@ -262,6 +264,14 @@ class EventGenerator:
         return self._active
 
     @property
+    def is_paused(self) -> bool:
+        """Return whether the generator is paused.
+
+        A paused generator is still active, so running is ``is_active and not is_paused``.
+        """
+        return self._paused
+
+    @property
     def execution_count(self) -> int:
         """Return the number of times this generator has executed."""
         return self._execution_count
@@ -297,8 +307,8 @@ class EventGenerator:
         # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         fn = self.function()
-        if fn is None:
-            # Stop the generator if weakref is dead
+        if fn is None or getattr(getattr(fn, "__self__", None), "_removed", False):
+            # Stop the generator if weakref is dead or its agent was removed
             self.stop()
             return  # Silent no-op (no error raised)
 
@@ -355,6 +365,9 @@ class EventGenerator:
         else:
             # Default: start at next interval from now
             start_time = self.model.time + self._get_interval()
+
+        if self._should_stop(start_time):
+            return self
 
         self._active = True
         self.model._event_generators.add(self)
@@ -484,12 +497,22 @@ class EventList:
         Raises:
             ValueError: If the event has already been canceled. Cancellation is
                 terminal, so such an event could never execute.
+            ValueError: If the event is already queued in this list. One event
+                would then occupy several heap slots while ``cancel()`` only
+                counts it once, so the canceled total, ``len()`` and
+                ``is_empty()`` would all drift apart.
 
         """
         if event.CANCELED:
             raise ValueError(
                 "Cannot add a canceled event to an event list. Cancellation is "
                 "terminal, so the event would never execute."
+            )
+
+        if event._owner is not None and event._owner() is self:
+            raise ValueError(
+                "Event is already in this event list. Schedule a new Event "
+                "instead of re-adding one that is still queued."
             )
 
         event._owner = self._self_ref

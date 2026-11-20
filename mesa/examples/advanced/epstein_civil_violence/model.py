@@ -38,8 +38,8 @@ class EpsteinCivilViolence(mesa.Model):
     Args:
         height: grid height
         width: grid width
-        seed: random seed for reproducibility
-        scenario: EpsteinScenario object containing model parameters.
+        scenario: EpsteinScenario object containing model parameters,
+            including the random seed (``rng``) for reproducibility.
     """
 
     def __init__(

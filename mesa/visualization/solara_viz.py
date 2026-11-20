@@ -39,10 +39,10 @@ import reacton.core
 import solara
 import solara.lab
 
-import mesa.visualization.components.altair_components as components_altair
 from mesa.experimental.scenarios import Scenario
 from mesa.mesa_logging import create_module_logger, function_logger
 from mesa.visualization.command_console import CommandConsole
+from mesa.visualization.components import AgentPortrayalStyle
 from mesa.visualization.space_renderer import SpaceRenderer
 from mesa.visualization.user_param import Slider, UserParam
 from mesa.visualization.utils import force_update, update_counter
@@ -99,7 +99,8 @@ def SolaraViz(
         components (list[tuple[solara.component], int] | Literal["default"], optional): List of solara
             (components, page) or functions that return a solara (component, page).
             These components are used to render different parts of the model visualization.
-            Defaults to "default", which uses the default Altair space visualization on page 0.
+            Defaults to an empty list. Pass "default" to show the model's space with a default
+            Altair ``SpaceRenderer`` on page 0, unless a ``renderer`` is given.
         play_interval (int, optional): Interval for playing the model steps in milliseconds.
             This controls the speed of the model's automatic stepping. Defaults to 100 ms.
         render_interval (int, optional): Controls how often plots are updated during a simulation,
@@ -113,16 +114,16 @@ def SolaraViz(
             Currently supported arguments:
             - additional_imports: Dictionary of names to objects to import into the command console.
                 - Example:
-                    >>> console_kwargs = {"additional_imports": {"numpy": np}}
-                    >>> SolaraViz(model, console_kwargs=console_kwargs)
+                    >>> console_kwargs = {"additional_imports": {"numpy": np}}  # doctest: +SKIP
+                    >>> SolaraViz(model, console_kwargs=console_kwargs)  # doctest: +SKIP
 
     Returns:
         solara.component: A Solara component that renders the visualization interface for the model.
 
     Example:
-        >>> model = MyModel()
-        >>> page = SolaraViz(model)
-        >>> page
+        >>> model = MyModel()  # doctest: +SKIP
+        >>> page = SolaraViz(model)  # doctest: +SKIP
+        >>> page  # doctest: +SKIP
 
     Notes:
         - The `model` argument can be either a direct model instance or a reactive model. If a direct
@@ -132,17 +133,6 @@ def SolaraViz(
         - The `render_interval` argument determines how often plots are updated during simulation. Higher values
           reduce update frequency, resulting in faster execution.
     """
-    if components == "default":
-        components = [
-            (
-                components_altair.make_altair_space(
-                    agent_portrayal=None,
-                    property_layer_portrayal=None,
-                    post_process=None,
-                ),
-                0,
-            )
-        ]
     if model_params is None:
         model_params = {}
 
@@ -163,6 +153,13 @@ def SolaraViz(
     # Convert model to reactive
     if not isinstance(model, solara.Reactive):
         model = solara.use_reactive(model)  # noqa: RUF100  # noqa: SH102
+
+    if components == "default":
+        components = []
+        if renderer is None:
+            renderer = solara.use_memo(  # noqa: RUF100  # noqa: SH102
+                lambda: _default_renderer(model.value), dependencies=[]
+            )
 
     reactive_model_parameters = solara.use_reactive({})
     reactive_play_interval = solara.use_reactive(play_interval)
@@ -236,6 +233,17 @@ def SolaraViz(
 
     # Render the main components view
     ComponentsView(display_components, model.value)
+
+
+def _default_renderer(model: Model) -> SpaceRenderer:
+    """Create the Altair renderer used by ``SolaraViz(components="default")``."""
+    return (
+        SpaceRenderer(model, backend="altair")
+        .setup_agents(
+            lambda agent: AgentPortrayalStyle(tooltip={"id": agent.unique_id})
+        )
+        .render()
+    )
 
 
 def create_space_component(renderer: SpaceRenderer):
@@ -578,7 +586,7 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
-                if not playing.value:
+                if not playing.value or not running.value:
                     break
             if not use_threads.value:
                 force_update()
@@ -587,6 +595,8 @@ def ModelController(
             for _ in range(render_interval.value):
                 model.value.step()
                 running.value = model.value.running
+                if not running.value:
+                    break
             force_update()
 
     @function_logger(__name__)
@@ -694,13 +704,13 @@ def ModelCreator(
         solara.component: A Solara component that renders the model creation and management interface.
 
     Example:
-        >>> model = solara.reactive(MyModel())
+        >>> model = solara.reactive(MyModel())  # doctest: +SKIP
         >>> model_params = {
-        >>>     "param1": {"type": "slider", "value": 10, "min": 0, "max": 100},
-        >>>     "param2": {"type": "slider", "value": 5, "min": 1, "max": 10},
-        >>> }
-        >>> creator = ModelCreator(model, model_params)
-        >>> creator
+        ...     "param1": {"type": "slider", "value": 10, "min": 0, "max": 100},
+        ...     "param2": {"type": "slider", "value": 5, "min": 1, "max": 10},
+        ... }
+        >>> creator = ModelCreator(model, model_params)  # doctest: +SKIP
+        >>> creator  # doctest: +SKIP
 
     Notes:
         - The `model_params` argument should be a dictionary where keys are parameter names and values either fixed values
@@ -908,8 +918,8 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     attributes_to_copy = [
         "agent_portrayal",
         "property_layer_portrayal",
-        "space_kwargs",
-        "agent_kwargs",
+        "draw_space_kwargs",
+        "draw_agent_kwargs",
         "space_mesh",
         "agent_mesh",
         "property_layer_mesh",
@@ -919,6 +929,9 @@ def copy_renderer(renderer: SpaceRenderer, model: Model):
     for attr in attributes_to_copy:
         if getattr(renderer, attr, None) is not None:
             value_to_copy = getattr(renderer, attr)
+            # copy dicts so the old and new renderer don't share the same kwargs
+            if isinstance(value_to_copy, dict):
+                value_to_copy = dict(value_to_copy)
             setattr(new_renderer, attr, value_to_copy)
 
     return new_renderer
