@@ -158,14 +158,26 @@ class Delaunay:
 
         regions = {}
         for i in range(4, len(self.coords)):
-            vertex = use_vertex[i][0][0]
-            region = []
-            for _ in range(len(use_vertex[i])):
-                triangle = next(
-                    triangle for triangle in use_vertex[i] if triangle[0] == vertex
-                )
+            fan = use_vertex[i]
+            start = fan[0]
+            region = [index[start]]
+            # Walk the fan forward from the start triangle.
+            vertex = start[1]
+            while len(region) < len(fan):
+                triangle = next((t for t in fan if t[0] == vertex), None)
+                if triangle is None:
+                    break
                 region.append(index[triangle])
                 vertex = triangle[1]
+            # Cells on the convex hull have an open fan of triangles, so the
+            # forward walk can dead-end; collect the rest walking backward.
+            vertex = start[0]
+            while len(region) < len(fan):
+                triangle = next((t for t in fan if t[1] == vertex), None)
+                if triangle is None:
+                    break
+                region.insert(0, index[triangle])
+                vertex = triangle[0]
             regions[i - 4] = region
 
         return vor_coors, regions
@@ -297,8 +309,19 @@ class VoronoiGrid(DiscreteSpace):
 
     def _connect_cells(self) -> None:
         """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
-        self.triangulation = Delaunay()
-        for centroid in self.centroids_coordinates:
+        # Triangulate around the centroid bounding-box center instead of the
+        # origin. The Delaunay frame only covers +-9999 around its center, so
+        # centroids far from the origin (e.g. UTM eastings and northings)
+        # crash the triangulation, and even inside the frame large absolute
+        # coordinates lose floating-point precision. Recentring avoids both.
+        centroids = np.asarray(self.centroids_coordinates, dtype=float)
+        mins = centroids.min(axis=0)
+        maxs = centroids.max(axis=0)
+        self._voronoi_offset = (mins + maxs) / 2
+        extent = float(np.linalg.norm(maxs - mins))
+        radius = max(9999.0, extent * 10)
+        self.triangulation = Delaunay(radius=radius)
+        for centroid in centroids - self._voronoi_offset:
             self.triangulation.add_point(centroid)
 
         for point in self.triangulation.export_triangles():
@@ -323,9 +346,14 @@ class VoronoiGrid(DiscreteSpace):
     def _get_voronoi_regions(self) -> tuple:
         if self.voronoi_coordinates is None or self.regions is None:
             (
-                self.voronoi_coordinates,
+                voronoi_coordinates,
                 self.regions,
             ) = self.triangulation.export_voronoi_regions()
+            # Region coordinates come from the recentred triangulation;
+            # translate them back to the original coordinate system.
+            self.voronoi_coordinates = [
+                coordinate + self._voronoi_offset for coordinate in voronoi_coordinates
+            ]
         return self.voronoi_coordinates, self.regions
 
     @staticmethod
