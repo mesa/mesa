@@ -944,6 +944,48 @@ def test_cell_collection():
     assert len(cells) == len(collection)
 
 
+@pytest.mark.parametrize(
+    ("at_most", "expected"),
+    [
+        (np.int8(2), 2),
+        (np.int64(2), 2),
+        (np.uint8(2), 2),
+        (np.float16(0.5), 5),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32("inf"), 10),
+    ],
+)
+def test_cell_collection_select_accepts_numpy_numbers(at_most, expected):
+    """Test that numpy integer and float scalars are accepted for at_most."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    assert len(collection.select(lambda c: True, at_most=at_most)) == expected
+
+
+@pytest.mark.parametrize(
+    "at_most",
+    [np.int64(-1), np.float32(0.0), np.float32(1.5), np.float32("nan")],
+)
+def test_cell_collection_select_rejects_invalid_numpy_values(at_most):
+    """Test that out-of-range numpy values raise a ValueError."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    with pytest.raises(ValueError):
+        collection.select(at_most=at_most)
+
+
+def test_cell_collection_select_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(3)], random=rng)
+
+    with pytest.raises(TypeError, match="at_most must be an integer or float"):
+        collection.select(at_most=np.True_)
+
+
 def test_cell_collection_cells_is_an_immutable_tuple():
     """CellCollection.cells is a tuple, so changing it cannot change the collection (#4142)."""
     cell1 = Cell((0, 0), random=random.Random(1))
