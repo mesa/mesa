@@ -1516,6 +1516,62 @@ def test_move_through_full_cell():
     assert agent.cell is grid[2, 1]
 
 
+@pytest.mark.parametrize(
+    ("grid_class", "agent_class", "east"),
+    [
+        (OrthogonalMooreGrid, Grid2DMovingAgent, "east"),
+        (HexGrid, HexGridMovingAgent, "e"),
+    ],
+)
+def test_move_single_step_blocked(grid_class, agent_class, east):
+    """A blocked single-cell move raises without moving, or stays put if partial moves are allowed."""
+    model = Model()
+    grid = grid_class((5, 5), torus=False, random=random.Random(42), capacity=1)
+    agent = agent_class(model)
+
+    # the edge of the grid
+    agent.cell = grid[4, 2] if grid_class is HexGrid else grid[2, 4]
+    start = agent.cell
+    with pytest.raises(ValueError, match="No cell in direction"):
+        agent.move(east)
+    assert agent.cell is start
+    agent.move(east, allow_partial_move=True)
+    assert agent.cell is start
+
+    # a full neighbouring cell
+    agent.cell = grid[2, 2]
+    blocker = CellAgent(model)
+    blocker.cell = grid[3, 2] if grid_class is HexGrid else grid[2, 3]
+    with pytest.raises(CellFullException):
+        agent.move(east)
+    assert agent.cell is grid[2, 2]
+    agent.move(east, allow_partial_move=True)
+    assert agent.cell is grid[2, 2]
+
+
+def test_move_relative():
+    """move_relative moves to the connected cell, or raises if there is none."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+    agent = Grid2DMovingAgent(Model())
+    agent.cell = grid[2, 4]
+    agent.move_relative((0, -1))
+    assert agent.cell is grid[2, 3]
+    agent.cell = grid[2, 4]
+    with pytest.raises(ValueError, match="No cell in direction"):
+        agent.move_relative((0, 1))
+    assert agent.cell is grid[2, 4]
+
+
+def test_hex_move_invalid_direction():
+    """An unknown hex direction raises before the agent moves."""
+    grid = HexGrid((5, 5), torus=False, random=random.Random(42))
+    agent = HexGridMovingAgent(Model())
+    agent.cell = grid[2, 2]
+    with pytest.raises(ValueError, match="Invalid hex direction"):
+        agent.move("up")
+    assert agent.cell is grid[2, 2]
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())
