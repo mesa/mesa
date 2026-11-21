@@ -1290,3 +1290,34 @@ def test_run_ended_before_start_can_resume(run_method):
     getattr(model, run_method)(10 if run_method == "run_for" else 12)
 
     assert recorder.get_table_dataframe("state")["time"].tolist() == [10, 12]
+
+
+@pytest.mark.parametrize(
+    "recorder_cls",
+    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
+)
+def test_table_dataset_rows_recorded_once(recorder_cls, tmp_path):
+    """Rows of a TableDataSet are recorded once, stamped with the time they were added."""
+    from mesa.experimental.data_collection.dataset import TableDataSet  # noqa: PLC0415
+
+    class EventModel(Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.events = self.data_registry.create_dataset(
+                TableDataSet, "events", fields=["what"]
+            )
+            kwargs = {
+                JSONDataRecorder: {"output_dir": tmp_path},
+                ParquetDataRecorder: {"output_dir": tmp_path},
+            }.get(recorder_cls, {})
+            self.recorder = recorder_cls(self, config={"events": {}}, **kwargs)
+
+        def step(self):
+            self.events.add_row({"what": self.time})
+
+    model = EventModel()
+    model.run_for(3)
+
+    df = model.recorder.get_table_dataframe("events").dropna(subset=["what"])
+    assert len(df) == 3
+    assert list(df["what"]) == list(df["time"])
