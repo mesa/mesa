@@ -378,6 +378,22 @@ class Grid(DiscreteSpace[T]):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise TypeError("Capacity must be a number or None.")
 
+    def add_cell(self, cell: T):
+        """Add a cell to the grid.
+
+        See :meth:`DiscreteSpace.add_cell`.
+        """
+        super().add_cell(cell)
+        self._celllist = list(self._cells.values())
+
+    def remove_cell(self, cell: T):
+        """Remove a cell from the grid.
+
+        See :meth:`DiscreteSpace.remove_cell`.
+        """
+        super().remove_cell(cell)
+        self._celllist = list(self._cells.values())
+
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
         # Fast path: probe up to ``_MAX_RANDOM_PROBES`` random cells. Each probe is O(1).
@@ -407,6 +423,14 @@ class Grid(DiscreteSpace[T]):
 
         empty_layer = self.property_layers["empty"]
         empty_indices = np.flatnonzero(empty_layer)
+        if len(self._cells) != empty_layer.size:
+            # A cell removed with remove_cell keeps its entry in the layer, so skip
+            # coordinates that no longer have a cell.
+            empty_indices = [
+                index
+                for index in empty_indices
+                if np.unravel_index(index, empty_layer.shape) in self._cells
+            ]
         try:
             random_index = self.random.choice(empty_indices)
         except IndexError as e:
