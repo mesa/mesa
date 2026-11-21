@@ -327,6 +327,7 @@ Property Layer Visualization <tutorials/9_visualization_property_layer_visualiza
 Custom Visualization Components <tutorials/10_visualization_custom>
 Discrete Event Simulation <tutorials/11_discrete_event_simulation>
 Hybrid ABM-DEVS Models <tutorials/12_hybrid_abm_devs>
+Agent Actions <tutorials/13_agent_actions>
 Best Practices <best-practices>
 
 
