@@ -188,11 +188,85 @@ class TestGenuineRateBugsStillRaise:
             BadRateAgent(model)
         assert "a_cceleration" in str(exc_info.value)
 
-    def test_typo_raises_on_lazy_first_access(self, model: TramModel) -> None:
-        """Ensure lazy evaluation still raises errors accurately."""
-        agent = BadRateAgentNoThreshold(model)
-        with pytest.raises(AttributeError):
-            _ = agent.speed
+    def test_typo_raises_without_a_threshold(self, model: TramModel) -> None:
+        """A bad rate raises where the state is first assigned, naming the attribute."""
+        with pytest.raises(AttributeError, match="a_cceleration"):
+            BadRateAgentNoThreshold(model)
+
+
+class TestChainedExtrapolationWithoutThreshold:
+    """A chained state must extrapolate correctly with no Threshold watching it."""
+
+    @staticmethod
+    def _mover(threshold_on: str | None):
+        """Build a position/speed/accel agent, optionally with a Threshold."""
+        namespace: dict = {
+            "accel": Observable(fallback_value=0.0),
+            "speed": ContinuousState(fallback_value=0.0, rate=lambda a: a.accel),
+        }
+        namespace["position"] = ContinuousState(
+            fallback_value=0.0, rate=lambda a: a.speed
+        )
+        if threshold_on is not None:
+            namespace["_never"] = Threshold(
+                state=namespace[threshold_on],
+                limit=1e9,
+                callback="noop",
+                direction="rising",
+            )
+
+        def _noop(self):
+            pass
+
+        def _init(self, model):
+            Agent.__init__(self, model)
+
+        namespace["noop"] = _noop
+        namespace["__init__"] = _init
+        return type("Mover", (Agent, HasEmitters), namespace)
+
+    @pytest.mark.parametrize("threshold_on", [None, "speed", "position"])
+    def test_extrapolation_does_not_depend_on_a_threshold(self, threshold_on) -> None:
+        """Position is 0.5 * a * t**2 whether or not a Threshold is declared (#3987)."""
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+
+        model.run_for(2.0)
+
+        assert mover.position == pytest.approx(0.5 * 2.0 * 2.0**2)
+        assert mover.speed == pytest.approx(2.0 * 2.0)
+
+    @pytest.mark.parametrize("threshold_on", [None, "position"])
+    def test_reassigning_a_state_keeps_the_speed_it_has_at_that_moment(
+        self, threshold_on
+    ) -> None:
+        """Resetting position mid-run carries on at the speed reached by then."""
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+        model.run_for(3.0)
+
+        mover.position = 100.0
+        model.run_for(2.0)
+
+        assert mover.position == pytest.approx(100.0 + 6.0 * 2.0 + 0.5 * 2.0 * 2.0**2)
+
+    @pytest.mark.parametrize("threshold_on", [None, "speed", "position"])
+    def test_reassigning_the_upstream_state_changes_the_downstream_trajectory(
+        self, threshold_on
+    ) -> None:
+        """Resetting speed mid-run changes how position carries on from there."""
+        model = Model(rng=1)
+        mover = self._mover(threshold_on)(model)
+        mover.accel, mover.speed, mover.position = 2.0, 0.0, 0.0
+        model.run_for(1.0)
+
+        mover.speed = 10.0
+        model.run_for(1.0)
+
+        # position at t=1 is 1; then 10 * 1 + 0.5 * 2 * 1**2 more
+        assert mover.position == pytest.approx(12.0)
 
 
 class TestContinuousStateExtrapolation:
