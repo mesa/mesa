@@ -46,6 +46,12 @@ class HasCell:
 
         # Attempt to add first
         if cell is not None:
+            if old_cell is None and getattr(self, "_mesa_locations", ()):
+                from mesa.experimental.locations import (  # noqa: PLC0415
+                    _check_cell_agent,
+                )
+
+                _check_cell_agent(self, cell)
             cell.add_agent(self)
 
         if old_cell is not None:
@@ -95,6 +101,10 @@ class FixedCell(HasCell):
             raise ValueError("Cannot move agent in FixedCell")
         if cell is None:
             return  # still unplaced, nothing to do
+        if getattr(self, "_mesa_locations", ()):
+            from mesa.experimental.locations import _check_cell_agent  # noqa: PLC0415
+
+            _check_cell_agent(self, cell)
         cell.add_agent(self)
         self._mesa_cell = cell
 
