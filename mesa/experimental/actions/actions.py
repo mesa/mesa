@@ -24,9 +24,6 @@ Example::
         def on_complete(self):
             self.agent.energy += 30
 
-        def on_interrupt(self, progress):
-            self.agent.energy += 30 * progress
-
     model = Model()
     sheep = Sheep(model)
     sheep.start_action(Forage(sheep))
