@@ -39,7 +39,7 @@ class CellCollection[T: Cell]:
     """An immutable collection of cells.
 
     Attributes:
-        cells (List[Cell]): The list of cells this collection represents
+        cells (tuple[Cell, ...]): The cells this collection represents
         agents (List[CellAgent]) : List of agents occupying the cells in this collection
         random (Random) : The random number generator
 
@@ -95,8 +95,9 @@ class CellCollection[T: Cell]:
         return f"CellCollection({self._cells})"
 
     @cached_property
-    def cells(self) -> list[T]:  # noqa
-        return list(self._cells.keys())
+    def cells(self) -> tuple[T, ...]:
+        """The cells in this collection, as a tuple."""
+        return tuple(self._cells)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa

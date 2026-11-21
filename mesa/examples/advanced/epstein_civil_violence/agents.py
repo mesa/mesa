@@ -11,11 +11,13 @@ class CitizenState(Enum):
 
 
 class EpsteinAgent(mesa.discrete_space.CellAgent):
+    vision: int
+
     def update_neighbors(self):
         """
         Look around and see who my neighbors are
         """
-        self.neighborhood = self.cell.get_neighborhood(radius=self.scenario.cop_vision)
+        self.neighborhood = self.cell.get_neighborhood(radius=self.vision)
         self.neighbors = self.neighborhood.agents
         self.empty_neighbors = [c for c in self.neighborhood if c.is_empty]
 
@@ -62,6 +64,11 @@ class Citizen(EpsteinAgent):
         self.neighborhood = []
         self.neighbors = []
         self.empty_neighbors = []
+
+    @property
+    def vision(self) -> int:
+        """Vision radius of the citizen."""
+        return self.scenario.citizen_vision
 
     def step(self):
         """
@@ -121,6 +128,11 @@ class Cop(EpsteinAgent):
             model: model instance
         """
         super().__init__(model)
+
+    @property
+    def vision(self) -> int:
+        """Vision radius of the cop."""
+        return self.scenario.cop_vision
 
     def step(self):
         """
