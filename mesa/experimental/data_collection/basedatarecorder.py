@@ -174,6 +174,10 @@ class BaseDataRecorder(ABC):
             dataset = self.registry[name]
             self._initialize_dataset_storage(name, dataset)
 
+        # TableDataSet is an append-only log: per dataset, remember where the
+        # last stored block started and how many rows have been stored so far
+        self._table_cursors: dict[str, tuple[int, int]] = {}
+
         self._subscribe_to_model()
 
     def _subscribe_to_model(self) -> None:
@@ -197,7 +201,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = self._take_snapshot(name, dataset, is_overwrite)
 
             self._store_dataset_snapshot(
                 name, current_time, data_snapshot, is_overwrite
@@ -224,9 +228,35 @@ class BaseDataRecorder(ABC):
             is_overwrite = current_time == config._last_collection
 
             dataset = self.registry.datasets[name]
-            self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)
+            data_snapshot = self._take_snapshot(name, dataset, is_overwrite)
+            self._store_dataset_snapshot(
+                name, current_time, data_snapshot, is_overwrite
+            )
 
             config._last_collection = current_time
+
+    def _take_snapshot(
+        self, name: str, dataset: Any, is_overwrite: bool = False
+    ) -> Any:
+        """Return the data to store for a dataset at this collection.
+
+        For a TableDataSet only the rows added since the previous collection
+        are returned, because the table itself is cumulative. The returned
+        list is new, but the row dicts are shared with the dataset (rows are
+        never mutated after being added). On an overwrite, the rows of the
+        replaced block are included again.
+        For all other datasets this is simply ``dataset.data``.
+        """
+        from .dataset import TableDataSet  # noqa: PLC0415
+
+        if not isinstance(dataset, TableDataSet):
+            return dataset.data
+
+        block_start, n_stored = self._table_cursors.get(name, (0, 0))
+        start = block_start if is_overwrite else n_stored
+        rows = dataset.data
+        self._table_cursors[name] = (start, len(rows))
+        return rows[start:]
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -251,7 +281,7 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
+            data_snapshot = self._take_snapshot(name, dataset)
             self._store_dataset_snapshot(name, current_time, data_snapshot)
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)

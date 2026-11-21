@@ -268,7 +268,11 @@ class TableDataSet:
 
     @property
     def data(self) -> list[dict[str, Any]]:
-        """Return the data of the dataset."""
+        """Return the data of the dataset.
+
+        This is the live list of rows, not a copy. Rows are shared with any
+        data recorder, so modifying a returned row also modifies recorded data.
+        """
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
         return self.rows
