@@ -972,6 +972,26 @@ class TestEventGeneratorStartStop:
         assert calls == [1.0, 2.0, 3.0, 4.0]
         assert len(calls) == len(set(calls))
 
+    def test_pause_resume_from_within_callback_respects_schedule_count(self, setup):
+        """Resuming in the final callback must not exceed schedule.count."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            gen.pause()
+            gen.resume()
+
+        gen = EventGenerator(model, cb, Schedule(interval=1.0, count=1))
+        gen.start()
+        model.run_for(3.0)
+
+        assert calls == [1.0]
+        assert gen.execution_count == 1
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+
     def test_pause_resume_from_within_callback(self, setup):
         """Pausing and resuming from the callback must not double-schedule either."""
         model, _ = setup
