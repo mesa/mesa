@@ -42,6 +42,11 @@ class SpaceRenderer:
 
     Supports multiple space types and backends for flexible visualization
     of agent-based models.
+
+    The renderer captures the model's space during initialization. If the
+    model's grid or space is replaced afterward, the renderer will continue
+    using the originally captured space. Create a new SpaceRenderer instance
+    to render the replacement space.
     """
 
     def __init__(

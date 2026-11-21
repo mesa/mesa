@@ -944,6 +944,26 @@ def test_cell_collection():
     assert len(cells) == len(collection)
 
 
+def test_cell_collection_cells_is_an_immutable_tuple():
+    """CellCollection.cells is a tuple, so changing it cannot change the collection (#4142)."""
+    cell1 = Cell((0, 0), random=random.Random(1))
+    cell2 = Cell((0, 1), random=random.Random(1))
+    collection = CellCollection([cell1, cell2], random=random.Random(1))
+
+    cells = collection.cells
+    assert isinstance(cells, tuple)
+    assert cells == (cell1, cell2)
+    assert not hasattr(cells, "clear")
+    assert not hasattr(cells, "append")
+
+    assert len(collection) == 2
+    assert list(collection) == [cell1, cell2]
+    assert collection.select_random_cell() in {cell1, cell2}
+
+    # The tuple is built once, so reading it again costs nothing.
+    assert collection.cells is cells
+
+
 def test_empty_cell_collection():
     """Test that CellCollection properly handles empty collections."""
     rng = random.Random(42)
