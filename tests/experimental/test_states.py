@@ -295,6 +295,17 @@ class TestThresholdCrossing:
         # Total crossing time = 10.0 (start) + 7.5 (accelerating) + 1.25 (coasting) = 18.75
         assert tram.brake_events[1] == pytest.approx(18.75)
 
+    def test_overflowing_projected_time_is_not_scheduled(
+        self, model: TramModel, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ensure an overflowing projected time is treated as no future crossing."""
+        monkeypatch.setattr(model, "time", 1e308)
+
+        wolf = Wolf(model, initial_energy=1e308)
+
+        assert wolf.starvation == float("inf")
+        assert wolf._starvation_event is None
+
 
 class TestDemoIntegration:
     """Validates the full piecewise hybrid kinematics system end-to-end."""

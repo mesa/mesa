@@ -427,6 +427,10 @@ class Threshold:
 
         future_crossings = []
         for t, v_cross in valid_times:
+            # Ignore crossings that cannot occur at a finite future time.
+            if not math.isfinite(t):
+                continue
+
             if self.direction == "rising" and v_cross <= 0:
                 continue
             if self.direction == "falling" and v_cross >= 0:
@@ -455,6 +459,12 @@ class Threshold:
         else:
             time_to_cross = min(future_crossings)
             projected_time = instance.model.time + time_to_cross
+
+            # A finite duration can still overflow when added to model time.
+            if not math.isfinite(projected_time):
+                self._never_crosses(instance)
+                return
+
             setattr(instance, self.time_attr, projected_time)
 
             # Cancel any previously tracked native event for this threshold

@@ -6,6 +6,7 @@ Core Objects: Model
 # Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
+import math
 import random
 import warnings
 from collections.abc import Callable, Sequence
@@ -160,9 +161,12 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             until: The time to advance to
 
         """
+        if not math.isfinite(until):
+            raise ValueError("until must be a finite number")
+
         if until < self.time:
             warnings.warn(
-                f"end time {until} is earlier than current time {self.time}",
+                f"end_time {until} is earlier than current time {self.time}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -348,6 +352,9 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         time = at if at is not None else self.time + after
         # Enforce monotonic time progression
+        if not math.isfinite(time):
+            raise ValueError("Event time must be a finite number.")
+
         if time < self.time:
             raise ValueError(
                 f"Cannot schedule event in the past. "
@@ -392,8 +399,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """Run the model for the specified duration.
 
         Args:
-            duration: Time units to advance
+            duration: The duration to run the model for.
         """
+        if not math.isfinite(duration):
+            raise ValueError("duration must be a finite number")
+
         self._advance_time(self.time + duration)
 
     @emit("model", ModelSignals.RUN_ENDED, when="after")
@@ -402,16 +412,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
 
         Args:
             end_time: Absolute time to run until
-
-        If model.time is larger than end_time, the method returns directly.
-
         """
-        if self.time > end_time:
-            warnings.warn(
-                f"end_time {end_time} is earlier than current time {self.time}",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            return
-
+        if not math.isfinite(end_time):
+            raise ValueError("end_time must be a finite number")
         self._advance_time(end_time)
