@@ -283,6 +283,9 @@ def _to_point(space: ContinuousSpace, value) -> np.ndarray:
             f"Expected a point with {space.ndims} coordinates, got {value!r}."
         )
     if not space.in_bounds(point):
+        # NaN and inf are never in bounds, and a torus would wrap them to NaN.
+        if not np.isfinite(point).all():
+            raise ValueError(f"point {value} has a NaN or infinite coordinate")
         if not space.torus:
             raise ValueError(f"point {value} is outside the bounds of the space")
         point = space.torus_correct(point)
