@@ -404,7 +404,7 @@ results = mesa.batch_run(
 ## Mesa 3.3.0
 
 Mesa 3.3.0 is a visualization upgrade introducing a new and improved API, full support for both `altair` and `matplotlib` backends, and resolving several recurring issues from previous versions.
-For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html).
+For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/6_visualization_basic.html).
 
 
 _This guide is a work in progress. The development of it is tracked in [Issue #2233](https://github.com/mesa/mesa/issues/2233)._
@@ -473,7 +473,7 @@ This change allows for better method chaining and separates the configuration ph
 * Ref: [PR #2893](https://github.com/mesa/mesa/pull/2893)
 
 ### Default Space Visualization
-While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
+While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/8_visualization_rendering_with_space_renderer.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
 
 A basic example of how `SpaceRenderer` works:
 

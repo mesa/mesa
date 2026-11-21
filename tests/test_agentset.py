@@ -1489,3 +1489,123 @@ def test_select_random_realistic_abm_evolution_scenario():
 
     # Evolutionary pressure via weighted sampling increases population fitness
     assert final_mean_fitness > initial_mean_fitness
+
+
+def test_agentset_set_operations_preserve_random_and_suppress_empty_warning():
+    """Binary set operations on AgentSet must preserve random and not warn on empty results."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+
+    aset1 = AgentSet([a1, a2], random=model.random)
+    aset2 = AgentSet([a1, a2], random=model.random)
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        diff = aset1 - aset2
+        assert len(diff) == 0
+        assert type(diff) is AgentSet
+        assert diff.random is model.random
+        assert len(recorded_warnings) == 0
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        xor_diff = aset1 ^ aset2
+        assert len(xor_diff) == 0
+        assert type(xor_diff) is AgentSet
+        assert xor_diff.random is model.random
+        assert len(recorded_warnings) == 0
+
+
+def test_model_agents_set_operations_return_weak_agentset():
+    """Set operations on model.agents must return weak AgentSet to prevent strong ref leaks."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    assert len(model.agents) == 3
+    subset = AgentSet([a1], random=model.random)
+
+    inter = model.agents & subset
+    assert type(inter) is AgentSet
+    assert not isinstance(inter, _HardKeyAgentSet)
+    assert inter.random is model.random
+    assert list(inter) == [a1]
+
+    diff = model.agents - subset
+    assert type(diff) is AgentSet
+    assert not isinstance(diff, _HardKeyAgentSet)
+    assert diff.random is model.random
+    assert set(diff) == {a2, a3}
+
+    union = model.agents | subset
+    assert type(union) is AgentSet
+    assert not isinstance(union, _HardKeyAgentSet)
+    assert union.random is model.random
+    assert len(union) == 3
+
+    sym_diff = model.agents ^ subset
+    assert type(sym_diff) is AgentSet
+    assert not isinstance(sym_diff, _HardKeyAgentSet)
+    assert sym_diff.random is model.random
+    assert set(sym_diff) == {a2, a3}
+
+
+def test_agentset_set_operations_with_python_set():
+    """Binary set operations with built-in set must return AgentSet preserving random."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    aset = AgentSet([a1, a2], random=model.random)
+    builtin_set = {a1, a3}
+
+    inter = aset & builtin_set
+    assert type(inter) is AgentSet
+    assert inter.random is model.random
+    assert list(inter) == [a1]
+
+    diff = aset - builtin_set
+    assert type(diff) is AgentSet
+    assert diff.random is model.random
+    assert list(diff) == [a2]
+
+
+def test_agentset_subclass_set_operations():
+    """Binary set operations on an AgentSet subclass must preserve the subclass type."""
+
+    class CustomAgentSet(AgentSet):
+        pass
+
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+
+    cset = CustomAgentSet([a1, a2], random=model.random)
+    diff = cset - {a1}
+    assert isinstance(diff, CustomAgentSet)
+    assert type(diff) is CustomAgentSet
+    assert diff.random is model.random
+    assert list(diff) == [a2]
+
+
+def test_model_agents_set_operations_no_leak_on_remove():
+    """Agents removed from model should be garbage collected even if referenced by set operation results."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    subset = AgentSet([a1], random=model.random)
+    diff = model.agents - subset
+    assert set(diff) == {a2, a3}
+
+    ref2 = weakref.ref(a2)
+    a2.remove()
+    del a2
+    gc.collect()
+
+    assert ref2() is None
+    assert set(diff) == {a3}
