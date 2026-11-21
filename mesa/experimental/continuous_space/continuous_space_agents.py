@@ -63,6 +63,8 @@ class ContinuousSpaceAgent(Agent):
 
     def remove(self) -> None:
         """Remove and delete the agent from the model and continuous space."""
+        if self.space is None:
+            return
         super().remove()
         self.space._remove_agent(self)
         self._mesa_index = None
