@@ -1,7 +1,10 @@
 """AgentSet.py related tests."""
 
 import copy
+import gc
 import pickle
+import warnings
+import weakref
 from random import Random
 
 import numpy as np
@@ -79,9 +82,13 @@ def test_agentset():
     assert len(agentset.select(at_most=1.0)) == 10  # Select 100% agents
     assert len(agentset.select(at_most=1)) == 1  # Select 1 agent
 
-    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5):
+    for bad_at_most in (float("nan"), 0.0, -0.5, 1.5, -1, -5):
         with pytest.raises(ValueError):
             agentset.select(at_most=bad_at_most)
+
+    for bad_type in (False, True, "1", [1], None):
+        with pytest.raises(TypeError, match="must be an integer or float"):
+            agentset.select(at_most=bad_type)
 
     assert len(agentset.select(test_function)) == 5
     assert len(agentset.select(test_function, at_most=2)) == 2
@@ -510,6 +517,36 @@ def test_agentset_set_element_wise():
         agentset.set("energy", [1, 2, 3])
 
 
+def test_set_warns_when_one_mutable_object_is_shared_by_agents():
+    """A per-agent sequence that repeats one mutable object warns, other shapes do not."""
+
+    class TestAgent(Agent):
+        pass
+
+    model = Model()
+    agentset = AgentSet([TestAgent(model) for _ in range(5)])
+    shared = [1, 2, 3]
+
+    with pytest.warns(UserWarning, match="same object"):
+        agentset.set("dna", [shared] * 5)
+
+    # the warning is about sharing, so the value is still stored by reference
+    assert agentset.get("dna")[0] is shared
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # distinct objects are fine
+        agentset.set("dna", [[1, 2, 3] for _ in range(5)])
+        # repeated immutables are fine
+        agentset.set("energy", [0.5] * 5)
+        agentset.set("label", ["a", "a", "a", "a", "a"])
+        # a broadcast scalar or dict is not a per-agent sequence
+        agentset.set("config", {"mode": "fast"})
+        # agents sharing a non-container object (e.g. a location) is intended
+        location = TestAgent(model)
+        agentset.set("cell", [location] * 5)
+
+
 def test_agentset_map_str():
     """Test AgentSet.map with strings."""
     model = Model()
@@ -850,6 +887,16 @@ def test_hardkeyagentset_downgrade():
     sorted_view = hard_set.sort("unique_id")
     assert isinstance(sorted_view, AgentSet)
 
+    random_view = hard_set.select_random(5)
+    assert isinstance(random_view, AgentSet)
+    assert not isinstance(random_view, _HardKeyAgentSet)
+    assert len(random_view) == 5
+
+    same_random = hard_set.select_random(5, inplace=True)
+    assert isinstance(same_random, _HardKeyAgentSet)
+    assert same_random is hard_set
+    assert len(same_random) == 5
+
     groups = hard_set.groupby(lambda a: a.unique_id % 2 == 0)
     for group in groups.groups.values():
         assert isinstance(group, AgentSet)
@@ -858,6 +905,23 @@ def test_hardkeyagentset_downgrade():
     groups_list = hard_set.groupby(lambda a: a.unique_id % 2 == 0, result_type="list")
     for group in groups_list.groups.values():
         assert isinstance(group, list)
+
+
+def test_hardkeyagentset_select_random_garbage_collection():
+    """Test that select_random on _HardKeyAgentSet allows removed agents to be garbage collected (#3992)."""
+    model = Model()
+    agent = AgentTest(model)
+    agent_ref = weakref.ref(agent)
+
+    sample = model.agents.select_random(1)
+    assert isinstance(sample, AgentSet)
+    assert not isinstance(sample, _HardKeyAgentSet)
+
+    agent.remove()
+    del agent
+    gc.collect()
+
+    assert agent_ref() is None
 
 
 def test_hardkeyagentset_inplace():
@@ -1209,6 +1273,37 @@ def test_select_random_weighted_sequence():
     assert all(a in agentset for a in sampled)
 
 
+@pytest.mark.parametrize("array_type", ["ndarray", "series"])
+def test_select_random_weighted_array_like(array_type):
+    """Weighted selection accepts numpy arrays and pandas Series, like set()."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    values = [0.1, 0.1, 0.8]
+    if array_type == "ndarray":
+        weights = np.array(values)
+    else:
+        pd = pytest.importorskip("pandas")
+        weights = pd.Series(values)
+
+    sampled = agentset.select_random(2, weights=weights, replace=True)
+    assert len(sampled) == 2
+    assert all(a in agentset for a in sampled)
+
+
+def test_select_random_weighted_array_length_mismatch():
+    """An array-like of the wrong length still raises ValueError."""
+    model = Model()
+    model.random = Random(42)
+    agents = [AgentTest(model) for _ in range(3)]
+    agentset = AgentSet(agents, random=model.random)
+
+    with pytest.raises(ValueError, match="does not match"):
+        agentset.select_random(2, weights=np.array([1.0, 2.0]))
+
+
 @pytest.mark.parametrize("invalid_weight", [np.nan, np.inf])
 def test_select_random_rejects_nonfinite_weights(invalid_weight):
     """Weighted sampling rejects values that cannot define probabilities."""
@@ -1256,6 +1351,23 @@ def test_select_random_weighted_without_replacement_excludes_zero_weights():
 
     assert len(sampled) == 3
     assert agents[3] not in sampled
+
+
+def test_select_random_weighted_without_replacement_with_probabilities():
+    """Weights normalized to probabilities select the same agents as the raw weights."""
+    model = Model()
+    agents = [AgentTest(model) for _ in range(2000)]
+    fitness = [float(1 + i % 5) for i in range(2000)]
+    total = sum(fitness)
+    # The normalized weights are O(1e-4), small enough to expose key underflow.
+    probabilities = [f / total for f in fitness]
+
+    expected = AgentSet(agents, random=Random(42)).select_random(1000, weights=fitness)
+    sampled = AgentSet(agents, random=Random(42)).select_random(
+        1000, weights=probabilities
+    )
+
+    assert set(sampled) == set(expected)
 
 
 def test_select_random_edge_cases_and_errors():
@@ -1377,3 +1489,123 @@ def test_select_random_realistic_abm_evolution_scenario():
 
     # Evolutionary pressure via weighted sampling increases population fitness
     assert final_mean_fitness > initial_mean_fitness
+
+
+def test_agentset_set_operations_preserve_random_and_suppress_empty_warning():
+    """Binary set operations on AgentSet must preserve random and not warn on empty results."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+
+    aset1 = AgentSet([a1, a2], random=model.random)
+    aset2 = AgentSet([a1, a2], random=model.random)
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        diff = aset1 - aset2
+        assert len(diff) == 0
+        assert type(diff) is AgentSet
+        assert diff.random is model.random
+        assert len(recorded_warnings) == 0
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        xor_diff = aset1 ^ aset2
+        assert len(xor_diff) == 0
+        assert type(xor_diff) is AgentSet
+        assert xor_diff.random is model.random
+        assert len(recorded_warnings) == 0
+
+
+def test_model_agents_set_operations_return_weak_agentset():
+    """Set operations on model.agents must return weak AgentSet to prevent strong ref leaks."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    assert len(model.agents) == 3
+    subset = AgentSet([a1], random=model.random)
+
+    inter = model.agents & subset
+    assert type(inter) is AgentSet
+    assert not isinstance(inter, _HardKeyAgentSet)
+    assert inter.random is model.random
+    assert list(inter) == [a1]
+
+    diff = model.agents - subset
+    assert type(diff) is AgentSet
+    assert not isinstance(diff, _HardKeyAgentSet)
+    assert diff.random is model.random
+    assert set(diff) == {a2, a3}
+
+    union = model.agents | subset
+    assert type(union) is AgentSet
+    assert not isinstance(union, _HardKeyAgentSet)
+    assert union.random is model.random
+    assert len(union) == 3
+
+    sym_diff = model.agents ^ subset
+    assert type(sym_diff) is AgentSet
+    assert not isinstance(sym_diff, _HardKeyAgentSet)
+    assert sym_diff.random is model.random
+    assert set(sym_diff) == {a2, a3}
+
+
+def test_agentset_set_operations_with_python_set():
+    """Binary set operations with built-in set must return AgentSet preserving random."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    aset = AgentSet([a1, a2], random=model.random)
+    builtin_set = {a1, a3}
+
+    inter = aset & builtin_set
+    assert type(inter) is AgentSet
+    assert inter.random is model.random
+    assert list(inter) == [a1]
+
+    diff = aset - builtin_set
+    assert type(diff) is AgentSet
+    assert diff.random is model.random
+    assert list(diff) == [a2]
+
+
+def test_agentset_subclass_set_operations():
+    """Binary set operations on an AgentSet subclass must preserve the subclass type."""
+
+    class CustomAgentSet(AgentSet):
+        pass
+
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+
+    cset = CustomAgentSet([a1, a2], random=model.random)
+    diff = cset - {a1}
+    assert isinstance(diff, CustomAgentSet)
+    assert type(diff) is CustomAgentSet
+    assert diff.random is model.random
+    assert list(diff) == [a2]
+
+
+def test_model_agents_set_operations_no_leak_on_remove():
+    """Agents removed from model should be garbage collected even if referenced by set operation results."""
+    model = Model(rng=42)
+    a1 = AgentTest(model)
+    a2 = AgentTest(model)
+    a3 = AgentTest(model)
+
+    subset = AgentSet([a1], random=model.random)
+    diff = model.agents - subset
+    assert set(diff) == {a2, a3}
+
+    ref2 = weakref.ref(a2)
+    a2.remove()
+    del a2
+    gc.collect()
+
+    assert ref2() is None
+    assert set(diff) == {a3}

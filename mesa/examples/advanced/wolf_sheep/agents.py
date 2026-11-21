@@ -1,11 +1,18 @@
-from mesa.discrete_space import CellAgent, FixedAgent
+import math
+
+from mesa import Agent
+from mesa.discrete_space import FixedAgent
+from mesa.experimental.locations import CellLocation, ContinuousLocation
 
 
-class Animal(CellAgent):
+class Animal(Agent):
     """The base animal class."""
 
+    position = ContinuousLocation("meadow")  # a point in model.meadow
+    cell = CellLocation("grid", follows=position)  # the grass patch below it
+
     def __init__(
-        self, model, energy=8, p_reproduce=0.04, energy_from_food=4, cell=None
+        self, model, energy=8, p_reproduce=0.04, energy_from_food=4, position=None
     ):
         """Initialize an animal.
 
@@ -14,13 +21,14 @@ class Animal(CellAgent):
             energy: Starting amount of energy
             p_reproduce: Probability of reproduction (asexual)
             energy_from_food: Energy obtained from 1 unit of food
-            cell: Cell in which the animal starts
+            position: Point in the meadow at which the animal starts
         """
         super().__init__(model)
         self.energy = energy
         self.p_reproduce = p_reproduce
         self.energy_from_food = energy_from_food
-        self.cell = cell
+        self.heading = self.random.uniform(0, 2 * math.pi)
+        self.position = position
 
     def spawn_offspring(self):
         """Create offspring by splitting energy and creating new instance."""
@@ -30,15 +38,21 @@ class Animal(CellAgent):
             self.energy,
             self.p_reproduce,
             self.energy_from_food,
-            self.cell,
+            self.position,
         )
+
+    def move(self):
+        """Turn a little, as NetLogo's ``rt random 50 lt random 50``, and step forward."""
+        self.heading += math.radians(
+            self.random.randrange(50) - self.random.randrange(50)
+        )
+        self.position += [math.cos(self.heading), math.sin(self.heading)]
 
     def feed(self):
         """Abstract method to be implemented by subclasses."""
 
     def step(self):
         """Execute one step of the animal's behavior."""
-        # Move to random neighboring cell
         self.move()
 
         self.energy -= 1
@@ -65,62 +79,17 @@ class Sheep(Animal):
             self.energy += self.energy_from_food
             grass_patch.get_eaten()
 
-    def move(self):
-        """Move towards a cell where there isn't a wolf, and preferably with grown grass."""
-        cells_without_wolves = []
-        cells_with_grass = []
-
-        for cell in self.cell.neighborhood:
-            has_wolf = False
-            has_grass = False
-
-            for obj in cell.agents:
-                # If there's a wolf, we can early exit
-                if isinstance(obj, Wolf):
-                    has_wolf = True
-                    break
-                elif isinstance(obj, GrassPatch) and obj.fully_grown:
-                    has_grass = True
-
-            # Prefer cells without wolves
-            if not has_wolf:
-                cells_without_wolves.append(cell)
-
-                # Among safe cells, pick those with grown grass
-                if has_grass:
-                    cells_with_grass.append(cell)
-
-        # If all surrounding cells have wolves, stay put
-        if len(cells_without_wolves) == 0:
-            return
-
-        # Move to a cell with grass if available, otherwise move to any safe cell
-        target_cells = (
-            cells_with_grass if len(cells_with_grass) > 0 else cells_without_wolves
-        )
-        self.cell = self.random.choice(target_cells)
-
 
 class Wolf(Animal):
     """A wolf that walks around, reproduces (asexually) and eats sheep."""
 
     def feed(self):
-        """If possible, eat a sheep at current location."""
+        """If possible, eat a sheep on the same patch, as NetLogo's ``sheep-here``."""
         sheep = [obj for obj in self.cell.agents if isinstance(obj, Sheep)]
         if sheep:  # If there are any sheep present
             sheep_to_eat = self.random.choice(sheep)
             self.energy += self.energy_from_food
             sheep_to_eat.remove()
-
-    def move(self):
-        """Move to a neighboring cell, preferably one with sheep."""
-        cells_with_sheep = self.cell.neighborhood.select(
-            lambda cell: any(isinstance(obj, Sheep) for obj in cell.agents)
-        )
-        target_cells = (
-            cells_with_sheep if len(cells_with_sheep) > 0 else self.cell.neighborhood
-        )
-        self.cell = target_cells.select_random_cell()
 
 
 class GrassPatch(FixedAgent):

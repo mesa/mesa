@@ -32,7 +32,7 @@ memberships only through `model.meta_agents`.
 
 ```python
 from mesa import Agent, Model
-from mesa.meta_agents import MetaAgents
+from mesa.experimental.meta_agents import MetaAgents
 
 model = Model()
 model.meta_agents = MetaAgents(model)
@@ -83,7 +83,7 @@ team_b = model.meta_agents.create("Team_2026_B", [dave])
 ```
 
 ```{eval-rst}
-.. automodule:: mesa.meta_agents
+.. automodule:: mesa.experimental.meta_agents
    :members:
    :imported-members:
 ```

@@ -288,13 +288,16 @@ class Scenario:
 
         Args:
            experiments: Dataframe containing the parameters for the scenarios.
-           rng: the number of random seeds to use or a list of seeds.
+           rng: Seed for the random number generator. Accepts any value accepted by
+               numpy.random.default_rng(). The same value is passed to every scenario,
+               so with a fixed seed (e.g. an int) every design point starts from the
+               same random stream, and so does replication k of each scenario
+               (common random numbers). With None, each scenario gets fresh entropy.
+               A Generator is shared as one object by all scenarios.
            replications: the number of replications to create for each scenario
 
         Returns:
            a list of scenario instances
-
-        If rng is an integer, numpy will be used to generate that many seed values.
 
         """
         scenarios = []
@@ -321,15 +324,18 @@ class Scenario:
         """Turn a numpy array into a list of scenarios.
 
         Args:
-           experiments: Dataframe containing the parameters for the scenarios.
+           experiments: Array containing the parameters for the scenarios.
            parameter_names: the names of the parameters
-           rng: the number of random seeds to use or a list of seeds.
+           rng: Seed for the random number generator. Accepts any value accepted by
+               numpy.random.default_rng(). The same value is passed to every scenario,
+               so with a fixed seed (e.g. an int) every design point starts from the
+               same random stream, and so does replication k of each scenario
+               (common random numbers). With None, each scenario gets fresh entropy.
+               A Generator is shared as one object by all scenarios.
            replications: the number of replications to create for each scenario
 
         Returns:
            a list of scenario instances
-
-        If rng is an integer, numpy will be used to generate that many seed values.
 
         """
         if len(parameter_names) != experiments.shape[1]:

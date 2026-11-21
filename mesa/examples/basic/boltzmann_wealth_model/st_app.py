@@ -71,9 +71,9 @@ if run:
         model.step()
         my_bar.progress((i / num_ticks), text="Simulation progress")
         placeholder.text(f"Step = {i}")
-        for cell in model.grid.coord_iter():
-            cell_content, (x, y) = cell
-            agent_count = len(cell_content)
+        for cell in model.grid.all_cells:
+            x, y = cell.coordinate
+            agent_count = len(cell.agents)
             selected_row = df_grid[(df_grid["x"] == x) & (df_grid["y"] == y)]
             df_grid.loc[selected_row.index, "agent_count"] = (
                 agent_count  # random.choice([1,2])

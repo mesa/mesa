@@ -1,9 +1,12 @@
 """A Continuous Space class."""
 
+from __future__ import annotations
+
 import warnings
 from collections.abc import Iterable
 from itertools import compress
 from random import Random
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -11,8 +14,11 @@ from scipy.spatial.distance import cdist
 
 from mesa.agent import Agent, AgentSet
 
+if TYPE_CHECKING:
+    from .continuous_space_agents import ContinuousSpaceAgent
 
-class ContinuousSpace:
+
+class ContinuousSpace[A: ContinuousSpaceAgent]:
     """Continuous space where each agent can have an arbitrary position."""
 
     @property
@@ -80,6 +86,10 @@ class ContinuousSpace:
         self.size: np.array = self.dimensions[:, 1] - self.dimensions[:, 0]
         self.center: np.array = np.sum(self.dimensions, axis=1) / 2
 
+        # Plain Python copies of the bounds, used by _wrap_point for a cheap bounds check.
+        self._lower: tuple[float, ...] = tuple(float(v) for v in self.dimensions[:, 0])
+        self._upper: tuple[float, ...] = tuple(float(v) for v in self.dimensions[:, 1])
+
         self.torus: bool = torus
 
         # self._agent_positions is the array containing all agent positions
@@ -99,17 +109,33 @@ class ContinuousSpace:
 
         #  a mapping from agents to index and vice versa
         self._index_to_agent: dict[int, Agent] = {}
+        # Agents placed through a ContinuousLocation keep their index on a handle,
+        # so that one agent can be in several spaces
+        self._holders: dict[Agent, object] = {}
+
+    def __setstate__(self, state):
+        """Restore the state, and the view on the position array.
+
+        Pickling turns a view into an independent array, so the view has to be
+        taken again.
+        """
+        self.__dict__.update(state)
+        self.agent_positions = self._agent_positions[0 : self._n_agents]
 
     @property
-    def agents(self) -> AgentSet:
+    def agents(self) -> AgentSet[A]:
         """Return an AgentSet with the agents in the space."""
         return AgentSet(self.active_agents, random=self.random)
 
-    def _add_agent(self, agent: Agent) -> int:
+    def _add_agent(self, agent: Agent, holder=None) -> int:
         """Helper method for adding an agent to the space.
 
         This method manages the numpy array with the agent positions and ensuring it is
         enlarged if and when needed. It is called automatically by ContinousSpaceAgent when created.
+
+        Args:
+            agent: the agent to add
+            holder: the object that keeps the agent's index, if not the agent itself
 
         """
         index = self._n_agents
@@ -128,7 +154,11 @@ class ContinuousSpace:
             new_positions[:current_capacity] = self._agent_positions
             self._agent_positions = new_positions
 
-        agent._mesa_index = index
+        if holder is None:
+            agent._mesa_index = index
+        else:
+            holder._mesa_index = index
+            self._holders[agent] = holder
         self._index_to_agent[index] = agent
 
         # we want to maintain a view rather than a copy on the active agents and positions
@@ -144,7 +174,8 @@ class ContinuousSpace:
         This method is automatically called by ContinuousSpaceAgent.remove.
 
         """
-        index = agent._mesa_index
+        holders = self._holders
+        index = holders.pop(agent, agent)._mesa_index
         last_index = self._n_agents - 1
 
         # If the removed agent isn't already the last one, swap the last one into its place
@@ -157,7 +188,7 @@ class ContinuousSpace:
             # Swap in numpy array
             self._agent_positions[index] = self._agent_positions[last_index]
 
-            last_agent._mesa_index = index
+            holders.get(last_agent, last_agent)._mesa_index = index
             self._index_to_agent[index] = last_agent
 
         # Pop the last elements
@@ -174,13 +205,20 @@ class ContinuousSpace:
             agents: the agents to calculate the difference vector of point with. By default,
                     all agents are considered.
 
+        Notes:
+            On a torus, the point is wrapped into the space bounds before the
+            difference is taken, so a point outside the bounds is equivalent to
+            its wrapped counterpart.
 
         """
         point = np.asanyarray(point)
+        if self.torus:
+            point = self._wrap_point(point)
+
         positions = (
             self.agent_positions
             if agents is None
-            else self._agent_positions[[a._mesa_index for a in agents]]
+            else self._agent_positions[self._indices(agents)]
         )
 
         delta = positions - point
@@ -200,7 +238,12 @@ class ContinuousSpace:
         return delta
 
     def calculate_distances(
-        self, point: ArrayLike, agents: Iterable[Agent] | None = None, **kwargs
+        self,
+        point: ArrayLike,
+        agents: Iterable[Agent] | None = None,
+        *,
+        _in_bounds: bool = False,
+        **kwargs,
     ) -> tuple[np.ndarray, list]:
         """Calculate the distance between the point and all agents.
 
@@ -208,8 +251,15 @@ class ContinuousSpace:
             point: the point to calculate the difference vector for
             agents: the agents to calculate the difference vector of point with. By default,
                     all agents are considered.
+            _in_bounds: internal, True if the point is known to be inside the space, which
+                    skips the bounds check on a torus. Agents use it with their own position.
             kwargs: any additional keyword arguments are passed to scipy's cdist, which is used
                     only if torus is False. This allows for non-Euclidian distance measures.
+
+        Notes:
+            On a torus, the point is wrapped into the space bounds before distances
+            are taken, so a point outside the bounds is equivalent to its wrapped
+            counterpart.
 
         """
         point = np.asanyarray(point)
@@ -218,10 +268,16 @@ class ContinuousSpace:
             positions = self.agent_positions
             agents = self.active_agents
         else:
-            positions = self._agent_positions[[a._mesa_index for a in agents]]
-            agents = np.asarray(agents)
+            agents = list(agents)
+            positions = self._agent_positions[self._indices(agents)]
 
         if self.torus:
+            # The minimum image convention below only holds while the separation
+            # is at most the space size on each axis, which an out-of-bounds
+            # query point can break, so wrap the point into the bounds first.
+            if not _in_bounds:
+                point = self._wrap_point(point)
+
             delta = np.abs(point - positions)
             delta = np.minimum(delta, self.size - delta, out=delta)
 
@@ -234,12 +290,42 @@ class ContinuousSpace:
             dists = cdist(point[np.newaxis, :], positions, **kwargs)[0, :]
         return dists, agents
 
+    def _indices(self, agents: Iterable[Agent]) -> list[int]:
+        holders = self._holders
+        return [holders.get(a, a)._mesa_index for a in agents]
+
+    def _index_of(self, agent: Agent) -> int | None:
+        """Return the agent's row in the position array, or None if it is not here."""
+        index = getattr(self._holders.get(agent, agent), "_mesa_index", None)
+        if index is None or self._index_to_agent.get(index) is not agent:
+            return None
+        return index
+
+    def _position_of(self, agent: Agent) -> np.ndarray | None:
+        """Return the agent's position in this space, or None if it is not here."""
+        index = self._index_of(agent)
+        return None if index is None else self._agent_positions[index]
+
     def get_agents_in_radius(
-        self, point: ArrayLike, radius: float | int = 1
+        self,
+        point: ArrayLike,
+        radius: float | int = 1,
+        exclude: Agent | None = None,
+        *,
+        _in_bounds: bool = False,
     ) -> tuple[list, np.ndarray]:
-        """Return the agents and their distances within a radius for the point."""
-        distances, agents = self.calculate_distances(point)
+        """Return the agents and their distances within a radius for the point.
+
+        Args:
+            point: the point to search around
+            radius: the radius to search within
+            exclude: an agent to leave out of the result, typically the one asking
+            _in_bounds: internal, True if the point is known to be inside the space
+        """
+        distances, agents = self.calculate_distances(point, _in_bounds=_in_bounds)
         logical = distances <= radius
+        if exclude is not None and (index := self._index_of(exclude)) is not None:
+            logical[index] = False
         agents = list(compress(agents, logical))
         return (
             agents,
@@ -247,9 +333,19 @@ class ContinuousSpace:
         )
 
     def get_k_nearest_agents(
-        self, point: ArrayLike, k: int = 1
+        self,
+        point: ArrayLike,
+        k: int = 1,
+        exclude: Agent | None = None,
+        *,
+        _in_bounds: bool = False,
     ) -> tuple[list, np.ndarray]:
         """Return the k nearest agents and their distances to the point.
+
+        Args:
+            point: the point to search around
+            k: the number of agents to return
+            exclude: an agent to leave out of the result, typically the one asking
 
         Notes:
             This method returns exactly k agents, ignoring ties. In case of ties, the
@@ -261,8 +357,11 @@ class ContinuousSpace:
             without a warning.
 
         """
-        dists, agents = self.calculate_distances(point)
+        dists, agents = self.calculate_distances(point, _in_bounds=_in_bounds)
         n = len(dists)
+        if exclude is not None and (index := self._index_of(exclude)) is not None:
+            dists[index] = np.inf
+            n -= 1
         # Handle empty space or invalid k
         if n == 0 or k <= 0:
             return [], np.array([])
@@ -277,8 +376,31 @@ class ContinuousSpace:
             )
             k = n
 
-        # np.argpartition expects zero-based index (k-1) and returns the indices of the k smallest distances
+        # np.argpartition expects zero-based index (k-1) and returns the indices
+        # of the k smallest distances.
         indices = np.argpartition(dists, k - 1)[:k]
+
+        # argpartition may choose any agents tied at the cutoff. Keep all closer
+        # agents, then fill the remaining places with the earliest inserted ties.
+        cutoff = dists[indices].max()
+        closer = np.flatnonzero(dists < cutoff)
+        cutoff_ties = np.flatnonzero(dists == cutoff)
+        if len(cutoff_ties) > k - len(closer):
+            cutoff_indices = np.flatnonzero(dists[indices] == cutoff)
+            cutoff_ties = sorted(cutoff_ties, key=lambda i: agents[i].unique_id)
+            indices[cutoff_indices] = cutoff_ties[: k - len(closer)]
+
+        # Preserve the partial-selection ordering between distinct distances,
+        # while making the ranking within each selected tie follow insertion order.
+        tied_positions: dict[float, list[int]] = {}
+        for position, index in enumerate(indices):
+            tied_positions.setdefault(float(dists[index]), []).append(position)
+        for positions in tied_positions.values():
+            if len(positions) > 1:
+                indices[positions] = sorted(
+                    indices[positions], key=lambda i: agents[i].unique_id
+                )
+
         agents = [agents[i] for i in indices]
         return agents, dists[indices]
 
@@ -290,6 +412,13 @@ class ContinuousSpace:
                 & (point <= self.dimensions[:, 1])
             ).all()
         )
+
+    def _wrap_point(self, point: np.ndarray) -> np.ndarray:
+        """Wrap point into the bounds, skipping the numpy work if it is already inside."""
+        for value, lower, upper in zip(point, self._lower, self._upper):
+            if value < lower or value > upper:
+                return self.torus_correct(point)
+        return point
 
     def torus_correct(self, point: ArrayLike) -> np.ndarray:
         """Apply a torus correction to the point."""

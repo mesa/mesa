@@ -5,8 +5,8 @@ import pytest
 from mesa import Agent, Model
 from mesa.discrete_space.cell_agent import CellAgent
 from mesa.discrete_space.grid import OrthogonalMooreGrid
-from mesa.meta_agents import MetaAgents
-from mesa.meta_agents.meta_agent import MetaAgent
+from mesa.experimental.meta_agents import MetaAgents
+from mesa.experimental.meta_agents.meta_agent import extract_class
 
 
 class CustomAgent(Agent):
@@ -70,6 +70,52 @@ def test_create_reuses_existing_class_for_new_instance(setup_agents):
     assert set(model.meta_agents.members_of(meta_agent)) == {agents[2], agents[0]}
     assert meta_agent2.function2() == "function2"
     assert set(model.meta_agents.members_of(meta_agent2)) == {agents[1], agents[3]}
+
+
+def test_create_reuses_a_name_after_the_last_group_is_dissolved(setup_agents):
+    """``create`` reuses a group name whose groups have all been dissolved.
+
+    The rebuilt group gets the class already registered under that name
+    rather than a newly defined one, and takes its members as usual.
+    """
+    model, agents = setup_agents
+
+    team = model.meta_agents.create("TaskForce", [agents[0], agents[1]])
+    original_class = type(team)
+    model.meta_agents.dissolve(team)
+
+    rebuilt = model.meta_agents.create("TaskForce", [agents[0], agents[1]])
+
+    assert type(rebuilt) is original_class
+    assert set(model.meta_agents.members_of(rebuilt)) == {agents[0], agents[1]}
+
+
+def test_extract_class_does_not_depend_on_live_instances(setup_agents):
+    """The class lookup answers from the dict key, not from a surviving agent.
+
+    ``agents_by_type`` is keyed by the class, so the lookup must give the same
+    answer whether or not any instance of that class is still alive.
+    """
+    model, agents = setup_agents
+
+    team = model.meta_agents.create("Squad", [agents[0], agents[1]])
+    group_class = type(team)
+    while_alive = extract_class(model.agents_by_type, "Squad")
+
+    model.meta_agents.dissolve(team)
+    assert not model.agents_by_type[group_class], "bucket should be empty but kept"
+
+    while_extinct = extract_class(model.agents_by_type, "Squad")
+
+    assert while_alive is group_class
+    assert while_extinct is group_class
+
+
+def test_extract_class_returns_none_for_an_unknown_name(setup_agents):
+    """A name no agent class carries still resolves to None."""
+    model, _ = setup_agents
+
+    assert extract_class(model.agents_by_type, "NoSuchClass") is None
 
 
 def test_create_adds_to_existing_group_of_same_class(setup_agents):
@@ -190,13 +236,6 @@ def test_find_combinations_without_evaluation_func(setup_agents):
     assert result == []
 
 
-def test_meta_agent_constructor_requires_membership_manager():
-    """Direct MetaAgent construction is rejected."""
-    model = Model()
-    with pytest.raises(RuntimeError, match=r"model\.meta_agents\.create"):
-        MetaAgent(model)
-
-
 def test_create_repeated_instances_with_descriptor_parent():
     """Multiple instances of the same class work with a descriptor parent."""
     model = Model()
@@ -213,7 +252,7 @@ def test_create_repeated_instances_with_descriptor_parent():
         CellAgent,
         meta_attributes={"cell": grid[2, 2]},
     )
-    assert isinstance(swarm1, MetaAgent)
+    assert isinstance(swarm1, Agent)
     assert isinstance(swarm1, CellAgent)
     assert swarm1.cell == grid[2, 2]
 
@@ -226,7 +265,7 @@ def test_create_repeated_instances_with_descriptor_parent():
         meta_attributes={"cell": grid[5, 5]},
     )
     assert swarm2 is not swarm1
-    assert isinstance(swarm2, MetaAgent)
+    assert isinstance(swarm2, Agent)
     assert isinstance(swarm2, CellAgent)
     assert swarm2.cell == grid[5, 5]
     assert swarm1.cell == grid[2, 2]

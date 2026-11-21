@@ -65,17 +65,30 @@ class Cell:
     def empty(self, value: bool) -> None:
         self._empty = value
 
+    # How a grid maps cell coordinates to positions. Grid sets these on the cell
+    # class it creates, so cells need no reference to their space.
+    _mesa_scale = None
+    _mesa_offset = None
+
     @property
     def position(self) -> np.ndarray:
         """Get the physical position of the cell.
+
+        For grid cells this is the center of the cell.
 
         Returns:
             np.ndarray: Physical position of the cell
         """
         if self._position is not None:
             return self._position
-        # Default for implicit grids
-        return np.asarray(self.coordinate, dtype=float)
+        position = np.asarray(self.coordinate, dtype=float)
+        scale = self._mesa_scale
+        if scale is not None:
+            # Grid cell: computed on first use, so cellular automata never pay for it
+            position = (position + 0.5) * scale + self._mesa_offset
+            position.flags.writeable = False
+            self._position = position
+        return position
 
     @position.setter
     def position(self, value: np.ndarray | None) -> None:
@@ -147,13 +160,11 @@ class Cell:
             agent (CellAgent): agent to add to this Cell
 
         """
-        n = len(self._agents)
-        self.empty = False
-
-        if self.capacity is not None and n >= self.capacity:
+        if self.capacity is not None and len(self._agents) >= self.capacity:
             raise CellFullException(self.coordinate)
 
         self._agents.append(agent)
+        self.empty = False
 
     def remove_agent(self, agent: CellAgent) -> None:
         """Removes an agent from the cell.
@@ -221,8 +232,6 @@ class Cell:
             random=self.random,
         )
 
-    # FIXME: Revisit caching strategy on methods
-    @cache  # noqa: B019
     def _neighborhood(
         self, radius: int = 1, include_center: bool = False
     ) -> dict[Cell, list[Agent]]:
@@ -241,6 +250,8 @@ class Cell:
             }
             if include_center:
                 neighborhood[self] = self._agents
+            else:
+                neighborhood.pop(self, None)
             return neighborhood
 
         # Use iterative BFS for radius > 1 to avoid RecursionError
@@ -292,4 +303,3 @@ class Cell:
     def _clear_cache(self):
         """Helper function to clear local cache."""
         self.get_neighborhood.cache_clear()
-        self._neighborhood.cache_clear()

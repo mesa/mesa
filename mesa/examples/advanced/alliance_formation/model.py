@@ -3,8 +3,8 @@ import numpy as np
 
 import mesa
 from mesa.examples.advanced.alliance_formation.agents import AllianceAgent
+from mesa.experimental.meta_agents import MetaAgents
 from mesa.experimental.scenarios import Scenario
-from mesa.meta_agents import MetaAgents
 
 
 class AllianceScenario(Scenario):
@@ -25,10 +25,11 @@ class MultiLevelAllianceModel(mesa.Model):
         Initialize the model.
 
         Args:
-            n (int): Number of agents.
-            mean (float): Mean value for normal distribution.
-            std_dev (float): Standard deviation for normal distribution.
-            rng (int): Random rng.
+            scenario (AllianceScenario): Model parameters:
+                n (int): Number of agents.
+                mean (float): Mean value for normal distribution.
+                std_dev (float): Standard deviation for normal distribution.
+                rng (int): Random seed.
         """
         super().__init__(scenario=scenario)
         self.network = nx.Graph()  # Initialize the network

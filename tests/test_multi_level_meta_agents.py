@@ -1,7 +1,7 @@
 """Tests for multi-level and overlapping meta-agents."""
 
 from mesa import Agent, Model
-from mesa.meta_agents import MetaAgents
+from mesa.experimental.meta_agents import MetaAgents
 
 
 def test_overlapping_meta_agents():
