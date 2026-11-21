@@ -1161,6 +1161,61 @@ class TestEventGeneratorIntrospection:
         assert gen.is_paused
 
 
+class TestEventGeneratorExceptions:
+    """An exception in the callback reaches the caller but does not end the generator."""
+
+    def test_keeps_firing_after_exception(self, setup):
+        """The run stops at the failing call, and the next run picks up from there."""
+        model, fn = setup
+        fn.side_effect = [None, RuntimeError("boom"), None, None, None]
+        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=1.0)).start()
+
+        with pytest.raises(RuntimeError, match="boom"):
+            model.run_for(5)
+        assert model.time == 2.0
+        assert gen.is_active
+        assert gen.next_scheduled_time == 3.0
+
+        model.run_for(3)
+        assert fn.call_count == 5
+        assert gen.execution_count == 5
+
+    def test_failed_call_counts_toward_count(self, setup):
+        """A call that raised still counts, so count stays an upper bound on calls."""
+        model, fn = setup
+        fn.side_effect = [RuntimeError("boom"), None, None]
+        gen = EventGenerator(
+            model, fn, Schedule(interval=1.0, start=1.0, count=2)
+        ).start()
+
+        with pytest.raises(RuntimeError):
+            model.run_until(1)
+        model.run_until(10)
+
+        assert fn.call_count == 2
+        assert not gen.is_active
+
+    def test_stop_in_failing_callback_is_respected(self, setup):
+        """A callback that stops its generator and then raises is not rescheduled."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=1.0))
+
+        def stop_and_raise():
+            gen.stop()
+            raise RuntimeError("boom")
+
+        fn.side_effect = stop_and_raise
+        gen.start()
+
+        with pytest.raises(RuntimeError):
+            model.run_for(5)
+        model.run_for(5)
+
+        assert fn.call_count == 1
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+
+
 class TestEventGeneratorPauseResume:
     def test_full_lifecycle(self, setup):
         model, fn = setup
