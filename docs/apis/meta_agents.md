@@ -50,6 +50,11 @@ model.meta_agents.dissolve(team)                      # dissolve a group
 model.meta_agents.find_combinations([alice, bob], evaluation_func=score)  # candidate groups
 ```
 
+Members and groups passed to `create` and `add_member` must be agents registered
+in the model. Non-agent values, such as a `unique_id`, raise `TypeError`; agents
+that are not registered raise `ValueError`. `remove_member` accepts agents that
+are no longer registered so cleanup stays idempotent.
+
 ## Group creation and reuse
 
 Groups are identified by their class name. `create` reuses an existing group

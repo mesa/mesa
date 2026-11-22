@@ -366,22 +366,113 @@ def test_at_level_cyclic_membership_terminates():
     assert set(meta_agents.at_level(2, root=a)) == set()
 
 
-# ── coverage for _resolve_group branches ──
+# ── agent validation for membership writes ──
 
 
-def test_group_operations_support_custom_hashable_group():
-    """Public group operations gracefully accept non-string, non-agent group identifiers."""
-
-    class CustomGroup:
-        pass
-
+def test_add_member_rejects_non_agent_member():
+    """add_member rejects a unique_id or other non-agent member."""
     model = Model()
     meta_agents = MetaAgents(model)
-    sentinel = CustomGroup()
     agent = Agent(model)
-    meta_agents.add_member(sentinel, agent)
-    assert set(meta_agents.members_of(sentinel)) == {agent}
-    assert set(meta_agents.groups_of(agent)) == {sentinel}
+    group = meta_agents.create("Group", [agent])
+
+    triplets_before = meta_agents.backend.as_triplets()
+    with pytest.raises(TypeError, match="member must be an Agent"):
+        meta_agents.add_member(group, agent.unique_id)
+    assert meta_agents.backend.as_triplets() == triplets_before
+
+
+def test_add_member_rejects_non_agent_group():
+    """add_member rejects an unregistered non-agent group."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    sentinel = object()
+
+    triplets_before = meta_agents.backend.as_triplets()
+    with pytest.raises(TypeError, match="group must be an Agent"):
+        meta_agents.add_member(sentinel, agent)
+    assert meta_agents.backend.as_triplets() == triplets_before
+
+
+def test_add_member_rejects_removed_group():
+    """add_member rejects a group that is no longer registered."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    group = meta_agents.create("Group", [member])
+    group.remove()
+
+    with pytest.raises(ValueError, match=r"group .* is not registered"):
+        meta_agents.add_member(group, member)
+
+
+def test_create_rejects_non_agent_member():
+    """Create rejects non-agent members before creating the group."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agents_before = set(model.agents)
+
+    with pytest.raises(TypeError, match="member must be an Agent"):
+        meta_agents.create("Group", [1])
+    assert set(model.agents) == agents_before
+
+
+def test_create_rejects_non_agent_membership():
+    """Create rejects non-agent members passed through memberships=."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agents_before = set(model.agents)
+
+    with pytest.raises(TypeError, match="member must be an Agent"):
+        meta_agents.create("Group", [], memberships=[(object(), "member")])
+    assert set(model.agents) == agents_before
+
+
+def test_remove_member_rejects_non_agent_member():
+    """remove_member rejects a non-agent member."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("Group", [agent])
+
+    with pytest.raises(TypeError, match="member must be an Agent"):
+        meta_agents.remove_member(group, agent.unique_id)
+    assert agent in meta_agents.members_of(group)
+
+
+def test_remove_member_allows_removed_agent():
+    """remove_member stays idempotent for an agent already removed."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("Group", [agent])
+    agent.remove()
+
+    meta_agents.remove_member(group, agent)
+    assert meta_agents.backend.as_triplets() == set()
+
+
+def test_plain_agent_can_still_be_a_group():
+    """Any registered Agent remains a valid group, not only MetaAgents."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    group = Agent(model)
+    member = Agent(model)
+
+    meta_agents.add_member(group, member)
+    assert set(meta_agents.members_of(group)) == {member}
+    assert set(meta_agents.groups_of(member)) == {group}
+
+
+def test_meta_agent_can_still_be_a_member():
+    """Nested meta-agents remain valid members."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    child = meta_agents.create("Child", [Agent(model)])
+    parent = meta_agents.create("Parent", [child])
+
+    assert set(meta_agents.members_of(parent)) == {child}
 
 
 def test_query_memberships_with_agent_object():
@@ -461,46 +552,30 @@ def test_membership_view_properties_with_multiple_relations():
 # ── coverage for dissolve fallback (entity without _remove_from_model) ──
 
 
-def test_dissolve_entity_with_only_remove():
-    """Dissolve falls back to .remove() when _remove_from_model is absent."""
-
-    class SimpleRemovable:
-        """A non-Agent entity that only has .remove()."""
-
-        def __init__(self):
-            self.removed = False
-
-        def remove(self):
-            self.removed = True
-
-        def __hash__(self):
-            return id(self)
-
+def test_dissolve_plain_agent_group_uses_remove_fallback():
+    """Dissolve falls back to .remove() for a plain Agent group."""
     model = Model()
     meta_agents = MetaAgents(model)
-    agent = Agent(model)
-    entity = SimpleRemovable()
+    group = Agent(model)
+    member = Agent(model)
+    meta_agents.add_member(group, member)
 
-    # Register a membership with a non-agent group via public API
-    meta_agents.add_member(entity, agent, relation="member")
+    snapshot = meta_agents.dissolve(group)
 
-    snapshot = meta_agents.dissolve(entity)
-    assert entity.removed
+    assert group not in model.agents
     assert len(snapshot) == 1
+    assert meta_agents.backend.as_triplets() == set()
 
 
-def test_dissolve_entity_without_remove():
-    """Dissolve gracefully handles entities that have neither remove method."""
+def test_dissolve_entity_without_remove_is_noop():
+    """Dissolve gracefully handles an entity that has no remove method."""
     model = Model()
     meta_agents = MetaAgents(model)
-    agent = Agent(model)
     sentinel = object()
 
-    meta_agents.add_member(sentinel, agent, relation="member")
-
-    # Should not raise even though sentinel has no remove
     snapshot = meta_agents.dissolve(sentinel)
-    assert len(snapshot) == 1
+
+    assert len(snapshot) == 0
 
 
 # ── coverage for evaluate_combination ──

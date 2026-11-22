@@ -92,6 +92,15 @@ class MetaAgents:
         if agent is not None:
             self.deactivate(agent)
 
+    def _validate_agent(
+        self, entity: Any, *, role: str, require_live: bool = True
+    ) -> None:
+        """Validate that an entity is an agent and optionally still registered."""
+        if not isinstance(entity, Agent):
+            raise TypeError(f"{role} must be an Agent, got {type(entity).__name__}")
+        if require_live and entity not in self.model.agents:
+            raise ValueError(f"{role} {entity!r} is not registered in the model")
+
     def _resolve_group(self, group: Hashable) -> Any:
         """Resolve a group from a live object or group name."""
         if group in self.model.agents:
@@ -175,7 +184,8 @@ class MetaAgents:
             new_agent_class: The group's class name. A group with this name is
                 reused if any of ``agents`` already belongs to it; otherwise a
                 new group with this name is created.
-            agents: Initial members of the group.
+            agents: Initial members of the group. Each must be an ``Agent``
+                registered in the model.
             mesa_agent_type: Mesa ``Agent`` class used as the base class of the
                 group agent. Defaults to ``Agent`` when omitted. Ignored when
                 an existing group is reused. Pass a custom ``Agent`` subclass
@@ -188,11 +198,15 @@ class MetaAgents:
                 ``"member"``). Ignored when ``memberships`` is given.
             memberships: Alternative to ``agents``; a list of
                 ``(member, relation)`` tuples so each member can get its own
-                relation label. When given, ``agents`` and ``relation`` are
-                ignored.
+                relation label. Each member must be an ``Agent`` registered in
+                the model. When given, ``agents`` and ``relation`` are ignored.
 
         Returns:
             The group agent (newly created or existing).
+
+        Raises:
+            TypeError: If an initial member is not an ``Agent``.
+            ValueError: If an initial member is not registered in the model.
 
         Examples:
             Install the membership manager on a model and create a few agents:
@@ -240,6 +254,9 @@ class MetaAgents:
         else:
             agents = _deduplicate_preserving_order(agents)
 
+        for agent in agents:
+            self._validate_agent(agent, role="member")
+
         meta_agent = _create_meta_agent_instance(
             self.model,
             new_agent_class,
@@ -265,13 +282,20 @@ class MetaAgents:
         member: Hashable,
         relation: RelationKey = "member",
     ) -> MembershipView:
-        """Add one member to one group."""
-        if (
-            member not in self.model.agents._agents
-        ):  # use internal attribute for optimization
-            raise ValueError(f"member {member!r} is not registered in the model")
+        """Add one member to one group.
+
+        Both ``group`` and ``member`` must be agents registered in the model.
+        ``group`` may be a group object or a group name.
+
+        Raises:
+            TypeError: If ``group`` or ``member`` is not an ``Agent``.
+            ValueError: If ``group`` or ``member`` is not registered in the
+                model, or the group name is missing or ambiguous.
+        """
+        self._validate_agent(member, role="member")
 
         group = self._resolve_group(group)
+        self._validate_agent(group, role="group")
 
         self.backend.add_membership(member, group, relation)
         return self.query_memberships(member)
@@ -282,8 +306,19 @@ class MetaAgents:
         member: Hashable,
         relation: RelationKey = "member",
     ) -> MembershipView:
-        """Remove one member from one group."""
+        """Remove one member from one group.
+
+        ``group`` and ``member`` must be agents, but need not still be
+        registered; removing an already-removed agent is a no-op.
+
+        Raises:
+            TypeError: If ``group`` or ``member`` is not an ``Agent``.
+            ValueError: If the group name is missing or ambiguous.
+        """
+        self._validate_agent(member, role="member", require_live=False)
+
         group = self._resolve_group(group)
+        self._validate_agent(group, role="group", require_live=False)
 
         self.backend.remove_membership(member, group, relation)
         return self.query_memberships(member)
