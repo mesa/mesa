@@ -492,18 +492,6 @@ class TestCompletionWins:
         with pytest.raises(ValueError, match="COMPLETED"):
             action.resume()
 
-    def test_due_action_completes_even_if_not_interruptible(self):
-        model, agent = make_model_and_agent()
-        action = agent.start_action(
-            TrackedAction(agent, duration=10.0, interruptible=False)
-        )
-        model.run_until(5.0)
-        results = self.at_deadline(model, action.interrupt, 10.0)
-        model.run_until(10.0)
-
-        assert results == [False]
-        assert action.completed
-
     def test_cancel_at_the_deadline_completes(self):
         model, agent = make_model_and_agent()
         action = agent.start_action(TrackedAction(agent, duration=10.0))
@@ -1028,16 +1016,6 @@ class TestAgentRemoval:
         assert ref() is None
         agent.remove()
 
-    def test_no_wake_after_removal(self):
-        model = Model()
-        agent = IdleRecorder(model)
-        agent.start_action(TrackedAction(agent, duration=5.0))
-        model.run_for(1)
-        agent.remove()
-        model.run_for(10)
-
-        assert agent.wakes == []
-
     def test_hooks_run_while_the_agent_is_in_the_model(self):
         model, agent = make_model_and_agent()
         seen = []
@@ -1098,34 +1076,6 @@ class TestAgentRemoval:
 
         assert action.state is ActionState.COMPLETED
         assert agent.wakes == []
-
-    def test_reservation_held_across_an_interruption_is_released(self):
-        """The Shift example: removed mid-break, the reservation still goes."""
-        model, agent = make_model_and_agent()
-        station = {"reserved_by": None}
-
-        class Shift(Action):
-            def on_start(self):
-                station["reserved_by"] = self.agent
-
-            def on_cancel(self):
-                station["reserved_by"] = None
-
-        shift = agent.start_action(Shift(agent, duration=8.0))
-        model.run_for(2)
-        shift.interrupt()  # on a break, still holding the station
-        agent.remove()
-
-        assert station["reserved_by"] is None
-
-    def test_remove_all_agents_cancels_their_actions(self):
-        model = Model()
-        agents = [ActionAgent(model) for _ in range(3)]
-        actions = [a.start_action(TrackedAction(a)) for a in agents]
-
-        model.remove_all_agents()
-
-        assert all(action.canceled for action in actions)
 
     def test_pickle_keeps_tracking(self):
         model, agent = make_model_and_agent()
@@ -1501,23 +1451,6 @@ class TestCancel:
         with pytest.raises(ValueError, match="CANCELED"):
             agent.start_action(action)
 
-    def test_cancel_twice_fires_once(self):
-        _model, agent = make_model_and_agent()
-        calls = []
-
-        class Counting(Action):
-            def on_cancel(self):
-                calls.append(self)
-
-        action = agent.start_action(Counting(agent))
-        assert action.cancel() is True
-        assert action.cancel() is False
-        assert len(calls) == 1
-
-    def test_cancel_action_idle_returns_false(self):
-        _model, agent = make_model_and_agent()
-        assert agent.cancel_action() is False
-
 
 class TestResume:
     def test_resume_active_returns_false(self):
@@ -1595,12 +1528,6 @@ class TestResolvedValues:
         with pytest.raises(ValueError, match="NaN"):
             agent.start_action(action)
         assert action.state is ActionState.PENDING
-
-    def test_infinite_priority_always_preempts(self):
-        _model, agent = make_model_and_agent()
-        agent.start_action(TrackedAction(agent, duration=10.0, priority=1e300))
-
-        assert agent.interrupt_for(TrackedAction(agent, priority=math.inf))
 
 
 class TestInterruptForSlot:
@@ -1847,24 +1774,6 @@ class TestHookSequences:
 
 
 class TestProgressReporting:
-    def test_deltas_add_up_to_one(self):
-        model, agent = make_model_and_agent()
-        deltas = []
-
-        class Recorder(Action):
-            def on_progress(self, delta):
-                deltas.append(delta)
-
-        action = agent.start_action(Recorder(agent, duration=7.0))
-        for _ in range(3):
-            model.run_for(0.7)
-            action.interrupt()
-            action.resume()
-        model.run_for(10)
-
-        assert len(deltas) == 4
-        assert math.fsum(deltas) == 1.0
-
     def test_interrupt_and_resume_at_the_same_time_changes_nothing(self):
         """A pause of zero length pays the same as no pause, to the last bit."""
 

@@ -13,23 +13,12 @@ agent-side API lives on the HasActions mixin; when an action ends, the
 agent's on_idle() hook fires, and decisions about what to do next --
 chain another action, resume an interrupted one -- belong there.
 
-Hooks
------
-
-An action runs in one or more *attempts*: the first start, and every resume
+An action runs in one or more attempts: the first start, and every resume
 after an interrupt. Each attempt that starts ends with exactly one
 ``on_stop()``, and each attempt end or final state fires exactly one outcome
 hook: ``on_interrupt()``, ``on_complete()``, ``on_fail()`` or ``on_cancel()``.
-
-- ``on_start()`` / ``on_resume()``: an attempt begins. ``on_resume()`` calls
-  ``on_start()`` by default. Acquire what the attempt needs here.
-- ``on_progress(delta)``: an attempt ends with work done. ``delta`` is the
-  fraction of the duration done since the last report. It runs while the
-  action is still ACTIVE, before the completion requirements are checked.
-- ``on_stop()``: every attempt end, however it ends, after the completion
-  requirements are checked. Release what ``on_start()`` acquired here.
-- ``on_interrupt()``, ``on_complete()``, ``on_fail()``, ``on_cancel()``: the
-  outcome, with the action already in its new state.
+An exception from a hook propagates without rollback, and the remaining hooks
+of that transition don't run.
 
 Modelling work
 --------------
@@ -54,6 +43,8 @@ Pick the hook that matches when the work counts:
           def on_progress(self, delta):
               self.agent.energy += 30 * delta
 
+      sheep.start_action(Forage(sheep))
+
 - **Accrued live.** ``progress``, ``elapsed_time`` and ``remaining_time``
   are computed from the model time while the action is ACTIVE, so other code
   can read the work done so far without waiting for the attempt to end. Pay
@@ -62,38 +53,6 @@ Pick the hook that matches when the work counts:
 To pay partial credit only when the action is canceled, read
 ``self.progress`` in ``on_cancel()``. Final hooks fire once, so none of these
 can pay twice.
-
-Policies
---------
-
-- **Completion wins.** An action that is due -- the model time has reached
-  its deadline -- when it is interrupted, canceled or preempted completes
-  instead, and may still fail its completion requirements.
-- **One wake per time.** ``on_idle()`` runs at most once per agent per model
-  time; see ``HasActions.on_idle()``.
-- **Re-entry.** ``on_start()``, ``on_resume()`` and the outcome hooks may
-  start, interrupt, resume or cancel actions. ``on_progress()``, ``on_stop()``
-  and the decision callables (requirements, duration, priority and
-  ``should_interrupt()``) run in the middle of a transition or are
-  predicates, so lifecycle calls for the same agent raise ``RuntimeError``
-  there.
-- **Exceptions.** Validation errors are raised before anything changes. An
-  exception from a hook or callable propagates without rollback, and the
-  remaining hooks of that transition don't run.
-
-Example::
-
-    class Sheep(HasActions, Agent):
-        pass
-
-    class Forage(Action):
-        def __init__(self, sheep):
-            super().__init__(sheep, duration=5.0)
-
-        def on_progress(self, delta):
-            self.agent.energy += 30 * delta
-
-    sheep.start_action(Forage(sheep))
 """
 
 from __future__ import annotations
@@ -255,8 +214,6 @@ class Action:
         # Counts starts and resumes, so callers can tell whether a hook
         # started a new attempt while they were not looking.
         self._attempts: int = 0
-        # Key in the agent's _started_actions, set at the first start.
-        self._track_key: int | None = None
 
     # --- Properties ---
 
@@ -522,7 +479,6 @@ class Action:
         self._deadline = now + self.duration * (1.0 - self._progress)
         self._state = ActionState.ACTIVE
         self._attempts += 1
-        attempt = self._attempts
         self.agent._current_action = self
 
         # Schedule the completion before the hook runs: a hook that
@@ -538,13 +494,8 @@ class Action:
         else:
             self.on_start()
 
-        # An instant action completes here, unless the hook ended it or
-        # started a new attempt of it.
-        if (
-            self._deadline <= now
-            and self._attempts == attempt
-            and self._state is ActionState.ACTIVE
-        ):
+        # An instant action completes here, unless the hook ended it.
+        if self._deadline <= now and self._state is ActionState.ACTIVE:
             self._complete()
         return True
 
@@ -731,10 +682,9 @@ class HasActions:
         self._guarded_in: str | None = None
         # Set when removal begins: no new attempts, no wakes.
         self._actions_closed: bool = False
-        # Actions this agent started that haven't ended, in start order.
+        # Actions this agent started that haven't ended, by id, in start order.
         # Weak, so an interrupted action the model dropped isn't kept alive.
         self._started_actions: WeakValueDictionary[int, Action] = WeakValueDictionary()
-        self._next_track_key: int = 0
         super().__init__(*args, **kwargs)
 
     @property
@@ -787,26 +737,17 @@ class HasActions:
                     action._cancel()
         super().remove()
 
-    def __getstate__(self) -> Any:
+    def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling: weak references can't be pickled."""
-        state = super().__getstate__()
-        attrs, slots = state if isinstance(state, tuple) else (state, None)
-        attrs = dict(attrs)
-        attrs["_started_actions"] = list(self._started_actions.items())
-        return attrs if slots is None else (attrs, slots)
+        state = self.__dict__.copy()
+        state["_started_actions"] = list(self._started_actions.values())
+        return state
 
-    def __setstate__(self, state: Any) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore state after unpickling, rebuilding the weak tracking."""
-        attrs, slots = state if isinstance(state, tuple) else (state, None)
-        attrs = dict(attrs)
-        attrs["_started_actions"] = WeakValueDictionary(attrs["_started_actions"])
-        parent = getattr(super(), "__setstate__", None)
-        if parent is not None:
-            parent(attrs if slots is None else (attrs, slots))
-            return
-        self.__dict__.update(attrs)
-        for name, value in (slots or {}).items():
-            object.__setattr__(self, name, value)
+        actions = state.pop("_started_actions")
+        self.__dict__.update(state)
+        self._started_actions = WeakValueDictionary((id(a), a) for a in actions)
 
     def start_action(self, action: Action) -> Action:
         """Start a PENDING action.
@@ -1025,14 +966,11 @@ class HasActions:
 
     def _track(self, action: Action) -> None:
         """Remember an action this agent started, until it ends."""
-        action._track_key = self._next_track_key
-        self._next_track_key += 1
-        self._started_actions[action._track_key] = action
+        self._started_actions[id(action)] = action
 
     def _untrack(self, action: Action) -> None:
         """Forget an action that reached a final state."""
-        if action._track_key is not None:
-            self._started_actions.pop(action._track_key, None)
+        self._started_actions.pop(id(action), None)
 
     def _check_owner(self, action: Action) -> None:
         """Raise ValueError unless this agent owns the action."""
