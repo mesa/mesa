@@ -125,7 +125,6 @@ class DataCollector:
         self.agenttype_reporters = {}
 
         self.model_vars = {}
-        self._collection_steps = []
         self._agent_records = {}
         self._agenttype_records = {}
         self.tables = {}
@@ -370,7 +369,7 @@ class DataCollector:
     def collect(self, model):
         """Collect all the data for the given model object.
 
-        A failed model reporter leaves model rows and collection steps unchanged.
+        A failed model reporter leaves model rows unchanged.
         Agent data is collected afterward and is not part of that transaction.
         Reporter side effects are not rolled back.
         """
@@ -401,8 +400,6 @@ class DataCollector:
 
             for var, value in model_values.items():
                 self.model_vars[var].append(value)
-            if hasattr(self, "_collection_steps"):
-                self._collection_steps.append(model.time)
 
         if self.agent_reporters:
             agent_records = self._record_agents(model)
