@@ -39,9 +39,9 @@ class TrackedAction(Action):
     def on_complete(self):
         self.completed = True
 
-    def on_interrupt(self, progress):
+    def on_interrupt(self):
         self.interrupted = True
-        self.interrupt_progress = progress
+        self.interrupt_progress = self.progress
 
     def on_fail(self):
         self.failed = True
@@ -284,7 +284,7 @@ class TestStartResume:
             def on_start(self):
                 self.started.append("start")
 
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 pass
 
         action = StartTracker(agent)
@@ -314,7 +314,7 @@ class TestStartResume:
             def on_resume(self):
                 self.log.append("resume")
 
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 pass
 
         action = ResumeTracker(agent)
@@ -475,13 +475,8 @@ class TestCompletionWins:
         agent.energy = 0.0
 
         class Forage(TrackedAction):
-            def on_interrupt(self, progress):
-                super().on_interrupt(progress)
-                self.agent.energy += 30 * progress
-
-            def on_complete(self):
-                super().on_complete()
-                self.agent.energy += 30
+            def on_progress(self, delta):
+                self.agent.energy += 30 * delta
 
         action = agent.start_action(Forage(agent, duration=10.0))
         results = self.at_deadline(model, action.interrupt, 10.0)
@@ -923,7 +918,7 @@ class TestSubclassCallbacks:
 
         assert agent.energy == 80
 
-    def test_subclass_on_interrupt(self):
+    def test_subclass_on_progress(self):
         model, agent = make_model_and_agent()
 
         class ProgressTracker(Action):
@@ -931,8 +926,8 @@ class TestSubclassCallbacks:
                 super().__init__(agent, duration=10.0)
                 self.received_progress = []
 
-            def on_interrupt(self, progress):
-                self.received_progress.append(progress)
+            def on_progress(self, delta):
+                self.received_progress.append(delta)
 
         action = ProgressTracker(agent)
 
@@ -1010,7 +1005,7 @@ class TestResumeDetection:
             def on_start(self):
                 self.start_types.append("resume" if self.progress > 0 else "first")
 
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 pass
 
         action = DetectResumeAction(agent)
@@ -1496,7 +1491,7 @@ class TestInterruptForSlot:
         fallback = TrackedAction(agent, duration=3.0)
 
         class GoesElsewhere(TrackedAction):
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 self.agent.start_action(fallback)
 
         agent.start_action(GoesElsewhere(agent, duration=10.0))
@@ -1511,7 +1506,7 @@ class TestInterruptForSlot:
         new_action = TrackedAction(agent)
 
         class HandsOver(TrackedAction):
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 self.agent.start_action(new_action)
 
         agent.start_action(HandsOver(agent, duration=10.0))
@@ -1525,7 +1520,7 @@ class TestInterruptForSlot:
         new_action = TrackedAction(agent)
 
         class Vetoes(TrackedAction):
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 new_action.cancel()
 
         agent.start_action(Vetoes(agent, duration=10.0))
@@ -1533,6 +1528,347 @@ class TestInterruptForSlot:
         assert agent.interrupt_for(new_action) is False
         assert new_action.state is ActionState.CANCELED
         assert not agent.is_busy
+
+
+# --- Hook contract ---
+
+
+class LoggedAction(Action):
+    """Action that logs every hook with the state it saw."""
+
+    def __init__(self, agent, duration=5.0, **kwargs):
+        super().__init__(agent, duration=duration, **kwargs)
+        self.log = []
+
+    def _record(self, hook):
+        self.log.append((hook, self.state))
+
+    def on_start(self):
+        self._record("start")
+
+    def on_resume(self):
+        self._record("resume")
+
+    def on_progress(self, delta):
+        self._record("progress")
+
+    def on_stop(self):
+        self._record("stop")
+
+    def on_interrupt(self):
+        self._record("interrupt")
+
+    def on_complete(self):
+        self._record("complete")
+
+    def on_fail(self):
+        self._record("fail")
+
+    def on_cancel(self):
+        self._record("cancel")
+
+
+S = ActionState
+
+
+class TestHookSequences:
+    """Each exit fires its hooks in a fixed order, each seeing a fixed state."""
+
+    def test_interrupt(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(LoggedAction(agent))
+        model.run_for(1)
+        action.interrupt()
+
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.INTERRUPTED),
+            ("interrupt", S.INTERRUPTED),
+        ]
+
+    def test_resume_then_complete(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(LoggedAction(agent))
+        model.run_for(1)
+        action.interrupt()
+        action.log.clear()
+        action.resume()
+        model.run_for(5)
+
+        assert action.log == [
+            ("resume", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.COMPLETED),
+            ("complete", S.COMPLETED),
+        ]
+
+    def test_cancel_active(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(LoggedAction(agent))
+        model.run_for(1)
+        action.cancel()
+
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.CANCELED),
+            ("cancel", S.CANCELED),
+        ]
+
+    @pytest.mark.parametrize("from_state", ["pending", "interrupted"])
+    def test_cancel_without_an_attempt_fires_only_on_cancel(self, from_state):
+        model, agent = make_model_and_agent()
+        action = LoggedAction(agent)
+        if from_state == "interrupted":
+            agent.start_action(action)
+            model.run_for(1)
+            action.interrupt()
+            action.log.clear()
+        action.cancel()
+
+        assert action.log == [("cancel", S.CANCELED)]
+
+    def test_completion_requirement_fails(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(
+            LoggedAction(agent, completion_requirements=lambda a: False)
+        )
+        model.run_for(5)
+
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.FAILED),
+            ("fail", S.FAILED),
+        ]
+
+    def test_start_requirement_fails(self):
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(
+            LoggedAction(agent, start_requirements=lambda a: False)
+        )
+
+        assert action.log == [("fail", S.FAILED)]
+
+    def test_instant_action(self):
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(LoggedAction(agent, duration=0))
+
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.COMPLETED),
+            ("complete", S.COMPLETED),
+        ]
+
+    def test_no_progress_hook_without_work(self):
+        """An attempt interrupted the instant it began did no work."""
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(LoggedAction(agent))
+        action.interrupt()
+
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("stop", S.INTERRUPTED),
+            ("interrupt", S.INTERRUPTED),
+        ]
+
+
+class TestProgressReporting:
+    def test_deltas_add_up_to_one(self):
+        model, agent = make_model_and_agent()
+        deltas = []
+
+        class Recorder(Action):
+            def on_progress(self, delta):
+                deltas.append(delta)
+
+        action = agent.start_action(Recorder(agent, duration=7.0))
+        for _ in range(3):
+            model.run_for(0.7)
+            action.interrupt()
+            action.resume()
+        model.run_for(10)
+
+        assert len(deltas) == 4
+        assert math.fsum(deltas) == 1.0
+
+    def test_interrupt_and_resume_at_the_same_time_changes_nothing(self):
+        """A pause of zero length pays the same as no pause, to the last bit."""
+
+        class Forage(Action):
+            def on_progress(self, delta):
+                self.agent.energy += 30 * delta
+
+        def run(pause_at):
+            model, agent = make_model_and_agent()
+            agent.energy = 0.0
+            action = agent.start_action(Forage(agent, duration=7.0))
+            for t in pause_at:
+                model.run_until(t)
+                action.interrupt()
+                action.resume()
+            model.run_until(10.0)
+            return agent.energy, action.progress
+
+        assert run([]) == run([2.1]) == (30.0, 1.0)
+        assert run([0.7, 1.4]) == run([0.7, 0.7, 1.4, 1.4])
+
+    def test_progress_is_paid_before_the_completion_check(self):
+        """A requirement sees all the work, however often it was interrupted."""
+        model, agent = make_model_and_agent()
+        agent.stock = 0.0
+
+        class Fill(Action):
+            def __init__(self, agent):
+                super().__init__(
+                    agent,
+                    duration=4.0,
+                    completion_requirements=lambda a: a.stock == pytest.approx(10),
+                )
+
+            def on_progress(self, delta):
+                self.agent.stock += 10 * delta
+
+        action = agent.start_action(Fill(agent))
+        model.run_for(1)
+        action.interrupt()
+        action.resume()
+        model.run_for(5)
+
+        assert action.state is ActionState.COMPLETED
+
+    def test_on_stop_releases_after_the_completion_check(self):
+        """The machine example: the requirement still sees the machine held."""
+        model = Model()
+        worker = ActionAgent(model)
+        worker.parts = 0
+        machine = {"holder": None}
+
+        class UseMachine(Action):
+            def __init__(self, worker):
+                super().__init__(
+                    worker,
+                    duration=8,
+                    start_requirements=lambda a: machine["holder"] is None,
+                    completion_requirements=lambda a: machine["holder"] is a,
+                )
+
+            def on_start(self):
+                machine["holder"] = self.agent
+
+            def on_stop(self):
+                machine["holder"] = None
+
+            def on_complete(self):
+                self.agent.parts += 1
+
+        action = worker.start_action(UseMachine(worker))
+        model.run_for(3)
+        action.interrupt()
+        assert machine["holder"] is None
+        action.resume()
+        model.run_for(5)
+
+        assert action.state is ActionState.COMPLETED
+        assert worker.parts == 1
+        assert machine["holder"] is None
+
+
+GUARDED_CALLS = {
+    "cancel_action": lambda agent: agent.cancel_action(),
+    "start_action": lambda agent: agent.start_action(Action(agent)),
+    "remove": lambda agent: agent.remove(),
+}
+
+
+class TestGuards:
+    """Lifecycle calls are refused where they would cut a transition in half."""
+
+    @pytest.mark.parametrize("call", GUARDED_CALLS)
+    @pytest.mark.parametrize("place", ["on_progress", "on_stop"])
+    def test_refused_in_hooks(self, place, call):
+        model, agent = make_model_and_agent()
+        errors = []
+
+        class Meddler(Action):
+            pass
+
+        def meddle(self, *args):
+            try:
+                GUARDED_CALLS[call](self.agent)
+            except RuntimeError as error:
+                errors.append(error)
+
+        setattr(Meddler, place, meddle)
+        action = agent.start_action(Meddler(agent, duration=2.0))
+        model.run_for(1)
+        action.interrupt()
+
+        assert len(errors) == 1
+        assert place in str(errors[0])
+        assert action.state is ActionState.INTERRUPTED
+
+    @pytest.mark.parametrize(
+        "where",
+        ["start_requirements", "completion_requirements", "duration", "priority"],
+    )
+    def test_refused_in_decision_callables(self, where):
+        model, agent = make_model_and_agent()
+
+        def meddle(a):
+            a.cancel_action()
+            return 1.0
+
+        action = Action(agent, **{where: meddle})
+        with pytest.raises(RuntimeError, match="Can't start, interrupt"):
+            agent.start_action(action)
+            model.run_for(2)
+
+    def test_refused_in_should_interrupt(self):
+        model = Model()
+
+        class Meddler(ActionAgent):
+            def should_interrupt(self, current, incoming):
+                current.interrupt()
+                return True
+
+        agent = Meddler(model)
+        current = agent.start_action(Action(agent, duration=5.0))
+
+        with pytest.raises(RuntimeError, match="should_interrupt"):
+            agent.interrupt_for(Action(agent))
+        assert current.state is ActionState.ACTIVE
+
+    def test_other_agents_are_not_guarded(self):
+        model = Model()
+        other = ActionAgent(model)
+        theirs = other.start_action(Action(other, duration=5.0))
+
+        class Notifier(Action):
+            def on_stop(self):
+                theirs.interrupt()
+
+        agent = ActionAgent(model)
+        agent.start_action(Notifier(agent, duration=1.0))
+        model.run_for(1)
+
+        assert theirs.state is ActionState.INTERRUPTED
+
+    def test_guard_is_lifted_after_the_hook(self):
+        model, agent = make_model_and_agent()
+
+        class Fails(Action):
+            def on_progress(self, delta):
+                raise KeyError("boom")
+
+        agent.start_action(Fails(agent, duration=2.0))
+        model.run_for(1)
+        with pytest.raises(KeyError):
+            agent.interrupt_action()
+
+        assert agent._guarded_in is None
 
 
 # --- Preemption policy ---
@@ -1668,11 +2004,8 @@ class TestRealisticScenarios:
             def __init__(self, sheep):
                 super().__init__(sheep, duration=5.0)
 
-            def on_complete(self):
-                self.agent.energy += 30
-
-            def on_interrupt(self, progress):
-                self.agent.energy += 30 * progress
+            def on_progress(self, delta):
+                self.agent.energy += 30 * delta
 
         class Flee(Action):
             def __init__(self, sheep):
@@ -1681,7 +2014,7 @@ class TestRealisticScenarios:
             def on_complete(self):
                 pass  # survived
 
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 self.agent.alive = False
 
         # Start foraging
@@ -1707,8 +2040,8 @@ class TestRealisticScenarios:
         model.run_for(2)  # 40% of 5.0 = 2.0 time units
 
         assert forage.state is ActionState.COMPLETED
-        # Partial (18.0) + full (30.0) = 48.0 added
-        assert sheep.energy == pytest.approx(50.0 + 18.0 + 30.0)
+        # 18 for the first 60%, 12 for the rest: one forage, paid once.
+        assert sheep.energy == pytest.approx(50.0 + 30.0)
 
     def test_sequential_actions(self):
         """Agent performs multiple actions in sequence."""
@@ -1764,9 +2097,9 @@ class TestRealisticScenarios:
             def on_complete(self):
                 self.agent.log.append(f"done@{self.agent.model.time}")
 
-            def on_interrupt(self, progress):
+            def on_interrupt(self):
                 self.agent.log.append(
-                    f"interrupted@{self.agent.model.time}({progress:.0%})"
+                    f"interrupted@{self.agent.model.time}({self.progress:.0%})"
                 )
 
         task = Task(worker, duration=10.0)
