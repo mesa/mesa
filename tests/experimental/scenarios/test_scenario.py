@@ -90,7 +90,7 @@ def test_scenario_serialization():
     # test the not implemented error for a non numpy BitGenerator
     scenario = Scenario(rng=42)
     state = list(scenario.__getstate__())
-    state[-1] = "NotARealBitGenerator"  # the _generator_class slot
+    state[5] = "NotARealBitGenerator"  # the _generator_class slot
 
     restored = Scenario.__new__(Scenario)
     with pytest.raises(NotImplementedError):
@@ -385,3 +385,79 @@ def test_from_ndarray_returns_subclass():
     scenarios = MyScenario.from_ndarray(samples, ["x"], rng=42)
 
     assert isinstance(scenarios[0], MyScenario)
+
+
+@pytest.mark.parametrize(
+    "batch_sizes", [(2, 2), (1, 0, 3), (0, 4), (4,), (np.int64(2), np.int64(2))]
+)
+def test_spawn_replications_continues_ids(batch_sizes):
+    """Splitting a batch preserves ids, parameters and random streams."""
+
+    class ParameterScenario(Scenario):
+        density: float = 0.8
+
+    parent = ParameterScenario(rng=42, scenario_id=10)
+    children = [child for n in batch_sizes for child in parent.spawn_replications(n)]
+    expected = ParameterScenario(rng=42, scenario_id=10).spawn_replications(4)
+
+    assert [child.replication_id for child in children] == list(range(4))
+    assert all(type(child.replication_id) is int for child in children)
+    for child, control in zip(children, expected):
+        assert isinstance(child, ParameterScenario)
+        assert child.scenario_id == 10
+        assert child.density == 0.8
+        assert child.seed_sequence.spawn_key == control.seed_sequence.spawn_key
+        assert child.rng.random() == control.rng.random()
+        assert dict(child) == {"density": 0.8}
+        assert len(child) == 1
+        assert "_replications_spawned" not in child.to_dict()
+    assert dict(parent) == {"density": 0.8}
+    with pytest.raises(TypeError, match="frozen"):
+        parent._replications_spawned = 0
+
+
+def test_spawn_replications_independent_parents():
+    """Each parent starts its own replication count at zero."""
+    first = Scenario(rng=42)
+    second = Scenario(rng=43)
+    first.spawn_replications(3)
+    assert [s.replication_id for s in second.spawn_replications(2)] == [0, 1]
+    assert [s.replication_id for s in first.spawn_replications(2)] == [3, 4]
+
+
+def test_spawn_replications_invalid_count():
+    """Rejected batch sizes do not consume replication ids or seeds."""
+    parent = Scenario(rng=42)
+    parent.spawn_replications(2)
+    for n, error in [(-1, ValueError), (1.5, TypeError)]:
+        with pytest.raises(error):
+            parent.spawn_replications(n)
+    child = parent.spawn_replications(1)[0]
+    assert child.replication_id == 2
+    assert child.seed_sequence.spawn_key == (2,)
+
+
+def test_spawn_replications_after_pickle():
+    """A restored parent continues both replication ids and child seeds."""
+    seed = np.random.SeedSequence(42)
+    seed.spawn(3)
+    parent = Scenario(rng=seed, scenario_id=10, density=0.8)
+    parent.spawn_replications(2)
+    restored = pickle.loads(pickle.dumps(parent))  # noqa: S301
+    actual = restored.spawn_replications(2)
+    expected = parent.spawn_replications(2)
+    assert [child.replication_id for child in actual] == [2, 3]
+    for child, control in zip(actual, expected):
+        assert child.seed_sequence.spawn_key == control.seed_sequence.spawn_key
+        assert child.rng.random() == control.rng.random()
+        assert dict(child) == {"density": 0.8}
+
+
+def test_spawn_replications_legacy_pickle_state():
+    """A state saved before counters were added still loads."""
+    parent = Scenario(rng=42, scenario_id=10)
+    restored = Scenario.__new__(Scenario)
+    restored.__setstate__(parent.__getstate__()[:6])
+    children = restored.spawn_replications(2)
+    assert [s.replication_id for s in children] == [0, 1]
+    assert [s.seed_sequence.spawn_key for s in children] == [(0,), (1,)]

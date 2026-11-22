@@ -334,3 +334,52 @@ def test_failure_info_is_picklable():
     assert restored.origin is FailureOrigin.RUNNING
     assert restored.exception_type == "RuntimeError"
     assert restored.message == "boom"
+
+
+@pytest.mark.parametrize(
+    ("store_kind", "separate"), [("memory", False), ("memory", True), ("disk", False)]
+)
+def test_run_spawned_batches_keep_all_results(
+    separate, store_kind, disk_store, maybe_executor
+):
+    """Repeated spawning keeps every run, including separate experiments."""
+    config = _DrawConfiguration(Model, until=1)
+    parent = Scenario(rng=42, scenario_id=10)
+    store = InMemoryStore() if store_kind == "memory" else disk_store
+    first = parent.spawn_replications(2)
+    if separate:
+        run_scenarios(
+            first, config, store=store, executor=maybe_executor, progress=False
+        )
+        old_outputs = {
+            run_id: store.retrieve_output(run_id) for run_id in store.succeeded()
+        }
+        second = parent.spawn_replications(2)
+        run_scenarios(
+            second, config, store=store, executor=maybe_executor, progress=False
+        )
+        for run_id, output in old_outputs.items():
+            for name, frame in output.items():
+                pd.testing.assert_frame_equal(
+                    frame, store.retrieve_output(run_id)[name]
+                )
+    else:
+        second = parent.spawn_replications(2)
+        run_scenarios(
+            first + second, config, store=store, executor=maybe_executor, progress=False
+        )
+    assert set(store.succeeded()) == {RunId(10, i) for i in range(4)}
+    assert len(store.read_scenarios()) == 4
+    assert not store.failed()
+    assert not store.pending()
+    expected = Scenario(rng=42, scenario_id=10).spawn_replications(4)
+    for child in expected:
+        output = store.retrieve_output(RunId(10, child.replication_id))
+        assert output["draws"]["draw"].tolist() == [child.rng.random()]
+
+
+class _DrawConfiguration(RunConfiguration):
+    """Record one random draw so batches can be compared across executors."""
+
+    def extract_output(self, model):
+        return {"draws": pd.DataFrame({"draw": [model.rng.random()]})}

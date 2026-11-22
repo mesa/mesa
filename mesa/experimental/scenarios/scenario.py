@@ -19,7 +19,7 @@ RNGLike = np.random.Generator | np.random.BitGenerator
 # derived from spawn_replications (its rng is the original seed, not a
 # spawned child). Kept as an int so RunID only uses ints for unique keys. In turn,
 # this makes any Store implementation cleaner as well. See e.g., InMemoryStore.status().
-# Safe as a sentinel because spawned replications are always 0..n-1, so -1
+# Safe as a sentinel because spawned replications are always nonnegative, so -1
 # never collides with a real replication_id.
 PARENT_REPLICATION_ID = -1
 
@@ -102,6 +102,7 @@ class Scenario:
         "__dict__",
         "_frozen",
         "_generator_class",
+        "_replications_spawned",
         "replication_id",
         "rng",
         "scenario_id",
@@ -149,6 +150,7 @@ class Scenario:
             **kwargs: All other scenario parameters (override class-level defaults).
         """
         self._frozen = False
+        self._replications_spawned = 0
         self.scenario_id = (
             next(self._ids[type(self)]) if scenario_id is None else scenario_id
         )
@@ -185,16 +187,30 @@ class Scenario:
             self.seed_sequence.entropy,
             tuple(self.seed_sequence.spawn_key),
             self._generator_class,
+            self._replications_spawned,
+            self.seed_sequence.n_children_spawned,
         )
 
     def __setstate__(self, state):
         """Restore state when unpickling."""
-        dict_state, scenario_id, replication_id, entropy, spawn_key, gen_class = state
+        (
+            dict_state,
+            scenario_id,
+            replication_id,
+            entropy,
+            spawn_key,
+            gen_class,
+            *spawn_state,
+        ) = state
+        replications_spawned, n_children_spawned = spawn_state or (0, 0)
         self._frozen = False
+        self._replications_spawned = replications_spawned
 
         self.scenario_id = scenario_id
         self.replication_id = replication_id
-        self.seed_sequence = np.random.SeedSequence(entropy, spawn_key=spawn_key)
+        self.seed_sequence = np.random.SeedSequence(
+            entropy, spawn_key=spawn_key, n_children_spawned=n_children_spawned
+        )
         self._generator_class = gen_class
 
         try:
@@ -248,14 +264,14 @@ class Scenario:
 
         Each replication has identical user provided parameters but a unique random number generator and replication_id.
         The rng is spawned from the original rng of the base scenario instance. Indexing for replication_id starts
-        from 0. This assumes that the instance on which this is called has replication_id == PARENT_REPLICATION_ID. If
-        this assumption does not hold, a user warning is issued.
+        from 0 and continues across calls on the same instance. This assumes that the instance on which this
+        is called has replication_id == PARENT_REPLICATION_ID. If this assumption does not hold, a user warning is issued.
 
         Args:
             n: Number of replications to create.
 
         Returns:
-            A list of n Scenario instances with replication_id 0..n-1.
+            A list of n Scenario instances with consecutive replication ids.
         """
         child_seeds = self.seed_sequence.spawn(n)
         if self.replication_id != PARENT_REPLICATION_ID:
@@ -266,15 +282,18 @@ class Scenario:
                 ),
                 stacklevel=2,
             )
-        return [
+        start = self._replications_spawned
+        replications = [
             self.__class__(
-                rng=child_seeds[i],
+                rng=seed,
                 scenario_id=self.scenario_id,
-                replication_id=i,
+                replication_id=start + i,
                 **self.__dict__,
             )
-            for i in range(n)
+            for i, seed in enumerate(child_seeds)
         ]
+        object.__setattr__(self, "_replications_spawned", start + len(replications))
+        return replications
 
     @classmethod
     def from_dataframe(
