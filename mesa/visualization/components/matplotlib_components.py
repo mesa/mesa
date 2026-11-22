@@ -1,4 +1,4 @@
-"""Matplotlib based solara components for visualization MESA spaces and plots."""
+"""Matplotlib based solara components for plotting model measures."""
 
 from __future__ import annotations
 
@@ -9,90 +9,7 @@ import matplotlib.pyplot as plt
 import solara
 from matplotlib.figure import Figure
 
-from mesa.visualization.mpl_space_drawing import draw_space
 from mesa.visualization.utils import update_counter
-
-
-def make_space_matplotlib(*args, **kwargs):  # noqa: D103
-    warnings.warn(
-        "make_space_matplotlib has been renamed to make_mpl_space_component",
-        FutureWarning,
-        stacklevel=2,
-    )
-    return make_mpl_space_component(*args, **kwargs)
-
-
-def make_mpl_space_component(
-    agent_portrayal: Callable | None = None,
-    property_layer_portrayal: dict | None = None,
-    post_process: Callable | None = None,
-    **space_drawing_kwargs,
-) -> SpaceMatplotlib:
-    """Create a Matplotlib-based space visualization component.
-
-    Args:
-        agent_portrayal: Function to portray agents.
-        property_layer_portrayal: Dictionary of property_layer portrayal specifications
-        post_process : a callable that will be called with the Axes instance. Allows for fine tuning plots (e.g., control ticks)
-        space_drawing_kwargs : additional keyword arguments to be passed on to the underlying space drawer function. See
-                               the functions for drawing the various spaces for further details.
-
-    ``agent_portrayal`` is called with an agent and should return a dict. Valid fields in this dict are "color",
-    "size", "marker", "zorder", alpha, linewidths, and edgecolors. Other field are ignored and will result in a user warning.
-
-    Returns:
-        function: A function that creates a SpaceMatplotlib component
-    """
-    if agent_portrayal is None:
-
-        def agent_portrayal(a):
-            return {}
-
-    def MakeSpaceMatplotlib(model):
-        return SpaceMatplotlib(
-            model,
-            agent_portrayal,
-            property_layer_portrayal,
-            post_process=post_process,
-            **space_drawing_kwargs,
-        )
-
-    return MakeSpaceMatplotlib
-
-
-@solara.component
-def SpaceMatplotlib(
-    model,
-    agent_portrayal,
-    property_layer_portrayal,
-    dependencies: list[any] | None = None,
-    post_process: Callable | None = None,
-    **space_drawing_kwargs,
-):
-    """Create a Matplotlib-based space visualization component."""
-    update_counter.get()
-
-    space = getattr(model, "grid", None)
-    if space is None:
-        space = getattr(model, "space", None)
-
-    fig = Figure()
-    ax = fig.add_subplot()
-
-    draw_space(
-        space,
-        agent_portrayal,
-        property_layer_portrayal=property_layer_portrayal,
-        ax=ax,
-        **space_drawing_kwargs,
-    )
-
-    if post_process is not None:
-        post_process(ax)
-
-    solara.FigureMatplotlib(
-        fig, format="png", bbox_inches="tight", dependencies=dependencies
-    )
 
 
 def make_plot_measure(*args, **kwargs):  # noqa: D103
@@ -166,12 +83,13 @@ def PlotMatplotlib(
             ax.plot(df.loc[:, m], label=m)
         ax.legend(loc="best")
 
-    if post_process is not None:
-        post_process(ax)
-
     ax.set_xlabel("Step")
     # Set integer x axis
     ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    if post_process is not None:
+        post_process(ax)
+
     solara.FigureMatplotlib(
         fig, format=save_format, bbox_inches="tight", dependencies=dependencies
     )

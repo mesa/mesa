@@ -53,6 +53,9 @@ extensions = [
 # Render $...$ and $$...$$ as math in Markdown and notebook cells
 myst_enable_extensions = ["dollarmath"]
 
+# Link [source] to the module where an object is defined, not to a re-export
+viewcode_follow_imported_members = False
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -120,6 +123,9 @@ nb_execution_timeout = 60
 nb_execution_mode = "cache"
 nb_execution_allow_errors = False
 nb_execution_raise_on_error = True
+
+# Generate anchors for headings up to level 3, so links like page.md#heading work.
+myst_heading_anchors = 3
 
 # -- Options for HTML output ----------------------------------------------
 

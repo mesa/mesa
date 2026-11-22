@@ -299,3 +299,34 @@ class TestEdgeCases:
 
         assert one_off_events == [2.5]
         assert recurring_events == [2.0, 4.0, 6.0]
+
+    def test_time_stays_float_with_int_times(self):
+        """model.time stays a float when run_until or schedule_event get ints."""
+        model = SimpleModel()
+        seen = []
+
+        def fire():
+            seen.append(model.time)
+
+        model.schedule_event(fire, at=2)
+        model.run_until(4)
+        model.step()
+
+        assert isinstance(seen[0], float)
+        assert isinstance(model.time, float)
+        assert model.time == 5.0
+
+
+class TestRemovedAgent:
+    def test_removed_agent_events_do_not_run(self):
+        """A removed agent stops acting, even while it is still referenced."""
+        model = Model()
+        agent = StepAgent(model)
+        model.schedule_event(agent.step, after=0.5)
+        model.schedule_recurring(agent.step, Schedule(interval=1))
+        model.run_until(2.5)
+
+        agent.remove()
+        model.schedule_event(agent.step, after=1)
+        model.run_until(5)
+        assert agent.steps_taken == 3
