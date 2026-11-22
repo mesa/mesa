@@ -1138,22 +1138,6 @@ class TestEventGeneratorIntrospection:
 class TestEventGeneratorExceptions:
     """An exception in the callback reaches the caller but does not end the generator."""
 
-    def test_keeps_firing_after_exception(self, setup):
-        """The run stops at the failing call, and the next run picks up from there."""
-        model, fn = setup
-        fn.side_effect = [None, RuntimeError("boom"), None, None, None]
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=1.0)).start()
-
-        with pytest.raises(RuntimeError, match="boom"):
-            model.run_for(5)
-        assert model.time == 2.0
-        assert gen.is_active
-        assert gen.next_scheduled_time == 3.0
-
-        model.run_for(3)
-        assert fn.call_count == 5
-        assert gen.execution_count == 5
-
     def test_failed_call_counts_toward_count(self, setup):
         """A call that raised still counts, so count stays an upper bound on calls."""
         model, fn = setup

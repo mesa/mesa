@@ -312,8 +312,6 @@ class EventGenerator:
 
         # Execute the function. Reschedule even if it raises, so one failing
         # call does not silently end the generator (and with it model.step()).
-        # If the interval itself raises while rescheduling, that error is raised,
-        # with the callback's error as its context.
         firing_event = self._current_event
         try:
             fn()
