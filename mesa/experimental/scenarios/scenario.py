@@ -287,10 +287,10 @@ class Scenario:
             self.__class__(
                 rng=seed,
                 scenario_id=self.scenario_id,
-                replication_id=start + i,
+                replication_id=i,
                 **self.__dict__,
             )
-            for i, seed in enumerate(child_seeds)
+            for i, seed in enumerate(child_seeds, start=start)
         ]
         object.__setattr__(self, "_replications_spawned", start + len(replications))
         return replications
