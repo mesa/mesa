@@ -7,6 +7,8 @@ title: Release History
 ## Highlights
 Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15 and Starlette 1.x.
 
+Fresh installs now get version 3 of `ipyvue` and `ipyvuetify`, which Solara doesn't fully support yet. Mesa now requires Solara 1.65.2 or newer, which fixes the blank SolaraViz plot area. If the sidebar or fullscreen mode of a visualization doesn't work in a Jupyter notebook, run `pip install -U "ipyvue<3" "ipyvuetify<3"` (#4133, #4170).
+
 The legacy space drawing API (`draw_space`, `make_space_component`, `make_mpl_space_component` and `make_altair_space`) is now deprecated in favour of `SpaceRenderer` and emits a `FutureWarning`. It will be removed in Mesa 4.0; see the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html) (#4064).
 
 Several fixes may change results in models that were hitting a bug. Events and event generators that call a method of a removed agent are now skipped as soon as `agent.remove()` is called, instead of running until Python garbage-collects the agent (#4119). `run_until()` and `run_for(0)` now run events scheduled for the current time instead of skipping them (#4048), and `model.time` is always a float (#4052). `HexGrid` cell positions now follow the even-r layout that its connections already use, which changes `cell.position` and `find_nearest_cell()` (#3959). In the experimental `ContinuousSpace`, torus distances wrap the query point correctly (#3932), ties in `get_k_nearest_agents()` are broken by insertion order as documented (#3946), and `get_nearest_neighbors()` returns at most `k` agents (#3995). The experimental `JSONDataRecorder` now keeps only the last `window_size` snapshots, like `DataRecorder` (#4072), and stores numpy agent datasets as rows with agent ids and field names instead of bare lists (#4061).
@@ -67,7 +69,8 @@ Other fixes cover pickling and deep-copying (property layers on every cell of a 
 ### 🔧 Maintenance
 * CI: Start testing Python 3.15 by @EwoutH in #3830
 * Take the initial viz test screenshots from the newest image by @AshNicolus in #4095
-* Allow Starlette 1.x and require Solara 1.57.4 or newer (from #4007)
+* Allow Starlette 1.x (from #4007)
+* Require Solara 1.65.2 and document the ipyvue 3 workaround by @EwoutH in #4170
 * test: compare JSONDataRecorder data as a list in the plain array test by @ArnabOPP in #4157
 
 ## New Contributors
