@@ -202,16 +202,7 @@ class BaseDataRecorder(ABC):
             ):
                 continue
 
-            dataset = self.registry.datasets[name]
-            if self._is_append_only(dataset):
-                # recorded rows never change, so there is nothing to overwrite
-                is_overwrite = False
-            data_snapshot = self._take_snapshot(name, dataset)
-
-            self._store_dataset_snapshot(
-                name, current_time, data_snapshot, is_overwrite
-            )
-
+            self._record_dataset(name, current_time, is_overwrite)
             config._last_collection = current_time
 
             # Update next collection time (may auto-disable)
@@ -232,16 +223,30 @@ class BaseDataRecorder(ABC):
 
             is_overwrite = current_time == config._last_collection
 
-            dataset = self.registry.datasets[name]
-            if self._is_append_only(dataset):
-                # recorded rows never change, so there is nothing to overwrite
-                is_overwrite = False
-            data_snapshot = self._take_snapshot(name, dataset)
-            self._store_dataset_snapshot(
-                name, current_time, data_snapshot, is_overwrite
-            )
-
+            self._record_dataset(name, current_time, is_overwrite)
             config._last_collection = current_time
+
+    def _record_dataset(
+        self, name: str, time: int | float, is_overwrite: bool = False
+    ) -> None:
+        """Record the current data of a dataset at the given time.
+
+        This is the single place where all collection paths (time changes,
+        the end of a run, and manual ``collect()``) record a dataset.
+
+        Args:
+            name: name of the dataset
+            time: the simulation time to record the data at
+            is_overwrite: whether this replaces what is already recorded at
+                this time. Ignored for append-only datasets: their recorded
+                rows never change, so there is nothing to replace, and an
+                overwrite would delete rows the snapshot does not include again.
+        """
+        dataset = self.registry.datasets[name]
+        if self._is_append_only(dataset):
+            is_overwrite = False
+        data_snapshot = self._take_snapshot(name, dataset)
+        self._store_dataset_snapshot(name, time, data_snapshot, is_overwrite)
 
     @staticmethod
     def _is_append_only(dataset: Any) -> bool:
@@ -289,9 +294,7 @@ class BaseDataRecorder(ABC):
             if not config.enabled:
                 continue
 
-            dataset = self.registry.datasets[name]
-            data_snapshot = self._take_snapshot(name, dataset)
-            self._store_dataset_snapshot(name, current_time, data_snapshot)
+            self._record_dataset(name, current_time)
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
 

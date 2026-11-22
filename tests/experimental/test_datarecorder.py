@@ -1408,3 +1408,15 @@ def test_table_dataset_collect_at_recorded_time(recorder_cls, tmp_path):
     df = model.recorder.get_table_dataframe("events")
     assert list(df["what"]) == [1, 2, 3]
     assert list(df["what"]) == list(df["time"])
+
+
+@pytest.mark.parametrize("recorder_cls", TABLE_RECORDERS)
+def test_table_dataset_overwrite_keeps_recorded_rows(recorder_cls, tmp_path):
+    """An overwrite never deletes the recorded rows of an append-only dataset."""
+    model = EventModel(recorder_cls, tmp_path)
+    model.run_for(2)
+    model.recorder._record_dataset("events", model.time, is_overwrite=True)
+
+    df = model.recorder.get_table_dataframe("events")
+    assert list(df["what"]) == [1, 2]
+    assert list(df["what"]) == list(df["time"])
