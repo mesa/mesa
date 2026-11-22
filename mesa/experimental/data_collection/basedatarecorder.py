@@ -44,7 +44,10 @@ class DatasetConfig:
         interval: Collection frequency in time units
         start_time: First time to begin collection
         end_time: Last time to collect (None = collect forever)
-        window_size: Max snapshots to keep (None = keep all, N = sliding window)
+        window_size: Max snapshots to keep (None = keep all, N = sliding window).
+            For a TableDataSet each snapshot holds the rows added since the
+            previous collection, so the window keeps the rows of the last N
+            collections rather than the last N rows.
         enabled: Whether collection is active
         _next_collection: Next scheduled collection time (internal)
 
@@ -240,23 +243,22 @@ class BaseDataRecorder(ABC):
     ) -> Any:
         """Return the data to store for a dataset at this collection.
 
-        For a TableDataSet only the rows added since the previous collection
-        are returned, because the table itself is cumulative. The returned
-        list is new, but the row dicts are shared with the dataset (rows are
-        never mutated after being added). On an overwrite, the rows of the
-        replaced block are included again.
-        For all other datasets this is simply ``dataset.data``.
+        A dataset that only ever grows, such as a TableDataSet, exposes
+        ``get_rows_since``. For such a dataset only the rows added since the
+        previous collection are returned, because the dataset itself is
+        cumulative. On an overwrite, the rows of the replaced block are
+        included again. For all other datasets this is simply ``dataset.data``.
         """
-        from .dataset import TableDataSet  # noqa: PLC0415
-
-        if not isinstance(dataset, TableDataSet):
+        # look the method up on the type, so only dataset classes that define
+        # it qualify (not, e.g., arbitrary objects with dynamic attributes)
+        if getattr(type(dataset), "get_rows_since", None) is None:
             return dataset.data
 
         block_start, n_stored = self._table_cursors.get(name, (0, 0))
         start = block_start if is_overwrite else n_stored
-        rows = dataset.data
-        self._table_cursors[name] = (start, len(rows))
-        return rows[start:]
+        rows = dataset.get_rows_since(start)
+        self._table_cursors[name] = (start, start + len(rows))
+        return rows
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:

@@ -19,6 +19,7 @@ from mesa.experimental.data_collection import (
     JSONDataRecorder,
     ParquetDataRecorder,
     SQLDataRecorder,
+    TableDataSet,
 )
 from mesa.experimental.data_collection.datarecorders import NumpyJSONEncoder
 from mesa.model import Model
@@ -1348,32 +1349,49 @@ def test_run_ended_before_start_can_resume(run_method):
     assert recorder.get_table_dataframe("state")["time"].tolist() == [10, 12]
 
 
-@pytest.mark.parametrize(
-    "recorder_cls",
-    [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
-)
-def test_table_dataset_rows_recorded_once(recorder_cls, tmp_path):
-    """Rows of a TableDataSet are recorded once, stamped with the time they were added."""
-    from mesa.experimental.data_collection.dataset import TableDataSet  # noqa: PLC0415
+class EventModel(Model):
+    """A model that adds a row to a TableDataSet on selected steps."""
 
-    class EventModel(Model):
-        def __init__(self):
-            super().__init__(rng=42)
-            self.events = self.data_registry.create_dataset(
-                TableDataSet, "events", fields=["what"]
-            )
-            kwargs = {
-                JSONDataRecorder: {"output_dir": tmp_path},
-                ParquetDataRecorder: {"output_dir": tmp_path},
-            }.get(recorder_cls, {})
-            self.recorder = recorder_cls(self, config={"events": {}}, **kwargs)
+    def __init__(self, recorder_cls, output_dir, add_row_at=None):
+        """Create the dataset and a recorder of the given class."""
+        super().__init__(rng=42)
+        self.add_row_at = add_row_at
+        self.events = self.data_registry.create_dataset(
+            TableDataSet, "events", fields=["what"]
+        )
+        kwargs = {
+            JSONDataRecorder: {"output_dir": output_dir},
+            ParquetDataRecorder: {"output_dir": output_dir},
+        }.get(recorder_cls, {})
+        self.recorder = recorder_cls(self, config={"events": {}}, **kwargs)
 
-        def step(self):
+    def step(self):
+        """Add a row if this step is selected."""
+        if self.add_row_at is None or self.time in self.add_row_at:
             self.events.add_row({"what": self.time})
 
-    model = EventModel()
+
+TABLE_RECORDERS = [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder]
+
+
+@pytest.mark.parametrize("recorder_cls", TABLE_RECORDERS)
+def test_table_dataset_rows_recorded_once(recorder_cls, tmp_path):
+    """Rows of a TableDataSet are recorded once, stamped with the time they were added."""
+    model = EventModel(recorder_cls, tmp_path)
     model.run_for(3)
 
-    df = model.recorder.get_table_dataframe("events").dropna(subset=["what"])
+    df = model.recorder.get_table_dataframe("events")
     assert len(df) == 3
+    assert list(df["what"]) == list(df["time"])
+
+
+@pytest.mark.parametrize("recorder_cls", TABLE_RECORDERS)
+def test_table_dataset_sparse_rows_over_two_runs(recorder_cls, tmp_path):
+    """Rows added on only some steps survive a run that continues from the end time."""
+    model = EventModel(recorder_cls, tmp_path, add_row_at={2, 3, 5})
+    model.run_for(3)
+    model.run_for(3)
+
+    df = model.recorder.get_table_dataframe("events")
+    assert list(df["what"]) == [2, 3, 5]
     assert list(df["what"]) == list(df["time"])
