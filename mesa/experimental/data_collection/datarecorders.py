@@ -76,7 +76,9 @@ class DataRecorder(BaseDataRecorder):
         config = self.configs[dataset_name]
 
         old_data = None
-        if is_overwrite and storage.blocks:
+        # An empty snapshot stores no block, so the last block may belong to an
+        # earlier time.
+        if is_overwrite and storage.blocks and storage.blocks[-1][0] == time:
             _, old_data = storage.blocks.pop()
         elif config.window_size and len(storage.blocks) >= config.window_size:
             _, old_data = storage.blocks.popleft()
@@ -347,7 +349,9 @@ class JSONDataRecorder(BaseDataRecorder):
         for snapshot in self.data[name]:
             time = snapshot["time"]
             data = snapshot["data"]
-            if isinstance(data, list) and data and isinstance(data[0], dict):
+            if isinstance(data, list) and not data:
+                continue  # a snapshot taken without agents has no rows
+            if isinstance(data, list) and isinstance(data[0], dict):
                 for row in data:
                     records.append({**row, "time": time})
             elif isinstance(data, dict):
@@ -356,7 +360,7 @@ class JSONDataRecorder(BaseDataRecorder):
                 # Handle scalar or simple list
                 records.append({"time": time, "value": data})
 
-        return pd.DataFrame(records) if records else pd.DataFrame()
+        return pd.DataFrame(records) if records else pd.DataFrame(columns=["time"])
 
     def clear(self, dataset_name: str | None = None) -> None:
         """Clear recorded data, keeping the datasets so recording can continue.
@@ -494,7 +498,7 @@ class ParquetDataRecorder(BaseDataRecorder):
 
         filepath = self.output_dir / f"{name}.parquet"
         if not filepath.exists():
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["time"])
 
         return pd.read_parquet(filepath)
 
@@ -662,7 +666,7 @@ class SQLDataRecorder(BaseDataRecorder):
             raise KeyError(f"Dataset '{name}' not found")
 
         if not self.metadata[name]["table_created"]:
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["time"])
 
         return pd.read_sql(f'SELECT * FROM "{name}"', self.conn)  # noqa: S608
 

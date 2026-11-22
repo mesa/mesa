@@ -1179,6 +1179,62 @@ def test_recorder_start_time_behavior():
     assert 2.0 in times
 
 
+class LeavingAgent(Agent):
+    """An agent that removes itself from the model at a given time."""
+
+    def __init__(self, model, leave_at):
+        """Initialize the agent."""
+        super().__init__(model)
+        self.value = 1.0
+        model.schedule_event(self.remove, at=leave_at)
+
+
+def test_data_recorder_overwrite_keeps_earlier_snapshot():
+    """Recording a time again after it stored nothing keeps the earlier times."""
+    model = Model()
+    LeavingAgent.create_agents(model, 2, leave_at=2.5)
+    model.data_registry.track_agents(model.agents, "agents", fields=["value"])
+    recorder = DataRecorder(model, {"agents": DatasetConfig()})
+
+    model.run_for(3)  # no agents left when the run ends at 3
+    model.run_for(1)  # 3 is recorded again
+
+    df = recorder.get_table_dataframe("agents")
+    assert df["time"].tolist() == [0, 0, 1, 1, 2, 2]
+
+
+def test_json_recorder_skips_empty_snapshots(tmp_path):
+    """A snapshot taken without agents adds no row to the frame."""
+    model = Model()
+    LeavingAgent.create_agents(model, 2, leave_at=0.5)
+    model.data_registry.track_agents(model.agents, "agents", fields=["value"])
+    recorder = JSONDataRecorder(model, {"agents": DatasetConfig()}, output_dir=tmp_path)
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("agents")
+    assert df["time"].tolist() == [0, 0]
+    assert df["value"].tolist() == [1.0, 1.0]
+
+
+@pytest.mark.parametrize(
+    "recorder_class", [JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder]
+)
+def test_empty_recording_has_time_column(tmp_path, recorder_class):
+    """A dataset with nothing recorded gives an empty frame with a time column."""
+    model = MockModel(n=2)
+    kwargs = {} if recorder_class is SQLDataRecorder else {"output_dir": tmp_path}
+    recorder = recorder_class(
+        model, {"model_data": DatasetConfig(start_time=10)}, **kwargs
+    )
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    assert df.empty
+    assert df.columns.tolist() == ["time"]
+
+
 @pytest.mark.parametrize(
     "recorder_class",
     [DataRecorder, JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder],
