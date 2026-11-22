@@ -234,15 +234,6 @@ class EventGeneratorState(IntEnum):
     FAILED = auto()  # computing the next time raised
 
 
-_FINAL_GENERATOR_STATES = frozenset(
-    {
-        EventGeneratorState.FINISHED,
-        EventGeneratorState.CANCELED,
-        EventGeneratorState.FAILED,
-    }
-)
-
-
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
 
@@ -510,7 +501,11 @@ class EventGenerator:
         Returns:
             True if the generator was canceled, False if it had already ended.
         """
-        if self._state in _FINAL_GENERATOR_STATES:
+        if self._state in (
+            EventGeneratorState.FINISHED,
+            EventGeneratorState.CANCELED,
+            EventGeneratorState.FAILED,
+        ):
             return False
         self._end(EventGeneratorState.CANCELED)
         return True

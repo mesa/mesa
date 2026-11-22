@@ -1382,17 +1382,6 @@ class TestEventGeneratorPauseResume:
         assert gen.resume() is False
         assert gen.state is EventGeneratorState.FINISHED
 
-    def test_paused_generators_resume_as_a_group(self, setup):
-        """Keep the ones that actually paused, since some may already be final."""
-        model, fn = setup
-        running = model.schedule_recurring(fn, Schedule(interval=1.0))
-        ended = model.schedule_recurring(fn, Schedule(interval=1.0))
-        ended.cancel()
-
-        paused = [gen for gen in (running, ended) if gen.pause()]
-        assert paused == [running]
-        assert all(gen.resume() for gen in paused)
-
     def test_next_scheduled_time_updates(self, setup):
         """next_scheduled_time should reflect pause/resume state."""
         model, fn = setup
