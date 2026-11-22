@@ -177,9 +177,8 @@ class BaseDataRecorder(ABC):
             dataset = self.registry[name]
             self._initialize_dataset_storage(name, dataset)
 
-        # TableDataSet is an append-only log: per dataset, remember where the
-        # last stored block started and how many rows have been stored so far
-        self._table_cursors: dict[str, tuple[int, int]] = {}
+        # Append-only datasets (TableDataSet): rows recorded so far per dataset
+        self._rows_recorded: dict[str, int] = {}
 
         self._subscribe_to_model()
 
@@ -204,7 +203,10 @@ class BaseDataRecorder(ABC):
                 continue
 
             dataset = self.registry.datasets[name]
-            data_snapshot = self._take_snapshot(name, dataset, is_overwrite)
+            if self._is_append_only(dataset):
+                # recorded rows never change, so there is nothing to overwrite
+                is_overwrite = False
+            data_snapshot = self._take_snapshot(name, dataset)
 
             self._store_dataset_snapshot(
                 name, current_time, data_snapshot, is_overwrite
@@ -231,33 +233,38 @@ class BaseDataRecorder(ABC):
             is_overwrite = current_time == config._last_collection
 
             dataset = self.registry.datasets[name]
-            data_snapshot = self._take_snapshot(name, dataset, is_overwrite)
+            if self._is_append_only(dataset):
+                # recorded rows never change, so there is nothing to overwrite
+                is_overwrite = False
+            data_snapshot = self._take_snapshot(name, dataset)
             self._store_dataset_snapshot(
                 name, current_time, data_snapshot, is_overwrite
             )
 
             config._last_collection = current_time
 
-    def _take_snapshot(
-        self, name: str, dataset: Any, is_overwrite: bool = False
-    ) -> Any:
+    @staticmethod
+    def _is_append_only(dataset: Any) -> bool:
+        """Return whether rows are only ever added to the dataset.
+
+        Such a dataset (e.g., a TableDataSet) defines ``get_rows_since``. The
+        method is looked up on the type, so only dataset classes that define
+        it qualify (not, e.g., objects with dynamic attributes such as mocks).
+        """
+        return getattr(type(dataset), "get_rows_since", None) is not None
+
+    def _take_snapshot(self, name: str, dataset: Any) -> Any:
         """Return the data to store for a dataset at this collection.
 
-        A dataset that only ever grows, such as a TableDataSet, exposes
-        ``get_rows_since``. For such a dataset only the rows added since the
-        previous collection are returned, because the dataset itself is
-        cumulative. On an overwrite, the rows of the replaced block are
-        included again. For all other datasets this is simply ``dataset.data``.
+        For an append-only dataset only the rows added since the previous
+        collection are returned, because the dataset itself is cumulative.
+        For all other datasets this is simply ``dataset.data``.
         """
-        # look the method up on the type, so only dataset classes that define
-        # it qualify (not, e.g., arbitrary objects with dynamic attributes)
-        if getattr(type(dataset), "get_rows_since", None) is None:
+        if not self._is_append_only(dataset):
             return dataset.data
 
-        block_start, n_stored = self._table_cursors.get(name, (0, 0))
-        start = block_start if is_overwrite else n_stored
-        rows = dataset.get_rows_since(start)
-        self._table_cursors[name] = (start, start + len(rows))
+        rows = dataset.get_rows_since(self._rows_recorded.get(name, 0))
+        self._rows_recorded[name] = self._rows_recorded.get(name, 0) + len(rows)
         return rows
 
     @abstractmethod

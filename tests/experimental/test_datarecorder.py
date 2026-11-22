@@ -1395,3 +1395,16 @@ def test_table_dataset_sparse_rows_over_two_runs(recorder_cls, tmp_path):
     df = model.recorder.get_table_dataframe("events")
     assert list(df["what"]) == [2, 3, 5]
     assert list(df["what"]) == list(df["time"])
+
+
+@pytest.mark.parametrize("recorder_cls", TABLE_RECORDERS)
+def test_table_dataset_collect_at_recorded_time(recorder_cls, tmp_path):
+    """Collecting again at an already recorded time keeps all rows."""
+    model = EventModel(recorder_cls, tmp_path)
+    model.run_for(2)
+    model.recorder.collect()
+    model.run_for(1)
+
+    df = model.recorder.get_table_dataframe("events")
+    assert list(df["what"]) == [1, 2, 3]
+    assert list(df["what"]) == list(df["time"])
