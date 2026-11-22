@@ -3,18 +3,19 @@
 ---
 title: Release History
 ---
-# 3.5.3 (2026-11-16)
+# 3.5.3 (2026-11-22)
 ## Highlights
-Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15.
+Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15 and Starlette 1.x.
 
 The legacy space drawing API (`draw_space`, `make_space_component`, `make_mpl_space_component` and `make_altair_space`) is now deprecated in favour of `SpaceRenderer` and emits a `FutureWarning`. It will be removed in Mesa 4.0; see the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html) (#4064).
 
-Several fixes may change results in models that were hitting a bug. Events and event generators that call a method of a removed agent are now skipped as soon as `agent.remove()` is called, instead of running until Python garbage-collects the agent (#4119). `run_until()` and `run_for(0)` now run events scheduled for the current time instead of skipping them (#4048), and `model.time` is always a float (#4052). `HexGrid` cell positions now follow the even-r layout that its connections already use, which changes `cell.position` and `find_nearest_cell()` (#3959). In the experimental `ContinuousSpace`, torus distances wrap the query point correctly (#3932), ties in `get_k_nearest_agents()` are broken by insertion order as documented (#3946), and `get_nearest_neighbors()` returns at most `k` agents (#3995).
+Several fixes may change results in models that were hitting a bug. Events and event generators that call a method of a removed agent are now skipped as soon as `agent.remove()` is called, instead of running until Python garbage-collects the agent (#4119). `run_until()` and `run_for(0)` now run events scheduled for the current time instead of skipping them (#4048), and `model.time` is always a float (#4052). `HexGrid` cell positions now follow the even-r layout that its connections already use, which changes `cell.position` and `find_nearest_cell()` (#3959). In the experimental `ContinuousSpace`, torus distances wrap the query point correctly (#3932), ties in `get_k_nearest_agents()` are broken by insertion order as documented (#3946), and `get_nearest_neighbors()` returns at most `k` agents (#3995). The experimental `JSONDataRecorder` now keeps only the last `window_size` snapshots, like `DataRecorder` (#4072), and stores numpy agent datasets as rows with agent ids and field names instead of bare lists (#4061).
 
-Other fixes cover pickling and deep-copying (property layers on every cell of a `Grid` #3914, continuous spaces #4108), the discrete space (directed `Network` graphs #4090), the `DataCollector` (empty agent records #3945, agent type snapshots when a reporter fails #3916), `EventGenerator` start times past `schedule.end` (#4084), `method_logger` (#4082), the experimental meta-agents (#3970) and data recorders (#4015), and visualization (SolaraViz reset #3951 and stopping #4024, Altair canvas with property layers #3953, matplotlib property layers #4046, #4050, portrayal size and alpha #4028, and `post_process` on plots #4086).
+Other fixes cover pickling and deep-copying (property layers on every cell of a `Grid` #3914, continuous spaces #4108), the discrete space (directed `Network` graphs #4090), AgentSet set operations, which now keep the RNG and return weak-reference sets (#4105), the `DataCollector` (empty agent records #3945, model data #3913 and agent type snapshots #3916 when a reporter fails), `EventGenerator` start times past `schedule.end` (#4084), `method_logger` (#4082), the experimental meta-agents (#3970), data recorders (#4015) and `ContinuousSpaceAgent` positions with the wrong number of dimensions (#4126), and visualization (SolaraViz reset #3951 and stopping #4024, Altair canvas with property layers #3953, matplotlib property layers #4046, #4050, portrayal size and alpha #4028, and `post_process` on plots #4086).
 
 ## What's Changed
 ### 🐛 Bugs fixed
+* Keep model data consistent when a reporter fails by @SahilKumar75 in #3913
 * Keep one GridCell class for all cells after unpickling a Grid by @amanbn8 in #3914
 * Preserve agent type snapshots when reporters fail by @SahilKumar75 in #3916
 * fix: wrap torus query points before distance calculations by @ARYAMANN7279 in #3932
@@ -34,12 +35,16 @@ Other fixes cover pickling and deep-copying (property layers on every cell of a 
 * Fix run_until skipping events scheduled for the current time by @atul-upadhyay-7 in #4048
 * fix: handle skipped property layers in matplotlib backend by @Jenil1905 in #4050
 * Keep model.time a float when run_until or events get ints by @AshNicolus in #4052
+* Keep agent ids and field names in JSONDataRecorder numpy snapshots by @lahari936 in #4061
+* Make JSONDataRecorder honour window_size by @lahari936 in #4072
 * fix(logging): resolve qualified method name dynamically in method_logger by @priyanshux-dev in #4082
 * Don't schedule an EventGenerator's first event past schedule.end by @RITVIKKAMASETTY in #4084
 * Let post_process customize the x axis of matplotlib plots by @Darshanpawar7 in #4086
 * Handle directed graphs in Network cell and connection removal by @RITVIKKAMASETTY in #4090
+* fix(agentset): keep random and weak references in AgentSet set operations by @Dilraj07 in #4105
 * Fix unpickling of continuous spaces by @EwoutH in #4108
 * Skip the scheduled events of removed agents by @EwoutH in #4119
+* fix: validate ContinuousSpaceAgent position dimensions by @sangitabera in #4126
 
 ### ⚡ Performance improvements
 * perf(discrete_space): use flatnonzero in select_random_empty_cell fallback by @dietcoke-17 in #4004
@@ -49,16 +54,21 @@ Other fixes cover pickling and deep-copying (property layers on every cell of a 
 
 ### 🔍 Examples updated
 * fix(examples): fix inverted grid dimensions in Conway Streamlit app by @pojeesahil in #4037
+* fix(examples): use citizen_vision for Citizen agents in Epstein Civil Violence by @pojeesahil in #4141
 
 ### 📜 Documentation improvements
 * docs: fix broken toctree entries, duplicate API docs and a broken code fence by @arzaanxeng in #4055
 * docs: fix extension name in zsh error note on index page by @arzaanxeng in #4068
 * docs: update build instructions in docs/README.md by @arzaanxeng in #4077
 * Explain what clear() does with files on disk in the JSON and Parquet recorders by @AshNicolus in #4079
+* docs: fix dead visualization tutorial links in the migration guide by @farisbasha in #4136
+* docs: clarify SpaceRenderer space lifecycle by @sangitabera in #4161
 
 ### 🔧 Maintenance
 * CI: Start testing Python 3.15 by @EwoutH in #3830
 * Take the initial viz test screenshots from the newest image by @AshNicolus in #4095
+* Allow Starlette 1.x and require Solara 1.57.4 or newer (from #4007)
+* test: compare JSONDataRecorder data as a list in the plain array test by @ArnabOPP in #4157
 
 ## New Contributors
 * @amanbn8 made their first contribution in #3914
@@ -73,6 +83,9 @@ Other fixes cover pickling and deep-copying (property layers on every cell of a 
 * @priyanshux-dev made their first contribution in #4082
 * @RITVIKKAMASETTY made their first contribution in #4084
 * @Darshanpawar7 made their first contribution in #4086
+* @sangitabera made their first contribution in #4126
+* @farisbasha made their first contribution in #4136
+* @ArnabOPP made their first contribution in #4157
 
 **Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.2...v3.5.3
 
