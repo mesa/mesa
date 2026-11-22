@@ -7,6 +7,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.agent import AgentSet
+from mesa.experimental.mesa_signals import ModelSignals
 from mesa.experimental.meta_agents import MembershipEdge, MembershipView, MetaAgents
 
 
@@ -821,3 +822,144 @@ def test_dissolved_meta_agent_is_garbage_collected():
     del group
     gc.collect()
     assert group_ref() is None
+
+
+# ── removal cleanup under signal suppression and batching ──
+
+
+def test_removal_inside_suppress_detaches_memberships_immediately():
+    """Removal detaches memberships inside a suppress block, with no signal emitted."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    other = Agent(model)
+    group = meta_agents.create("Group", [member, other])
+    member_ref = weakref.ref(member)
+
+    with model.suppress():
+        member.remove()
+
+        assert meta_agents.backend.groups_of(member) == set()
+        assert member not in meta_agents.members_of(group)
+        assert other in meta_agents.members_of(group)
+        assert group in meta_agents.groups_of(other)
+        assert member not in model.agents
+
+    assert meta_agents.backend.groups_of(member) == set()
+    assert member not in model.agents
+
+    del member
+    gc.collect()
+    assert member_ref() is None
+
+
+def test_removal_inside_batch_detaches_memberships_immediately():
+    """Removal detaches memberships inside a batch block, before signals flush."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    other = Agent(model)
+    group = meta_agents.create("Group", [member, other])
+
+    with model.batch():
+        member.remove()
+
+        assert meta_agents.backend.groups_of(member) == set()
+        assert member not in meta_agents.members_of(group)
+        assert other in meta_agents.members_of(group)
+        assert group in meta_agents.groups_of(other)
+
+    assert meta_agents.backend.groups_of(member) == set()
+    assert member not in meta_agents.members_of(group)
+
+
+def test_user_agent_removed_observer_is_notified_once():
+    """A user observer still gets exactly one AGENT_REMOVED notification."""
+
+    class RemovalObserver:
+        def __init__(self, manager):
+            self.manager = manager
+            self.seen = []
+
+        def __call__(self, signal):
+            agent = signal.additional_kwargs["args"][0]
+            self.seen.append((agent, set(self.manager.backend.groups_of(agent))))
+
+    model = Model()
+    meta_agents = MetaAgents(model)
+    observer = RemovalObserver(meta_agents)
+    model.observe("agents", ModelSignals.AGENT_REMOVED, observer)
+    member = Agent(model)
+    group = meta_agents.create("Group", [member])
+
+    member.remove()
+
+    assert len(observer.seen) == 1
+    assert observer.seen[0][0] is member
+    assert observer.seen[0][1] == set()
+    assert group in model.agents
+
+
+def test_nested_suppress_batch_and_failed_batch_keep_memberships_clean():
+    """Nested suppression and a failing batch never leave stale memberships."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    inner_member = Agent(model)
+    inner_group = meta_agents.create("Inner", [inner_member])
+
+    with model.suppress(), model.batch():
+        inner_member.remove()
+        assert meta_agents.backend.groups_of(inner_member) == set()
+        assert inner_member not in meta_agents.members_of(inner_group)
+
+    assert meta_agents.backend.groups_of(inner_member) == set()
+
+    failing_member = Agent(model)
+    failing_group = meta_agents.create("Failing", [failing_member])
+
+    with pytest.raises(RuntimeError, match="boom"), model.batch():
+        failing_member.remove()
+        assert meta_agents.backend.groups_of(failing_member) == set()
+        raise RuntimeError("boom")
+
+    assert meta_agents.backend.groups_of(failing_member) == set()
+    assert failing_member not in meta_agents.members_of(failing_group)
+
+
+def test_direct_deregister_agent_detaches_memberships():
+    """Direct deregister_agent calls clean memberships, not only Agent.remove."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    other = Agent(model)
+    group = meta_agents.create("Group", [member, other])
+
+    model.deregister_agent(member)
+
+    assert meta_agents.backend.groups_of(member) == set()
+    assert member not in meta_agents.members_of(group)
+    assert other in meta_agents.members_of(group)
+
+    member.remove()  # repeated removal is tolerated and stays clean
+
+    assert meta_agents.backend.groups_of(member) == set()
+
+
+def test_group_removal_inside_suppress_detaches_incident_memberships():
+    """Removing a group-as-member under suppress detaches every incident edge."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    squad = meta_agents.create("Squad", [member])
+    team = meta_agents.create("Team", [squad])
+
+    with model.suppress():
+        squad.remove()
+
+        assert meta_agents.backend.groups_of(squad) == set()
+        assert meta_agents.backend.agents_of(squad) == set()
+        assert squad not in meta_agents.members_of(team)
+        assert meta_agents.backend.groups_of(member) == set()
+        assert member in model.agents
+
+    assert meta_agents.backend.as_triplets() == set()
