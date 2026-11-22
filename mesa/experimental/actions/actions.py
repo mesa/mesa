@@ -30,19 +30,17 @@ Example::
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterable
 from enum import IntEnum, auto
 from typing import TYPE_CHECKING
 
-from mesa.mesa_logging import create_module_logger
 from mesa.time import Priority
 
 if TYPE_CHECKING:
     from mesa.agent import Agent
     from mesa.model import Model
     from mesa.time import Event
-
-_mesa_logger = create_module_logger()
 
 
 class ActionState(IntEnum):
@@ -679,9 +677,11 @@ class HasActions:
         Notes:
             At most one wake fires per agent per model time, so a
             zero-duration action started here cannot re-trigger the hook
-            in the same instant; a wake dropped by this guard is logged
-            at DEBUG level. The wake is skipped when the agent is
-            busy again by the time the event runs -- interrupt_for()
+            in the same instant. If the guard leaves the agent idle, a
+            ``RuntimeWarning`` names the agent, the action that ended and
+            the time, since the agent won't act again unless other model
+            code starts something. The wake is skipped silently when the
+            agent is busy again by the time the event runs -- interrupt_for()
             refills the slot synchronously, so no idle gap ever existed.
             If several actions end before the wake runs, they coalesce
             into one call and ``previous`` is the latest of them.
@@ -691,19 +691,13 @@ class HasActions:
         """Queue the deferred on_idle event, coalescing repeats.
 
         Called by Action._release_agent whenever this agent's slot is
-        cleared. If a wake is already pending, or one already fired at
-        the current model time, no second event is queued -- only
-        ``previous`` is brought up to date. A wake dropped by the
-        once-per-time guard is logged at DEBUG level.
+        cleared. If a wake is already pending, no second event is queued --
+        only ``previous`` is brought up to date. The once-per-time guard is
+        applied when the event runs rather than here, so it only warns about
+        an agent that is still idle by then.
         """
         self._wake_previous = previous
         if self._wake_event is not None:
-            return
-        if self._last_wake_time == self.model.time:
-            _mesa_logger.debug(
-                f"suppressed repeat on_idle wake for agent {self.unique_id} "
-                f"at time {self.model.time} (ending action: {previous!r})"
-            )
             return
         self._wake_event = self.model.schedule_event(
             self._fire_wake, after=0.0, priority=Priority.LOW
@@ -715,6 +709,17 @@ class HasActions:
         self._wake_event = None
         self._wake_previous = None
         if self.current_action is not None:
+            return
+        if self._last_wake_time == self.model.time:
+            warnings.warn(
+                f"Agent {self.unique_id} stays idle: {previous!r} ended at time "
+                f"{self.model.time}, after on_idle already ran at that time, "
+                f"and on_idle runs at most once per agent per model time. To "
+                f"chain actions that take no time, start the next one directly "
+                f"instead of from on_idle.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             return
         # Recorded only when on_idle actually runs, so a busy skip does not
         # suppress a later release at the same model time.

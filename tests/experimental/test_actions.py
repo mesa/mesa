@@ -1,7 +1,7 @@
 """Tests for mesa.experimental.actions."""
 
 # ruff: noqa: D101, D102, D103, D107
-import logging
+import warnings
 
 import pytest
 
@@ -1488,26 +1488,46 @@ class TestOnIdle:
 
         agent = Chain(model)
         agent.start_action(Action(agent, duration=0.0))
-        model.run_for(1)
+        with pytest.warns(RuntimeWarning, match=f"Agent {agent.unique_id} stays idle"):
+            model.run_for(1)
 
         assert agent.idle_calls == 1
 
-    def test_suppressed_wake_is_logged_at_debug(self, caplog):
+    def test_dropped_wake_warns_with_agent_action_and_time(self):
+        """The warning names what a modeller needs to find the stalled agent."""
         model = Model()
 
         class Chain(ActionAgent):
             def on_idle(self, previous):
-                self.start_action(Action(self, duration=0.0))
+                self.start_action(Action(self, duration=0.0, name="Step"))
 
         agent = Chain(model)
-        agent.start_action(Action(agent, duration=0.0))
-        with caplog.at_level(
-            logging.DEBUG, logger="MESA.mesa.experimental.actions.actions"
-        ):
-            model.run_for(1)
+        agent.start_action(Action(agent, duration=1.0))
+        with pytest.warns(RuntimeWarning) as record:
+            model.run_for(2)
 
-        assert "suppressed repeat on_idle wake" in caplog.text
-        assert f"agent {agent.unique_id}" in caplog.text
+        assert len(record) == 1
+        message = str(record[0].message)
+        assert f"Agent {agent.unique_id}" in message
+        assert "Step(state=COMPLETED" in message
+        assert "time 1.0" in message
+
+    def test_no_warning_when_on_idle_refills_the_slot(self):
+        """An action that ends inside on_idle, followed by another, is fine."""
+        model = Model()
+
+        class Retry(ActionAgent):
+            def on_idle(self, previous):
+                self.start_action(Action(self, start_requirements=lambda a: False))
+                self.start_action(Action(self, duration=1.0))
+
+        agent = Retry(model)
+        agent.start_action(Action(agent, duration=1.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            model.run_for(1.5)
+
+        assert agent.is_busy
 
     def test_agent_chains_actions_across_time(self):
         model = Model()
