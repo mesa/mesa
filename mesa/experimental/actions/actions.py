@@ -102,7 +102,8 @@ import math
 import warnings
 from collections.abc import Callable, Iterable
 from enum import IntEnum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from weakref import WeakValueDictionary
 
 from mesa.time import Priority
 
@@ -254,6 +255,8 @@ class Action:
         # Counts starts and resumes, so callers can tell whether a hook
         # started a new attempt while they were not looking.
         self._attempts: int = 0
+        # Key in the agent's _started_actions, set at the first start.
+        self._track_key: int | None = None
 
     # --- Properties ---
 
@@ -407,14 +410,15 @@ class Action:
 
         Raises:
             ValueError: If the action is PENDING (use agent.start_action())
-                or in a final state, or if its agent is busy with another
-                action.
+                or in a final state, if its agent was removed, or if its
+                agent is busy with another action.
             RuntimeError: If called for this agent from on_progress(),
                 on_stop() or a decision callable.
         """
         self.agent._check_lifecycle_call()
         if self._state is ActionState.ACTIVE:
             return False
+        self.agent._check_not_removed()
         if self._state is not ActionState.INTERRUPTED:
             hint = (
                 "Use agent.start_action() to start a PENDING action."
@@ -481,16 +485,10 @@ class Action:
         self.agent._check_lifecycle_call()
         if self._state in _FINAL_STATES:
             return False
-
-        if self._state is ActionState.ACTIVE:
-            if self._is_due():
-                self._complete()
-                return False
-            self._freeze_progress()
-            self._end_attempt(ActionState.CANCELED, self.on_cancel)
-        else:
-            self._state = ActionState.CANCELED
-            self.on_cancel()
+        if self._state is ActionState.ACTIVE and self._is_due():
+            self._complete()
+            return False
+        self._cancel()
         return True
 
     # --- Internal ---
@@ -507,6 +505,7 @@ class Action:
         # action neither fires on_start() nor schedules a completion event.
         if not self._requirements_met(self.start_requirements, "a start requirement"):
             self._state = ActionState.FAILED
+            self.agent._untrack(self)
             # The slot was never claimed, so no release queues the wake.
             self.agent._schedule_wake(self)
             self.on_fail()
@@ -516,6 +515,7 @@ class Action:
             duration = self._resolve_duration()
             self._resolve_priority()
             self.duration = duration
+            self.agent._track(self)
 
         now = self.model.time
         self._start_time = now
@@ -556,6 +556,20 @@ class Action:
         """
         return self.model.time >= self._deadline
 
+    def _cancel(self) -> None:
+        """Move to CANCELED without the completion-wins check.
+
+        Used by cancel() once it found the action not due, and by agent
+        removal, which never completes an action.
+        """
+        if self._state is ActionState.ACTIVE:
+            self._freeze_progress()
+            self._end_attempt(ActionState.CANCELED, self.on_cancel)
+        else:
+            self._state = ActionState.CANCELED
+            self.agent._untrack(self)
+            self.on_cancel()
+
     def _freeze_progress(self) -> None:
         """Snapshot live progress into _progress for storage."""
         self._progress = self.progress
@@ -580,6 +594,8 @@ class Action:
         """Leave ACTIVE for `state`, then fire on_stop() and the outcome."""
         self._cancel_event()
         self._state = state
+        if state in _FINAL_STATES:
+            self.agent._untrack(self)
         self._release_agent()
         self.agent._guarded("on_stop()", self.on_stop)
         outcome()
@@ -594,11 +610,8 @@ class Action:
         """Clear the agent's slot and schedule its idle wake.
 
         Completion, interruption, cancellation, and failure all funnel
-        through here, so the wake contract has a single path. An action
-        no longer in the slot, because its agent was removed, wakes
-        nobody. HasActions.remove() is the one end that does not come
-        through here: it abandons the action, and a dying agent must not
-        wake.
+        through here, so the wake contract has a single path. A removed
+        agent never wakes; HasActions._schedule_wake checks that.
         """
         if self.agent._current_action is self:
             self.agent._current_action = None
@@ -716,6 +729,12 @@ class HasActions:
         self._last_wake_time: float = float("-inf")
         # Where lifecycle calls are refused right now; see _guarded().
         self._guarded_in: str | None = None
+        # Set when removal begins: no new attempts, no wakes.
+        self._actions_closed: bool = False
+        # Actions this agent started that haven't ended, in start order.
+        # Weak, so an interrupted action the model dropped isn't kept alive.
+        self._started_actions: WeakValueDictionary[int, Action] = WeakValueDictionary()
+        self._next_track_key: int = 0
         super().__init__(*args, **kwargs)
 
     @property
@@ -729,37 +748,65 @@ class HasActions:
         return self._current_action is not None
 
     def remove(self) -> None:
-        """Remove the agent, abandoning its action and pending wake.
+        """Remove the agent and cancel every action it started that hasn't ended.
 
-        If the agent is currently performing an action, the action's
-        scheduled completion event is cancelled silently, and no hook
-        fires. A pending on_idle wake is cancelled as well: a removed
-        agent never wakes.
+        In order:
 
-        If your action holds external resources (e.g., a Resource slot,
-        a reservation, a lock), override remove() and call
-        self.cancel_action() before super().remove() so that on_cancel()
-        fires and cleanup logic runs:
+        1. The agent is closed: start_action(), resume() and interrupt_for()
+           raise ValueError for it from now on, and no on_idle wake is
+           queued.
+        2. A pending on_idle wake is canceled.
+        3. An ACTIVE action is canceled with on_progress(delta), on_stop()
+           and on_cancel(). Removal never completes an action, even a due one.
+        4. Every INTERRUPTED action of this agent that is still referenced
+           is canceled, in the order they were first started, firing
+           on_cancel().
+        5. The agent leaves the model.
 
-            def remove(self):
-                self.cancel_action()  # Fires on_cancel for cleanup
-                super().remove()
+        The hooks run while the agent is still in the model, so they can use
+        agent and model state. PENDING actions are left alone: they never
+        acquired anything.
 
         Raises:
             RuntimeError: If called from on_progress(), on_stop() or a
                 decision callable of this agent's actions.
         """
         self._check_lifecycle_call()
-        if self._current_action is not None:
-            self._current_action._cancel_event()  # Silent cleanup, no callback
-            self._current_action = None
-
-        if self._wake_event is not None:
-            self._wake_event.cancel()
-            self._wake_event = None
-            self._wake_previous = None
-
+        if self._actions_closed and not getattr(self, "_removed", False):
+            return  # a hook removed the agent while its removal was running
+        if not self._actions_closed:
+            self._actions_closed = True
+            if self._wake_event is not None:
+                self._wake_event.cancel()
+                self._wake_event = None
+                self._wake_previous = None
+            if self._current_action is not None:
+                self._current_action._cancel()
+            for action in list(self._started_actions.values()):
+                if action.state is ActionState.INTERRUPTED:
+                    action._cancel()
         super().remove()
+
+    def __getstate__(self) -> Any:
+        """Prepare state for pickling: weak references can't be pickled."""
+        state = super().__getstate__()
+        attrs, slots = state if isinstance(state, tuple) else (state, None)
+        attrs = dict(attrs)
+        attrs["_started_actions"] = list(self._started_actions.items())
+        return attrs if slots is None else (attrs, slots)
+
+    def __setstate__(self, state: Any) -> None:
+        """Restore state after unpickling, rebuilding the weak tracking."""
+        attrs, slots = state if isinstance(state, tuple) else (state, None)
+        attrs = dict(attrs)
+        attrs["_started_actions"] = WeakValueDictionary(attrs["_started_actions"])
+        parent = getattr(super(), "__setstate__", None)
+        if parent is not None:
+            parent(attrs if slots is None else (attrs, slots))
+            return
+        self.__dict__.update(attrs)
+        for name, value in (slots or {}).items():
+            object.__setattr__(self, name, value)
 
     def start_action(self, action: Action) -> Action:
         """Start a PENDING action.
@@ -777,15 +824,16 @@ class HasActions:
             The action.
 
         Raises:
-            ValueError: If the action doesn't belong to this agent, is not
-                PENDING (continue an INTERRUPTED action with
-                action.resume(); a final one can't restart), if the agent is
-                busy, or if the resolved duration or priority is invalid.
-                The agent's slot is left as it was.
+            ValueError: If the action doesn't belong to this agent, if the
+                agent was removed, if the action is not PENDING (continue an
+                INTERRUPTED action with action.resume(); a final one can't
+                restart), if the agent is busy, or if the resolved duration
+                or priority is invalid. The agent's slot is left as it was.
             RuntimeError: If called from on_progress(), on_stop() or a
                 decision callable of this agent's actions.
         """
         self._check_lifecycle_call()
+        self._check_not_removed()
         self._check_owner(action)
         if action.state is not ActionState.PENDING:
             hint = (
@@ -872,8 +920,9 @@ class HasActions:
             current action and was due, so it completed.
 
         Raises:
-            ValueError: If new_action belongs to another agent or is in a
-                final state; these are checked before anything changes.
+            ValueError: If the agent was removed, or if new_action belongs
+                to another agent or is in a final state; these are checked
+                before anything changes.
                 An invalid duration raises after the current action was
                 interrupted, since it may depend on what on_interrupt()
                 changed.
@@ -890,6 +939,7 @@ class HasActions:
             model's decision.
         """
         self._check_lifecycle_call()
+        self._check_not_removed()
         self._check_owner(new_action)
         if new_action is self._current_action:
             if new_action._is_due():
@@ -905,12 +955,15 @@ class HasActions:
 
         def slot_outcome() -> bool | None:
             # After an action ended, its hooks may have started new_action,
-            # filled the slot with something else, or ended new_action.
+            # filled the slot with something else, removed the agent, or
+            # ended new_action.
             if new_action._attempts != attempts:
                 return True
-            if self._current_action is not None or new_action.state not in (
-                ActionState.PENDING,
-                ActionState.INTERRUPTED,
+            if (
+                self._actions_closed
+                or self._current_action is not None
+                or new_action.state
+                not in (ActionState.PENDING, ActionState.INTERRUPTED)
             ):
                 return False
             return None
@@ -962,6 +1015,25 @@ class HasActions:
                 f"instead."
             )
 
+    def _check_not_removed(self) -> None:
+        """Raise ValueError if the agent was removed (or is being removed)."""
+        if self._actions_closed:
+            raise ValueError(
+                f"Agent {self.unique_id} was removed, so it can't start or "
+                f"resume actions."
+            )
+
+    def _track(self, action: Action) -> None:
+        """Remember an action this agent started, until it ends."""
+        action._track_key = self._next_track_key
+        self._next_track_key += 1
+        self._started_actions[action._track_key] = action
+
+    def _untrack(self, action: Action) -> None:
+        """Forget an action that reached a final state."""
+        if action._track_key is not None:
+            self._started_actions.pop(action._track_key, None)
+
     def _check_owner(self, action: Action) -> None:
         """Raise ValueError unless this agent owns the action."""
         if action.agent is not self:
@@ -983,7 +1055,8 @@ class HasActions:
         """Called when the agent's action has ended and nothing replaced it.
 
         Fires for every way an action can end -- completion, interruption,
-        cancellation, failure -- as a zero-delay ``Priority.LOW`` event
+        cancellation, failure -- but not on removal of the agent, as a
+        zero-delay ``Priority.LOW`` event
         rather than synchronously, so every agent finishing at time t
         decides after all completions at t have run.
 
@@ -1020,6 +1093,8 @@ class HasActions:
         applied when the event runs rather than here, so it only warns about
         an agent that is still idle by then.
         """
+        if self._actions_closed:
+            return
         self._wake_previous = previous
         if self._wake_event is not None:
             return
