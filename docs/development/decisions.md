@@ -17,6 +17,7 @@ Decisions that aren't obvious from the code or the other pages, and why we made 
 | Date | Decision | Refs | Status |
 |---|---|---|---|
 | 2026-11 | `Event`, `EventGenerator` and `Action` share one lifecycle vocabulary. `cancel` ends something for good, `interrupt` (actions) and `pause` (generators) stop it temporarily, and `resume` continues it. The owner starts things (`agent.start_action()`, `model.schedule_recurring()`); there is no public `start()`. Nothing leaves a final state. Lifecycle methods return `bool` for whether the transition happened, and raise `ValueError` for calls that can't mean anything. | [#4120](https://github.com/mesa/mesa/discussions/4120) | current |
+| 2026-11 | Completion wins: an action that is due when it is interrupted, canceled or preempted completes there and then, and may still fail its completion requirements. "Due" compares the model time with the action's deadline rather than its accumulated progress, so floating-point noise can't decide the outcome. | [#4120](https://github.com/mesa/mesa/discussions/4120) | current |
 | 2026-11 | An agent's `on_idle` wake runs at most once per agent per model time, so a chain of instant actions can't loop forever. If the guard leaves an agent idle, it warns. Allowing several wakes per time would be a different scheduling policy, and needs its own proposal. | [#3833](https://github.com/mesa/mesa/pull/3833), [#4120](https://github.com/mesa/mesa/discussions/4120) | current |
 
 ## Releases and documentation

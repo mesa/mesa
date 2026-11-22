@@ -8,6 +8,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.actions import Action, ActionState, HasActions
+from mesa.time import Priority
 
 # --- Helpers ---
 
@@ -343,6 +344,213 @@ class TestStartResume:
 
         assert action.start_count == 1
         assert action.resume_count == 2
+        assert action.completed
+
+
+class TestHookEndsAction:
+    """A hook that ends its own action leaves nothing scheduled."""
+
+    def test_interrupt_in_on_start_schedules_no_completion(self):
+        done = []
+
+        class InterruptOnStart(Action):
+            def on_start(self):
+                self.interrupt()
+
+            def on_resume(self):
+                pass
+
+            def on_complete(self):
+                done.append(self.model.time)
+
+        model, agent = make_model_and_agent()
+        action = InterruptOnStart(agent, duration=5.0)
+        agent.start_action(action)
+        assert action.state is ActionState.INTERRUPTED
+
+        model.run_until(1.0)
+        action.resume()
+        model.run_until(10.0)
+
+        # resumed at t=1 with 5 left, so it ends at t=6, not at the old t=5
+        assert done == [6.0]
+
+    def test_interrupt_in_on_resume_schedules_no_completion(self):
+        done = []
+
+        class InterruptOnResume(Action):
+            interrupt_now = False
+
+            def on_resume(self):
+                if self.interrupt_now:
+                    self.interrupt()
+
+            def on_complete(self):
+                done.append(self.model.time)
+
+        model, agent = make_model_and_agent()
+        action = InterruptOnResume(agent, duration=5.0)
+        agent.start_action(action)
+        model.run_until(1.0)
+        action.interrupt()  # 4 left
+
+        model.run_until(2.0)
+        action.interrupt_now = True
+        action.resume()
+        assert action.state is ActionState.INTERRUPTED
+
+        model.run_until(3.0)
+        action.interrupt_now = False
+        action.resume()
+        model.run_until(10.0)
+
+        assert done == [7.0]
+
+    def test_interrupt_and_resume_in_on_start_leaves_one_completion(self):
+        done = []
+
+        class Bounce(Action):
+            bounced = False
+
+            def on_start(self):
+                if not self.bounced:
+                    self.bounced = True
+                    self.interrupt()
+                    self.resume()
+
+            def on_complete(self):
+                done.append(self.model.time)
+
+        model, agent = make_model_and_agent()
+        before = len(model._event_list)
+        action = agent.start_action(Bounce(agent, duration=5.0))
+
+        # One completion event, plus the wake the interrupt queued.
+        assert len(model._event_list) == before + 2
+        model.run_until(10.0)
+        assert done == [5.0]
+        assert action.state is ActionState.COMPLETED
+
+    def test_instant_action_completes_even_if_on_start_cancels_it(self):
+        """It is due the moment it starts, so completion wins.
+
+        Refusing to start is what start_requirements are for.
+        """
+        _model, agent = make_model_and_agent()
+
+        class Abort(TrackedAction):
+            def on_start(self):
+                super().on_start()
+                self.cancel()
+
+        action = agent.start_action(Abort(agent, duration=0))
+
+        assert action.state is ActionState.COMPLETED
+        assert action.completed
+        assert not action.canceled
+
+
+# --- Completion wins ---
+
+
+class TestCompletionWins:
+    """At its deadline an action completes, whatever else happens at that time."""
+
+    def at_deadline(self, model, fn, time):
+        """Run fn at `time`, before the action's own completion event.
+
+        Returns the list its return value is appended to.
+        """
+        results = []
+
+        def run():
+            results.append(fn())
+
+        self.keep_alive = run  # events hold their callable weakly
+        model.schedule_event(run, at=time, priority=Priority.HIGH)
+        return results
+
+    def test_interrupt_at_the_deadline_completes(self):
+        model, agent = make_model_and_agent()
+        agent.energy = 0.0
+
+        class Forage(TrackedAction):
+            def on_interrupt(self, progress):
+                super().on_interrupt(progress)
+                self.agent.energy += 30 * progress
+
+            def on_complete(self):
+                super().on_complete()
+                self.agent.energy += 30
+
+        action = agent.start_action(Forage(agent, duration=10.0))
+        results = self.at_deadline(model, action.interrupt, 10.0)
+        model.run_until(20.0)
+
+        assert results == [False]
+        assert action.state is ActionState.COMPLETED
+        assert not action.interrupted
+        assert agent.energy == 30
+        with pytest.raises(ValueError, match="COMPLETED"):
+            action.resume()
+
+    def test_due_action_completes_even_if_not_interruptible(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(
+            TrackedAction(agent, duration=10.0, interruptible=False)
+        )
+        model.run_until(5.0)
+        results = self.at_deadline(model, action.interrupt, 10.0)
+        model.run_until(10.0)
+
+        assert results == [False]
+        assert action.completed
+
+    def test_cancel_at_the_deadline_completes(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent, duration=10.0))
+        results = self.at_deadline(model, action.cancel, 10.0)
+        model.run_until(10.0)
+
+        assert results == [False]
+        assert action.completed
+        assert not action.canceled
+
+    def test_due_action_does_not_block_its_successor(self):
+        model, agent = make_model_and_agent()
+        current = agent.start_action(
+            TrackedAction(agent, duration=10.0, interruptible=False)
+        )
+        successor = TrackedAction(agent, duration=2.0)
+        results = self.at_deadline(model, lambda: agent.interrupt_for(successor), 10.0)
+        model.run_until(10.0)
+
+        assert results == [True]
+        assert current.completed
+        assert agent.current_action is successor
+
+    def test_interrupt_for_the_due_current_action_completes_it(self):
+        model, agent = make_model_and_agent()
+        current = agent.start_action(TrackedAction(agent, duration=10.0))
+        results = self.at_deadline(model, lambda: agent.interrupt_for(current), 10.0)
+        model.run_until(10.0)
+
+        assert results == [False]
+        assert current.completed
+
+    def test_progress_is_exactly_one_at_the_deadline(self):
+        """Accumulated progress can fall short of 1.0; the deadline can't."""
+        model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent, duration=7.0))
+        for _ in range(2):
+            model.run_for(0.7)
+            action.interrupt()
+            action.resume()
+        # Summing 0.1 + 0.1 + 0.8 gives 0.9999999999999999 here.
+        seen = self.at_deadline(model, lambda: action.progress, 7.0)
+        model.run_until(7.0)
+
+        assert seen == [1.0]
         assert action.completed
 
 
