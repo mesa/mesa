@@ -32,6 +32,54 @@ def test_backend_get_agent_pos_raises_when_position_too_short(backend_cls):
         backend._get_agent_pos(DummyAgent(), DummySpace())
 
 
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+@pytest.mark.parametrize("coordinates", [(None, None), (3, 4), (0, None)])
+def test_backend_collects_shared_portrayal_without_mutation(backend_cls, coordinates):
+    """Shared portrayals preserve coordinates across agents and frames."""
+    backend = backend_cls(space_drawer=MagicMock())
+    agents = [
+        types.SimpleNamespace(position=(0, 1)),
+        types.SimpleNamespace(position=(2, 3)),
+    ]
+    space = types.SimpleNamespace(agents=agents)
+    portrayal = AgentPortrayalStyle(x=coordinates[0], y=coordinates[1])
+
+    for offset in (0, 10):
+        agents[0].position = (offset, offset + 1)
+        expected = (
+            [agent.position for agent in agents]
+            if coordinates == (None, None)
+            else [coordinates, coordinates]
+        )
+        data = backend.collect_agent_data(space, lambda agent: portrayal)
+        assert data["loc"].tolist() == [list(position) for position in expected]
+        assert (portrayal.x, portrayal.y) == coordinates
+
+
+@pytest.mark.parametrize(
+    ("backend_cls", "size_key"), [(MatplotlibBackend, "s"), (AltairBackend, "size")]
+)
+@pytest.mark.parametrize(
+    ("size", "default_size", "expected"),
+    [(0, 100, 0), (5, 100, 5), (None, 0, 0), (None, 100, 100), (None, None, 50)],
+)
+def test_backend_collects_explicit_and_default_sizes(
+    backend_cls, size_key, size, default_size, expected
+):
+    """Only missing sizes fall back to defaults, preserving explicit zeroes."""
+    backend = backend_cls(space_drawer=MagicMock())
+    space = types.SimpleNamespace(
+        agents=[types.SimpleNamespace(position=(0, 0)) for _ in range(2)]
+    )
+    portrayal = AgentPortrayalStyle(size=size)
+
+    data = backend.collect_agent_data(
+        space, lambda agent: portrayal, default_size=default_size
+    )
+
+    assert data[size_key].tolist() == [expected, expected]
+
+
 def test_matplotlib_initialize_canvas():
     """Test that MatplotlibBackend initializes canvas with ax and fig."""
     mb = MatplotlibBackend(space_drawer=MagicMock())
