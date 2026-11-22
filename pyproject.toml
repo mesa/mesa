@@ -55,7 +55,7 @@ network = [
 ]
 viz = [
   "matplotlib",
-  "solara>=1.57.4",
+  "solara>=1.65.2",
   "altair",
   "starlette",
 ]

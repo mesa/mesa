@@ -52,6 +52,8 @@ The `[rec]` option installs additional recommended dependencies needed for visua
 On a Mac, this command might cause an error stating `zsh: no matches found: mesa[rec]`.
 In that case, change the command to `pip install -U "mesa[rec]"`.
 
+If the sidebar or fullscreen mode of a visualization doesn't work in a Jupyter notebook, install the Vue 2 versions of `ipyvue` and `ipyvuetify`: `pip install -U "ipyvue<3" "ipyvuetify<3"`. Solara doesn't fully support their Vue 3 versions yet ([solara#1293](https://github.com/widgetti/solara/pull/1293)).
+
 Furthermore, if you are using `nix`, Mesa comes with a flake with devShells and a runnable app:
 
 ```bash
