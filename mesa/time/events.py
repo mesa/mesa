@@ -22,10 +22,11 @@ combining agent-based modeling with event scheduling.
 from __future__ import annotations
 
 import itertools
+import math
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, auto
 from heapq import heapify, heappop, heappush, nsmallest
 from types import MethodType
 from typing import TYPE_CHECKING, Any
@@ -185,7 +186,8 @@ class Schedule:
     """Defines when something should happen repeatedly.
 
     Attributes:
-        interval: Time between executions (fixed value or callable returning value)
+        interval: Time between executions (fixed value or callable returning value).
+            Must be finite and > 0.
         start: Absolute time to begin (None = use current model time + interval)
         end: Absolute time to stop (None = no end)
         count: Maximum executions (None = unlimited)
@@ -198,8 +200,8 @@ class Schedule:
 
     def __post_init__(self):
         """Validate schedule parameters."""
-        if not callable(self.interval) and self.interval <= 0:
-            raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
+        if not callable(self.interval):
+            _check_interval(self.interval)
 
         if self.count is not None and self.count <= 0:
             raise ValueError(
@@ -212,11 +214,43 @@ class Schedule:
             )
 
 
+def _check_interval(interval: float | int) -> None:
+    """Raise ValueError unless the interval is finite and > 0."""
+    if not (math.isfinite(interval) and interval > 0):
+        raise ValueError(f"Schedule interval must be finite and > 0, got {interval}")
+
+
+class EventGeneratorState(IntEnum):
+    """Lifecycle state of an EventGenerator.
+
+    FINISHED, CANCELED and FAILED are final: a generator never leaves them.
+    """
+
+    PENDING = auto()  # constructed, not yet started by the model
+    ACTIVE = auto()  # an execution is scheduled
+    PAUSED = auto()  # held; nothing scheduled
+    FINISHED = auto()  # count reached, or the next time would pass schedule.end
+    CANCELED = auto()  # canceled, or its callable died or its agent was removed
+    FAILED = auto()  # computing the next time raised
+
+
+_FINAL_GENERATOR_STATES = frozenset(
+    {
+        EventGeneratorState.FINISHED,
+        EventGeneratorState.CANCELED,
+        EventGeneratorState.FAILED,
+    }
+)
+
+
 class EventGenerator:
     """A generator that creates recurring events based on a Schedule.
 
-    Unlike a single Event, an EventGenerator is persistent and can be
-    stopped or configured with stop conditions.
+    Unlike a single Event, an EventGenerator is persistent. Create one with
+    ``model.schedule_recurring()``. ``pause()`` holds it and ``resume()``
+    continues it; ``cancel()`` ends it for good. It also ends by itself once
+    ``schedule.count`` executions have run or the next execution would pass
+    ``schedule.end``.
 
     Attributes:
         model: The model this generator belongs to
@@ -227,8 +261,14 @@ class EventGenerator:
     Notes:
         Event generators use a weak reference to the callable. Therefore, you cannot pass a lambda function in fn.
         A simulation event where the callable no longer exists (e.g., because the agent has been removed from the model)
-        will fail silently. If you want to use functools.partial, please assign the partial function to a variable
+        cancels the generator silently. If you want to use functools.partial, please assign the partial function to a variable
         prior to creating the generator.
+
+        An exception from the callback or from a callable interval propagates
+        to the caller. After a callback raises, the generator continues as
+        if the callback had returned, and the call counts toward
+        ``schedule.count``. If computing the next time raises, the generator
+        becomes FAILED.
 
     """
 
@@ -253,15 +293,19 @@ class EventGenerator:
         self.schedule = schedule
         self.priority = priority
 
-        self._active: bool = False
-        self._paused: bool = False
+        self._state: EventGeneratorState = EventGeneratorState.PENDING
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
     @property
+    def state(self) -> EventGeneratorState:
+        """Current lifecycle state. Read-only: use pause(), resume() and cancel()."""
+        return self._state
+
+    @property
     def is_active(self) -> bool:
-        """Return whether the generator is currently active."""
-        return self._active
+        """Return whether the generator is ACTIVE or PAUSED, so not yet ended."""
+        return self._state in (EventGeneratorState.ACTIVE, EventGeneratorState.PAUSED)
 
     @property
     def is_paused(self) -> bool:
@@ -269,16 +313,23 @@ class EventGenerator:
 
         A paused generator is still active, so running is ``is_active and not is_paused``.
         """
-        return self._paused
+        return self._state is EventGeneratorState.PAUSED
 
     @property
     def execution_count(self) -> int:
-        """Return the number of times this generator has executed."""
+        """Return how often the callback ran, including runs that raised.
+
+        Kept across pause() and resume().
+        """
         return self._execution_count
 
     @property
     def next_scheduled_time(self) -> float | None:
-        """Return the time of the next scheduled execution, or None if not scheduled."""
+        """Return the time of the next scheduled execution, or None if not scheduled.
+
+        While the callback runs, this is None, unless the callback scheduled
+        a replacement by pausing and resuming the generator.
+        """
         if self._current_event is None:
             return None
         return self._current_event.time
@@ -287,56 +338,72 @@ class EventGenerator:
         """Get the next interval value."""
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
-            if interval <= 0:
-                raise ValueError(f"Interval must be > 0, got {interval}")
+            _check_interval(interval)
             return interval
         return self.schedule.interval
 
-    def _should_stop(self, next_time: float) -> bool:
-        """Check if the generator should stop before scheduling the next event."""
+    def _count_used_up(self) -> bool:
+        """Whether schedule.count executions have run."""
         return (
             self.schedule.count is not None
             and self._execution_count >= self.schedule.count
-        ) or (self.schedule.end is not None and next_time > self.schedule.end)
+        )
 
     def _execute_and_reschedule(self) -> None:
         """Execute the function and schedule the next event."""
-        if not self._active or self._paused:
+        if self._state is not EventGeneratorState.ACTIVE:
             return
+        self._current_event = None  # it is executing
 
         # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         fn = self.function()
         if fn is None or getattr(getattr(fn, "__self__", None), "_removed", False):
-            # Stop the generator if weakref is dead or its agent was removed
-            self.stop()
+            # Cancel the generator if weakref is dead or its agent was removed
+            self._end(EventGeneratorState.CANCELED)
             return  # Silent no-op (no error raised)
 
-        # Execute the function. Reschedule even if it raises, so one failing
-        # call does not silently end the generator (and with it model.step()).
-        firing_event = self._current_event
+        # Use up the count before the call, so a callback that pauses and
+        # resumes this generator already sees the budget spent.
+        self._execution_count += 1
         try:
             fn()
         finally:
-            self._execution_count += 1
-            self._reschedule(firing_event)
+            # Also after an exception, so one failing call doesn't silently
+            # end the generator (and with it model.step()).
+            if self._count_used_up():
+                if self.is_active:
+                    self._end(EventGeneratorState.FINISHED)
+            elif (
+                self._state is EventGeneratorState.ACTIVE
+                and self._current_event is None
+            ):
+                # The callback didn't pause, cancel or resume it. If both the
+                # callback and the interval raise, the interval's error
+                # surfaces, with the callback's as its context.
+                self._schedule_following()
 
-    def _reschedule(self, firing_event: Event | None) -> None:
-        """Schedule the next event after ``firing_event``, unless the generator is done."""
-        # The callback may have stopped, paused, restarted, or resumed this
-        # generator. Both start() and resume() schedule a new event and replace
-        # _current_event, so in that case do not schedule a second one.
-        if not self._active or self._paused or self._current_event is not firing_event:
-            return
+    def _schedule_following(self) -> bool:
+        """Schedule the next execution at now + interval.
 
-        # Schedule next event if we shouldn't stop
-        next_time = self.model.time + self._get_interval()
-        if not self._should_stop(next_time):
-            self._schedule_next(next_time)
-        else:
-            self._active = False
-            self._current_event = None
-            self.model._event_generators.discard(self)
+        Returns:
+            True if it was scheduled. False if it would pass schedule.end;
+            the generator is then FINISHED.
+
+        Raises:
+            Exception: Whatever computing the interval raised; the generator
+                is then FAILED.
+        """
+        try:
+            next_time = self.model.time + self._get_interval()
+        except Exception:
+            self._end(EventGeneratorState.FAILED)
+            raise
+        if self.schedule.end is not None and next_time > self.schedule.end:
+            self._end(EventGeneratorState.FINISHED)
+            return False
+        self._schedule_next(next_time)
+        return True
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
@@ -347,18 +414,32 @@ class EventGenerator:
         )
         self.model._event_list.add_event(self._current_event)
 
-    def start(self) -> EventGenerator:
-        """Start the event generator.
+    def _end(self, state: EventGeneratorState) -> None:
+        """Move to a final state, dropping any scheduled execution."""
+        if self._current_event is not None:
+            self._current_event.cancel()
+            self._current_event = None
+        self._state = state
+        self.model._event_generators.discard(self)
+
+    def _start(self) -> EventGenerator:
+        """Schedule the first execution. Called by the model.
+
+        A schedule whose first execution would already pass schedule.end
+        starts as FINISHED.
 
         Returns:
             Self for method chaining
 
         Raises:
-            ValueError: If schedule.start is in the past, e.g. when restarting
-                a stopped generator after its start time has passed.
+            ValueError: If the generator was already started, or if
+                schedule.start is in the past.
         """
-        if self._active:
-            return self
+        if self._state is not EventGeneratorState.PENDING:
+            raise ValueError(
+                f"Cannot start a generator in {self._state.name} state; "
+                f"create a new one with model.schedule_recurring()."
+            )
 
         if self.schedule.start is not None and self.schedule.start < self.model.time:
             raise ValueError(
@@ -366,58 +447,73 @@ class EventGenerator:
                 f"Start time is {self.schedule.start}, current time is {self.model.time}"
             )
 
-        if self.schedule.start is not None:
-            start_time = self.schedule.start
-        else:
-            # Default: start at next interval from now
-            start_time = self.model.time + self._get_interval()
-
-        if self._should_stop(start_time):
-            return self
-
-        self._active = True
+        self._state = EventGeneratorState.ACTIVE
         self.model._event_generators.add(self)
-        self._schedule_next(start_time)
+        if self.schedule.start is None:
+            # Default: start at next interval from now
+            self._schedule_following()
+        else:
+            # Schedule already rejects a start after its end.
+            self._schedule_next(self.schedule.start)
         return self
 
-    def stop(self) -> None:
-        """Stop the event generator immediately."""
-        self._active = False
-        self._paused = False
-        if self._current_event is not None:
-            self._current_event.cancel()
-            self._current_event = None
-        self.model._event_generators.discard(self)
+    def pause(self) -> bool:
+        """Hold the generator (ACTIVE -> PAUSED), dropping its scheduled execution.
 
-    def pause(self) -> None:
-        """Pause the event generator temporarily.
+        Continue it later with resume().
 
-        This cancels the currently scheduled event but keeps the generator
-        active in the model. Execution can be resumed later using resume().
+        Returns:
+            True if the generator was paused, False if it wasn't ACTIVE.
         """
-        if not self._active or self._paused:
-            return
+        if self._state is not EventGeneratorState.ACTIVE:
+            return False
 
-        self._paused = True
-
+        self._state = EventGeneratorState.PAUSED
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
+        return True
 
-    def resume(self) -> None:
-        """Resume a paused event generator."""
-        if not self._active or not self._paused:
-            return
+    def resume(self) -> bool:
+        """Continue a paused generator (PAUSED -> ACTIVE).
 
-        self._paused = False
+        The next execution is at now + interval: a generator doesn't keep
+        its phase across a pause.
 
-        next_time = self.model.time + self._get_interval()
+        Returns:
+            True if an execution was scheduled. False if the generator was
+            already ACTIVE, or if its count is used up or the next time
+            would pass schedule.end (it is then FINISHED).
 
-        if not self._should_stop(next_time):
-            self._schedule_next(next_time)
-        else:
-            self._active = False
-            self.model._event_generators.discard(self)
+        Raises:
+            ValueError: If the generator is in a final state, or wasn't
+                started by the model.
+            Exception: Whatever a callable interval raised, or ValueError if
+                it returned an invalid interval; the generator is then FAILED.
+        """
+        if self._state is EventGeneratorState.ACTIVE:
+            return False
+        if self._state is not EventGeneratorState.PAUSED:
+            raise ValueError(
+                f"Cannot resume a generator in {self._state.name} state; only "
+                f"a PAUSED generator can be resumed."
+            )
+        if self._count_used_up():
+            self._end(EventGeneratorState.FINISHED)
+            return False
+        self._state = EventGeneratorState.ACTIVE
+        return self._schedule_following()
+
+    def cancel(self) -> bool:
+        """End the generator for good (-> CANCELED).
+
+        Returns:
+            True if the generator was canceled, False if it had already ended.
+        """
+        if self._state in _FINAL_GENERATOR_STATES:
+            return False
+        self._end(EventGeneratorState.CANCELED)
+        return True
 
     def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""

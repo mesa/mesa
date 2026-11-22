@@ -244,7 +244,7 @@ class TestScheduleRecurring:
         model.run_for(2)
         assert log == ["x", "x"]
 
-    def test_stop_generator(self):
+    def test_cancel_generator(self):
         model = SimpleModel()
         log = []
 
@@ -253,7 +253,7 @@ class TestScheduleRecurring:
 
         gen = model.schedule_recurring(record, Schedule(interval=1.0, start=1.0))
         model.run_for(3)
-        gen.stop()
+        gen.cancel()
         model.run_for(3)
         assert len(log) == 3
 

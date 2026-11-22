@@ -8,6 +8,34 @@ Mesa 4.0 completes the deprecation cycles announced across Mesa 3.x by removing 
 
 Install the 4.0 pre-release with `pip install -U --pre "mesa[rec]"` — plain `pip install -U "mesa[rec]"` (no `--pre`) resolves to the latest stable release instead, which is still Mesa 3.5.1 .
 
+### `EventGenerator`: `stop()` and `start()` removed, `cancel()` added
+Recurring events follow the same lifecycle words as events and actions: `cancel()` ends a generator for good, `pause()` holds it and `resume()` continues it. `stop()` used to look final but could be restarted with `start()`; it is removed. `start()` is private: the model starts every generator it creates in `schedule_recurring()`. A fresh run is a new generator.
+
+`pause()`, `resume()` and `cancel()` return whether they did something, and the new `state` property (an `EventGeneratorState`) tells the outcomes apart: `ACTIVE`, `PAUSED`, or one of the final states `FINISHED` (count reached or `schedule.end` passed), `CANCELED` and `FAILED` (computing the next interval raised). `resume()` on a generator in a final state raises `ValueError` instead of doing nothing. `is_active` and `is_paused` are unchanged.
+
+Two behaviours changed with it. A call to the callback counts toward `schedule.count` before it runs, so a callback that pauses and resumes its own generator can no longer run it past its count. And a fixed `Schedule.interval` must now be finite: `inf` and `NaN` raise `ValueError`.
+
+```python
+# Old
+gen = model.schedule_recurring(func, Schedule(interval=5.0))
+gen.stop()               # restartable with gen.start()
+gen.stop(); gen.start()  # restart
+
+gen = EventGenerator(model, func, Schedule(interval=5.0)).start()
+
+# New
+gen = model.schedule_recurring(func, Schedule(interval=5.0))
+gen.cancel()                # final
+gen.pause(); gen.resume()   # continue later, at now + interval
+
+# To pause a group and resume it later, keep the ones that paused
+paused = [g for g in generators if g.pause()]
+for g in paused:
+    g.resume()
+```
+
+- Ref: [Discussion #4120](https://github.com/mesa/mesa/discussions/4120)
+
 ### `Grid.select_random_empty_cell` raises `SpaceException` on a full grid
 On a full grid, `select_random_empty_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raises `SpaceException` instead of `ValueError`, matching `Network` and `VoronoiGrid`.
 
@@ -316,9 +344,9 @@ from mesa.time import Schedule
 model.schedule_recurring(func, Schedule(interval=10))  # By default, starting after 1 interval (t=10 in this case)
 model.schedule_recurring(func, Schedule(interval=10, start=0))  # Start immediately or at any other time
 
-# Save the event and stop it when needed
+# Save the generator and cancel it when needed
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
-gen.stop()
+gen.cancel()
 
 # Limit executions
 model.schedule_recurring(func, Schedule(interval=1.0, count=10))

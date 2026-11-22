@@ -136,7 +136,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             self._user_step,
             Schedule(interval=1.0, start=1.0),
             priority=Priority.HIGH,
-        ).start()
+        )._start()
         self.step = self._wrapped_step
 
         # setup agent registration data structures
@@ -378,7 +378,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             priority: Priority level for generated events
 
         Returns:
-            The EventGenerator (can be used to stop)
+            The EventGenerator, which can be paused, resumed or canceled.
 
         Raises:
             ValueError: If the schedule start time is in the past, or if nothing
@@ -391,8 +391,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             raise ValueError("function must be alive at Event creation.")
 
         generator = EventGenerator(self, function, schedule, priority)
-        generator.start()
-        return generator
+        return generator._start()
 
     @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_for(self, duration: float | int) -> None:
