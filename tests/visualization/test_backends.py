@@ -13,6 +13,7 @@ from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.backends.matplotlib_backend import _to_numpy_argument_array
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
 
@@ -512,3 +513,35 @@ def test_backends_handle_errors():
     }
     with pytest.raises(ValueError):
         mb.draw_agents(arguments, edgecolors="blue")
+
+
+@pytest.mark.parametrize(
+    ("edgecolors", "expected"),
+    [
+        ([None, None], []),
+        (["black", None], ["black", "none"]),
+        ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
+    ],
+)
+def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
+    """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
+    result = _to_numpy_argument_array("edgecolors", edgecolors)
+    assert result.tolist() == expected
+
+
+def test_to_numpy_argument_array_preserves_tuple_markers():
+    """Equal-length tuple marker specs must not collapse into a 2D array."""
+    result = _to_numpy_argument_array("marker", [(3, 0, 0), (3, 0, 0)])
+    assert result.shape == (2,)
+    assert list(result) == [(3, 0, 0), (3, 0, 0)]
+
+
+def test_to_numpy_argument_array_mixed_face_colors():
+    """Face colors can be a mix of named and RGBA colors."""
+    mixed = ["blue", (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", mixed)
+    assert list(result) == mixed
+
+    uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", uniform)
+    assert result.shape == (2, 4)
