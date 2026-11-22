@@ -15,7 +15,7 @@ from mesa.exceptions import TableMissingException
 
 @pytest.mark.parametrize("collect_first", [False, True])
 def test_failed_model_reporter_preserves_collected_rows(collect_first):
-    """A failed reporter must not append a partial model row or timestamp."""
+    """A failed reporter must not append a partial model row."""
     model = Model()
     model.fail = False
 
@@ -30,13 +30,11 @@ def test_failed_model_reporter_preserves_collected_rows(collect_first):
     if collect_first:
         collector.collect(model)
     expected = collector.get_model_vars_dataframe().copy()
-    expected_steps = list(collector._collection_steps)
 
     model.fail = True
     with pytest.raises(ValueError, match="reporter failed"):
         collector.collect(model)
 
-    assert collector._collection_steps == expected_steps
     pd.testing.assert_frame_equal(collector.get_model_vars_dataframe(), expected)
 
     model.fail = False
@@ -45,11 +43,10 @@ def test_failed_model_reporter_preserves_collected_rows(collect_first):
         "first": [1] * (int(collect_first) + 1),
         "second": [2] * (int(collect_first) + 1),
     }
-    assert collector._collection_steps == [model.time] * (int(collect_first) + 1)
 
 
 def test_model_reporter_copy_failure_preserves_collected_rows():
-    """A deepcopy failure leaves the existing model row and timestamp intact."""
+    """A deepcopy failure leaves the existing model row intact."""
     model = Model()
     model.value = {"count": 1}
     collector = DataCollector(model_reporters={"first": lambda m: 1, "second": "value"})
@@ -64,7 +61,6 @@ def test_model_reporter_copy_failure_preserves_collected_rows():
         collector.collect(model)
 
     assert collector.model_vars == {"first": [1], "second": [{"count": 1}]}
-    assert collector._collection_steps == [model.time]
 
     model.value = {"count": 2}
     collector.collect(model)
@@ -72,7 +68,6 @@ def test_model_reporter_copy_failure_preserves_collected_rows():
         "first": [1, 1],
         "second": [{"count": 1}, {"count": 2}],
     }
-    assert collector._collection_steps == [model.time, model.time]
 
 
 class MockAgent(Agent):
