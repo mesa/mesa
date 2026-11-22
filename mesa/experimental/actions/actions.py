@@ -181,6 +181,8 @@ class Action:
         self._state: ActionState = ActionState.PENDING
         self._progress: float = 0.0
         self._start_time: float = -1.0
+        # When the current attempt reaches full duration; see _is_due().
+        self._deadline: float = math.inf
         self._event: Event | None = None
         # Counts starts and resumes, so callers can tell whether a hook
         # started a new attempt while they were not looking.
@@ -210,14 +212,13 @@ class Action:
     def progress(self) -> float:
         """Time fraction completed, 0.0 to 1.0.
 
-        Computed live while the action is active. For interrupted or
-        completed actions, returns the final progress value.
+        Computed live while the action is active, and exactly 1.0 from its
+        deadline on. For interrupted or ended actions, returns the progress
+        at the moment they stopped.
         """
-        if (
-            self._state is ActionState.ACTIVE
-            and self.duration > 0
-            and self._start_time >= 0
-        ):
+        if self._state is ActionState.ACTIVE:
+            if self._is_due():
+                return 1.0
             elapsed_this_attempt = self.model.time - self._start_time
             return min(1.0, self._progress + elapsed_this_attempt / self.duration)
         return self._progress
@@ -343,14 +344,21 @@ class Action:
         on_interrupt() with the progress so far. Continue it later with
         resume().
 
+        If the action's deadline has been reached, it completes instead
+        (completion wins), even if it is not interruptible.
+
         Args:
             force: Interrupt even if the action is not interruptible.
 
         Returns:
             True if the action was interrupted. False if it is not ACTIVE,
-            or if it is not interruptible and force is not set.
+            if it was due and completed instead, or if it is not
+            interruptible and force is not set.
         """
         if self._state is not ActionState.ACTIVE:
+            return False
+        if self._is_due():
+            self._complete()
             return False
         if not (self.interruptible or force):
             return False
@@ -367,15 +375,21 @@ class Action:
 
         Works from ACTIVE, INTERRUPTED and PENDING, and ignores
         ``interruptible``: that flag governs preemption, not the owner
-        ending its own action. An ACTIVE action frees the agent's slot.
+        ending its own action. An ACTIVE action frees the agent's slot. An
+        ACTIVE action whose deadline has been reached completes instead
+        (completion wins).
 
         Returns:
-            True if the action was canceled, False if it was already final.
+            True if the action was canceled. False if it was already final,
+            or if it was due and completed instead.
         """
         if self._state in _FINAL_STATES:
             return False
 
         if self._state is ActionState.ACTIVE:
+            if self._is_due():
+                self._complete()
+                return False
             self._freeze_progress()
             self._cancel_event()
             self._state = ActionState.CANCELED
@@ -408,37 +422,48 @@ class Action:
             self._resolve_priority()
             self.duration = duration
 
-        self._start_time = self.model.time
+        now = self.model.time
+        self._start_time = now
+        self._deadline = now + self.duration * (1.0 - self._progress)
         self._state = ActionState.ACTIVE
         self._attempts += 1
+        attempt = self._attempts
         self.agent._current_action = self
+
+        # Schedule the completion before the hook runs: a hook that
+        # interrupts, cancels or resumes this action then goes through the
+        # normal methods, which cancel or replace this event.
+        if self._deadline > now:
+            self._event = self.model.schedule_event(
+                self._do_complete, at=self._deadline
+            )
 
         if resuming:
             self.on_resume()
         else:
             self.on_start()
 
-        # Calculate remaining time
-        remaining = self.duration * (1.0 - self._progress)
-
-        # Instantaneous actions (or fully completed) complete immediately
-        if remaining <= 0:
-            self._do_complete()
-            return True
-
-        # Schedule completion event for remaining duration
-        self._event = self.model.schedule_event(self._do_complete, after=remaining)
+        # An instant action completes here, unless the hook ended it or
+        # started a new attempt of it.
+        if (
+            self._deadline <= now
+            and self._attempts == attempt
+            and self._state is ActionState.ACTIVE
+        ):
+            self._complete()
         return True
+
+    def _is_due(self) -> bool:
+        """Whether the current attempt has reached its deadline.
+
+        Decided on time rather than on accumulated progress, which can sit
+        just below 1.0 at the deadline after a few interruptions.
+        """
+        return self.model.time >= self._deadline
 
     def _freeze_progress(self) -> None:
         """Snapshot live progress into _progress for storage."""
-        if self.duration > 0 and self._start_time >= 0:
-            elapsed_this_attempt = self.model.time - self._start_time
-            self._progress = min(
-                1.0, self._progress + elapsed_this_attempt / self.duration
-            )
-        else:
-            self._progress = 1.0
+        self._progress = self.progress
 
     def _cancel_event(self) -> None:
         """Cancel the scheduled completion event if it exists."""
@@ -509,14 +534,22 @@ class Action:
         self.on_fail()
 
     def _do_complete(self) -> None:
-        """Handle normal completion. Called by the scheduled event."""
+        """Complete the action. Called by the scheduled completion event."""
         if self._state is not ActionState.ACTIVE:
             return
+        self._event = None  # it is executing, so there is nothing to cancel
+        self._complete()
 
+    def _complete(self) -> None:
+        """Finish an ACTIVE action that has reached its deadline.
+
+        Also called before the completion event runs, when an interrupt or
+        cancel finds the action due; the queued event is then canceled.
+        """
         # Progress reaches 1.0 even if a requirement broke: the full duration
         # elapsed, only the effect is withheld.
         self._progress = 1.0
-        self._event = None
+        self._cancel_event()
 
         if not self._requirements_met(self.completion_requirements):
             self._fail()
@@ -693,12 +726,16 @@ class HasActions:
         Args:
             new_action: The Action to perform instead.
 
+        A current action whose deadline has been reached completes first
+        (completion wins), and so doesn't block new_action.
+
         Returns:
             True if new_action is the current action after the call, or
             entered ACTIVE during it (an instant action may have ended
             again). False if the preemption was refused, if a hook of the
-            interrupted action filled the slot or ended new_action, or if
-            new_action failed a start requirement.
+            action that ended filled the slot or ended new_action, if
+            new_action failed a start requirement, or if new_action was the
+            current action and was due, so it completed.
 
         Raises:
             ValueError: If new_action belongs to another agent or is in a
@@ -708,8 +745,9 @@ class HasActions:
                 changed.
 
         Notes:
-            Passing the current action changes nothing and returns True.
-            The False cases differ in what they leave behind. A refusal
+            Passing the current action changes nothing and returns True,
+            unless it is due. The False cases differ in what they leave
+            behind. A refusal
             changes nothing. A failed requirement does not roll the
             interruption back: the old action is already INTERRUPTED and
             the agent is left idle, since whether to resume it is the
@@ -717,23 +755,20 @@ class HasActions:
         """
         self._check_owner(new_action)
         if new_action is self._current_action:
+            if new_action._is_due():
+                new_action._complete()
+                return False
             return True
         if new_action.state not in (ActionState.PENDING, ActionState.INTERRUPTED):
             raise ValueError(
                 f"Cannot start an action in {new_action.state.name} state; "
                 f"interrupt_for() takes a PENDING or INTERRUPTED action."
             )
+        attempts = new_action._attempts
 
-        current = self._current_action
-        if current is not None:
-            new_action._resolve_priority()
-            if not self.should_interrupt(current, new_action):
-                return False
-            attempts = new_action._attempts
-            current.interrupt()
-            # The question is whether the slot is free, not what interrupt()
-            # returned. Its hooks may also have started new_action, filled
-            # the slot with something else, or ended new_action.
+        def slot_outcome() -> bool | None:
+            # After an action ended, its hooks may have started new_action,
+            # filled the slot with something else, or ended new_action.
             if new_action._attempts != attempts:
                 return True
             if self._current_action is not None or new_action.state not in (
@@ -741,6 +776,24 @@ class HasActions:
                 ActionState.INTERRUPTED,
             ):
                 return False
+            return None
+
+        current = self._current_action
+        if current is not None and current._is_due():
+            current._complete()
+            if (outcome := slot_outcome()) is not None:
+                return outcome
+
+        current = self._current_action
+        if current is not None:
+            new_action._resolve_priority()
+            if not self.should_interrupt(current, new_action):
+                return False
+            # The question is whether the slot is free afterwards, not what
+            # interrupt() returned.
+            current.interrupt()
+            if (outcome := slot_outcome()) is not None:
+                return outcome
 
         return new_action._enter()
 
