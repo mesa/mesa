@@ -1484,21 +1484,6 @@ class TestOnIdle:
 
             def on_idle(self, previous):
                 self.idle_calls += 1
-                self.start_action(Action(self, duration=0.0))
-
-        agent = Chain(model)
-        agent.start_action(Action(agent, duration=0.0))
-        with pytest.warns(RuntimeWarning, match=f"Agent {agent.unique_id} stays idle"):
-            model.run_for(1)
-
-        assert agent.idle_calls == 1
-
-    def test_dropped_wake_warns_with_agent_action_and_time(self):
-        """The warning names what a modeller needs to find the stalled agent."""
-        model = Model()
-
-        class Chain(ActionAgent):
-            def on_idle(self, previous):
                 self.start_action(Action(self, duration=0.0, name="Step"))
 
         agent = Chain(model)
@@ -1506,11 +1491,12 @@ class TestOnIdle:
         with pytest.warns(RuntimeWarning) as record:
             model.run_for(2)
 
-        assert len(record) == 1
-        message = str(record[0].message)
-        assert f"Agent {agent.unique_id}" in message
-        assert "Step(state=COMPLETED" in message
-        assert "time 1.0" in message
+        assert agent.idle_calls == 1
+        # The warning names the agent, the action that ended and the time.
+        (warning,) = record
+        assert f"Agent {agent.unique_id} stays idle" in str(warning.message)
+        assert "Step(state=COMPLETED" in str(warning.message)
+        assert "time 1.0" in str(warning.message)
 
     def test_no_warning_when_on_idle_refills_the_slot(self):
         """An action that ends inside on_idle, followed by another, is fine."""
