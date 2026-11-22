@@ -8,11 +8,78 @@ The words follow one convention: ``interrupt`` stops an action temporarily,
 ``resume`` continues it, and ``cancel`` ends it for good. Agents start
 actions with ``agent.start_action()``; there is no public ``start()``.
 
-Actions are subclassable: override on_start(), on_complete(),
-on_interrupt(), on_fail() and on_cancel() to define behavior. The
+Actions are subclassable: override the hooks to define behavior. The
 agent-side API lives on the HasActions mixin; when an action ends, the
 agent's on_idle() hook fires, and decisions about what to do next --
 chain another action, resume an interrupted one -- belong there.
+
+Hooks
+-----
+
+An action runs in one or more *attempts*: the first start, and every resume
+after an interrupt. Each attempt that starts ends with exactly one
+``on_stop()``, and each attempt end or final state fires exactly one outcome
+hook: ``on_interrupt()``, ``on_complete()``, ``on_fail()`` or ``on_cancel()``.
+
+- ``on_start()`` / ``on_resume()``: an attempt begins. ``on_resume()`` calls
+  ``on_start()`` by default. Acquire what the attempt needs here.
+- ``on_progress(delta)``: an attempt ends with work done. ``delta`` is the
+  fraction of the duration done since the last report. It runs while the
+  action is still ACTIVE, before the completion requirements are checked.
+- ``on_stop()``: every attempt end, however it ends, after the completion
+  requirements are checked. Release what ``on_start()`` acquired here.
+- ``on_interrupt()``, ``on_complete()``, ``on_fail()``, ``on_cancel()``: the
+  outcome, with the action already in its new state.
+
+Modelling work
+--------------
+
+Pick the hook that matches when the work counts:
+
+- **Only on finish.** Pay in ``on_complete()``. Work that is interrupted and
+  never resumed, or canceled, pays nothing::
+
+      class Build(Action):
+          def on_complete(self):
+              self.agent.houses += 1
+
+- **Per attempt, as partial credit.** Pay in ``on_progress(delta)``. The
+  deltas add up to ``progress``, so an action interrupted and resumed any
+  number of times pays exactly what one uninterrupted run pays::
+
+      class Forage(Action):
+          def __init__(self, sheep):
+              super().__init__(sheep, duration=5.0)
+
+          def on_progress(self, delta):
+              self.agent.energy += 30 * delta
+
+- **Accrued live.** ``progress``, ``elapsed_time`` and ``remaining_time``
+  are computed from the model time while the action is ACTIVE, so other code
+  can read the work done so far without waiting for the attempt to end. Pay
+  the work itself in ``on_progress()`` as above.
+
+To pay partial credit only when the action is canceled, read
+``self.progress`` in ``on_cancel()``. Final hooks fire once, so none of these
+can pay twice.
+
+Policies
+--------
+
+- **Completion wins.** An action that is due -- the model time has reached
+  its deadline -- when it is interrupted, canceled or preempted completes
+  instead, and may still fail its completion requirements.
+- **One wake per time.** ``on_idle()`` runs at most once per agent per model
+  time; see ``HasActions.on_idle()``.
+- **Re-entry.** ``on_start()``, ``on_resume()`` and the outcome hooks may
+  start, interrupt, resume or cancel actions. ``on_progress()``, ``on_stop()``
+  and the decision callables (requirements, duration, priority and
+  ``should_interrupt()``) run in the middle of a transition or are
+  predicates, so lifecycle calls for the same agent raise ``RuntimeError``
+  there.
+- **Exceptions.** Validation errors are raised before anything changes. An
+  exception from a hook or callable propagates without rollback, and the
+  remaining hooks of that transition don't run.
 
 Example::
 
@@ -23,11 +90,8 @@ Example::
         def __init__(self, sheep):
             super().__init__(sheep, duration=5.0)
 
-        def on_complete(self):
-            self.agent.energy += 30
-
-        def on_interrupt(self, progress):
-            self.agent.energy += 30 * progress
+        def on_progress(self, delta):
+            self.agent.energy += 30 * delta
 
     sheep.start_action(Forage(sheep))
 """
@@ -85,8 +149,9 @@ class Action:
     lifecycle state. They integrate with Mesa's event scheduler for
     completion timing.
 
-    Subclass and override on_start/on_complete/on_interrupt for complex
-    behavior. All hooks default to doing nothing (pass).
+    Subclass and override the hooks for complex behavior; see the module
+    documentation for when each one fires. All hooks default to doing
+    nothing, except on_resume(), which calls on_start().
 
     Attributes:
         agent: The agent performing this action.
@@ -180,6 +245,8 @@ class Action:
         # Lifecycle state
         self._state: ActionState = ActionState.PENDING
         self._progress: float = 0.0
+        # Progress already passed to on_progress(); see _report_progress().
+        self._reported: float = 0.0
         self._start_time: float = -1.0
         # When the current attempt reaches full duration; see _is_due().
         self._deadline: float = math.inf
@@ -250,46 +317,66 @@ class Action:
     # --- Lifecycle methods (override in subclasses) ---
 
     def on_start(self) -> None:
-        """Called when the action starts executing for the first time.
+        """Called when the first attempt begins.
 
-        Override for setup logic (e.g., logging, animation triggers,
-        resource reservation). Not called on resume — see on_resume().
+        The action is ACTIVE and its completion is already scheduled.
+        Override to acquire what the attempt needs (on_stop() releases it).
+        Not called on resume — see on_resume().
         """
 
     def on_resume(self) -> None:
-        """Called when the action resumes after interruption.
+        """Called when a later attempt begins, after an interruption.
 
-        Override to handle resumption differently from first start
-        (e.g., logging "resumed" instead of "started", skipping
-        setup that shouldn't happen twice).
-
-        Default implementation calls on_start().
+        Default implementation calls on_start(), so whatever on_start()
+        acquires is acquired again for every attempt. Override to handle
+        resumption differently.
         """
         self.on_start()
 
+    def on_progress(self, delta: float) -> None:
+        """Called when an attempt ends with work done (``delta > 0``).
+
+        Runs while the action is still ACTIVE, before the completion
+        requirements are checked, so a requirement sees all the work
+        reported. Pay partial credit here; the deltas add up to progress.
+
+        Args:
+            delta: Fraction of the duration done since the last report.
+
+        Notes:
+            Lifecycle calls for this agent raise RuntimeError here.
+        """
+
+    def on_stop(self) -> None:
+        """Called at every attempt end, however the attempt ends.
+
+        Runs once per attempt, after the completion requirements are
+        checked, with the action already in its new state. Release what
+        on_start() acquired here.
+
+        Notes:
+            Lifecycle calls for this agent raise RuntimeError here.
+        """
+
+    def on_interrupt(self) -> None:
+        """Called when the action was interrupted; it is now INTERRUPTED.
+
+        Partial credit belongs in on_progress(), releasing resources in
+        on_stop(); this hook reacts to the temporary stop itself.
+        """
+
     def on_complete(self) -> None:
-        """Called when the action finishes normally.
+        """Called when the action finished and its completion requirements held.
 
         Override to apply the action's full effect (e.g., gaining
         energy, completing a transaction).
         """
 
-    def on_interrupt(self, progress: float) -> None:
-        """Called when the action is interrupted before completion.
-
-        Override to handle partial completion. The progress parameter
-        is the raw time fraction (0.0 to 1.0), giving you full control
-        over how partial work translates to partial effect.
-
-        Args:
-            progress: Fraction of duration completed (elapsed / duration).
-        """
-
     def on_fail(self) -> None:
-        """Called when a requirement does not hold.
+        """Called when a start or completion requirement does not hold.
 
-        Override to release anything the action
-        reserved, or to record the attempt.
+        Override to release anything the action held across attempts, or
+        to record the failure.
 
         Notes:
             Check self.progress to tell the two failures apart: it is 1.0
@@ -299,7 +386,7 @@ class Action:
         """
 
     def on_cancel(self) -> None:
-        """Called when the action is canceled.
+        """Called when the action is canceled; it is now CANCELED.
 
         Fires once, whether the action was ACTIVE, INTERRUPTED or still
         PENDING. Override to release what the action held across
@@ -322,7 +409,10 @@ class Action:
             ValueError: If the action is PENDING (use agent.start_action())
                 or in a final state, or if its agent is busy with another
                 action.
+            RuntimeError: If called for this agent from on_progress(),
+                on_stop() or a decision callable.
         """
+        self.agent._check_lifecycle_call()
         if self._state is ActionState.ACTIVE:
             return False
         if self._state is not ActionState.INTERRUPTED:
@@ -340,9 +430,8 @@ class Action:
     def interrupt(self, *, force: bool = False) -> bool:
         """Stop this action temporarily (ACTIVE -> INTERRUPTED).
 
-        Freezes progress, cancels the scheduled completion and fires
-        on_interrupt() with the progress so far. Continue it later with
-        resume().
+        Fires on_progress(delta), on_stop() and on_interrupt(). Continue
+        it later with resume().
 
         If the action's deadline has been reached, it completes instead
         (completion wins), even if it is not interruptible.
@@ -354,7 +443,12 @@ class Action:
             True if the action was interrupted. False if it is not ACTIVE,
             if it was due and completed instead, or if it is not
             interruptible and force is not set.
+
+        Raises:
+            RuntimeError: If called for this agent from on_progress(),
+                on_stop() or a decision callable.
         """
+        self.agent._check_lifecycle_call()
         if self._state is not ActionState.ACTIVE:
             return False
         if self._is_due():
@@ -364,10 +458,7 @@ class Action:
             return False
 
         self._freeze_progress()
-        self._cancel_event()
-        self._state = ActionState.INTERRUPTED
-        self._release_agent()
-        self.on_interrupt(self._progress)
+        self._end_attempt(ActionState.INTERRUPTED, self.on_interrupt)
         return True
 
     def cancel(self) -> bool:
@@ -375,14 +466,19 @@ class Action:
 
         Works from ACTIVE, INTERRUPTED and PENDING, and ignores
         ``interruptible``: that flag governs preemption, not the owner
-        ending its own action. An ACTIVE action frees the agent's slot. An
-        ACTIVE action whose deadline has been reached completes instead
-        (completion wins).
+        ending its own action. An ACTIVE action frees the agent's slot and
+        fires on_progress(delta) and on_stop() first. An ACTIVE action whose
+        deadline has been reached completes instead (completion wins).
 
         Returns:
             True if the action was canceled. False if it was already final,
             or if it was due and completed instead.
+
+        Raises:
+            RuntimeError: If called for this agent from on_progress(),
+                on_stop() or a decision callable.
         """
+        self.agent._check_lifecycle_call()
         if self._state in _FINAL_STATES:
             return False
 
@@ -391,12 +487,10 @@ class Action:
                 self._complete()
                 return False
             self._freeze_progress()
-            self._cancel_event()
-            self._state = ActionState.CANCELED
-            self._release_agent()
+            self._end_attempt(ActionState.CANCELED, self.on_cancel)
         else:
             self._state = ActionState.CANCELED
-        self.on_cancel()
+            self.on_cancel()
         return True
 
     # --- Internal ---
@@ -411,10 +505,11 @@ class Action:
 
         # Gate entry before duration and priority are resolved, so a failing
         # action neither fires on_start() nor schedules a completion event.
-        if not self._requirements_met(self.start_requirements):
-            self._fail()
-            # The slot was never claimed, so _release_agent() did not wake.
+        if not self._requirements_met(self.start_requirements, "a start requirement"):
+            self._state = ActionState.FAILED
+            # The slot was never claimed, so no release queues the wake.
             self.agent._schedule_wake(self)
+            self.on_fail()
             return False
 
         if not resuming:
@@ -465,6 +560,30 @@ class Action:
         """Snapshot live progress into _progress for storage."""
         self._progress = self.progress
 
+    def _end_attempt(self, state: ActionState, outcome: Callable[[], None]) -> None:
+        """End the ACTIVE attempt: report, release, on_stop(), outcome hook.
+
+        Progress is already frozen. For a completion, the requirement check
+        happens between the report and this call; see _complete().
+        """
+        self._report_progress()
+        self._settle(state, outcome)
+
+    def _report_progress(self) -> None:
+        """Fire on_progress() with the work done since the last report."""
+        delta = self._progress - self._reported
+        self._reported = self._progress
+        if delta > 0:
+            self.agent._guarded("on_progress()", self.on_progress, delta)
+
+    def _settle(self, state: ActionState, outcome: Callable[[], None]) -> None:
+        """Leave ACTIVE for `state`, then fire on_stop() and the outcome."""
+        self._cancel_event()
+        self._state = state
+        self._release_agent()
+        self.agent._guarded("on_stop()", self.on_stop)
+        outcome()
+
     def _cancel_event(self) -> None:
         """Cancel the scheduled completion event if it exists."""
         if self._event is not None:
@@ -488,7 +607,9 @@ class Action:
     def _resolve_duration(self) -> float:
         """Resolve the duration spec against the agent and validate it."""
         duration = (
-            self._duration_spec(self.agent)
+            self.agent._guarded(
+                "the duration callable", self._duration_spec, self.agent
+            )
             if callable(self._duration_spec)
             else self._duration_spec
         )
@@ -510,7 +631,9 @@ class Action:
         if self._priority_resolved:
             return
         priority = (
-            self._priority_spec(self.agent)
+            self.agent._guarded(
+                "the priority callable", self._priority_spec, self.agent
+            )
             if callable(self._priority_spec)
             else self._priority_spec
         )
@@ -523,15 +646,16 @@ class Action:
         self.priority = priority
         self._priority_resolved = True
 
-    def _requirements_met(self, requirements: list[Callable[[Agent], bool]]) -> bool:
+    def _requirements_met(
+        self, requirements: list[Callable[[Agent], bool]], where: str
+    ) -> bool:
         """Whether every requirement in the given list holds right now."""
-        return all(requirement(self.agent) for requirement in requirements)
-
-    def _fail(self) -> None:
-        """Move to FAILED, release the agent, and fire on_fail()."""
-        self._state = ActionState.FAILED
-        self._release_agent()
-        self.on_fail()
+        if not requirements:
+            return True
+        agent = self.agent
+        return agent._guarded(
+            where, all, (requirement(agent) for requirement in requirements)
+        )
 
     def _do_complete(self) -> None:
         """Complete the action. Called by the scheduled completion event."""
@@ -549,15 +673,13 @@ class Action:
         # Progress reaches 1.0 even if a requirement broke: the full duration
         # elapsed, only the effect is withheld.
         self._progress = 1.0
-        self._cancel_event()
-
-        if not self._requirements_met(self.completion_requirements):
-            self._fail()
-            return
-
-        self._state = ActionState.COMPLETED
-        self._release_agent()
-        self.on_complete()
+        self._report_progress()
+        if self._requirements_met(
+            self.completion_requirements, "a completion requirement"
+        ):
+            self._settle(ActionState.COMPLETED, self.on_complete)
+        else:
+            self._settle(ActionState.FAILED, self.on_fail)
 
     def __repr__(self) -> str:
         """Return string representation."""
@@ -592,6 +714,8 @@ class HasActions:
         self._wake_event: Event | None = None
         self._wake_previous: Action | None = None
         self._last_wake_time: float = float("-inf")
+        # Where lifecycle calls are refused right now; see _guarded().
+        self._guarded_in: str | None = None
         super().__init__(*args, **kwargs)
 
     @property
@@ -620,7 +744,12 @@ class HasActions:
             def remove(self):
                 self.cancel_action()  # Fires on_cancel for cleanup
                 super().remove()
+
+        Raises:
+            RuntimeError: If called from on_progress(), on_stop() or a
+                decision callable of this agent's actions.
         """
+        self._check_lifecycle_call()
         if self._current_action is not None:
             self._current_action._cancel_event()  # Silent cleanup, no callback
             self._current_action = None
@@ -653,7 +782,10 @@ class HasActions:
                 action.resume(); a final one can't restart), if the agent is
                 busy, or if the resolved duration or priority is invalid.
                 The agent's slot is left as it was.
+            RuntimeError: If called from on_progress(), on_stop() or a
+                decision callable of this agent's actions.
         """
+        self._check_lifecycle_call()
         self._check_owner(action)
         if action.state is not ActionState.PENDING:
             hint = (
@@ -679,6 +811,7 @@ class HasActions:
             True if the current action was interrupted. False if the agent
             is idle or the action refused.
         """
+        self._check_lifecycle_call()
         if self._current_action is None:
             return False
         return self._current_action.interrupt(force=force)
@@ -691,6 +824,7 @@ class HasActions:
         Returns:
             True if the current action was canceled, False if idle.
         """
+        self._check_lifecycle_call()
         if self._current_action is None:
             return False
         return self._current_action.cancel()
@@ -743,6 +877,8 @@ class HasActions:
                 An invalid duration raises after the current action was
                 interrupted, since it may depend on what on_interrupt()
                 changed.
+            RuntimeError: If called from on_progress(), on_stop() or a
+                decision callable of this agent's actions.
 
         Notes:
             Passing the current action changes nothing and returns True,
@@ -753,6 +889,7 @@ class HasActions:
             the agent is left idle, since whether to resume it is the
             model's decision.
         """
+        self._check_lifecycle_call()
         self._check_owner(new_action)
         if new_action is self._current_action:
             if new_action._is_due():
@@ -787,7 +924,9 @@ class HasActions:
         current = self._current_action
         if current is not None:
             new_action._resolve_priority()
-            if not self.should_interrupt(current, new_action):
+            if not self._guarded(
+                "should_interrupt()", self.should_interrupt, current, new_action
+            ):
                 return False
             # The question is whether the slot is free afterwards, not what
             # interrupt() returned.
@@ -796,6 +935,32 @@ class HasActions:
                 return outcome
 
         return new_action._enter()
+
+    def _guarded(self, where: str, fn: Callable, *args):
+        """Call fn(*args) with lifecycle calls for this agent refused.
+
+        Used for on_progress(), on_stop() and the decision callables: the
+        first two run in the middle of a transition, the others are
+        predicates.
+        """
+        previous = self._guarded_in
+        self._guarded_in = where
+        try:
+            return fn(*args)
+        finally:
+            self._guarded_in = previous
+
+    def _check_lifecycle_call(self) -> None:
+        """Raise RuntimeError if lifecycle calls are refused right now."""
+        if self._guarded_in is not None:
+            raise RuntimeError(
+                f"Can't start, interrupt, resume or cancel actions of agent "
+                f"{self.unique_id}, or remove it, from {self._guarded_in}: it "
+                f"runs in the middle of a transition or is a predicate. Do "
+                f"this from on_start(), on_resume(), an outcome hook "
+                f"(on_interrupt, on_complete, on_fail, on_cancel) or on_idle() "
+                f"instead."
+            )
 
     def _check_owner(self, action: Action) -> None:
         """Raise ValueError unless this agent owns the action."""
