@@ -12,6 +12,13 @@ Decisions that aren't obvious from the code or the other pages, and why we made 
 | 2025-01 | SolaraViz stays experimental throughout Mesa 3.x: it is still evolving, and time alone doesn't make an API stable. | [#2636](https://github.com/mesa/mesa/issues/2636) | current |
 | 2025-12 | Mesa-Geo gets a visualization design suited to geospatial data instead of copying Mesa's. | [#2927](https://github.com/mesa/mesa/discussions/2927) | current |
 
+## API design
+
+| Date | Decision | Refs | Status |
+|---|---|---|---|
+| 2026-11 | `Event`, `EventGenerator` and `Action` share one lifecycle vocabulary. `cancel` ends something for good, `interrupt` (actions) and `pause` (generators) stop it temporarily, and `resume` continues it. The owner starts things (`agent.start_action()`, `model.schedule_recurring()`); there is no public `start()`. Nothing leaves a final state. Lifecycle methods return `bool` for whether the transition happened, and raise `ValueError` for calls that can't mean anything. | [#4120](https://github.com/mesa/mesa/discussions/4120) | current |
+| 2026-11 | An agent's `on_idle` wake runs at most once per agent per model time, so a chain of instant actions can't loop forever. If the guard leaves an agent idle, it warns. Allowing several wakes per time would be a different scheduling policy, and needs its own proposal. | [#3833](https://github.com/mesa/mesa/pull/3833), [#4120](https://github.com/mesa/mesa/discussions/4120) | current |
+
 ## Releases and documentation
 
 | Date | Decision | Refs | Status |

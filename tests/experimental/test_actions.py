@@ -1,6 +1,7 @@
 """Tests for mesa.experimental.actions."""
 
 # ruff: noqa: D101, D102, D103, D107
+import math
 import warnings
 
 import pytest
@@ -25,6 +26,7 @@ class TrackedAction(Action):
         self.completed = False
         self.interrupted = False
         self.failed = False
+        self.canceled = False
         self.interrupt_progress = None
 
     def on_start(self):
@@ -42,6 +44,9 @@ class TrackedAction(Action):
 
     def on_fail(self):
         self.failed = True
+
+    def on_cancel(self):
+        self.canceled = True
 
 
 def make_model_and_agent():
@@ -156,7 +161,7 @@ class TestInterruption:
 
         agent.start_action(action)
         model.run_for(3)  # 30% done
-        agent.cancel_action()
+        agent.interrupt_action()
 
         assert action.state is ActionState.INTERRUPTED
         assert action.interrupted
@@ -191,17 +196,33 @@ class TestInterruption:
         assert agent.current_action is first
         assert second.start_count == 0
 
-    def test_cancel_ignores_interruptible_flag(self):
+    def test_non_interruptible_refuses_interrupt_action(self):
         model, agent = make_model_and_agent()
         action = TrackedAction(agent, duration=10.0, interruptible=False)
 
         agent.start_action(action)
         model.run_for(5)
-        result = agent.cancel_action()
+
+        assert agent.interrupt_action() is False
+        assert action.state is ActionState.ACTIVE
+        assert not action.interrupted
+
+    def test_force_ignores_interruptible_flag(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0, interruptible=False)
+
+        agent.start_action(action)
+        model.run_for(5)
+        result = agent.interrupt_action(force=True)
 
         assert result is True
         assert action.state is ActionState.INTERRUPTED
         assert action.interrupt_progress == pytest.approx(0.5)
+        assert action.is_resumable
+
+    def test_interrupt_action_idle_returns_false(self):
+        _model, agent = make_model_and_agent()
+        assert agent.interrupt_action() is False
 
     def test_interrupt_idle_agent_just_starts(self):
         _model, agent = make_model_and_agent()
@@ -219,7 +240,7 @@ class TestInterruption:
 
         agent.start_action(action)
         model.run_for(1)  # 25%
-        agent.cancel_action()
+        agent.interrupt_action()
 
         assert action.interrupt_progress == pytest.approx(0.25)
 
@@ -243,9 +264,9 @@ class TestStartResume:
 
         agent.start_action(action)
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
 
         assert action.start_count == 1  # Not called again
         assert action.resume_count == 1
@@ -271,9 +292,9 @@ class TestStartResume:
         assert action.started == ["start"]
 
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
         # Default on_resume calls on_start
         assert action.started == ["start", "start"]
 
@@ -299,9 +320,9 @@ class TestStartResume:
 
         agent.start_action(action)
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
 
         assert action.log == ["start", "resume"]
 
@@ -311,13 +332,13 @@ class TestStartResume:
 
         agent.start_action(action)
         model.run_for(2)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
         model.run_for(5)
 
         assert action.start_count == 1
@@ -365,7 +386,7 @@ class TestLiveProgress:
 
         agent.start_action(action)
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
         assert action.progress == pytest.approx(0.3)
 
@@ -379,9 +400,9 @@ class TestLiveProgress:
 
         agent.start_action(action)
         model.run_for(4)  # 40%
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
         model.run_for(3)  # 40% + 30% = 70%
 
         assert action.progress == pytest.approx(0.7)
@@ -397,13 +418,13 @@ class TestPauseResume:
 
         agent.start_action(action)
         model.run_for(3)  # 30% done
-        agent.cancel_action()
+        agent.interrupt_action()
 
         assert action.progress == pytest.approx(0.3)
         assert action.remaining_time == pytest.approx(7.0)
         assert action.is_resumable
 
-        agent.start_action(action)
+        action.resume()
         assert action.state is ActionState.ACTIVE
 
         model.run_for(7)
@@ -418,17 +439,17 @@ class TestPauseResume:
         # First attempt: 20%
         agent.start_action(action)
         model.run_for(2)
-        agent.cancel_action()
+        agent.interrupt_action()
         assert action.progress == pytest.approx(0.2)
 
         # Second attempt: 20% + 30% = 50%
-        agent.start_action(action)
+        action.resume()
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
         assert action.progress == pytest.approx(0.5)
 
         # Third attempt: 50% + 50% = done
-        agent.start_action(action)
+        action.resume()
         model.run_for(5)
         assert action.state is ActionState.COMPLETED
         assert action.progress == 1.0
@@ -442,7 +463,7 @@ class TestPauseResume:
 
         assert not action.is_resumable
         with pytest.raises(ValueError, match="COMPLETED"):
-            action.start()
+            action.resume()
 
     def test_is_resumable_property(self):
         model, agent = make_model_and_agent()
@@ -454,7 +475,7 @@ class TestPauseResume:
         assert not action.is_resumable  # ACTIVE
 
         model.run_for(2)
-        agent.cancel_action()
+        agent.interrupt_action()
         assert action.is_resumable  # INTERRUPTED with progress < 1
 
     def test_resume_respects_remaining_duration_only(self):
@@ -463,9 +484,9 @@ class TestPauseResume:
 
         agent.start_action(action)
         model.run_for(8)  # 80%
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
 
         # Should complete after 2 more time units, not 10
         model.run_for(2)
@@ -530,11 +551,14 @@ class TestActionClearsAgentReference:
 
         assert action.interrupt() is False
 
-    def test_cancel_non_active_returns_false(self):
+    def test_cancel_final_returns_false(self):
         _model, agent = make_model_and_agent()
-        action = TrackedAction(agent, duration=5.0)
+        action = TrackedAction(agent, duration=0)
+        agent.start_action(action)  # completes instantly
 
-        assert action.cancel() is False  # PENDING
+        assert action.cancel() is False
+        assert action.state is ActionState.COMPLETED
+        assert not action.canceled
 
 
 class TestErrorHandling:
@@ -563,7 +587,7 @@ class TestErrorHandling:
         agent.start_action(action)  # Completes immediately
 
         with pytest.raises(ValueError, match="COMPLETED"):
-            action.start()
+            agent.start_action(action)
 
     def test_negative_duration_raises(self):
         _model, agent = make_model_and_agent()
@@ -595,17 +619,9 @@ class TestErrorHandling:
 
         assert agent.current_action is None
 
-    def test_direct_start_claims_the_slot(self):
-        _model, agent = make_model_and_agent()
-        first = TrackedAction(agent, duration=10.0).start()
-
-        assert agent.current_action is first
-        with pytest.raises(ValueError, match="already performing"):
-            TrackedAction(agent, duration=5.0).start()
-
     def test_cancel_idle_returns_false(self):
         _model, agent = make_model_and_agent()
-        assert agent.cancel_action() is False
+        assert agent.interrupt_action() is False
 
     def test_action_requires_has_actions_agent(self):
         """A plain Agent without the mixin is rejected up front."""
@@ -674,9 +690,9 @@ class TestCallableDurationPriority:
         assert call_count == 1
 
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)  # Resume
+        action.resume()  # Resume
         assert call_count == 1  # Not called again
 
 
@@ -714,7 +730,7 @@ class TestSubclassCallbacks:
 
         agent.start_action(action)
         model.run_for(2)
-        agent.cancel_action()
+        agent.interrupt_action()
 
         assert action.received_progress == [pytest.approx(0.2)]
 
@@ -752,18 +768,24 @@ class TestAgentRemoval:
         assert agent.current_action is None
 
     def test_remove_with_explicit_cleanup(self):
-        """Users can opt into on_interrupt by calling cancel_action first."""
+        """Users can opt into on_cancel by calling cancel_action first."""
         model = Model()
-        agent = ActionAgent(model)
+
+        class CleanAgent(ActionAgent):
+            def remove(self):
+                self.cancel_action()
+                super().remove()
+
+        agent = CleanAgent(model)
         action = TrackedAction(agent, duration=10.0)
 
         agent.start_action(action)
         model.run_for(3)
+        agent.remove()
 
-        # Explicit cleanup pattern
-        agent.cancel_action()  # Fires on_interrupt
-        assert action.interrupted
-        assert action.interrupt_progress == pytest.approx(0.3)
+        assert action.canceled
+        assert action.state is ActionState.CANCELED
+        assert action.progress == pytest.approx(0.3)
 
 
 class TestResumeDetection:
@@ -787,9 +809,9 @@ class TestResumeDetection:
 
         agent.start_action(action)
         model.run_for(3)
-        agent.cancel_action()
+        agent.interrupt_action()
 
-        agent.start_action(action)
+        action.resume()
         model.run_for(7)
 
         assert action.start_types == ["first", "resume"]
@@ -967,10 +989,10 @@ class TestActionFailure:
         agent.start_action(action)
 
         model.run_for(2)
-        agent.cancel_action()
+        agent.interrupt_action()
         agent.safe = False
 
-        agent.start_action(action)
+        action.resume()
 
         assert action.state is ActionState.FAILED
         assert action.resume_count == 0
@@ -1049,6 +1071,260 @@ class TestInterruptForWithRequirements:
         assert agent.interrupt_for(replacement) is False
         assert replacement.state is ActionState.PENDING
         assert not replacement.failed
+
+
+# --- Vocabulary: cancel is final, resume continues ---
+
+
+class TestCancel:
+    def test_cancel_active_is_final(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+        agent.start_action(action)
+        model.run_for(3)
+
+        assert agent.cancel_action() is True
+
+        assert action.state is ActionState.CANCELED
+        assert action.canceled
+        assert not action.interrupted
+        assert action.progress == pytest.approx(0.3)
+        assert agent.current_action is None
+        assert not action.is_resumable
+        with pytest.raises(ValueError, match="CANCELED"):
+            action.resume()
+
+        model.run_for(20)
+        assert not action.completed
+
+    def test_cancel_ignores_interruptible_flag(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0, interruptible=False)
+        agent.start_action(action)
+
+        assert action.cancel() is True
+        assert action.state is ActionState.CANCELED
+
+    def test_cancel_interrupted(self):
+        model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=10.0)
+        agent.start_action(action)
+        model.run_for(2)
+        action.interrupt()
+
+        assert action.cancel() is True
+        assert action.state is ActionState.CANCELED
+        assert action.canceled
+        assert action.progress == pytest.approx(0.2)
+
+    def test_cancel_pending(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent)
+
+        assert action.cancel() is True
+        assert action.state is ActionState.CANCELED
+        assert action.canceled
+        with pytest.raises(ValueError, match="CANCELED"):
+            agent.start_action(action)
+
+    def test_cancel_twice_fires_once(self):
+        _model, agent = make_model_and_agent()
+        calls = []
+
+        class Counting(Action):
+            def on_cancel(self):
+                calls.append(self)
+
+        action = agent.start_action(Counting(agent))
+        assert action.cancel() is True
+        assert action.cancel() is False
+        assert len(calls) == 1
+
+    def test_cancel_action_idle_returns_false(self):
+        _model, agent = make_model_and_agent()
+        assert agent.cancel_action() is False
+
+
+class TestResume:
+    def test_resume_active_returns_false(self):
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent))
+
+        assert action.resume() is False
+        assert action.resume_count == 0
+
+    def test_resume_pending_raises(self):
+        _model, agent = make_model_and_agent()
+        with pytest.raises(ValueError, match="start_action"):
+            TrackedAction(agent).resume()
+
+    def test_resume_while_busy_raises(self):
+        _model, agent = make_model_and_agent()
+        first = agent.start_action(TrackedAction(agent))
+        first.interrupt()
+        agent.start_action(TrackedAction(agent))
+
+        with pytest.raises(ValueError, match="already performing"):
+            first.resume()
+        assert first.state is ActionState.INTERRUPTED
+
+    def test_resume_returns_false_on_failed_requirement(self):
+        _model, agent = make_model_and_agent()
+        agent.safe = True
+        action = agent.start_action(
+            TrackedAction(agent, start_requirements=lambda a: a.safe)
+        )
+        action.interrupt()
+        agent.safe = False
+
+        assert action.resume() is False
+        assert action.has_failed
+
+    def test_start_action_on_interrupted_points_to_resume(self):
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent))
+        action.interrupt()
+
+        with pytest.raises(ValueError, match=r"action\.resume\(\)"):
+            agent.start_action(action)
+
+
+class TestReadOnlyState:
+    def test_state_cannot_be_assigned(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent)
+        with pytest.raises(AttributeError):
+            action.state = ActionState.COMPLETED
+
+    def test_current_action_cannot_be_assigned(self):
+        _model, agent = make_model_and_agent()
+        with pytest.raises(AttributeError):
+            agent.current_action = TrackedAction(agent)
+
+
+class TestResolvedValues:
+    @pytest.mark.parametrize("duration", [math.nan, math.inf, -1.0])
+    def test_invalid_duration_raises_before_anything_changes(self, duration):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, duration=duration)
+
+        with pytest.raises(ValueError, match="duration"):
+            agent.start_action(action)
+        assert action.state is ActionState.PENDING
+        assert action.start_count == 0
+        assert not agent.is_busy
+
+    def test_nan_priority_raises(self):
+        _model, agent = make_model_and_agent()
+        action = TrackedAction(agent, priority=lambda a: math.nan)
+
+        with pytest.raises(ValueError, match="NaN"):
+            agent.start_action(action)
+        assert action.state is ActionState.PENDING
+
+    def test_infinite_priority_always_preempts(self):
+        _model, agent = make_model_and_agent()
+        agent.start_action(TrackedAction(agent, duration=10.0, priority=1e300))
+
+        assert agent.interrupt_for(TrackedAction(agent, priority=math.inf))
+
+
+class TestInterruptForSlot:
+    """interrupt_for checks what it can up front, then asks: is the slot free?"""
+
+    @pytest.mark.parametrize("kind", ["other agent", "final"])
+    def test_invalid_new_action_raises_before_interrupting(self, kind):
+        model, agent = make_model_and_agent()
+        current = agent.start_action(TrackedAction(agent, duration=5.0))
+        if kind == "other agent":
+            new_action = TrackedAction(ActionAgent(model))
+        else:
+            new_action = TrackedAction(agent)
+            new_action.cancel()
+
+        with pytest.raises(ValueError):
+            agent.interrupt_for(new_action)
+
+        assert current.state is ActionState.ACTIVE
+        assert not current.interrupted
+        model.run_for(5)
+        assert current.completed
+
+    def test_raises_even_when_the_policy_would_refuse(self):
+        """Ownership is checked first, so a wrong call is never a quiet False."""
+        model, agent = make_model_and_agent()
+        agent.start_action(TrackedAction(agent, duration=5.0, interruptible=False))
+
+        with pytest.raises(ValueError, match="does not match"):
+            agent.interrupt_for(TrackedAction(ActionAgent(model)))
+
+    def test_current_action_is_a_no_op(self):
+        model, agent = make_model_and_agent()
+        current = agent.start_action(TrackedAction(agent, duration=5.0))
+        model.run_for(2)
+
+        assert agent.interrupt_for(current) is True
+        assert agent.current_action is current
+        assert not current.interrupted
+        assert current.start_count == 1
+        model.run_for(3)
+        assert current.completed
+
+    def test_resumes_an_interrupted_action(self):
+        model, agent = make_model_and_agent()
+        task = agent.start_action(TrackedAction(agent, duration=10.0))
+        model.run_for(4)
+        meeting = TrackedAction(agent, duration=3.0)
+        agent.interrupt_for(meeting)
+
+        assert agent.interrupt_for(task) is True
+        assert meeting.state is ActionState.INTERRUPTED
+        assert task.state is ActionState.ACTIVE
+        assert task.resume_count == 1
+        assert task.remaining_time == pytest.approx(6.0)
+
+    def test_hook_that_fills_the_slot_wins(self):
+        _model, agent = make_model_and_agent()
+        fallback = TrackedAction(agent, duration=3.0)
+
+        class GoesElsewhere(TrackedAction):
+            def on_interrupt(self, progress):
+                self.agent.start_action(fallback)
+
+        agent.start_action(GoesElsewhere(agent, duration=10.0))
+        new_action = TrackedAction(agent)
+
+        assert agent.interrupt_for(new_action) is False
+        assert agent.current_action is fallback
+        assert new_action.state is ActionState.PENDING
+
+    def test_hook_that_starts_the_new_action_counts(self):
+        _model, agent = make_model_and_agent()
+        new_action = TrackedAction(agent)
+
+        class HandsOver(TrackedAction):
+            def on_interrupt(self, progress):
+                self.agent.start_action(new_action)
+
+        agent.start_action(HandsOver(agent, duration=10.0))
+
+        assert agent.interrupt_for(new_action) is True
+        assert agent.current_action is new_action
+        assert new_action.start_count == 1
+
+    def test_hook_that_cancels_the_new_action(self):
+        _model, agent = make_model_and_agent()
+        new_action = TrackedAction(agent)
+
+        class Vetoes(TrackedAction):
+            def on_interrupt(self, progress):
+                new_action.cancel()
+
+        agent.start_action(Vetoes(agent, duration=10.0))
+
+        assert agent.interrupt_for(new_action) is False
+        assert new_action.state is ActionState.CANCELED
+        assert not agent.is_busy
 
 
 # --- Preemption policy ---
@@ -1219,7 +1495,7 @@ class TestRealisticScenarios:
         assert not sheep.is_busy
 
         # Resume foraging (remaining 40%)
-        sheep.start_action(forage)
+        forage.resume()
         model.run_for(2)  # 40% of 5.0 = 2.0 time units
 
         assert forage.state is ActionState.COMPLETED
@@ -1297,7 +1573,7 @@ class TestRealisticScenarios:
         model.run_for(3)  # Meeting done
 
         # Resume task
-        worker.start_action(task)
+        task.resume()
         model.run_for(6)  # Remaining 60%
 
         assert task.state is ActionState.COMPLETED
@@ -1409,13 +1685,37 @@ class TestOnIdle:
         model, agent = self.make_recorder()
         action = TrackedAction(agent)
         agent.start_action(action)
-        agent.cancel_action()
+        agent.interrupt_action()
 
         # The release only queued the wake; nothing has fired yet.
         assert agent.wakes == []
 
         model.run_for(1)
         assert agent.wakes == [(0.0, action, ActionState.INTERRUPTED)]
+
+    def test_wake_fires_for_cancel(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent, duration=5.0)
+        agent.start_action(action)
+        model.run_for(2)
+
+        assert action.cancel()
+        model.run_for(1)
+
+        assert agent.wakes == [(2.0, action, ActionState.CANCELED)]
+
+    def test_no_wake_for_canceling_an_interrupted_action(self):
+        model, agent = self.make_recorder()
+        action = TrackedAction(agent, duration=5.0)
+        agent.start_action(action)
+        action.interrupt()
+        model.run_for(1)  # the interrupt's wake
+        agent.wakes.clear()
+
+        action.cancel()
+        model.run_for(1)
+
+        assert agent.wakes == []
 
     def test_wake_fires_for_interrupt(self):
         model, agent = self.make_recorder()
@@ -1464,7 +1764,7 @@ class TestOnIdle:
         model, agent = self.make_recorder()
         first = TrackedAction(agent)
         agent.start_action(first)
-        agent.cancel_action()
+        agent.interrupt_action()
         second = TrackedAction(agent, duration=0.0)
         agent.start_action(second)  # completes instantly, wake still pending
 
@@ -1559,7 +1859,7 @@ class TestOnIdle:
         model, agent = self.make_recorder()
         action = TrackedAction(agent)
         agent.start_action(action)
-        agent.cancel_action()
+        agent.interrupt_action()
 
         agent.remove()
         model.run_for(1)
