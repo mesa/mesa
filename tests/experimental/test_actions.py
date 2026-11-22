@@ -1,8 +1,11 @@
 """Tests for mesa.experimental.actions."""
 
 # ruff: noqa: D101, D102, D103, D107
+import gc
 import math
+import pickle
 import warnings
+import weakref
 
 import pytest
 
@@ -958,20 +961,188 @@ class TestSubclassCallbacks:
 
 
 class TestAgentRemoval:
-    def test_remove_cancels_action_silently(self):
-        """remove() cancels the event but does NOT fire on_interrupt."""
+    def test_remove_cancels_the_active_action(self):
         model, agent = make_model_and_agent()
-        action = TrackedAction(agent, duration=10.0)
-
-        agent.start_action(action)
+        action = agent.start_action(LoggedAction(agent, duration=10.0))
         model.run_for(3)
         agent.remove()
 
-        assert not action.interrupted
+        assert action.log == [
+            ("start", S.ACTIVE),
+            ("progress", S.ACTIVE),
+            ("stop", S.CANCELED),
+            ("cancel", S.CANCELED),
+        ]
+        assert action.progress == pytest.approx(0.3)
         assert agent.current_action is None
+        model.run_for(20)
+        assert action.state is ActionState.CANCELED
+
+    def test_remove_never_completes_a_due_action(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent, duration=10.0))
+
+        def remove():
+            agent.remove()
+
+        model.schedule_event(remove, at=10.0, priority=Priority.HIGH)
+        model.run_for(10)
+
+        assert action.state is ActionState.CANCELED
+        assert action.canceled
+        assert not action.completed
+        assert action.progress == 1.0
+
+    def test_remove_cancels_interrupted_actions_in_start_order(self):
+        _model, agent = make_model_and_agent()
+        canceled = []
+
+        class Named(Action):
+            def on_cancel(self):
+                canceled.append(self.name)
+
+        first = agent.start_action(Named(agent, name="first"))
+        first.interrupt()
+        second = agent.start_action(Named(agent, name="second"))
+        second.interrupt()
+        agent.start_action(Named(agent, name="third"))
+        first.cancel()  # already final, so removal leaves it alone
+        canceled.clear()
+        pending = Named(agent, name="pending")
+
+        agent.remove()
+
+        assert canceled == ["third", "second"]
+        assert second.state is ActionState.CANCELED
+        assert pending.state is ActionState.PENDING
+
+    def test_dropped_interrupted_action_is_not_kept_alive(self):
+        model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent))
+        action.interrupt()
+        model.run_for(1)  # the wake hands the action to on_idle, then lets go
+        ref = weakref.ref(action)
+        del action
+        gc.collect()
+
+        assert ref() is None
+        agent.remove()
+
+    def test_no_wake_after_removal(self):
+        model = Model()
+        agent = IdleRecorder(model)
+        agent.start_action(TrackedAction(agent, duration=5.0))
+        model.run_for(1)
+        agent.remove()
+        model.run_for(10)
+
+        assert agent.wakes == []
+
+    def test_hooks_run_while_the_agent_is_in_the_model(self):
+        model, agent = make_model_and_agent()
+        seen = []
+
+        class Look(Action):
+            def on_cancel(self):
+                seen.append(self.agent in self.model.agents)
+
+        agent.start_action(Look(agent))
+        agent.remove()
+
+        assert seen == [True]
+        assert agent not in model.agents
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda agent, action: agent.start_action(Action(agent)),
+            lambda agent, action: action.resume(),
+            lambda agent, action: agent.interrupt_for(Action(agent)),
+        ],
+        ids=["start_action", "resume", "interrupt_for"],
+    )
+    def test_removed_agent_cannot_start_anything(self, call):
+        _model, agent = make_model_and_agent()
+        action = agent.start_action(TrackedAction(agent))
+        action.interrupt()
+        agent.remove()
+
+        with pytest.raises(ValueError, match="was removed"):
+            call(agent, action)
+
+    def test_hook_that_removes_the_agent_again(self):
+        model, agent = make_model_and_agent()
+        calls = []
+
+        class RemovesAgain(Action):
+            def on_cancel(self):
+                calls.append(self)
+                self.agent.remove()
+
+        agent.start_action(RemovesAgain(agent))
+        agent.remove()
+
+        assert len(calls) == 1
+        assert agent not in model.agents
+
+    def test_on_complete_may_remove_the_agent(self):
+        model = Model()
+        agent = IdleRecorder(model)
+
+        class Last(Action):
+            def on_complete(self):
+                self.agent.remove()
+
+        action = agent.start_action(Last(agent, duration=2.0))
+        model.run_for(5)
+
+        assert action.state is ActionState.COMPLETED
+        assert agent.wakes == []
+
+    def test_reservation_held_across_an_interruption_is_released(self):
+        """The Shift example: removed mid-break, the reservation still goes."""
+        model, agent = make_model_and_agent()
+        station = {"reserved_by": None}
+
+        class Shift(Action):
+            def on_start(self):
+                station["reserved_by"] = self.agent
+
+            def on_cancel(self):
+                station["reserved_by"] = None
+
+        shift = agent.start_action(Shift(agent, duration=8.0))
+        model.run_for(2)
+        shift.interrupt()  # on a break, still holding the station
+        agent.remove()
+
+        assert station["reserved_by"] is None
+
+    def test_remove_all_agents_cancels_their_actions(self):
+        model = Model()
+        agents = [ActionAgent(model) for _ in range(3)]
+        actions = [a.start_action(TrackedAction(a)) for a in agents]
+
+        model.remove_all_agents()
+
+        assert all(action.canceled for action in actions)
+
+    def test_pickle_keeps_tracking(self):
+        model, agent = make_model_and_agent()
+        interrupted = agent.start_action(TrackedAction(agent, name="kept"))
+        interrupted.interrupt()
+        agent.kept = interrupted  # referenced, so it survives the round trip
+
+        model2 = pickle.loads(pickle.dumps(model))  # noqa: S301
+        agent2 = next(iter(model2.agents))
+        agent2.remove()
+
+        assert agent2.kept.state is ActionState.CANCELED
+        assert agent2.kept.canceled
+        assert interrupted.state is ActionState.INTERRUPTED
 
     def test_remove_with_explicit_cleanup(self):
-        """Users can opt into on_cancel by calling cancel_action first."""
+        """An override that cancels first, as before, still works."""
         model = Model()
 
         class CleanAgent(ActionAgent):
