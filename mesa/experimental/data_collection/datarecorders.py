@@ -300,12 +300,12 @@ class JSONDataRecorder(BaseDataRecorder):
         """Initialize JSON Recorder."""
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.data: dict[str, list] = {}
+        self.data: dict[str, deque] = {}
         super().__init__(model, config)
 
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
-        """Initialize empty list for dataset."""
-        self.data[dataset_name] = []
+        """Initialize an empty deque, bounded by the dataset's window_size."""
+        self.data[dataset_name] = deque(maxlen=self.configs[dataset_name].window_size)
 
     def _store_dataset_snapshot(
         self,
@@ -325,7 +325,16 @@ class JSONDataRecorder(BaseDataRecorder):
             case list():
                 self.data[dataset_name].append({"time": time, "data": data})
             case np.ndarray():
-                self.data[dataset_name].append({"time": time, "data": data.tolist()})
+                snapshot = data.tolist()
+                dataset = self.registry.datasets[dataset_name]
+                # A numpy agent dataset holds bare values. Name them and say
+                # whose they are, or the rows cannot be told apart later.
+                if hasattr(dataset, "agent_ids"):
+                    snapshot = [
+                        {"agent_id": agent_id, **dict(zip(dataset._attributes, row))}
+                        for agent_id, row in zip(dataset.agent_ids.tolist(), snapshot)
+                    ]
+                self.data[dataset_name].append({"time": time, "data": snapshot})
             case _:
                 self.data[dataset_name].append({"time": time, "data": data})
 
@@ -382,7 +391,7 @@ class JSONDataRecorder(BaseDataRecorder):
         for name, snapshots in self.data.items():
             filepath = self.output_dir / f"{name}.json"
             with open(filepath, "w") as f:
-                json.dump(snapshots, f, indent=2, cls=NumpyJSONEncoder)
+                json.dump(list(snapshots), f, indent=2, cls=NumpyJSONEncoder)
 
 
 class ParquetDataRecorder(BaseDataRecorder):

@@ -59,6 +59,7 @@ All roles are expected to:
 Mesa grows through good ideas and contributions. We're all volunteers working together to make Mesa better. Don't hesitate to reach out to any maintainer to discuss your interests and potential growth within the project!
 
 ## Releases
+Feature releases (`X.Y.0`) and pre-releases are made from `main`, following the steps below. Patch releases (`X.Y.Z`) are also made from `main` as long as nothing breaking or major has been merged since the last release. Once it has, patch releases are made from a maintenance branch; see [Patch releases](#patch-releases) for what differs.
 
 To create a new release, follow these steps:
 
@@ -75,3 +76,33 @@ To create a new release, follow these steps:
 10. Finally, after release, open a new PR to update the version number in [`mesa/__init__.py`](https://github.com/mesa/mesa/blob/main/mesa/__init__.py) for the next release (e.g., `"3.1.0.dev"`).
 
 A recorded video of this process is [available here](https://youtu.be/JE44jkegmns).
+
+### Patch releases
+A patch release is tagged from `main` if `main` contains no breaking or major changes since the last release; then follow the steps above.
+
+Once `main` has moved on to work for the next feature or major release, patch releases backport fixes from `main` to the current stable series. They are then made from the `X.Y.x-maintenance` branch (for example `3.5.x-maintenance`), as described here. Which PRs qualify is decided by the [backport policy](decisions.md#releases-and-documentation).
+
+1. **Pick the PRs.** Start from PRs labelled [`backport-candidate`](https://github.com/mesa/mesa/pulls?q=is%3Apr+is%3Amerged+label%3Abackport-candidate), then go through everything else merged into `main` since the last patch release, for example with `gh pr list --repo mesa/mesa --base main --state merged --search "merged:>=YYYY-MM-DD" --limit 300`. Select the PRs that fit the backport policy. Skip anything that depends on work only on `main`.
+2. **Cherry-pick.** Create a branch from the maintenance branch and cherry-pick the selected commits with `git cherry-pick -x`, oldest first, so each commit records where it came from. `main` squash-merges, so a PR is usually one commit. To find the PR for a commit, use `gh api repos/mesa/mesa/commits/<sha>/pulls --jq '.[].number'`.
+3. **Adapt where needed.** When the API differs between `main` and the maintenance branch, adapt the change by hand and keep the original author (`git commit --author`). If a PR bundles a fix with a breaking change, backport only the fix, or skip the PR. List every adapted or partly backported PR, and every skipped PR with the reason, in the PR description.
+4. **Test.** Run the full test suite as CI does (`pytest tests/ -Werror -Wdefault::PendingDeprecationWarning`) after each group of picks, so a failure points to one PR. Test tooling may have changed since the branch was cut, so a CI fix from `main` sometimes has to be backported first.
+5. **Write the release notes.** Draft a release as in steps 2–6 above, with _Target_ set to the maintenance branch. Patch-release notes have so far been written by hand from the list of backported PRs; use the previous patch releases in [`HISTORY.md`](https://github.com/mesa/mesa/blob/main/HISTORY.md) as a template. Add the version bump and the notes as the last commit of the backport branch.
+6. **Open one PR into the maintenance branch** with all backports. Don't squash-merge it: that collapses all backports into a single commit. Once it's approved and CI passes, fast-forward the maintenance branch to the PR head instead, which keeps every commit and its SHA:
+
+   ```bash
+   git fetch upstream
+   git merge-base --is-ancestor upstream/X.Y.x-maintenance <head-sha>   # must succeed
+   git push upstream <head-sha>:refs/heads/X.Y.x-maintenance
+   ```
+
+   GitHub then marks the PR as merged. If the maintenance branch moved in the meantime, rebase the backport branch first.
+7. **Publish the release** pinned to the merged commit rather than the branch name, and mark it as the latest release (a pre-release of the next major version doesn't count as latest):
+
+   ```bash
+   gh release edit vX.Y.Z --target <head-sha> --draft=false --latest
+   ```
+
+   Check that the `release.yml` workflow uploaded the package to [PyPI](https://pypi.org/project/mesa/).
+8. **Prepare the next patch release.** Set the version on the maintenance branch to the next development version (for example `"3.5.3.dev"`).
+
+When you merge a PR on `main` that should go into the next patch release, add the `backport-candidate` label so it's easy to find later.
