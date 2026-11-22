@@ -62,6 +62,30 @@ def test_running():
     assert model.time == 10.0
 
 
+def test_step_continues_after_exception():
+    """An exception in step() reaches the caller, and later steps still run."""
+
+    class FailOnce(Model):
+        def __init__(self):
+            super().__init__()
+            self.steps_run = 0
+
+        def step(self):
+            self.steps_run += 1
+            if self.steps_run == 2:
+                raise RuntimeError("boom")
+
+    model = FailOnce()
+    model.step()
+    with pytest.raises(RuntimeError, match="boom"):
+        model.step()
+    for _ in range(3):
+        model.step()
+
+    assert model.steps_run == 5
+    assert model.time == 5.0
+
+
 def test_rng(rng=23):
     """Test initialization of model with specific seed."""
     model = Model(rng=rng)
