@@ -27,6 +27,7 @@ from mesa.experimental.mesa_signals.signals_util import (
     ALL,
     Message,
     SignalType,
+    _has_changed,
     create_weakref,
 )
 
@@ -116,7 +117,14 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
+    An Observable emits ObservableSignals.CHANGED when a value that differs
+    from the current one (compared with !=) is assigned to it. If that comparison
+    has no single truth value, as for NumPy arrays with more than one element,
+    the assignment is treated as a change.
+
+    Changes made in place to a mutable value (a list, an array, a custom
+    collection or other object) are not observed. To signal such a change,
+    assign a new value, or use ObservableList for lists.
 
     """
 
@@ -138,7 +146,7 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            if old_value != value:
+            if _has_changed(old_value, value):
                 send_notify = True
         setattr(instance, self.private_name, value)
 
@@ -327,7 +335,7 @@ def computed_property(
                             break
                         for attr, old_val in observations.items():
                             current_val = getattr(parent, attr)
-                            if current_val != old_val:
+                            if _has_changed(old_val, current_val):
                                 changed = True
                                 break
                         if changed:

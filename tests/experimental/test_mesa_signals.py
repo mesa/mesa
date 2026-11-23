@@ -3,6 +3,7 @@
 import doctest
 from unittest.mock import Mock, patch
 
+import numpy as np
 import pytest
 
 from mesa import Agent, Model
@@ -18,7 +19,11 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
-from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
+from mesa.experimental.mesa_signals.signals_util import (
+    Message,
+    _AllSentinel,
+    _has_changed,
+)
 
 
 def test_signal_type_docstrings():
@@ -1300,3 +1305,164 @@ def test_peek():
 
     # untracked_state remains clean because the framework does not know it looked at speed
     assert untracked_comp_state.is_dirty is False
+
+
+@pytest.mark.parametrize("factory", [list, dict, set])
+@pytest.mark.parametrize("subscribed", [False, True])
+def test_observable_collections(factory, subscribed):
+    """Collections remain assignable and equal values do not notify."""
+
+    class Holder(HasEmitters):
+        data = Observable()
+
+    obj = Holder()
+    obj.data = factory()
+    handler = Mock()
+    if subscribed:
+        obj.observe("data", ObservableSignals.CHANGED, handler)
+    obj.data = factory()
+    handler.assert_not_called()
+    new = factory([("a", 1)] if factory is dict else [1])
+    obj.data = new
+    assert obj.data is new
+    assert handler.call_count == int(subscribed)
+
+
+@pytest.mark.parametrize("kind", ["list", "array", "object"])
+def test_observable_in_place_changes_are_not_observed(kind):
+    """Only assignment signals, not mutations of the stored object."""
+
+    class Holder(HasEmitters):
+        data = Observable()
+
+    class Mutable:
+        value = 0
+
+    obj = Holder()
+    obj.data = {"list": [0, 0], "array": np.array([0, 0]), "object": Mutable()}[kind]
+    handler = Mock()
+    obj.observe("data", ObservableSignals.CHANGED, handler)
+    if kind == "object":
+        obj.data.value = 1
+    else:
+        obj.data[0] = 1
+    handler.assert_not_called()
+
+
+@pytest.mark.parametrize("subscribed", [False, True])
+def test_observable_array_assignment(subscribed):
+    """Multi-element arrays always count as changed on assignment."""
+
+    class Holder(HasEmitters):
+        data = Observable()
+
+    obj = Holder()
+    obj.data = np.array([1, 2])
+    handler = Mock()
+    if subscribed:
+        obj.observe("data", ObservableSignals.CHANGED, handler)
+    for values in ([1, 2], [3, 4], [float("nan"), 4]):
+        previous = obj.data
+        new = np.array(values)
+        obj.data = new
+        assert obj.data is new
+        if subscribed:
+            assert handler.call_args[0][0].additional_kwargs["old"] is previous
+            assert handler.call_args[0][0].additional_kwargs["new"] is new
+    assert handler.call_count == 3 * int(subscribed)
+
+
+@pytest.mark.parametrize("batched", [False, True])
+def test_observable_array_computed_dependency(batched):
+    """Array dependencies invalidate and recompute, including after batching."""
+
+    class Holder(HasEmitters):
+        data = Observable()
+
+        @computed_property
+        def total(self):
+            return self.data.sum()
+
+    obj = Holder()
+    obj.data = np.array([1, 2])
+    assert obj.total == 3
+    if batched:
+        with obj.batch():
+            obj.data = np.array([3, 4])
+            obj.data = np.array([5, 6])
+        assert obj.total == 11
+    else:
+        obj.data = np.array([3, 4])
+        assert obj.total == 7
+        obj.data = np.array([3, 4])
+        assert obj.total == 7
+
+
+def test_observable_list_batches_array_values():
+    """ObservableList's net-change comparison also tolerates array elements."""
+
+    class Holder(HasEmitters):
+        data = ObservableList()
+
+    obj = Holder()
+    obj.data = [np.array([1, 2])]
+    handler = Mock()
+    obj.observe("data", ListSignals.SET, handler)
+    with obj.batch():
+        obj.data[0] = np.array([3, 4])
+    handler.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "changed"),
+    [
+        (1, 1, False),
+        (1, 2, True),
+        (None, None, False),
+        ("a", "a", False),
+        ((1, 2), (1, 2), False),
+        ([1], [1], False),
+        ([1], [2], True),
+        ({"a": 1}, {"a": 1}, False),
+        ({1}, {1}, False),
+        (np.array(1), np.array(1), False),
+        (np.array([1]), np.array([1]), False),
+        (np.array([1, 2]), np.array([1, 2]), True),
+        (np.array([float("nan"), 2]), np.array([float("nan"), 2]), True),
+        (float("nan"), float("nan"), True),
+    ],
+)
+def test_has_changed(old, new, changed):
+    """Keep ordinary comparison semantics and handle ambiguous arrays."""
+    assert _has_changed(old, new) is changed
+
+
+@pytest.mark.parametrize("error", [ValueError, TypeError])
+def test_has_changed_ambiguous_comparison(error):
+    """Both comparison and truth conversion errors count as changed."""
+
+    class AmbiguousTruth:
+        def __bool__(self):
+            raise error("no single truth value")
+
+    class AmbiguousComparison:
+        def __ne__(self, other):
+            return AmbiguousTruth()
+
+    class InvalidComparison:
+        def __ne__(self, other):
+            raise error("comparison unavailable")
+
+    assert _has_changed(AmbiguousComparison(), 1)
+    assert _has_changed(InvalidComparison(), 1)
+
+
+def test_has_changed_propagates_other_errors():
+    """Do not hide errors unrelated to ambiguous comparison."""
+
+    class Broken:
+        def __ne__(self, other):
+            raise RuntimeError("broken comparison")
+
+    with pytest.raises(RuntimeError, match="broken comparison"):
+        _has_changed(Broken(), 1)

@@ -53,8 +53,10 @@ pip install -U mesa[rec]
 
 The `[rec]` option installs additional recommended dependencies needed for visualization, plotting, and network modeling capabilities.
 
-On a Mac, this command might cause an error stating `zsh: no matches found: mesa[all]`.
+On a Mac, this command might cause an error stating `zsh: no matches found: mesa[rec]`.
 In that case, change the command to `pip install -U "mesa[rec]"`.
+
+If the sidebar or fullscreen mode of a visualization doesn't work in a Jupyter notebook, install the Vue 2 versions of `ipyvue` and `ipyvuetify`: `pip install -U "ipyvue<3" "ipyvuetify<3"`. Solara doesn't fully support their Vue 3 versions yet ([solara#1293](https://github.com/widgetti/solara/pull/1293)).
 
 Furthermore, if you are using `nix`, Mesa comes with a flake with devShells and a runnable app:
 
@@ -88,6 +90,7 @@ Mesa is an open source project and welcomes contributions:
 - [GitHub Repository] - Access the source code
 - [Issue Tracker] - Report bugs or suggest features
 - [Contributors Guide] - Learn how to contribute
+- [Developer Guide] - How we work: design principles, standards, review and past decisions
 - [GSoC at Mesa — Candidates Guide] - For candidates interested in participating in the Google Summer of Code at Mesa
 
 ### Citing Mesa
@@ -108,6 +111,7 @@ Overview <overview>
 Examples <examples>
 Migration guide <migration_guide>
 API Documentation <apis/api_main>
+Developer guide <development/index>
 
 ```
 
@@ -118,6 +122,7 @@ API Documentation <apis/api_main>
 - {ref}`search`
 
 [contributors guide]: https://github.com/mesa/mesa/blob/main/CONTRIBUTING.md
+[developer guide]: development/index
 [GSoC at Mesa — Candidates Guide]: GSoC.md
 [github repository]: https://github.com/mesa/mesa/
 [github discussions]: https://github.com/mesa/mesa/discussions

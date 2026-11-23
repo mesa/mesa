@@ -23,13 +23,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
       - name: Add project directory to PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
-        run: uv pip install --system numpy pandas tqdm tabulate matplotlib solara networkx scipy
+        run: uv pip install --system numpy pandas tqdm tabulate matplotlib solara networkx scipy pyarrow
 
       # Benchmarks on main
       - name: Checkout main branch

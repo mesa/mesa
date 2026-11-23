@@ -26,7 +26,7 @@ import numpy as np
 from mesa.agent import AgentSet
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.cell_collection import CellCollection
-from mesa.exceptions import CellMissingException
+from mesa.exceptions import CellMissingException, SpaceException
 
 T = TypeVar("T", bound=Cell)
 
@@ -92,6 +92,23 @@ class DiscreteSpace[T: Cell](ABC):
     @abstractmethod
     def find_nearest_cell(self, position: np.ndarray) -> T:
         """Find the cell at or nearest to the given position."""
+
+    def _cell_of(self, agent) -> T | None:
+        """Return a cell of this space that the agent is in, or None.
+
+        Looks at ``agent.cell`` and at the agent's declared locations, so it works
+        for any agent, whatever its locations are called.
+        """
+        cells = self._cells
+        cell = getattr(agent, "cell", None)
+        if isinstance(cell, Cell) and cells.get(cell.coordinate) is cell:
+            return cell
+        state = agent.__dict__
+        for location in agent._mesa_locations:
+            cell = state.get(location._key)
+            if isinstance(cell, Cell) and cells.get(cell.coordinate) is cell:
+                return cell
+        return None
 
     def add_cell(self, cell: T):
         """Add a cell to the space.
@@ -188,8 +205,19 @@ class DiscreteSpace[T: Cell](ABC):
         return self.all_cells.select(lambda cell: cell.is_empty)
 
     def select_random_empty_cell(self) -> T:
-        """Select random empty cell."""
-        return self.random.choice(list(self.empties))
+        """Select random empty cell.
+
+        Raises:
+            SpaceException: if the space holds no empty cell.
+
+        """
+        empties = list(self.empties)
+        if not empties:
+            raise SpaceException(
+                f"{type(self).__name__} is completely full. No empty cells "
+                "available. Cannot select a random empty cell."
+            )
+        return self.random.choice(empties)
 
     def __setstate__(self, state):
         """Set the state of the discrete space and rebuild the connections."""

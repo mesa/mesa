@@ -2,6 +2,7 @@
 
 import unittest
 import warnings
+from copy import deepcopy
 from functools import partial
 
 import pandas as pd
@@ -10,6 +11,63 @@ import pytest
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 from mesa.exceptions import TableMissingException
+
+
+@pytest.mark.parametrize("collect_first", [False, True])
+def test_failed_model_reporter_preserves_collected_rows(collect_first):
+    """A failed reporter must not append a partial model row."""
+    model = Model()
+    model.fail = False
+
+    def report(model):
+        if model.fail:
+            raise ValueError("reporter failed")
+        return 2
+
+    collector = DataCollector(
+        model_reporters={"first": lambda m: 1, "second": [report, [model]]}
+    )
+    if collect_first:
+        collector.collect(model)
+    expected = collector.get_model_vars_dataframe().copy()
+
+    model.fail = True
+    with pytest.raises(ValueError, match="reporter failed"):
+        collector.collect(model)
+
+    pd.testing.assert_frame_equal(collector.get_model_vars_dataframe(), expected)
+
+    model.fail = False
+    collector.collect(model)
+    assert collector.model_vars == {
+        "first": [1] * (int(collect_first) + 1),
+        "second": [2] * (int(collect_first) + 1),
+    }
+
+
+def test_model_reporter_copy_failure_preserves_collected_rows():
+    """A deepcopy failure leaves the existing model row intact."""
+    model = Model()
+    model.value = {"count": 1}
+    collector = DataCollector(model_reporters={"first": lambda m: 1, "second": "value"})
+    collector.collect(model)
+
+    class FailingCopy:
+        def __deepcopy__(self, memo):
+            raise ValueError("copy failed")
+
+    model.value = FailingCopy()
+    with pytest.raises(ValueError, match="copy failed"):
+        collector.collect(model)
+
+    assert collector.model_vars == {"first": [1], "second": [{"count": 1}]}
+
+    model.value = {"count": 2}
+    collector.collect(model)
+    assert collector.model_vars == {
+        "first": [1, 1],
+        "second": [{"count": 1}, {"count": 2}],
+    }
 
 
 class MockAgent(Agent):
@@ -56,6 +114,51 @@ class MockAgentB(MockAgent):
     def step(self):  # noqa: D102
         super().step()
         self.type_b_val = self.val * 3
+
+
+@pytest.mark.parametrize("failing_type", [MockAgentA, MockAgentB])
+@pytest.mark.parametrize("collection", ["first", "replace", "next_time"])
+def test_failed_agenttype_reporter_preserves_snapshots(failing_type, collection):
+    """Publish all agent type records together, including on repeated collection."""
+    model = Model()
+    agents = [MockAgentA(model, val=1), MockAgentB(model, val=2)]
+    model.fail = False
+    error = ValueError("agent type reporter failed")
+
+    def report(agent):
+        if model.fail and type(agent) is failing_type:
+            raise error
+        return agent.val
+
+    collector = DataCollector(
+        agenttype_reporters={
+            MockAgentA: {"value": report},
+            MockAgentB: {"value": report},
+        }
+    )
+    if collection != "first":
+        collector.collect(model)
+    if collection == "next_time":
+        model.step()
+    expected = deepcopy(collector._agenttype_records)
+
+    for agent in agents:
+        agent.val += 10
+    model.fail = True
+    with pytest.raises(ValueError, match="agent type reporter failed") as exc_info:
+        collector.collect(model)
+    assert exc_info.value is error
+    assert collector._agenttype_records == expected
+
+    model.fail = False
+    collector.collect(model)
+    expected[model.time] = {
+        type(agent): [(model.time, agent.unique_id, agent.val)] for agent in agents
+    }
+    assert collector._agenttype_records == expected
+    for agent in agents:
+        frame = collector.get_agenttype_vars_dataframe(type(agent))
+        assert frame.loc[(model.time, agent.unique_id), "value"] == agent.val
 
 
 def agent_function_with_params(agent, multiplier, offset):  # noqa: D103
@@ -879,6 +982,27 @@ def test_get_agent_vars_dataframe_no_reporters():
         assert "No agent reporters" in str(w[0].message)
 
     assert df.empty
+
+
+def test_get_agent_vars_dataframe_empty_records():
+    """Test that get_agent_vars_dataframe returns an empty DataFrame when no agent data has been recorded."""
+    dc = DataCollector(agent_reporters={"energy": lambda a: a.energy})
+
+    # Case 1: Before any collect() call
+    df_before = dc.get_agent_vars_dataframe()
+    assert df_before.empty
+    assert len(df_before) == 0
+    assert list(df_before.columns) == ["energy"]
+    assert df_before.index.names == ["Step", "AgentID"]
+
+    # Case 2: After collect() on a model with 0 agents
+    model = Model()
+    dc.collect(model)
+    df_after = dc.get_agent_vars_dataframe()
+    assert df_after.empty
+    assert len(df_after) == 0
+    assert list(df_after.columns) == ["energy"]
+    assert df_after.index.names == ["Step", "AgentID"]
 
 
 def test_add_table_row_nonexistent_table():

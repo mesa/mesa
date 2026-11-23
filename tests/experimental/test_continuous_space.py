@@ -1,5 +1,8 @@
 """Tests for continuous space."""
 
+import pickle
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
@@ -228,6 +231,173 @@ def test_continous_space_calculate_distances():
             agent,
         ]
     )
+
+
+def test_agent_position_invalid_dimensions():
+    """Verify that setting an agent's position with mismatched dimensions raises a ValueError.
+
+    Initializes a 2D ContinuousSpace and assigns a 1D NumPy array to the
+    ContinuousSpaceAgent's position attribute. Confirms that the dimension
+    mismatch triggers a ValueError.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+
+    with pytest.raises(ValueError):
+        agent.position = np.array([5.0])
+
+
+def test_continuous_space_torus_out_of_bounds_query():
+    """Test torus distances and difference vectors for out-of-bounds query points.
+
+    On a torus, a query point is equivalent to its wrapped counterpart, so points
+    differing by whole multiples of the space size must yield identical results.
+    Agent positions are wrapped on assignment, but query points are not, so only
+    the query side can violate this.
+    """
+    model = Model(rng=42)
+    dimensions = np.asarray([[0, 1], [0, 1]])
+    space = ContinuousSpace(dimensions, torus=True, random=model.random)
+
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [0.1, 0.1]
+
+    # every point here is congruent to [0.9, 0.1] modulo the space size
+    congruent_points = [
+        [0.9, 0.1],
+        [1.9, 0.1],
+        [2.9, 0.1],
+        [-0.1, 0.1],
+        [-1.1, 0.1],
+    ]
+
+    # the largest separation possible on a torus is half of its diagonal
+    max_distance = np.linalg.norm(space.size / 2)
+
+    for point in congruent_points:
+        distances, _ = space.calculate_distances(point)
+        assert np.allclose(distances, [0.2]), point
+        assert np.all(distances <= max_distance), point
+
+    for point in congruent_points:
+        vector = space.calculate_difference_vector(point)
+        assert np.allclose(vector, [0.2, 0.0]), point
+        assert np.all(np.abs(vector) <= space.size / 2), point
+
+
+def test_continuous_space_torus_agent_queries_skip_bounds_check():
+    """Agents query with their own position, which is always inside the space.
+
+    The bounds check is skipped for those queries, but not for other queries.
+    """
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 1], [0, 1]], torus=True, random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [0.1, 0.1]
+    other = ContinuousSpaceAgent(space, model)
+    other.position = [0.9, 0.1]
+
+    with patch.object(space, "_wrap_point", wraps=space._wrap_point) as wrap_point:
+        agents, distances = agent.get_neighbors_in_radius(radius=0.5)
+        assert agents == [other]
+        assert np.allclose(distances, [0.2])
+        agents, distances = agent.get_nearest_neighbors(k=1)
+        assert agents == [other]
+        assert np.allclose(distances, [0.2])
+        wrap_point.assert_not_called()
+
+        space.get_agents_in_radius([0.1, 0.1], radius=0.5)
+        space.get_k_nearest_agents([0.1, 0.1], k=1)
+        assert wrap_point.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "agents_factory",
+    [
+        list,
+        tuple,
+        lambda agents: (agent for agent in agents),
+        iter,
+    ],
+    ids=["list", "tuple", "generator", "iterator"],
+)
+@pytest.mark.parametrize("torus", [False, True], ids=["euclidean", "torus"])
+def test_calculate_distances_with_agent_iterables(agents_factory, torus):
+    """Distances and returned agents stay aligned for all supported iterables."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], torus=torus, random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(3)]
+    agents[0].position = [1.0, 0.0]
+    agents[1].position = [2.0, 0.0]
+    agents[2].position = [4.0, 0.0]
+    point = [0.0, 0.0]
+    selected_agents = [agents[1], agents[0]]
+
+    distances, returned_agents = space.calculate_distances(
+        point, agents=agents_factory(selected_agents)
+    )
+
+    assert isinstance(returned_agents, list)
+    assert returned_agents == selected_agents
+    np.testing.assert_allclose(distances, [2.0, 1.0])
+    np.testing.assert_allclose(
+        distances,
+        [np.linalg.norm(agent.position - point) for agent in selected_agents],
+    )
+
+
+def test_calculate_distances_with_empty_agent_generator():
+    """An empty one-shot iterable returns empty distances and agents."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+
+    distances, agents = space.calculate_distances([0.0, 0.0], agents=(a for a in []))
+
+    assert distances.shape == (0,)
+    assert agents == []
+
+
+def test_calculate_distances_iterates_supplied_agents_once():
+    """The input iterable is materialized with a single iteration."""
+
+    class CountingIterable:
+        def __init__(self, agents):
+            self.agents = agents
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return iter(self.agents)
+
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [1.0, 0.0]
+    supplied_agents = CountingIterable([agent])
+
+    distances, returned_agents = space.calculate_distances(
+        [0.0, 0.0], agents=supplied_agents
+    )
+
+    assert supplied_agents.iterations == 1
+    assert returned_agents == [agent]
+    np.testing.assert_allclose(distances, [1.0])
+
+
+def test_calculate_distances_without_agents_returns_all_agents_in_order():
+    """Omitting agents continues to return all space agents in insertion order."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(2)]
+    agents[0].position = [1.0, 0.0]
+    agents[1].position = [2.0, 0.0]
+
+    distances, returned_agents = space.calculate_distances([0.0, 0.0])
+
+    assert returned_agents == agents
+    np.testing.assert_allclose(distances, [1.0, 2.0])
 
 
 def test_continous_space_difference_vector():
@@ -535,6 +705,24 @@ def test_continuous_space_k_zero():
     assert len(dists) == 0
 
 
+def test_get_nearest_neighbors_co_located_agents():
+    """Test that co-located agents get exactly k neighbors, never themselves."""
+    model = Model(rng=1)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agents = [ContinuousSpaceAgent(space, model) for _ in range(5)]
+    for agent in agents:
+        agent.position = (5.0, 5.0)
+
+    for agent in agents:
+        for k in (1, 2, 4):
+            neighbors, distances = agent.get_nearest_neighbors(k=k)
+            assert len(neighbors) == k
+            assert len(distances) == k
+            assert agent not in neighbors
+            # repeated queries return the same neighbors
+            assert agent.get_nearest_neighbors(k=k)[0] == neighbors
+
+
 def test_continuous_space_k_exact():
     """Test that exact k nearest agents are returned."""
     model = Model(rng=42)
@@ -581,3 +769,19 @@ def test_continuous_space_generics():
     k_nearest, _ = space.get_k_nearest_agents([1.0, 1.0], k=1)
     assert len(k_nearest) == 1
     assert isinstance(k_nearest[0], CustomAgent)
+
+
+def test_pickled_space_keeps_position_view():
+    """After unpickling, positions written through agents must reach the space array."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [1.0, 1.0]
+
+    restored = pickle.loads(pickle.dumps(model))  # noqa: S301
+    restored_agent = next(iter(restored.agents))
+    restored_agent.position = [5.0, 5.0]
+
+    space = restored_agent.space
+    assert space._agent_positions[restored_agent._mesa_index].tolist() == [5.0, 5.0]
+    assert np.shares_memory(space.agent_positions, space._agent_positions)
