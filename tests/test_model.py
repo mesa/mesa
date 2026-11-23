@@ -128,6 +128,40 @@ def test_agent_remove():
     assert len(model.agents) == 0
 
 
+def test_remove_all_agents_keeps_datasets_open():
+    """A model can replace its whole population each step and keep recording."""
+
+    class Creature(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.fitness = 1.0
+
+    class Cell(Agent):
+        def __init__(self, model):
+            super().__init__(model)
+            self.energy = 1.0
+
+    model = Model(rng=42)
+    registry = model.data_registry
+    registry.track_model(model, "stats", fields=["time"])
+    Creature.create_agents(model, 5)
+    registry.track_agents(
+        model.agents_by_type[Creature], "creatures", fields=["fitness"]
+    )
+    registry.track_agents_numpy(Cell, "cells", fields=["energy"])
+    Cell.create_agents(model, 5)
+
+    for _ in range(3):
+        model.remove_all_agents()
+        Creature.create_agents(model, 5)
+        Cell.create_agents(model, 5)
+
+    assert len(model.agents) == 10
+    assert registry["stats"].data == {"time": 0.0}
+    assert len(registry["creatures"].data) == 5
+    assert len(registry["cells"].data) == 5
+
+
 def test_agents_by_type_keeps_empty_bucket():
     """Removing all agents of a type keeps its empty bucket in agents_by_type.
 
