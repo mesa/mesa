@@ -23,12 +23,13 @@ from collections import defaultdict, namedtuple
 from collections.abc import Callable, Generator, Iterable, MutableSequence
 from typing import Any, ClassVar, Literal
 
+import numpy as np
+
 from mesa.experimental.mesa_signals.signals_util import (
     ALL,
     Message,
     SignalType,
     create_weakref,
-    has_changed,
 )
 
 from .signal_types import ObservableSignals
@@ -119,6 +120,9 @@ class Observable(BaseObservable):
 
     An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
 
+    Values must be scalars. Assigning a collection (list, dict, set or NumPy
+    array) raises TypeError; use ObservableList for collection values.
+
     """
 
     # fixme: when we go to 3.13, we might explore changing this into a property
@@ -126,6 +130,11 @@ class Observable(BaseObservable):
     signal_types = ObservableSignals
 
     def __set__(self, instance: HasEmitters, value):  # noqa D103
+        if isinstance(value, (list, dict, set, np.ndarray)):
+            raise TypeError(
+                f"Observable does not accept collections ({type(value).__name__}); "
+                "use ObservableList for collection values."
+            )
         if (
             CURRENT_COMPUTED is not None
             and _hashable_signal(instance, self.public_name) in PROCESSING_SIGNALS
@@ -139,7 +148,7 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            if has_changed(old_value, value):
+            if old_value != value:
                 send_notify = True
         setattr(instance, self.private_name, value)
 
@@ -328,7 +337,7 @@ def computed_property(
                             break
                         for attr, old_val in observations.items():
                             current_val = getattr(parent, attr)
-                            if has_changed(old_val, current_val):
+                            if current_val != old_val:
                                 changed = True
                                 break
                         if changed:
