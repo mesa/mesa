@@ -284,11 +284,12 @@ class MetaAgents:
     ) -> MembershipView:
         """Add one member to one group.
 
-        Both ``group`` and ``member`` must be agents registered in the model.
-        ``group`` may be a group object or a group name.
+        ``group`` must be a registered group agent or the name of one;
+        ``member`` must be a registered ``Agent``.
 
         Raises:
-            TypeError: If ``group`` or ``member`` is not an ``Agent``.
+            TypeError: If ``group`` is not an ``Agent`` or group name, or
+                ``member`` is not an ``Agent``.
             ValueError: If ``group`` or ``member`` is not registered in the
                 model, or the group name is missing or ambiguous.
         """
@@ -308,12 +309,15 @@ class MetaAgents:
     ) -> MembershipView:
         """Remove one member from one group.
 
-        ``group`` and ``member`` must be agents, but need not still be
-        registered; removing an already-removed agent is a no-op.
+        ``group`` may be a live group object or the name of a live group.
+        ``member`` must be an ``Agent``, and may already be removed. A removed
+        group can only be passed as an object; name lookup only searches live
+        agents. Removing an already-removed member is a no-op.
 
         Raises:
-            TypeError: If ``group`` or ``member`` is not an ``Agent``.
-            ValueError: If the group name is missing or ambiguous.
+            TypeError: If ``group`` is not an ``Agent`` or group name, or
+                ``member`` is not an ``Agent``.
+            ValueError: If a group name is missing or ambiguous.
         """
         self._validate_agent(member, role="member", require_live=False)
 

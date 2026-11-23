@@ -382,6 +382,21 @@ def test_add_member_rejects_non_agent_member():
     assert meta_agents.backend.as_triplets() == triplets_before
 
 
+def test_add_member_rejects_unregistered_member():
+    """add_member rejects an Agent registered on another model."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    group = meta_agents.create("Group", [member])
+    model_2 = Model()
+    outsider = Agent(model_2)
+
+    triplets_before = meta_agents.backend.as_triplets()
+    with pytest.raises(ValueError, match=r"member .* is not registered"):
+        meta_agents.add_member(group, outsider)
+    assert meta_agents.backend.as_triplets() == triplets_before
+
+
 def test_add_member_rejects_non_agent_group():
     """add_member rejects an unregistered non-agent group."""
     model = Model()
@@ -392,6 +407,20 @@ def test_add_member_rejects_non_agent_group():
     triplets_before = meta_agents.backend.as_triplets()
     with pytest.raises(TypeError, match="group must be an Agent"):
         meta_agents.add_member(sentinel, agent)
+    assert meta_agents.backend.as_triplets() == triplets_before
+
+
+def test_add_member_rejects_unregistered_group():
+    """add_member rejects a group Agent registered on another model."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    model_2 = Model()
+    outsider = Agent(model_2)
+
+    triplets_before = meta_agents.backend.as_triplets()
+    with pytest.raises(ValueError, match=r"group .* is not registered"):
+        meta_agents.add_member(outsider, member)
     assert meta_agents.backend.as_triplets() == triplets_before
 
 
@@ -418,6 +447,19 @@ def test_create_rejects_non_agent_member():
     assert set(model.agents) == agents_before
 
 
+def test_create_rejects_unregistered_member():
+    """Create rejects an Agent registered on another model before creating a group."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    model_2 = Model()
+    outsider = Agent(model_2)
+    agents_before = set(model.agents)
+
+    with pytest.raises(ValueError, match=r"member .* is not registered"):
+        meta_agents.create("Group", [outsider])
+    assert set(model.agents) == agents_before
+
+
 def test_create_rejects_non_agent_membership():
     """Create rejects non-agent members passed through memberships=."""
     model = Model()
@@ -426,6 +468,19 @@ def test_create_rejects_non_agent_membership():
 
     with pytest.raises(TypeError, match="member must be an Agent"):
         meta_agents.create("Group", [], memberships=[(object(), "member")])
+    assert set(model.agents) == agents_before
+
+
+def test_create_rejects_unregistered_membership():
+    """Create rejects an unregistered Agent passed through memberships=."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    model_2 = Model()
+    outsider = Agent(model_2)
+    agents_before = set(model.agents)
+
+    with pytest.raises(ValueError, match=r"member .* is not registered"):
+        meta_agents.create("Group", [], memberships=[(outsider, "member")])
     assert set(model.agents) == agents_before
 
 
@@ -441,6 +496,19 @@ def test_remove_member_rejects_non_agent_member():
     assert agent in meta_agents.members_of(group)
 
 
+def test_remove_member_rejects_non_agent_group():
+    """remove_member rejects a non-agent group."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    agent = Agent(model)
+    group = meta_agents.create("Group", [agent])
+    sentinel = object()
+
+    with pytest.raises(TypeError, match="group must be an Agent"):
+        meta_agents.remove_member(sentinel, agent)
+    assert agent in meta_agents.members_of(group)
+
+
 def test_remove_member_allows_removed_agent():
     """remove_member stays idempotent for an agent already removed."""
     model = Model()
@@ -450,6 +518,30 @@ def test_remove_member_allows_removed_agent():
     agent.remove()
 
     meta_agents.remove_member(group, agent)
+    assert meta_agents.backend.as_triplets() == set()
+
+
+def test_remove_member_removed_group_by_name_raises():
+    """A removed group cannot be resolved by name for removal."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    group = meta_agents.create("Group", [member])
+    group.remove()
+
+    with pytest.raises(ValueError, match="No group named"):
+        meta_agents.remove_member("Group", member)
+
+
+def test_remove_member_removed_group_by_object_is_noop():
+    """A removed group can be passed by object for idempotent cleanup."""
+    model = Model()
+    meta_agents = MetaAgents(model)
+    member = Agent(model)
+    group = meta_agents.create("Group", [member])
+    group.remove()
+
+    meta_agents.remove_member(group, member)
     assert meta_agents.backend.as_triplets() == set()
 
 
