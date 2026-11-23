@@ -644,6 +644,14 @@ def test_voronoigrid():
     with pytest.raises(ValueError):
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
 
+    # Identical centroids used to raise IndexError, or never finish
+    for duplicated in (
+        [[0, 0], [10, 0], [0, 10], [10, 10], [5, 5], [5, 5]],
+        [[0, 0], [10, 0], [0, 10], [0, 0]],
+    ):
+        with pytest.raises(ValueError, match="distinct"):
+            VoronoiGrid(duplicated, random=random.Random(42))
+
 
 def test_voronoigrid_far_from_origin():
     """VoronoiGrid accepts centroids far from the origin, e.g. UTM coordinates."""
