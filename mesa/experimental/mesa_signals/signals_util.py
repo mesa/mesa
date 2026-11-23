@@ -23,7 +23,16 @@ __all__ = ["ALL", "Message", "SignalType", "create_weakref"]
 
 @dataclass(frozen=True, slots=True)
 class Message:
-    """A message class containing information about a signal change."""
+    """A message describing an emitted signal.
+
+    Attributes:
+        name: name of the Observable that emitted the signal
+        owner: the HasEmitters instance that holds the Observable
+        signal_type: the type of signal
+        additional_kwargs: data specific to the signal. For
+            ObservableSignals.CHANGED from an Observable these are ``old`` and
+            ``new``; from a computed property only ``old``.
+    """
 
     name: str
     owner: Any
