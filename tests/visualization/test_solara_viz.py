@@ -594,3 +594,48 @@ def test_copy_renderer_keeps_setup_kwargs():
     # the copies should not share the same dict with the original renderer
     assert new_renderer.draw_space_kwargs is not renderer.draw_space_kwargs
     assert new_renderer.draw_agent_kwargs is not renderer.draw_agent_kwargs
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_renders_spawning_agents(backend):
+    """SolaraViz must render agents that are spawned after step 0."""
+
+    class SpawningModel(mesa.Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.grid = OrthogonalMooreGrid((5, 5), random=self.random)
+
+        def step(self):
+            agent = CellAgent(self)
+            agent.cell = self.grid[(2, 2)]
+
+    model = SpawningModel()
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(lambda _: AgentPortrayalStyle(color="red"))
+        .render()
+    )
+
+    # Initial render with 0 agents
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert renderer.agent_mesh is None
+
+    # Step the model: agent spawns
+    model.step()
+    assert len(model.agents) == 1
+
+    # Re-render in SolaraViz
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+
+    if backend == "matplotlib":
+        collections = renderer.canvas.collections
+        assert any(len(c.get_offsets()) > 0 for c in collections)
+    else:
+        assert renderer.agent_mesh is not None
+
+    # Verify that when setup_agents was not called, agent drawing is skipped
+    no_agents_renderer = SpaceRenderer(model, backend=backend).render()
+    solara.render(
+        SolaraViz(model, no_agents_renderer, components=[]), handle_error=False
+    )
+    assert no_agents_renderer.agent_mesh is None
