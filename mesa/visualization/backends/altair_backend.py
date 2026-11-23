@@ -143,7 +143,7 @@ class AltairBackend(AbstractRenderer):
                 aps = portray_input
 
             if aps.x is None and aps.y is None:
-               agent_x, agent_y = self._get_agent_pos(agent, space)
+                agent_x, agent_y = self._get_agent_pos(agent, space)
             else:
                 agent_x, agent_y = aps.x, aps.y
 

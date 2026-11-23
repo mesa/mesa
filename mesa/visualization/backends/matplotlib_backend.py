@@ -217,7 +217,6 @@ class MatplotlibBackend(AbstractRenderer):
             if size_to_collect is None:
                 size_to_collect = class_default_size
 
-
             arguments["s"].append(size_to_collect)
             arguments["c"].append(aps.color)
             arguments["marker"].append(aps.marker)
