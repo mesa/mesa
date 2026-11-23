@@ -639,3 +639,56 @@ def test_solara_viz_renders_spawning_agents(backend):
         SolaraViz(model, no_agents_renderer, components=[]), handle_error=False
     )
     assert no_agents_renderer.agent_mesh is None
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_population_recovery(backend):
+    """SolaraViz must recover agent rendering after population drops to zero."""
+
+    class PopulationRecoveryModel(mesa.Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.grid = OrthogonalMooreGrid((5, 5), random=self.random)
+            # Step 0: start with 1 agent
+            agent = CellAgent(self)
+            agent.cell = self.grid[(1, 1)]
+            self.step_idx = 0
+
+        def step(self):
+            self.step_idx += 1
+            if self.step_idx == 1:
+                # Step 1: population drops to 0
+                for a in list(self.agents):
+                    a.remove()
+            elif self.step_idx == 2:
+                # Step 2: population recovers / respawns
+                agent = CellAgent(self)
+                agent.cell = self.grid[(2, 2)]
+
+    model = PopulationRecoveryModel()
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(lambda _: AgentPortrayalStyle(color="red"))
+        .render()
+    )
+
+    # Step 0: initial render with 1 agent
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert len(model.agents) == 1
+    assert renderer.agent_mesh is not None
+
+    # Step 1: population drops to 0
+    model.step()
+    assert len(model.agents) == 0
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert renderer.agent_mesh is None
+
+    # Step 2: population recovers
+    model.step()
+    assert len(model.agents) == 1
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    if backend == "matplotlib":
+        collections = renderer.canvas.collections
+        assert any(len(c.get_offsets()) > 0 for c in collections)
+    else:
+        assert renderer.agent_mesh is not None
