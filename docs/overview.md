@@ -19,8 +19,9 @@ The skeleton of a model might look like this:
 
 ```python
 import mesa
+from mesa.discrete_space import CellAgent
 
-class MyAgent(mesa.Agent):
+class MyAgent(CellAgent):
     def __init__(self, model, age):
         super().__init__(model)
         self.age = age
