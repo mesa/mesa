@@ -697,7 +697,7 @@ class EventList:
         # removing it from the heap to preserve heap invariants.
         # Canceled events are skipped during pop and may trigger
         # adaptive compaction if they dominate the heap.
-        if not event.CANCELED:
+        if event._owner is not None and event._owner() is self:
             event.cancel()
 
     def clear(self) -> None:
