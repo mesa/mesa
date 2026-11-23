@@ -144,6 +144,7 @@ def test_agents_hashed_by_unique_id():
     model = Model(rng=42)
     model.stepped = 0
     buildings = Building.create_agents(model, 10).to_list()
+    assert buildings[0] != buildings[1]  # each agent has its own id
     assert all(building in model.agents for building in buildings)
 
     model.agents.shuffle_do("step")
