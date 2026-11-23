@@ -78,7 +78,7 @@ Mesa implements discrete spaces through the `mesa.discrete_space` module, using 
 3. **Voronoi Space:**
    ```python
    # Create an irregular tessellation
-   mesh = mesa.discrete_space.VoronoiMesh(points)
+   mesh = mesa.discrete_space.VoronoiGrid(points)
    ```
 
 #### Property Layers
