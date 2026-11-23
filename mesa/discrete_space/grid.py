@@ -382,25 +382,26 @@ class Grid(DiscreteSpace[T]):
         """Not supported: a grid has a fixed set of cells.
 
         Raises:
-            TypeError: always. Use a Network or VoronoiGrid for a space whose
-                cells change. Connections can still be added and removed.
+            TypeError: always. Use a Network or VoronoiGrid if you need to add
+                or remove cells.
         """
         raise TypeError(
             f"{type(self).__name__} does not support add_cell: a grid has a fixed "
-            "set of cells. Use a Network or VoronoiGrid for a space whose cells change."
+            "set of cells. Use a Network or VoronoiGrid if you need to add or "
+            "remove cells."
         )
 
     def remove_cell(self, cell: T):
         """Not supported: a grid has a fixed set of cells.
 
         Raises:
-            TypeError: always. Use a Network or VoronoiGrid for a space whose
-                cells change, or remove_connection to block movement between cells.
+            TypeError: always. Use a Network or VoronoiGrid if you need to add
+                or remove cells.
         """
         raise TypeError(
             f"{type(self).__name__} does not support remove_cell: a grid has a fixed "
-            "set of cells. Use a Network or VoronoiGrid for a space whose cells "
-            "change, or remove_connection to block movement between cells."
+            "set of cells. Use a Network or VoronoiGrid if you need to add or "
+            "remove cells."
         )
 
     def select_random_empty_cell(self) -> T:  # noqa

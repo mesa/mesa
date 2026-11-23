@@ -30,19 +30,7 @@ except SpaceException:
 - Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
 ### Grids don't add or remove cells
-`add_cell` and `remove_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raise a `TypeError`. A grid assumes a fixed set of cells, and after `remove_cell` its random cell selection could still return the removed cell. Use a `Network` or `VoronoiGrid` for a space whose cells change. Connections can still be changed, for example to put up a wall.
-
-```python
-# Old
-grid.remove_cell(grid[(2, 3)])
-
-# New: cut the cell off from its neighbors
-cell = grid[(2, 3)]
-for neighbor in list(cell.neighborhood):
-    grid.remove_connection(cell, neighbor)
-```
-
-The cut-off cell stays in the grid, so `select_random_empty_cell` can still return it.
+`add_cell` and `remove_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raise a `TypeError`. A grid assumes a fixed set of cells, and after `remove_cell` its random cell selection could still return the removed cell. Use a `Network` or `VoronoiGrid` if you need to add or remove cells.
 
 - Ref: [PR #4107](https://github.com/mesa/mesa/pull/4107)
 
