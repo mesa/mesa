@@ -353,20 +353,6 @@ def test_dynamic_modifications_to_space():
     assert cell1 in cell2.neighborhood
     assert cell2 in cell1.neighborhood
 
-    # test remove cell
-    neighbors = cell1.neighborhood
-    grid.remove_cell(cell1)
-    for neighbor in neighbors:
-        assert cell1 not in neighbor.neighborhood
-
-    # test add_cells
-    grid.add_cell(cell1)
-    for neighbor in neighbors:
-        grid.add_connection(cell1, neighbor)
-
-    for neighbor in neighbors:
-        assert cell1 in neighbor.neighborhood
-
 
 def test_neighborhood_cache_invalidated_on_topology_change():
     """connect() and disconnect() must invalidate the cached neighborhood.
@@ -2192,3 +2178,20 @@ def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
     calls = _spy_on_fallback_scan(monkeypatch)
     assert grid.select_random_empty_cell().is_empty
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("factory", GRID_FACTORIES)
+def test_grid_add_and_remove_cell_raise(factory) -> None:
+    """A grid has a fixed set of cells, so add_cell and remove_cell raise."""
+    grid = factory(1)
+    cell = grid._cells[(1, 1)]
+    neighbors = list(cell.neighborhood)
+
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.remove_cell(cell)
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.add_cell(grid.cell_klass((1, 1), capacity=1, random=grid.random))
+
+    assert grid._cells[(1, 1)] is cell
+    assert list(cell.neighborhood) == neighbors
+    assert len(grid.all_cells) == 16

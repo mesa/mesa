@@ -378,6 +378,32 @@ class Grid(DiscreteSpace[T]):
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise TypeError("Capacity must be a number or None.")
 
+    def add_cell(self, cell: T):
+        """Not supported: a grid has a fixed set of cells.
+
+        Raises:
+            TypeError: always. Use a Network or VoronoiGrid if you need to add
+                or remove cells.
+        """
+        raise TypeError(
+            f"{type(self).__name__} does not support add_cell: a grid has a fixed "
+            "set of cells. Use a Network or VoronoiGrid if you need to add or "
+            "remove cells."
+        )
+
+    def remove_cell(self, cell: T):
+        """Not supported: a grid has a fixed set of cells.
+
+        Raises:
+            TypeError: always. Use a Network or VoronoiGrid if you need to add
+                or remove cells.
+        """
+        raise TypeError(
+            f"{type(self).__name__} does not support remove_cell: a grid has a fixed "
+            "set of cells. Use a Network or VoronoiGrid if you need to add or "
+            "remove cells."
+        )
+
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
         # Fast path: probe up to ``_MAX_RANDOM_PROBES`` random cells. Each probe is O(1).
