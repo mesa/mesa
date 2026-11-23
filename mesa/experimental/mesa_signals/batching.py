@@ -35,7 +35,7 @@ import functools
 from typing import TYPE_CHECKING, Any
 
 from .signal_types import ListSignals, ObservableSignals
-from .signals_util import Message, SignalType
+from .signals_util import Message, SignalType, _has_changed
 
 if TYPE_CHECKING:
     from .core import HasObservables
@@ -90,7 +90,7 @@ def _aggregate_observable(
     old = first.additional_kwargs["old"]
     new = last.additional_kwargs["new"]
 
-    if old == new:
+    if not _has_changed(old, new):
         return []
 
     return [
@@ -126,7 +126,7 @@ def _aggregate_list(
     name = signals[-1].name
     new = list(getattr(owner, name))
 
-    if old == new:
+    if not _has_changed(old, new):
         return []
 
     return [
