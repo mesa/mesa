@@ -1527,6 +1527,111 @@ def test_hexGridMovingAgent():
     assert agent.cell.coordinate == (4, 2)
 
 
+def test_grid2d_moving_agent_multi_cell_and_partial_move():
+    """Test multi-cell distance movement and atomicity in Grid2DMovingAgent."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=model.random)
+
+    agent = Grid2DMovingAgent(model)
+    agent.cell = grid[(2, 2)]
+
+    # Successful multi-cell move
+    agent.move("north", distance=2)
+    assert agent.cell.coordinate == (0, 2)
+
+    # distance=0 is a no-op
+    agent.move("south", distance=0)
+    assert agent.cell.coordinate == (0, 2)
+
+    # Negative distance raises ValueError
+    with pytest.raises(ValueError, match="distance must be non-negative"):
+        agent.move("south", distance=-1)
+    assert agent.cell.coordinate == (0, 2)
+
+    # Unplaced agent raises ValueError
+    unplaced = Grid2DMovingAgent(model)
+    with pytest.raises(ValueError, match="not in a cell"):
+        unplaced.move("north")
+
+    # Boundary failure with allow_partial_move=False (default): atomic, no movement
+    agent.cell = grid[(2, 2)]
+    with pytest.raises(ValueError, match="No cell in direction"):
+        agent.move("east", distance=5)
+    assert agent.cell.coordinate == (2, 2)
+
+    # Boundary failure with allow_partial_move=True: moves as far as possible without raising
+    agent.move("east", distance=5, allow_partial_move=True)
+    assert agent.cell.coordinate == (2, 4)
+
+    # Capacity failure with allow_partial_move=False (default): atomic, no movement
+    cap_grid = OrthogonalMooreGrid((5, 5), torus=False, random=model.random, capacity=1)
+    mover = Grid2DMovingAgent(model)
+    mover.cell = cap_grid[(2, 0)]
+
+    blocker = CellAgent(model)
+    blocker.cell = cap_grid[(2, 2)]  # (2, 1) is empty, (2, 2) is full
+
+    with pytest.raises(CellFullException):
+        mover.move("east", distance=2)
+    assert mover.cell.coordinate == (2, 0)
+
+    # Capacity failure with allow_partial_move=True: stops before blocked cell without raising
+    mover.move("east", distance=2, allow_partial_move=True)
+    assert mover.cell.coordinate == (2, 1)
+
+
+def test_hex_grid_moving_agent_multi_cell_and_partial_move():
+    """Test multi-cell distance movement and atomicity in HexGridMovingAgent."""
+    model = Model(rng=42)
+    hex_grid = HexGrid((5, 5), torus=False, random=model.random)
+
+    agent = HexGridMovingAgent(model)
+    agent.cell = hex_grid[(2, 2)]
+
+    # Successful multi-cell move
+    agent.move("w", distance=2)
+    assert agent.cell.coordinate == (0, 2)
+
+    # distance=0 is a no-op
+    agent.move("w", distance=0)
+    assert agent.cell.coordinate == (0, 2)
+
+    # Negative distance raises ValueError
+    with pytest.raises(ValueError, match="distance must be non-negative"):
+        agent.move("e", distance=-2)
+
+    # Unplaced agent raises ValueError
+    unplaced = HexGridMovingAgent(model)
+    with pytest.raises(ValueError, match="not in a cell"):
+        unplaced.move("w")
+
+    # Boundary failure with allow_partial_move=False (default): atomic, agent stays at (2, 2)
+    agent.cell = hex_grid[(2, 2)]
+    with pytest.raises(ValueError, match="No cell in direction"):
+        agent.move("e", distance=5)
+    assert agent.cell.coordinate == (2, 2)
+
+    # Boundary failure with allow_partial_move=True: moves to boundary without error
+    agent.move("e", distance=5, allow_partial_move=True)
+    assert agent.cell.coordinate == (4, 2)
+
+    # Capacity failure with allow_partial_move=False (default): atomic
+    cap_grid = HexGrid((5, 5), torus=False, random=model.random, capacity=1)
+    mover = HexGridMovingAgent(model)
+    mover.cell = cap_grid[(0, 2)]
+
+    blocker = CellAgent(model)
+    blocker.cell = cap_grid[(2, 2)]
+
+    with pytest.raises(CellFullException):
+        mover.move("e", distance=2)
+    assert mover.cell.coordinate == (0, 2)
+
+    # Capacity failure with allow_partial_move=True: stops before blocked cell
+    mover.move("e", distance=2, allow_partial_move=True)
+    assert mover.cell.coordinate == (1, 2)
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())

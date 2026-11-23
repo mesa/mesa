@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from mesa.agent import Agent
+from mesa.exceptions import CellFullException
 
 if TYPE_CHECKING:
     from mesa.discrete_space import Cell
@@ -151,21 +152,56 @@ class Grid2DMovingAgent(CellAgent):
     }
     # fmt: on
 
-    def move(self, direction: str, distance: int = 1):
+    def move(
+        self,
+        direction: str,
+        distance: int = 1,
+        allow_partial_move: bool = False,
+    ) -> None:
         """Move the agent in a cardinal direction.
 
         Args:
             direction: The cardinal direction to move in.
             distance: The distance to move.
+            allow_partial_move: If False (default), the move is atomic: if any step
+                along the path cannot be completed (due to boundaries or cell capacity),
+                an exception is raised and the agent remains at its initial cell.
+                If True, the agent moves as far as possible along the path until blocked
+                and does not raise.
         """
+        if self.cell is None:
+            raise ValueError(
+                f"Cannot move {type(self).__name__} {self.unique_id}: it is not in a cell."
+            )
+
         direction = direction.lower()  # Convert direction to lowercase
 
         if direction not in self.DIRECTION_MAP:
             raise ValueError(f"Invalid direction: {direction}")
 
+        if distance < 0:
+            raise ValueError(f"distance must be non-negative, got {distance}")
+        if distance == 0:
+            return
+
         move_vector = self.DIRECTION_MAP[direction]
+        curr = self.cell
         for _ in range(distance):
-            self.move_relative(move_vector)
+            next_cell = curr.connections.get(move_vector)
+            if next_cell is None:
+                if not allow_partial_move:
+                    raise ValueError(f"No cell in direction {move_vector}")
+                break
+
+            if next_cell.is_full:
+                if not allow_partial_move:
+                    raise CellFullException(next_cell.coordinate)
+                break
+
+            curr = next_cell
+
+        if curr is not self.cell:
+            self.cell = curr
 
 
 class HexGridMovingAgent(CellAgent):
@@ -218,25 +254,60 @@ class HexGridMovingAgent(CellAgent):
         "south": (-1, 1),
     }
 
-    def move(self, direction: str, distance: int = 1) -> None:
+    def move(
+        self,
+        direction: str,
+        distance: int = 1,
+        allow_partial_move: bool = False,
+    ) -> None:
         """Move the agent in a hex direction respecting row parity.
 
         Args:
             direction: One of 'nw', 'ne', 'sw', 'se', 'w', 'e' (or aliases which are 'n' and 's').
             distance: Number of steps to take.
+            allow_partial_move: If False (default), the move is atomic: if any step
+                along the path cannot be completed (due to boundaries or cell capacity),
+                an exception is raised and the agent remains at its initial cell.
+                If True, the agent moves as far as possible along the path until blocked
+                and does not raise.
         """
+        if self.cell is None:
+            raise ValueError(
+                f"Cannot move {type(self).__name__} {self.unique_id}: it is not in a cell."
+            )
+
         direction = direction.lower()
 
+        if direction not in self.DIRECTION_MAP_EVEN:
+            raise ValueError(f"Invalid hex direction: {direction}")
+
+        if distance < 0:
+            raise ValueError(f"distance must be non-negative, got {distance}")
+        if distance == 0:
+            return
+
+        curr = self.cell
         for _ in range(distance):
-            row_index = self.cell.coordinate[1]
+            row_index = curr.coordinate[1]
             offset_map = (
                 self.DIRECTION_MAP_EVEN
                 if row_index % 2 == 0
                 else self.DIRECTION_MAP_ODD
             )
 
-            if direction not in offset_map:
-                raise ValueError(f"Invalid hex direction: {direction}")
-
             move_vector = offset_map[direction]
-            self.move_relative(move_vector)
+            next_cell = curr.connections.get(move_vector)
+            if next_cell is None:
+                if not allow_partial_move:
+                    raise ValueError(f"No cell in direction {move_vector}")
+                break
+
+            if next_cell.is_full:
+                if not allow_partial_move:
+                    raise CellFullException(next_cell.coordinate)
+                break
+
+            curr = next_cell
+
+        if curr is not self.cell:
+            self.cell = curr
