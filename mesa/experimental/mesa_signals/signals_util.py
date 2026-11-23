@@ -73,3 +73,15 @@ class _AllSentinel:
 
 
 ALL = _AllSentinel()
+
+
+def _has_changed(old: Any, new: Any) -> bool:
+    """Return whether new differs from old.
+
+    If the comparison has no single truth value, treat the assignment as a
+    change. This is a safety net, not support for observing in-place changes.
+    """
+    try:
+        return bool(old != new)
+    except (ValueError, TypeError):
+        return True
