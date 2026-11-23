@@ -381,9 +381,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             The EventGenerator (can be used to stop)
 
         Raises:
-            ValueError: If the schedule start time is in the past.
+            ValueError: If the schedule start time is in the past, or if nothing
+                else keeps the function alive (e.g., an inline functools.partial).
         """
         generator = EventGenerator(self, function, schedule, priority)
+        function = None  # drop our reference, so a dead callback shows up below
+        if generator.function() is None:
+            raise ValueError("function must be alive at Event creation.")
         generator.start()
         return generator
 
