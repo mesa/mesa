@@ -353,20 +353,6 @@ def test_dynamic_modifications_to_space():
     assert cell1 in cell2.neighborhood
     assert cell2 in cell1.neighborhood
 
-    # test remove cell
-    neighbors = cell1.neighborhood
-    grid.remove_cell(cell1)
-    for neighbor in neighbors:
-        assert cell1 not in neighbor.neighborhood
-
-    # test add_cells
-    grid.add_cell(cell1)
-    for neighbor in neighbors:
-        grid.add_connection(cell1, neighbor)
-
-    for neighbor in neighbors:
-        assert cell1 in neighbor.neighborhood
-
 
 def test_neighborhood_cache_invalidated_on_topology_change():
     """connect() and disconnect() must invalidate the cached neighborhood.
@@ -2194,44 +2180,18 @@ def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize("try_random", [True, False])
 @pytest.mark.parametrize("factory", GRID_FACTORIES)
-def test_random_cell_selection_skips_removed_cell(factory, try_random) -> None:
-    """A cell removed with remove_cell is never selected, on either path."""
+def test_grid_add_and_remove_cell_raise(factory) -> None:
+    """A grid has a fixed set of cells, so add_cell and remove_cell raise."""
     grid = factory(1)
-    grid._try_random = try_random
-    removed = grid._cells[(1, 1)]
-    grid.remove_cell(removed)
+    cell = grid._cells[(1, 1)]
+    neighbors = list(cell.neighborhood)
 
-    for _ in range(200):
-        assert grid.select_random_empty_cell() is not removed
-        assert grid.select_random_cell_with_capacity() is not removed
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.remove_cell(cell)
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.add_cell(grid.cell_klass((1, 1), capacity=1, random=grid.random))
 
-
-@pytest.mark.parametrize("factory", GRID_FACTORIES)
-def test_full_grid_with_removed_cell_raises_space_exception(factory) -> None:
-    """Once every remaining cell is occupied, the fallback reports a full grid."""
-    model = make_model()
-    grid = factory(1)
-    grid.remove_cell(grid._cells[(1, 1)])
-    for cell in grid.all_cells:
-        make_agent(model).move_to(cell)
-    grid._try_random = False
-
-    with pytest.raises(SpaceException, match="completely full"):
-        grid.select_random_empty_cell()
-
-
-@pytest.mark.parametrize("factory", GRID_FACTORIES)
-def test_random_cell_selection_includes_added_cell(factory) -> None:
-    """A cell added with add_cell can be selected, and the one it replaced cannot."""
-    grid = factory(1)
-    old = grid._cells[(1, 1)]
-    grid.remove_cell(old)
-    new = grid.cell_klass((1, 1), capacity=1, random=grid.random)
-    grid.add_cell(new)
-
-    picks = {grid.select_random_empty_cell() for _ in range(500)}
-    picks |= {grid.select_random_cell_with_capacity() for _ in range(500)}
-    assert new in picks
-    assert old not in picks
+    assert grid._cells[(1, 1)] is cell
+    assert list(cell.neighborhood) == neighbors
+    assert len(grid.all_cells) == 16

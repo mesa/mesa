@@ -29,6 +29,23 @@ except SpaceException:
 
 - Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
+### Grids don't add or remove cells
+`add_cell` and `remove_cell` on `OrthogonalMooreGrid`, `OrthogonalVonNeumannGrid` and `HexGrid` now raise a `TypeError`. A grid assumes a fixed set of cells, and after `remove_cell` its random cell selection could still return the removed cell. Use a `Network` or `VoronoiGrid` for a space whose cells change. Connections can still be changed, for example to put up a wall.
+
+```python
+# Old
+grid.remove_cell(grid[(2, 3)])
+
+# New: cut the cell off from its neighbors
+cell = grid[(2, 3)]
+for neighbor in list(cell.neighborhood):
+    grid.remove_connection(cell, neighbor)
+```
+
+The cut-off cell stays in the grid, so `select_random_empty_cell` can still return it.
+
+- Ref: [PR #4107](https://github.com/mesa/mesa/pull/4107)
+
 ### Grid cell positions are cell centers
 `Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position array of a grid cell can no longer be modified in place.
 

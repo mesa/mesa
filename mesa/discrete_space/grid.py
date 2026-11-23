@@ -379,20 +379,29 @@ class Grid(DiscreteSpace[T]):
             raise TypeError("Capacity must be a number or None.")
 
     def add_cell(self, cell: T):
-        """Add a cell to the grid.
+        """Not supported: a grid has a fixed set of cells.
 
-        See :meth:`DiscreteSpace.add_cell`.
+        Raises:
+            TypeError: always. Use a Network or VoronoiGrid for a space whose
+                cells change. Connections can still be added and removed.
         """
-        super().add_cell(cell)
-        self._celllist = list(self._cells.values())
+        raise TypeError(
+            f"{type(self).__name__} does not support add_cell: a grid has a fixed "
+            "set of cells. Use a Network or VoronoiGrid for a space whose cells change."
+        )
 
     def remove_cell(self, cell: T):
-        """Remove a cell from the grid.
+        """Not supported: a grid has a fixed set of cells.
 
-        See :meth:`DiscreteSpace.remove_cell`.
+        Raises:
+            TypeError: always. Use a Network or VoronoiGrid for a space whose
+                cells change, or remove_connection to block movement between cells.
         """
-        super().remove_cell(cell)
-        self._celllist = list(self._cells.values())
+        raise TypeError(
+            f"{type(self).__name__} does not support remove_cell: a grid has a fixed "
+            "set of cells. Use a Network or VoronoiGrid for a space whose cells "
+            "change, or remove_connection to block movement between cells."
+        )
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))
@@ -423,14 +432,6 @@ class Grid(DiscreteSpace[T]):
 
         empty_layer = self.property_layers["empty"]
         empty_indices = np.flatnonzero(empty_layer)
-        if len(self._cells) != empty_layer.size:
-            # A cell removed with remove_cell keeps its entry in the layer, so skip
-            # coordinates that no longer have a cell.
-            empty_indices = [
-                index
-                for index in empty_indices
-                if np.unravel_index(index, empty_layer.shape) in self._cells
-            ]
         try:
             random_index = self.random.choice(empty_indices)
         except IndexError as e:
