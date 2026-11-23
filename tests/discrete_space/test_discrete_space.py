@@ -1579,6 +1579,11 @@ def test_grid2d_moving_agent_multi_cell_and_partial_move():
     mover.move("east", distance=2, allow_partial_move=True)
     assert mover.cell.coordinate == (2, 1)
 
+    # allow_partial_move=True when already blocked at starting cell (curr is self.cell)
+    agent.cell = grid[(2, 4)]
+    agent.move("east", distance=2, allow_partial_move=True)
+    assert agent.cell.coordinate == (2, 4)
+
 
 def test_hex_grid_moving_agent_multi_cell_and_partial_move():
     """Test multi-cell distance movement and atomicity in HexGridMovingAgent."""
@@ -1600,6 +1605,10 @@ def test_hex_grid_moving_agent_multi_cell_and_partial_move():
     with pytest.raises(ValueError, match="distance must be non-negative"):
         agent.move("e", distance=-2)
 
+    # Invalid direction raises ValueError
+    with pytest.raises(ValueError, match="Invalid hex direction"):
+        agent.move("invalid_dir")
+
     # Unplaced agent raises ValueError
     unplaced = HexGridMovingAgent(model)
     with pytest.raises(ValueError, match="not in a cell"):
@@ -1614,6 +1623,16 @@ def test_hex_grid_moving_agent_multi_cell_and_partial_move():
     # Boundary failure with allow_partial_move=True: moves to boundary without error
     agent.move("e", distance=5, allow_partial_move=True)
     assert agent.cell.coordinate == (4, 2)
+
+    # allow_partial_move=True when already blocked at starting cell (curr is self.cell)
+    agent.cell = hex_grid[(0, 2)]
+    agent.move("w", distance=1, allow_partial_move=True)
+    assert agent.cell.coordinate == (0, 2)
+
+    # Multi-cell move starting on odd row exercising DIRECTION_MAP_ODD
+    agent.cell = hex_grid[(2, 1)]
+    agent.move("se", distance=2)
+    assert agent.cell.coordinate == (3, 3)
 
     # Capacity failure with allow_partial_move=False (default): atomic
     cap_grid = HexGrid((5, 5), torus=False, random=model.random, capacity=1)
