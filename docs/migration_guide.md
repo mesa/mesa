@@ -29,6 +29,22 @@ except SpaceException:
 
 - Ref: [PR #4032](https://github.com/mesa/mesa/pull/4032)
 
+### Grid cell positions are cell centers
+`Cell.position` of a cell in an `OrthogonalMooreGrid` or `OrthogonalVonNeumannGrid` is now the center of the cell instead of its corner. Cell `(5, 5)` used to report `[5., 5.]` and now reports `[5.5, 5.5]`. This matches `HexGrid` and `VoronoiGrid`, which always reported centers, and it puts the position strictly inside the cell, so that `grid.find_nearest_cell(cell.position)` returns the same cell at any cell size. `cell.coordinate` is unchanged, and the position array of a grid cell can no longer be modified in place.
+
+```python
+# Old
+x, y = cell.position  # 5.0, 5.0: the integer index, as floats
+
+# New
+x, y = cell.coordinate  # 5, 5: the index
+x, y = cell.position  # 5.5, 5.5: the center of the cell
+```
+
+Grids also take two new arguments, `cell_size` and `origin`, that place them in the same coordinates as other spaces. A 50 by 50 grid with `cell_size=2.0` covers the same area as a `ContinuousSpace` of 100 by 100.
+
+- Ref: [Discussion #2585](https://github.com/mesa/mesa/discussions/2585)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
@@ -224,6 +240,39 @@ Reassigning `grid.sugar = new_array` instead of mutating it in place (`grid.suga
 
 - Ref: [PR #3340](https://github.com/mesa/mesa/pull/3340), [PR #3432](https://github.com/mesa/mesa/pull/3432)
 
+### Legacy space drawing API removed
+The space drawing API from before Mesa 3.3 is gone; draw spaces with `SpaceRenderer` instead. This removes `make_space_component`, `make_mpl_space_component`, `make_altair_space`, `SpaceMatplotlib`, `SpaceAltair`, the `make_space_matplotlib` and `make_space_altair` aliases, and the `mesa.visualization.mpl_space_drawing` module (`draw_space` and the per-space helpers such as `draw_orthogonal_grid`). From Mesa 3.5.3, the 3.5 series warns when you use them.
+
+```python
+# Old
+from mesa.visualization import SolaraViz, make_space_component
+
+SolaraViz(model, components=[make_space_component(agent_portrayal)])
+
+# New
+from mesa.visualization import SolaraViz, SpaceRenderer
+
+renderer = SpaceRenderer(model, backend="matplotlib").setup_agents(agent_portrayal).render()
+SolaraViz(model, renderer)
+```
+
+To draw a space outside of `SolaraViz`, for example for a figure in a paper, render it and use its canvas, a Matplotlib `Axes` or an Altair chart depending on the backend:
+
+```python
+# Old
+from mesa.visualization import draw_space
+
+draw_space(model.grid, agent_portrayal, ax=ax)
+
+# New
+renderer = SpaceRenderer(model).setup_agents(agent_portrayal).render()
+ax = renderer.canvas
+```
+
+`SolaraViz(model, components="default")` still works and now draws the space with an Altair `SpaceRenderer`.
+
+- Ref: [PR #4064](https://github.com/mesa/mesa/pull/4064) (deprecation in 3.5.3)
+
 Install with `pip install -U "mesa[rec]"` — this resolves to the latest stable Mesa 3.x release (3.5.0 and its patch releases), not the 4.0 pre-release described in the preceding section.
 
 ## Mesa 3.5.0
@@ -355,7 +404,7 @@ results = mesa.batch_run(
 ## Mesa 3.3.0
 
 Mesa 3.3.0 is a visualization upgrade introducing a new and improved API, full support for both `altair` and `matplotlib` backends, and resolving several recurring issues from previous versions.
-For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html).
+For full details on how to visualize your model, refer to the [Mesa Documentation](https://mesa.readthedocs.io/latest/tutorials/6_visualization_basic.html).
 
 
 _This guide is a work in progress. The development of it is tracked in [Issue #2233](https://github.com/mesa/mesa/issues/2233)._
@@ -424,7 +473,7 @@ This change allows for better method chaining and separates the configuration ph
 * Ref: [PR #2893](https://github.com/mesa/mesa/pull/2893)
 
 ### Default Space Visualization
-While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/4_visualization_basic.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
+While the visualization methods from Mesa versions before 3.3.0 still work, version 3.3.0 introduces `SpaceRenderer`, which changes how space visualizations are rendered. Check out the updated [Mesa documentation](https://mesa.readthedocs.io/latest/tutorials/8_visualization_rendering_with_space_renderer.html) for guidance on upgrading your model’s visualization using `SpaceRenderer`.
 
 A basic example of how `SpaceRenderer` works:
 

@@ -76,7 +76,9 @@ class DataRecorder(BaseDataRecorder):
         config = self.configs[dataset_name]
 
         old_data = None
-        if is_overwrite and storage.blocks:
+        # An empty snapshot stores no block, so the last block may belong to an
+        # earlier time.
+        if is_overwrite and storage.blocks and storage.blocks[-1][0] == time:
             _, old_data = storage.blocks.pop()
         elif config.window_size and len(storage.blocks) >= config.window_size:
             _, old_data = storage.blocks.popleft()
@@ -300,12 +302,12 @@ class JSONDataRecorder(BaseDataRecorder):
         """Initialize JSON Recorder."""
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.data: dict[str, list] = {}
+        self.data: dict[str, deque] = {}
         super().__init__(model, config)
 
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
-        """Initialize empty list for dataset."""
-        self.data[dataset_name] = []
+        """Initialize an empty deque, bounded by the dataset's window_size."""
+        self.data[dataset_name] = deque(maxlen=self.configs[dataset_name].window_size)
 
     def _store_dataset_snapshot(
         self,
@@ -325,7 +327,16 @@ class JSONDataRecorder(BaseDataRecorder):
             case list():
                 self.data[dataset_name].append({"time": time, "data": data})
             case np.ndarray():
-                self.data[dataset_name].append({"time": time, "data": data.tolist()})
+                snapshot = data.tolist()
+                dataset = self.registry.datasets[dataset_name]
+                # A numpy agent dataset holds bare values. Name them and say
+                # whose they are, or the rows cannot be told apart later.
+                if hasattr(dataset, "agent_ids"):
+                    snapshot = [
+                        {"agent_id": agent_id, **dict(zip(dataset._attributes, row))}
+                        for agent_id, row in zip(dataset.agent_ids.tolist(), snapshot)
+                    ]
+                self.data[dataset_name].append({"time": time, "data": snapshot})
             case _:
                 self.data[dataset_name].append({"time": time, "data": data})
 
@@ -338,7 +349,9 @@ class JSONDataRecorder(BaseDataRecorder):
         for snapshot in self.data[name]:
             time = snapshot["time"]
             data = snapshot["data"]
-            if isinstance(data, list) and data and isinstance(data[0], dict):
+            if isinstance(data, list) and not data:
+                continue  # a snapshot taken without agents has no rows
+            if isinstance(data, list) and isinstance(data[0], dict):
                 for row in data:
                     records.append({**row, "time": time})
             elif isinstance(data, dict):
@@ -347,7 +360,7 @@ class JSONDataRecorder(BaseDataRecorder):
                 # Handle scalar or simple list
                 records.append({"time": time, "value": data})
 
-        return pd.DataFrame(records) if records else pd.DataFrame()
+        return pd.DataFrame(records) if records else pd.DataFrame(columns=["time"])
 
     def clear(self, dataset_name: str | None = None) -> None:
         """Clear recorded data, keeping the datasets so recording can continue.
@@ -382,7 +395,7 @@ class JSONDataRecorder(BaseDataRecorder):
         for name, snapshots in self.data.items():
             filepath = self.output_dir / f"{name}.json"
             with open(filepath, "w") as f:
-                json.dump(snapshots, f, indent=2, cls=NumpyJSONEncoder)
+                json.dump(list(snapshots), f, indent=2, cls=NumpyJSONEncoder)
 
 
 class ParquetDataRecorder(BaseDataRecorder):
@@ -485,7 +498,7 @@ class ParquetDataRecorder(BaseDataRecorder):
 
         filepath = self.output_dir / f"{name}.parquet"
         if not filepath.exists():
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["time"])
 
         return pd.read_parquet(filepath)
 
@@ -653,7 +666,7 @@ class SQLDataRecorder(BaseDataRecorder):
             raise KeyError(f"Dataset '{name}' not found")
 
         if not self.metadata[name]["table_created"]:
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["time"])
 
         return pd.read_sql(f'SELECT * FROM "{name}"', self.conn)  # noqa: S608
 

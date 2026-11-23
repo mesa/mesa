@@ -35,6 +35,11 @@ class ContinuousSpaceAgent(Agent):
 
     @position.setter
     def position(self, value: np.ndarray) -> None:
+        position = np.asarray(value)
+
+        if position.shape != (self.space.ndims,):
+            raise ValueError(f"Position must have {self.space.ndims} dimensions.")
+
         if not self.space.in_bounds(value):
             if self.space.torus:
                 value = self.space.torus_correct(value)
