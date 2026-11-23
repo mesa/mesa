@@ -9,7 +9,7 @@ import pytest
 import solara
 
 import mesa
-from mesa.discrete_space import OrthogonalMooreGrid
+from mesa.discrete_space import CellAgent, OrthogonalMooreGrid
 from mesa.experimental.scenarios import Scenario
 from mesa.space import MultiGrid, PropertyLayer
 from mesa.visualization.backends.altair_backend import AltairBackend
@@ -564,3 +564,101 @@ def test_copy_renderer_keeps_setup_kwargs():
     # the copies should not share the same dict with the original renderer
     assert new_renderer.draw_space_kwargs is not renderer.draw_space_kwargs
     assert new_renderer.draw_agent_kwargs is not renderer.draw_agent_kwargs
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_renders_spawning_agents(backend):
+    """SolaraViz must render agents that are spawned after step 0."""
+
+    class SpawningModel(mesa.Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.grid = OrthogonalMooreGrid((5, 5), random=self.random)
+
+        def step(self):
+            agent = CellAgent(self)
+            agent.cell = self.grid[(2, 2)]
+
+    model = SpawningModel()
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(lambda _: AgentPortrayalStyle(color="red"))
+        .render()
+    )
+
+    # Initial render with 0 agents
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert renderer.agent_mesh is None
+
+    # Step the model: agent spawns
+    model.step()
+    assert len(model.agents) == 1
+
+    # Re-render in SolaraViz
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+
+    if backend == "matplotlib":
+        collections = renderer.canvas.collections
+        assert any(len(c.get_offsets()) > 0 for c in collections)
+    else:
+        assert renderer.agent_mesh is not None
+
+    # Verify that when setup_agents was not called, agent drawing is skipped
+    no_agents_renderer = SpaceRenderer(model, backend=backend).render()
+    solara.render(
+        SolaraViz(model, no_agents_renderer, components=[]), handle_error=False
+    )
+    assert no_agents_renderer.agent_mesh is None
+
+
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_solara_viz_population_recovery(backend):
+    """SolaraViz must recover agent rendering after population drops to zero."""
+
+    class PopulationRecoveryModel(mesa.Model):
+        def __init__(self):
+            super().__init__(rng=42)
+            self.grid = OrthogonalMooreGrid((5, 5), random=self.random)
+            # Step 0: start with 1 agent
+            agent = CellAgent(self)
+            agent.cell = self.grid[(1, 1)]
+            self.step_idx = 0
+
+        def step(self):
+            self.step_idx += 1
+            if self.step_idx == 1:
+                # Step 1: population drops to 0
+                for a in list(self.agents):
+                    a.remove()
+            elif self.step_idx == 2:
+                # Step 2: population recovers / respawns
+                agent = CellAgent(self)
+                agent.cell = self.grid[(2, 2)]
+
+    model = PopulationRecoveryModel()
+    renderer = (
+        SpaceRenderer(model, backend=backend)
+        .setup_agents(lambda _: AgentPortrayalStyle(color="red"))
+        .render()
+    )
+
+    # Step 0: initial render with 1 agent
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert len(model.agents) == 1
+    assert renderer.agent_mesh is not None
+
+    # Step 1: population drops to 0
+    model.step()
+    assert len(model.agents) == 0
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    assert renderer.agent_mesh is None
+
+    # Step 2: population recovers
+    model.step()
+    assert len(model.agents) == 1
+    solara.render(SolaraViz(model, renderer, components=[]), handle_error=False)
+    if backend == "matplotlib":
+        collections = renderer.canvas.collections
+        assert any(len(c.get_offsets()) > 0 for c in collections)
+    else:
+        assert renderer.agent_mesh is not None

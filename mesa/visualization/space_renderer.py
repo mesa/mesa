@@ -463,7 +463,7 @@ class SpaceRenderer:
 
             if self.space_mesh:
                 structure = self.draw_structure()
-            if self.agent_mesh:
+            if self.agent_portrayal is not None:
                 agents = self.draw_agents()
             if self.propertylayer_mesh:
                 prop_layers = self.draw_propertylayer()

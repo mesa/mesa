@@ -306,7 +306,7 @@ def SpaceRendererComponent(
 
         if renderer.space_mesh:
             renderer.draw_structure()
-        if renderer.agent_mesh:
+        if renderer.agent_portrayal is not None:
             renderer.draw_agents()
         if renderer.propertylayer_mesh:
             renderer.draw_propertylayer()
@@ -329,7 +329,7 @@ def SpaceRendererComponent(
 
         if renderer.space_mesh:
             structure = renderer.draw_structure()
-        if renderer.agent_mesh:
+        if renderer.agent_portrayal is not None:
             agents = renderer.draw_agents()
         if renderer.propertylayer_mesh:
             propertylayer = renderer.draw_propertylayer()
