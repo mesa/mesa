@@ -1435,6 +1435,8 @@ def test_has_emitters_bound_method_is_rebound_to_the_copy(copier):
     # The original stays bound to the original listener.
     (original_ref,) = emitter.subscribers[key]
     assert original_ref().__self__ is listener
+
+
 @pytest.mark.parametrize("factory", [list, dict, set])
 @pytest.mark.parametrize("subscribed", [False, True])
 def test_observable_collections(factory, subscribed):
