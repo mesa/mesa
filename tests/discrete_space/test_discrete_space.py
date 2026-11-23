@@ -1584,6 +1584,15 @@ def test_grid2d_moving_agent_multi_cell_and_partial_move():
     agent.move("east", distance=2, allow_partial_move=True)
     assert agent.cell.coordinate == (2, 4)
 
+    # Toroidal loop-around with capacity=1 returning to starting cell
+    torus_grid = OrthogonalMooreGrid(
+        (5, 5), torus=True, random=model.random, capacity=1
+    )
+    torus_agent = Grid2DMovingAgent(model)
+    torus_agent.cell = torus_grid[(2, 2)]
+    torus_agent.move("east", distance=5)
+    assert torus_agent.cell.coordinate == (2, 2)
+
 
 def test_hex_grid_moving_agent_multi_cell_and_partial_move():
     """Test multi-cell distance movement and atomicity in HexGridMovingAgent."""
@@ -1649,6 +1658,13 @@ def test_hex_grid_moving_agent_multi_cell_and_partial_move():
     # Capacity failure with allow_partial_move=True: stops before blocked cell
     mover.move("e", distance=2, allow_partial_move=True)
     assert mover.cell.coordinate == (1, 2)
+
+    # Toroidal loop-around with capacity=1 returning to starting cell
+    torus_hex = HexGrid((6, 6), torus=True, random=model.random, capacity=1)
+    torus_hex_agent = HexGridMovingAgent(model)
+    torus_hex_agent.cell = torus_hex[(2, 2)]
+    torus_hex_agent.move("w", distance=6)
+    assert torus_hex_agent.cell.coordinate == (2, 2)
 
 
 def test_patch():  # noqa: D103

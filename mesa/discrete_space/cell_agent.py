@@ -28,6 +28,14 @@ class HasCellProtocol(Protocol):
     cell: Cell
 
 
+def _is_cell_full(cell: Cell, agent: CellAgent) -> bool:
+    """Check if a cell is full, accounting for the moving agent's own occupancy."""
+    if cell.capacity is None:
+        return False
+    occupants = len(cell._agents) - (1 if agent in cell._agents else 0)
+    return occupants >= cell.capacity
+
+
 class HasCell:
     """Descriptor for cell movement behavior."""
 
@@ -193,7 +201,7 @@ class Grid2DMovingAgent(CellAgent):
                     raise ValueError(f"No cell in direction {move_vector}")
                 break
 
-            if next_cell.is_full:
+            if _is_cell_full(next_cell, self):
                 if not allow_partial_move:
                     raise CellFullException(next_cell.coordinate)
                 break
@@ -302,7 +310,7 @@ class HexGridMovingAgent(CellAgent):
                     raise ValueError(f"No cell in direction {move_vector}")
                 break
 
-            if next_cell.is_full:
+            if _is_cell_full(next_cell, self):
                 if not allow_partial_move:
                     raise CellFullException(next_cell.coordinate)
                 break
