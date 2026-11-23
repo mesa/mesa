@@ -128,6 +128,32 @@ def test_agent_remove():
     assert len(model.agents) == 0
 
 
+def test_agents_hashed_by_unique_id():
+    """Agents that hash by unique_id are found, stepped and removed like any other."""
+
+    class Building(Agent):
+        def __eq__(self, other):
+            return isinstance(other, Building) and self.unique_id == other.unique_id
+
+        def __hash__(self):
+            return hash(self.unique_id)
+
+        def step(self):
+            self.model.stepped += 1
+
+    model = Model(rng=42)
+    model.stepped = 0
+    buildings = Building.create_agents(model, 10).to_list()
+    assert all(building in model.agents for building in buildings)
+
+    model.agents.shuffle_do("step")
+    assert model.stepped == 10
+
+    buildings[0].remove()
+    assert buildings[0] not in model.agents
+    assert len(model.agents) == len(model.agents_by_type[Building]) == 9
+
+
 def test_agents_by_type_keeps_empty_bucket():
     """Removing all agents of a type keeps its empty bucket in agents_by_type.
 
