@@ -428,6 +428,13 @@ class HasEmitters:
     Keep a reference to such a handler, or use a method or a module-level
     function instead.
 
+    Subscriptions are kept when the object is deep-copied or pickled, as far
+    as their handlers come along. A bound method is re-bound to a copy of its
+    object, so it stays subscribed only if that object is copied along with
+    this one, for example because it is held in one of its attributes;
+    otherwise the copy loses the subscription. A module-level function stays
+    subscribed as the same function; for pickle it must be importable by name.
+
     Attributes:
         subscribers: mapping of observables/emitters and signal type to subscribers
         observables: mapping of observables/emitters to their available signal types
