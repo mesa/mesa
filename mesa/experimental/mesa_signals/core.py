@@ -68,8 +68,8 @@ class BaseObservable:
 
         Args:
             fallback_value: value a subclass may use when the attribute has not
-                been assigned yet (e.g., ObservableList uses it as the old value
-                for the first assignment)
+                been assigned yet (e.g., ContinuousState uses it as its initial
+                value)
         """
         super().__init__()
         self.public_name: str
