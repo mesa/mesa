@@ -473,6 +473,79 @@ def test_json_recorder_numpy_types():
             assert isinstance(data, list)
 
 
+def test_json_recorder_numpy_dataset_keeps_agent_ids_and_field_names(tmp_path):
+    """A numpy dataset is stored as named values per agent, as in the other recorders."""
+    model = MockModel(n=3)
+    recorder = JSONDataRecorder(
+        model, {"numpy_data": DatasetConfig()}, output_dir=tmp_path
+    )
+
+    model.step()
+
+    df = recorder.get_table_dataframe("numpy_data")
+    assert list(df.columns) == ["agent_id", "value", "other_value", "time"]
+    assert df["agent_id"].tolist() == [1, 2, 3]
+    assert df["other_value"].tolist() == [0.0, 2.0, 4.0]
+
+    recorder.save_to_json()
+    with open(tmp_path / "numpy_data.json") as f:
+        saved = json.load(f)
+    assert saved[0]["data"][2] == {"agent_id": 3, "value": 2.0, "other_value": 4.0}
+
+
+def test_json_recorder_numpy_dataset_ids_stay_aligned_after_removal(tmp_path):
+    """Removing an agent swaps the last row in; each id must keep its own values."""
+    model = MockModel(n=4)  # agent ids 1-4 hold value 0-3 (other_value is 2 * value)
+    recorder = JSONDataRecorder(
+        model, {"numpy_data": DatasetConfig()}, output_dir=tmp_path
+    )
+    recorder.collect()
+
+    # Removing agent 1 moves agent 4's row into row 0 (swap-with-last).
+    next(agent for agent in model.agents if agent.unique_id == 1).remove()
+    recorder.collect()
+
+    before, after = recorder.data["numpy_data"]
+    assert {row["agent_id"]: row["value"] for row in before["data"]} == {
+        1: 0.0,
+        2: 1.0,
+        3: 2.0,
+        4: 3.0,
+    }
+    # Row order changed, so this only passes if ids travel with their values.
+    assert after["data"][0]["agent_id"] == 4
+    assert {row["agent_id"]: row["value"] for row in after["data"]} == {
+        2: 1.0,
+        3: 2.0,
+        4: 3.0,
+    }
+    assert all(row["other_value"] == 2 * row["value"] for row in after["data"])
+
+    recorder.save_to_json()
+    with open(tmp_path / "numpy_data.json") as f:
+        saved = json.load(f)
+    assert [snapshot["data"] for snapshot in saved] == [
+        before["data"],
+        after["data"],
+    ]
+
+
+def test_json_recorder_stores_a_plain_array_as_a_list(tmp_path):
+    """An array from a dataset without agent ids is stored as nested lists."""
+    model = MockModel(n=2)
+    custom_dataset = Mock(spec=DataSet)
+    custom_dataset.name = "custom_data"
+    custom_dataset.data = np.array([[1.0, 2.0]])
+    model.data_registry.datasets["custom_data"] = custom_dataset
+    recorder = JSONDataRecorder(
+        model, {"custom_data": DatasetConfig()}, output_dir=tmp_path
+    )
+
+    recorder.collect()
+
+    assert list(recorder.data["custom_data"]) == [{"time": 0.0, "data": [[1.0, 2.0]]}]
+
+
 def test_json_recorder_numpy_encoder_types():
     """Test NumpyJSONEncoder handles various numpy types."""
     encoder = NumpyJSONEncoder()
@@ -553,6 +626,27 @@ def test_json_recorder_clear_nonexistent_dataset():
 
         with pytest.raises(KeyError, match="nonexistent"):
             recorder.clear("nonexistent")
+
+
+def test_json_recorder_keeps_only_the_last_window_size_snapshots(tmp_path):
+    """window_size bounds the snapshots JSONDataRecorder keeps, as in DataRecorder."""
+    model = MockModel(n=2)
+    config = {"model_data": DatasetConfig(window_size=2)}
+    recorder = JSONDataRecorder(model, config, output_dir=tmp_path)
+    memory = DataRecorder(model, config)
+
+    model.run_for(4)
+
+    assert [snap["time"] for snap in recorder.data["model_data"]] == [3.0, 4.0]
+    assert (
+        list(recorder.get_table_dataframe("model_data")["time"])
+        == list(memory.get_table_dataframe("model_data")["time"])
+        == [3.0, 4.0]
+    )
+
+    recorder.save_to_json()
+    with open(tmp_path / "model_data.json") as f:
+        assert [snap["time"] for snap in json.load(f)] == [3.0, 4.0]
 
 
 def test_json_recorder_summary():
@@ -1083,6 +1177,62 @@ def test_recorder_start_time_behavior():
     times = df["time"].unique()
     assert 1.0 not in times
     assert 2.0 in times
+
+
+class LeavingAgent(Agent):
+    """An agent that removes itself from the model at a given time."""
+
+    def __init__(self, model, leave_at):
+        """Initialize the agent."""
+        super().__init__(model)
+        self.value = 1.0
+        model.schedule_event(self.remove, at=leave_at)
+
+
+def test_data_recorder_overwrite_keeps_earlier_snapshot():
+    """Recording a time again after it stored nothing keeps the earlier times."""
+    model = Model()
+    LeavingAgent.create_agents(model, 2, leave_at=2.5)
+    model.data_registry.track_agents(model.agents, "agents", fields=["value"])
+    recorder = DataRecorder(model, {"agents": DatasetConfig()})
+
+    model.run_for(3)  # no agents left when the run ends at 3
+    model.run_for(1)  # 3 is recorded again
+
+    df = recorder.get_table_dataframe("agents")
+    assert df["time"].tolist() == [0, 0, 1, 1, 2, 2]
+
+
+def test_json_recorder_skips_empty_snapshots(tmp_path):
+    """A snapshot taken without agents adds no row to the frame."""
+    model = Model()
+    LeavingAgent.create_agents(model, 2, leave_at=0.5)
+    model.data_registry.track_agents(model.agents, "agents", fields=["value"])
+    recorder = JSONDataRecorder(model, {"agents": DatasetConfig()}, output_dir=tmp_path)
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("agents")
+    assert df["time"].tolist() == [0, 0]
+    assert df["value"].tolist() == [1.0, 1.0]
+
+
+@pytest.mark.parametrize(
+    "recorder_class", [JSONDataRecorder, ParquetDataRecorder, SQLDataRecorder]
+)
+def test_empty_recording_has_time_column(tmp_path, recorder_class):
+    """A dataset with nothing recorded gives an empty frame with a time column."""
+    model = MockModel(n=2)
+    kwargs = {} if recorder_class is SQLDataRecorder else {"output_dir": tmp_path}
+    recorder = recorder_class(
+        model, {"model_data": DatasetConfig(start_time=10)}, **kwargs
+    )
+
+    model.run_for(2)
+
+    df = recorder.get_table_dataframe("model_data")
+    assert df.empty
+    assert df.columns.tolist() == ["time"]
 
 
 @pytest.mark.parametrize(

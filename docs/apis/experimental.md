@@ -13,6 +13,13 @@ This namespace contains experimental features. These are under development, and 
    :members:
 ```
 
+## Locations
+
+```{eval-rst}
+.. automodule:: experimental.locations
+   :members:
+```
+
 ## Scenarios
 
 ```{eval-rst}

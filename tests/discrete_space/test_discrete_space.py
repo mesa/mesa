@@ -353,20 +353,6 @@ def test_dynamic_modifications_to_space():
     assert cell1 in cell2.neighborhood
     assert cell2 in cell1.neighborhood
 
-    # test remove cell
-    neighbors = cell1.neighborhood
-    grid.remove_cell(cell1)
-    for neighbor in neighbors:
-        assert cell1 not in neighbor.neighborhood
-
-    # test add_cells
-    grid.add_cell(cell1)
-    for neighbor in neighbors:
-        grid.add_connection(cell1, neighbor)
-
-    for neighbor in neighbors:
-        assert cell1 in neighbor.neighborhood
-
 
 def test_neighborhood_cache_invalidated_on_topology_change():
     """connect() and disconnect() must invalidate the cached neighborhood.
@@ -643,6 +629,74 @@ def test_voronoigrid():
 
     with pytest.raises(ValueError):
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
+
+    # Identical centroids used to raise IndexError, or never finish
+    for duplicated in (
+        [[0, 0], [10, 0], [0, 10], [10, 10], [5, 5], [5, 5]],
+        [[0, 0], [10, 0], [0, 10], [0, 0]],
+    ):
+        with pytest.raises(ValueError, match="distinct"):
+            VoronoiGrid(duplicated, random=random.Random(42))
+
+
+def test_voronoigrid_far_from_origin():
+    """VoronoiGrid accepts centroids far from the origin, e.g. UTM coordinates."""
+    base = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
+    offset = (500_000.0, 4_100_000.0)
+    far = [[x + offset[0], y + offset[1]] for x, y in base]
+
+    grid = VoronoiGrid(far, random=random.Random(42))
+
+    assert len(grid._cells) == len(far)
+
+    # Same tessellation shape as the identical near-origin point set
+    assert len(grid._cells[0].connections.values()) == 2
+    for connection in grid._cells[0].connections.values():
+        assert connection.coordinate in [1, 3]
+
+    # Voronoi regions and nearest-cell lookup work at these coordinates
+    vor_coors, regions = grid._get_voronoi_regions()
+    assert len(regions) == len(far)
+    cell = grid.find_nearest_cell((500_000.1, 4_100_001.1))
+    assert cell.coordinate == 0
+
+    # Region coordinates are translated back to the original coordinate system
+    for coordinate in vor_coors:
+        assert abs(coordinate[0] - offset[0]) < 20_000
+        assert abs(coordinate[1] - offset[1]) < 20_000
+
+
+def test_voronoigrid_far_from_origin_matches_near_origin_connectivity():
+    """Translating the centroids does not change the tessellation's edges."""
+
+    def edges(points):
+        grid = VoronoiGrid(points, random=random.Random(42))
+        return {
+            tuple(sorted((cell.coordinate, other.coordinate)))
+            for cell in grid.all_cells.cells
+            for other in cell.connections.values()
+        }
+
+    base = [[0, 1], [1, 3], [1.1, 1], [1, 1], [2.3, 2.1], [0.4, 2.6]]
+    far = [[x + 15_000.0, y - 28_000.0] for x, y in base]
+
+    assert edges(far) == edges(base)
+
+
+def test_voronoigrid_area_precision_far_from_origin():
+    """Polygon areas stay precise when centroids are far from the origin."""
+    rng = random.Random(7)
+    base = [[rng.uniform(0, 50), rng.uniform(0, 50)] for _ in range(60)]
+    near = VoronoiGrid(base, random=random.Random(42))
+    for offset in [(500_000.0, 4_100_000.0), (5e6, 4.1e7)]:
+        far = VoronoiGrid(
+            [[x + offset[0], y + offset[1]] for x, y in base],
+            random=random.Random(42),
+        )
+        for i in range(60):
+            a_far = far._cells[i].properties["area"]
+            a_near = near._cells[i].properties["area"]
+            assert abs(a_far - a_near) / a_near < 1e-6
 
 
 def test_empties_space():
@@ -942,6 +996,26 @@ def test_cell_collection():
 
     cells = collection.select()
     assert len(cells) == len(collection)
+
+
+def test_cell_collection_cells_is_an_immutable_tuple():
+    """CellCollection.cells is a tuple, so changing it cannot change the collection (#4142)."""
+    cell1 = Cell((0, 0), random=random.Random(1))
+    cell2 = Cell((0, 1), random=random.Random(1))
+    collection = CellCollection([cell1, cell2], random=random.Random(1))
+
+    cells = collection.cells
+    assert isinstance(cells, tuple)
+    assert cells == (cell1, cell2)
+    assert not hasattr(cells, "clear")
+    assert not hasattr(cells, "append")
+
+    assert len(collection) == 2
+    assert list(collection) == [cell1, cell2]
+    assert collection.select_random_cell() in {cell1, cell2}
+
+    # The tuple is built once, so reading it again costs nothing.
+    assert collection.cells is cells
 
 
 def test_empty_cell_collection():
@@ -2112,3 +2186,20 @@ def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
     calls = _spy_on_fallback_scan(monkeypatch)
     assert grid.select_random_empty_cell().is_empty
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("factory", GRID_FACTORIES)
+def test_grid_add_and_remove_cell_raise(factory) -> None:
+    """A grid has a fixed set of cells, so add_cell and remove_cell raise."""
+    grid = factory(1)
+    cell = grid._cells[(1, 1)]
+    neighbors = list(cell.neighborhood)
+
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.remove_cell(cell)
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.add_cell(grid.cell_klass((1, 1), capacity=1, random=grid.random))
+
+    assert grid._cells[(1, 1)] is cell
+    assert list(cell.neighborhood) == neighbors
+    assert len(grid.all_cells) == 16

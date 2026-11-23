@@ -13,6 +13,7 @@ from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.backends.matplotlib_backend import _to_numpy_argument_array
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
 
 
@@ -516,6 +517,8 @@ def test_backends_handle_errors():
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
 def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
+    """Shared AgentPortrayalStyle instances should not be mutated during data collection."""
+
     class DummyAgent:
         def __init__(self, position):
             self.position = position
@@ -537,6 +540,7 @@ def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
 def test_collect_agent_data_preserves_explicit_coordinates(backend_cls):
     """Explicit x, y coordinates should be used and not mutated."""
+
     class DummyAgent:
         def __init__(self, position):
             self.position = position
@@ -553,3 +557,35 @@ def test_collect_agent_data_preserves_explicit_coordinates(backend_cls):
 
     assert data["loc"].tolist() == [[10, 20], [10, 20]]
     assert (portrayal.x, portrayal.y) == (10, 20)
+
+
+@pytest.mark.parametrize(
+    ("edgecolors", "expected"),
+    [
+        ([None, None], []),
+        (["black", None], ["black", "none"]),
+        ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
+    ],
+)
+def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
+    """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
+    result = _to_numpy_argument_array("edgecolors", edgecolors)
+    assert result.tolist() == expected
+
+
+def test_to_numpy_argument_array_preserves_tuple_markers():
+    """Equal-length tuple marker specs must not collapse into a 2D array."""
+    result = _to_numpy_argument_array("marker", [(3, 0, 0), (3, 0, 0)])
+    assert result.shape == (2,)
+    assert list(result) == [(3, 0, 0), (3, 0, 0)]
+
+
+def test_to_numpy_argument_array_mixed_face_colors():
+    """Face colors can be a mix of named and RGBA colors."""
+    mixed = ["blue", (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", mixed)
+    assert list(result) == mixed
+
+    uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", uniform)
+    assert result.shape == (2, 4)

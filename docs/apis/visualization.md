@@ -69,13 +69,6 @@ For detailed tutorials, please refer to:
    :show-inheritance:
 ```
 
-```{eval-rst}
-.. automodule:: mesa.visualization.mpl_space_drawing
-   :members:
-   :undoc-members:
-   :show-inheritance:
-```
-
 
 ## Altair-based visualizations
 

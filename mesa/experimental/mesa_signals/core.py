@@ -27,6 +27,7 @@ from mesa.experimental.mesa_signals.signals_util import (
     ALL,
     Message,
     SignalType,
+    _has_changed,
     create_weakref,
 )
 
@@ -116,7 +117,14 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
+    An Observable emits ObservableSignals.CHANGED when a value that differs
+    from the current one (compared with !=) is assigned to it. If that comparison
+    has no single truth value, as for NumPy arrays with more than one element,
+    the assignment is treated as a change.
+
+    Changes made in place to a mutable value (a list, an array, a custom
+    collection or other object) are not observed. To signal such a change,
+    assign a new value, or use ObservableList for lists.
 
     """
 
@@ -138,7 +146,7 @@ class Observable(BaseObservable):
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
             old_value = getattr(instance, self.private_name, None)
-            if old_value != value:
+            if _has_changed(old_value, value):
                 send_notify = True
         setattr(instance, self.private_name, value)
 
@@ -327,7 +335,7 @@ def computed_property(
                             break
                         for attr, old_val in observations.items():
                             current_val = getattr(parent, attr)
-                            if current_val != old_val:
+                            if _has_changed(old_val, current_val):
                                 changed = True
                                 break
                         if changed:
@@ -389,6 +397,51 @@ class HasEmitters:
         self.subscribers = defaultdict(list)
         self._batch_context = None
         self._suppress = False
+
+    def __getstate__(self):
+        """Return the state for pickle and deepcopy.
+
+        Subscribers are stored as weak references, which can be neither pickled nor
+        deep-copied. Live subscribers are therefore replaced by strong references to
+        their handlers, and subscribers that have already been collected are dropped.
+        ``__setstate__`` turns the handlers back into weak references.
+
+        Notes:
+            A bound method of an object that is copied along with the emitter is
+            re-bound to the copy. A plain function or closure is not copied by
+            ``deepcopy`` and, for ``pickle``, has to be importable by name, so
+            handlers that must follow a copy should be bound methods.
+        """
+        state = super().__getstate__()
+        # A subclass with __slots__ returns a (dict, slots) tuple. The subscribers
+        # always live in the instance dict, which is copied so that the live object
+        # keeps its weak references.
+        instance_state, slot_state = (
+            state if isinstance(state, tuple) else (state, None)
+        )
+        instance_state = dict(instance_state)
+        instance_state["subscribers"] = {
+            key: [handler for ref in refs if (handler := ref()) is not None]
+            for key, refs in instance_state.get("subscribers", {}).items()
+        }
+        return instance_state if slot_state is None else (instance_state, slot_state)
+
+    def __setstate__(self, state) -> None:
+        """Restore the state and re-create the weak references to the subscribers."""
+        instance_state, slot_state = (
+            state if isinstance(state, tuple) else (state, None)
+        )
+        # The handlers in the state keep the subscribers alive while this runs.
+        instance_state["subscribers"] = defaultdict(
+            list,
+            {
+                key: [create_weakref(handler) for handler in handlers]
+                for key, handlers in instance_state.get("subscribers", {}).items()
+            },
+        )
+        self.__dict__.update(instance_state)
+        for name, value in (slot_state or {}).items():
+            setattr(self, name, value)
 
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""

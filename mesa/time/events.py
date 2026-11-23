@@ -130,7 +130,9 @@ class Event:
         """Execute this event."""
         if not self._canceled:
             fn = self.fn()
-            if fn is not None:
+            if fn is not None and not getattr(
+                getattr(fn, "__self__", None), "_removed", False
+            ):
                 fn(*self.function_args, **self.function_kwargs)
 
     def cancel(self) -> None:
@@ -305,16 +307,22 @@ class EventGenerator:
         # Check weakref HERE (execution time), not in property getter
         # This matches Event class behavior - weakref check during execution
         fn = self.function()
-        if fn is None:
-            # Stop the generator if weakref is dead
+        if fn is None or getattr(getattr(fn, "__self__", None), "_removed", False):
+            # Stop the generator if weakref is dead or its agent was removed
             self.stop()
             return  # Silent no-op (no error raised)
 
-        # Execute the function
+        # Execute the function. Reschedule even if it raises, so one failing
+        # call does not silently end the generator (and with it model.step()).
         firing_event = self._current_event
-        fn()
-        self._execution_count += 1
+        try:
+            fn()
+        finally:
+            self._execution_count += 1
+            self._reschedule(firing_event)
 
+    def _reschedule(self, firing_event: Event | None) -> None:
+        """Schedule the next event after ``firing_event``, unless the generator is done."""
         # The callback may have stopped, paused, restarted, or resumed this
         # generator. Both start() and resume() schedule a new event and replace
         # _current_event, so in that case do not schedule a second one.
@@ -363,6 +371,9 @@ class EventGenerator:
         else:
             # Default: start at next interval from now
             start_time = self.model.time + self._get_interval()
+
+        if self._should_stop(start_time):
+            return self
 
         self._active = True
         self.model._event_generators.add(self)
