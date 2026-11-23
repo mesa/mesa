@@ -19,11 +19,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
-from mesa.experimental.mesa_signals.signals_util import (
-    Message,
-    _AllSentinel,
-    has_changed,
-)
+from mesa.experimental.mesa_signals.signals_util import Message, _AllSentinel
 
 
 def test_signal_type_docstrings():
@@ -1247,94 +1243,66 @@ def test_peek():
 
 
 @pytest.mark.parametrize(
-    ("old", "new", "expected"),
+    "value",
     [
-        (1, 1, False),
-        (1, 2, True),
-        ("a", "a", False),
-        ([1, 2], [1, 2], False),
-        ([1, 2], [1, 3], True),
-        (None, 1, True),
-        (np.array([1, 2]), np.array([1, 2]), False),
-        (np.array([1, 2]), np.array([1, 3]), True),
-        (np.array([1, 2]), np.array([1, 2, 3]), True),  # shape change
-        (np.array([1, 2]), np.array([1.0, 2.0]), False),  # dtype only
-        (np.array([1]), np.array([2]), True),  # single element
-        (np.array([]), np.array([]), False),
-        (np.array([np.nan]), np.array([np.nan]), True),  # nan != nan, like floats
-        (float("nan"), float("nan"), True),
-        (np.zeros((2, 2)), np.zeros((2, 2)), False),
-        (np.zeros((2, 2)), np.ones((2, 2)), True),
-        (None, np.array([1, 2]), True),
-        (np.array([1, 2]), None, True),
-        (np.array([1, 2]), 1, True),
+        [1, 2],
+        {"a": 1},
+        {1, 2},
+        np.array([1, 2]),
+        np.array(5),
     ],
 )
-def test_has_changed(old, new, expected):
-    """has_changed works for scalars, lists and NumPy arrays."""
-    assert has_changed(old, new) is expected
-
-
-def test_observable_numpy_array():
-    """Replacing a NumPy array on an Observable with a subscriber must not raise."""
+def test_observable_rejects_collections(value):
+    """Assigning a collection to an Observable raises TypeError pointing to ObservableList."""
 
     class MyAgent(Agent, HasEmitters):
         data = Observable()
 
-        def __init__(self, model, value):
+        def __init__(self, model):
             super().__init__(model)
-            self.data = value
 
     model = Model(rng=42)
-    agent = MyAgent(model, np.array([1, 2, 3]))
+    agent = MyAgent(model)
 
     handler = Mock()
     agent.observe("data", ObservableSignals.CHANGED, handler)
 
-    agent.data = np.array([1, 2, 3])  # same content, no signal
+    with pytest.raises(TypeError, match="ObservableList"):
+        agent.data = value
     handler.assert_not_called()
 
-    agent.data = np.array([1, 2, 4])  # new content
-    handler.assert_called_once()
 
-    agent.data = np.array([1, 2, 4, 5])  # new shape
-    assert handler.call_count == 2
-
-
-def test_numpy_array_in_computed_property_and_batch():
-    """Computed properties and batches handle NumPy array parents."""
+def test_observable_rejects_collections_without_subscriber():
+    """The rejection also applies before anyone subscribes."""
 
     class MyAgent(Agent, HasEmitters):
         data = Observable()
 
-        def __init__(self, model, value):
+        def __init__(self, model):
             super().__init__(model)
-            self.data = value
-
-        @computed_property
-        def total(self):
-            return self.data.sum()
 
     model = Model(rng=42)
-    agent = MyAgent(model, np.array([1, 2, 3]))
-    assert agent.total == 6
+    agent = MyAgent(model)
 
-    handler = Mock()
-    agent.observe("total", ObservableSignals.CHANGED, handler)
+    with pytest.raises(TypeError, match="ObservableList"):
+        agent.data = [1, 2]
 
-    agent.data = np.array([4, 5, 6])
-    assert agent.total == 15
-    handler.assert_called_once()
 
-    # batch: changes that end up where they started send no signal
+def test_observable_scalar_values_still_work():
+    """Scalars, strings, None and tuples update and notify as before."""
+
+    class MyAgent(Agent, HasEmitters):
+        data = Observable()
+
+        def __init__(self, model):
+            super().__init__(model)
+
+    model = Model(rng=42)
+    agent = MyAgent(model)
+
     handler = Mock()
     agent.observe("data", ObservableSignals.CHANGED, handler)
-    with agent.batch():
-        agent.data = np.array([0, 0, 0])
-        agent.data = np.array([4, 5, 6])
-    handler.assert_not_called()
 
-    with agent.batch():
-        agent.data = np.array([0, 0, 0])
-        agent.data = np.array([7, 8, 9])
-    handler.assert_called_once()
+    for value in (1, "a", None, (1, 2), 2.5):
+        agent.data = value
+    assert handler.call_count == 5
