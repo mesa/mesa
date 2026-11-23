@@ -320,9 +320,17 @@ class VoronoiGrid(DiscreteSpace):
         ):
             raise ValueError("Centroids should be a list of lists")
         dimension_1 = len(self.centroids_coordinates[0])
+        seen = set()
         for coordinate in self.centroids_coordinates:
             if dimension_1 != len(coordinate):
                 raise ValueError("Centroid coordinates should be a homogeneous array")
+            # Two identical centroids have no border between them, so the
+            # triangulation fails or never finishes
+            if tuple(coordinate) in seen:
+                raise ValueError(
+                    f"Centroids must be distinct, {list(coordinate)} appears more than once"
+                )
+            seen.add(tuple(coordinate))
 
     def _get_voronoi_regions(self) -> tuple:
         if self.voronoi_coordinates is None or self.regions is None:
