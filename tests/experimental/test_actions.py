@@ -1795,6 +1795,26 @@ class TestProgressReporting:
         assert run([]) == run([2.1]) == (30.0, 1.0)
         assert run([0.7, 1.4]) == run([0.7, 0.7, 1.4, 1.4])
 
+    @pytest.mark.parametrize("end", ["interrupt", "cancel", "remove"])
+    def test_on_progress_reads_the_frozen_progress(self, end):
+        """Inside on_progress, progress already includes delta, once."""
+        model, agent = make_model_and_agent()
+        seen = []
+
+        class Work(Action):
+            def on_progress(self, delta):
+                seen.append((delta, self.progress))
+
+        action = agent.start_action(Work(agent, duration=10.0))
+        model.run_for(2)
+        if end == "remove":
+            agent.remove()
+        else:
+            getattr(action, end)()
+
+        assert seen == [(pytest.approx(0.2), pytest.approx(0.2))]
+        assert action.progress == pytest.approx(0.2)
+
     def test_progress_is_paid_before_the_completion_check(self):
         """A requirement sees all the work, however often it was interrupted."""
         model, agent = make_model_and_agent()

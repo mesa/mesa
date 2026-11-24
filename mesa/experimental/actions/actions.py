@@ -522,8 +522,13 @@ class Action:
             self.on_cancel()
 
     def _freeze_progress(self) -> None:
-        """Snapshot live progress into _progress for storage."""
+        """Snapshot live progress into _progress for storage.
+
+        Restarts the attempt clock, so hooks that run before the state
+        leaves ACTIVE read the same progress instead of counting it twice.
+        """
         self._progress = self.progress
+        self._start_time = self.model.time
 
     def _end_attempt(self, state: ActionState, outcome: Callable[[], None]) -> None:
         """End the ACTIVE attempt: report, release, on_stop(), outcome hook.
