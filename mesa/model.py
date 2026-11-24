@@ -470,8 +470,15 @@ class Model[A: Agent, S: Scenario](HasObservables):
             The EventGenerator (can be used to stop)
 
         Raises:
-            ValueError: If the schedule start time is in the past.
+            ValueError: If the schedule start time is in the past, or if nothing
+                else keeps the function alive (e.g., an inline functools.partial).
         """
+        callback_ref = _create_callable_reference(function)
+        function = None
+        function = callback_ref()
+        if function is None:
+            raise ValueError("function must be alive at Event creation.")
+
         generator = EventGenerator(self, function, schedule, priority)
         generator.start()
         return generator
