@@ -640,6 +640,30 @@ def test_voronoigrid():
             VoronoiGrid(duplicated, random=random.Random(42))
 
 
+@pytest.mark.parametrize(
+    ("points", "edges"),
+    [
+        # [3, 8], [4, 6], [6, 7] and [4, 9] share a circle, raised StopIteration
+        ([[4, 6], [6, 8], [6, 7], [3, 8], [4, 9]], 7),
+        # [4, 8], [4, 7], [3, 9] and [2, 6] share a circle, raised KeyError
+        ([[4, 8], [1, 7], [4, 7], [3, 9], [2, 6], [9, 3]], 10),
+    ],
+)
+def test_voronoigrid_cocircular_centroids(points, edges):
+    """Centroids with four on one circle still give a full triangulation."""
+    grid = VoronoiGrid(points, random=random.Random(42))
+
+    # A full triangulation of n points, h of them on the hull, has 3n - 3 - h
+    # edges. Which diagonal joins points on one circle can vary, so only the
+    # count is checked.
+    found = {
+        frozenset((cell.coordinate, other.coordinate))
+        for cell in grid.all_cells.cells
+        for other in cell.connections.values()
+    }
+    assert len(found) == edges
+
+
 def test_voronoigrid_far_from_origin():
     """VoronoiGrid accepts centroids far from the origin, e.g. UTM coordinates."""
     base = [[0, 1], [1, 3], [1.1, 1], [1, 1]]

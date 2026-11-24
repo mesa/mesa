@@ -80,6 +80,15 @@ class Delaunay:
         center, radius = self.circles[triangle]
         return np.sum(np.square(center - point)) <= radius
 
+    def _in_triangle(self, triangle: tuple, point: Sequence) -> bool:
+        """Check if point p is inside triangle or on one of its edges."""
+        a, b, c = (self.coords[v] for v in triangle)
+        sides = [
+            (q[0] - p[0]) * (point[1] - p[1]) - (q[1] - p[1]) * (point[0] - p[0])
+            for p, q in ((a, b), (b, c), (c, a))
+        ]
+        return min(sides) >= 0 or max(sides) <= 0
+
     def add_point(self, point: Sequence) -> None:
         """Add a point to the current DT, and refine it using Bowyer-Watson."""
         point_index = len(self.coords)
@@ -89,6 +98,21 @@ class Delaunay:
         for triangle in self.triangles:
             if self._in_circle(triangle, point):
                 bad_triangles.append(triangle)
+
+        # Keep only the bad triangles connected to the one containing the point.
+        # With cocircular points the point can also lie on the circumcircle of a
+        # triangle elsewhere, and deleting that one leaves stale neighbour links.
+        start = next(
+            (t for t in bad_triangles if self._in_triangle(t, point)), bad_triangles[0]
+        )
+        cavity = {start}
+        stack = [start]
+        while stack:
+            for neighbor in self.triangles[stack.pop()]:
+                if neighbor not in cavity and neighbor in bad_triangles:
+                    cavity.add(neighbor)
+                    stack.append(neighbor)
+        bad_triangles = [t for t in bad_triangles if t in cavity]
 
         boundary = []
         triangle = bad_triangles[0]
