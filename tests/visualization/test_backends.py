@@ -560,6 +560,11 @@ def test_backends_handle_errors():
 def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
     """Shared AgentPortrayalStyle instances should not be mutated during data collection."""
 
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend])
+def test_collect_agent_data_preserves_explicit_zero_size(backend_cls):
+    """Explicit size=0 should be preserved and not replaced by default_size."""
+
     class DummyAgent:
         def __init__(self, position):
             self.position = position
@@ -567,11 +572,16 @@ def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
     class DummySpace:
         pass
 
+
     portrayal = AgentPortrayalStyle(x=None, y=None)
+
+    portrayal = AgentPortrayalStyle(size=0)
+
     space = DummySpace()
     space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
 
     backend = backend_cls(space_drawer=MagicMock())
+
     data = backend.collect_agent_data(space, lambda agent: portrayal)
 
     assert data["loc"].tolist() == [[0, 1], [2, 3]]
@@ -608,6 +618,7 @@ def test_collect_agent_data_preserves_explicit_coordinates(backend_cls):
         ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
     ],
 )
+
 def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
     """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
     result = _to_numpy_argument_array("edgecolors", edgecolors)
@@ -630,3 +641,11 @@ def test_to_numpy_argument_array_mixed_face_colors():
     uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
     result = _to_numpy_argument_array("c", uniform)
     assert result.shape == (2, 4)
+
+    data = backend.collect_agent_data(
+        space,
+        lambda agent: portrayal,
+        default_size=100,
+    )
+
+    assert data["s"].tolist() == [0, 0]
