@@ -201,9 +201,14 @@ class Network(DiscreteSpace[Cell]):
         """Remove a connection between the two cells.
 
         On a directed graph, only the connection from cell1 to cell2 is removed.
+        On a multigraph, one edge is removed, and the cells stay connected while
+        another edge between them remains.
         """
-        if self.G.is_directed():
-            cell1.disconnect(cell2)
-        else:
-            super().remove_connection(cell1, cell2)
-        self.G.remove_edge(cell1.coordinate, cell2.coordinate)
+        u, v = cell1.coordinate, cell2.coordinate
+        if self.G.is_multigraph() and self.G.number_of_edges(u, v) > 1:
+            self.G.remove_edge(u, v)
+            return
+        cell1.disconnect(cell2)
+        if cell1 is not cell2 and not self.G.is_directed():
+            cell2.disconnect(cell1)
+        self.G.remove_edge(u, v)

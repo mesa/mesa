@@ -596,6 +596,34 @@ def test_network_directed_connections():
     assert _connected_to(grid._cells[0]) == {1}
 
 
+def test_network_remove_self_loop_connection():
+    """A self-loop is removed from both the cell and the graph.
+
+    See https://github.com/mesa/mesa/issues/4220.
+    """
+    grid = Network(nx.Graph([(0, 1), (0, 0)]), random=random.Random(42))
+    cell = grid._cells[0]
+    grid.remove_connection(cell, cell)
+    assert _connected_to(cell) == {1}
+    assert list(grid.G.edges) == [(0, 1)]
+
+
+def test_network_remove_parallel_edge_connection():
+    """Cells stay connected until the last parallel edge is removed."""
+    grid = Network(nx.MultiGraph([(0, 1), (0, 1)]), random=random.Random(42))
+    a, b = grid._cells[0], grid._cells[1]
+
+    grid.remove_connection(a, b)
+    assert grid.G.number_of_edges(0, 1) == 1
+    assert _connected_to(a) == {1}
+    assert _connected_to(b) == {0}
+
+    grid.remove_connection(a, b)
+    assert grid.G.number_of_edges(0, 1) == 0
+    assert _connected_to(a) == set()
+    assert _connected_to(b) == set()
+
+
 def test_network_undirected_remove_cell_unchanged():
     """Undirected networks keep connecting and disconnecting both ways."""
     grid = Network(nx.Graph([(0, 1), (1, 2)]), random=random.Random(42))
