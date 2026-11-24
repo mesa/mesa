@@ -442,26 +442,118 @@ class AltairBackend(AbstractRenderer):
                     f"Property Layer {layer_name} portrayal must include 'color' or 'colormap'."
                 )
 
-            current_chart = (
-                alt.Chart(df)
-                .mark_rect(opacity=opacity)
-                .encode(
-                    x=alt.X("x:O", axis=None),
-                    y=alt.Y("y:O", axis=None),
-                    color=alt.Color(
-                        "value:Q",
-                        scale=color_scale,
-                        title=layer_name,
-                        legend=alt.Legend(title=layer_name, orient="bottom")
-                        if portrayal.colorbar
-                        else None,
-                    ),
-                )
-                .properties(width=chart_width, height=chart_height)
+            legend = (
+                alt.Legend(title=layer_name, orient="bottom")
+                if portrayal.colorbar
+                else None
             )
+
+            if isinstance(space, HexGrid):
+                current_chart = self._draw_hex_property_layer(
+                    data=data,
+                    color_scale=color_scale,
+                    opacity=opacity,
+                    layer_name=layer_name,
+                    legend=legend,
+                    chart_width=chart_width,
+                    chart_height=chart_height,
+                )
+            else:
+                current_chart = (
+                    alt.Chart(df)
+                    .mark_rect(opacity=opacity)
+                    .encode(
+                        x=alt.X("x:O", axis=None),
+                        y=alt.Y("y:O", axis=None),
+                        color=alt.Color(
+                            "value:Q",
+                            scale=color_scale,
+                            title=layer_name,
+                            legend=legend,
+                        ),
+                    )
+                    .properties(width=chart_width, height=chart_height)
+                )
 
             if current_chart is not None:
                 main_charts.append(current_chart)
 
         base = alt.layer(*main_charts).resolve_scale(color="independent")
         return base
+
+    def _draw_hex_property_layer(
+        self,
+        *,
+        data: np.ndarray,
+        color_scale: alt.Scale,
+        opacity: float,
+        layer_name: str,
+        legend,
+        chart_width: int,
+        chart_height: int,
+    ) -> alt.Chart:
+        """Render a hex grid property layer as filled hexagons.
+
+        The default ``mark_rect`` path draws a square grid, which does not match a
+        hexagonal space. This reuses the hexagon geometry already computed by the
+        space drawer for the grid structure and fills each cell polygon with its
+        property value, so the layer aligns with the hex structure and agents.
+
+        Cell values are ordered to match ``HexSpaceDrawer.hexagons``, which iterates
+        ``space.all_cells``. This is the same ordering the Matplotlib backend uses
+        (``data.T.ravel()``).
+
+        Args:
+            data: The property layer values with shape ``(space.width, space.height)``.
+            color_scale: The Altair color scale for the fill.
+            opacity: The fill opacity.
+            layer_name: The property layer name, used as the legend title.
+            legend: The Altair legend definition, or None to hide it.
+            chart_width: The width of the chart.
+            chart_height: The height of the chart.
+
+        Returns:
+            An Altair chart of the filled hexagons for the property layer.
+        """
+        hexagons = self.space_drawer.hexagons
+        xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
+        values = data.T.ravel()
+
+        rows = []
+        for cell_id, (vertices, value) in enumerate(zip(hexagons, values)):
+            # Repeat the first vertex so the polygon is closed for filling.
+            for order, (vertex_x, vertex_y) in enumerate([*vertices, vertices[0]]):
+                rows.append(
+                    {
+                        "cell": cell_id,
+                        "order": order,
+                        "x": float(vertex_x),
+                        "y": float(vertex_y),
+                        "value": float(value),
+                    }
+                )
+
+        df = pd.DataFrame(rows)
+
+        return (
+            alt.Chart(df)
+            .mark_line(stroke=None, fillOpacity=opacity)
+            .encode(
+                x=alt.X(
+                    "x:Q",
+                    scale=alt.Scale(domain=[xmin, xmax], zero=False),
+                    axis=None,
+                ),
+                y=alt.Y(
+                    "y:Q",
+                    scale=alt.Scale(domain=[ymin, ymax], zero=False),
+                    axis=None,
+                ),
+                fill=alt.Fill(
+                    "value:Q", scale=color_scale, title=layer_name, legend=legend
+                ),
+                detail="cell:N",
+                order="order:Q",
+            )
+            .properties(width=chart_width, height=chart_height)
+        )
