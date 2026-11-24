@@ -31,9 +31,9 @@ Finally, DataCollector can create a pandas DataFrame from each collection.
 """
 
 import contextlib
+import inspect
 import itertools
 import types
-import inspect
 import warnings
 from copy import deepcopy
 from functools import partial
@@ -461,7 +461,6 @@ class DataCollector:
                                 raise RuntimeError(
                                     f"Model reporter '{var}' failed during collection: {exc!s}"
                                 ) from exc
-
 
                 # Store a copy so references cannot change values across steps.
                 model_values[var] = deepcopy(value)
