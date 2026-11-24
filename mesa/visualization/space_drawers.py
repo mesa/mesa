@@ -28,7 +28,16 @@ Network = mesa.discrete_space.Network
 
 
 class BaseSpaceDrawer:
-    """Base class for all space drawers."""
+    """Base class for all space drawers.
+
+    Attributes:
+        space: The Mesa grid or space instance to draw.
+        viz_xmin: Minimum x-axis limit for visualization.
+        viz_xmax: Maximum x-axis limit for visualization.
+        viz_ymin: Minimum y-axis limit for visualization.
+        viz_ymax: Maximum y-axis limit for visualization.
+        s_default: Default marker size scaled to the dimensions of the space.
+    """
 
     def __init__(self, space):
         """Initialize the base space drawer.
@@ -57,7 +66,7 @@ class BaseSpaceDrawer:
 
 
 class OrthogonalSpaceDrawer(BaseSpaceDrawer):
-    """Drawer for orthogonal grid spaces (SingleGrid, MultiGrid, Moore, VonNeumann)."""
+    """Drawer for orthogonal grid spaces (OrthogonalMooreGrid, OrthogonalVonNeumannGrid)."""
 
     def __init__(self, space: OrthogonalGrid):
         """Initialize the orthogonal space drawer.
@@ -82,7 +91,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Additional keyword arguments for styling.
 
         Examples:
-                figsize=(10, 10), color="blue", linewidth=2.
+            >>> drawer.draw_matplotlib(figsize=(10, 10), color="blue", linewidth=2)
 
         Returns:
             The modified axes object
@@ -124,7 +133,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-                width=500, height=500, title="Grid".
+            >>> width=500, height=500, title="Grid".
 
         Returns:
             Altair chart object
@@ -213,7 +222,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         self.viz_ymax = y_max
 
     def _get_hexmesh(self, size: float = 1.0) -> list[list[tuple[float, float]]]:
-        """Generate hexagon vertices for the mesh. Yields list of list of vertex coordinates for each hexagon."""
+        """Generate hexagon vertices for the mesh. Returns list of list of vertex coordinates for each hexagon."""
 
         # Helper function for getting the vertices of a hexagon given the center and size
         def _get_hex_vertices(
@@ -257,7 +266,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Additional keyword arguments for styling.
 
         Examples:
-                figsize=(8, 8), color="red", alpha=0.5.
+            >>> figsize=(8, 8), color="red", alpha=0.5.
 
         Returns:
             The modified axes object
@@ -295,8 +304,8 @@ class HexSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-                * Line properties like color, strokeDash, strokeWidth, opacity.
-                * Other kwargs (e.g., width, title) apply to the chart.
+            >>> * Line properties like color, strokeDash, strokeWidth, opacity.
+            >>> * Other kwargs (e.g., width, title) apply to the chart.
 
         Returns:
             Altair chart object representing the hexagonal grid.
@@ -397,9 +406,8 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
         Args:
             ax: Matplotlib axes object to draw on.
             **draw_space_kwargs: Dictionaries of keyword arguments for styling.
-                Can also handle zorder for both nodes and edges if passed.
-                * ``node_kwargs``: A dict passed to nx.draw_networkx_nodes.
-                * ``edge_kwargs``: A dict passed to nx.draw_networkx_edges.
+            * ``node_kwargs``: A dict passed to ``nx.draw_networkx_nodes`` (supports ``zorder``, default 1).
+            * ``edge_kwargs``: A dict passed to ``nx.draw_networkx_edges`` (supports ``zorder``, default 0).
 
         Returns:
             The modified axes object.
@@ -580,7 +588,15 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
         self.viz_ymax = y_max + y_padding
 
     def project(self, position):
-        """Project an n-dimensional position onto the configured 2D plane."""
+        """Project an n-dimensional position onto the configured 2D plane.
+
+        Args:
+            position: A sequence or array of coordinates with length >= ``ndims``.
+
+        Returns:
+            A ``(x, y)`` tuple of the projected coordinates corresponding to
+            ``self.viz_dims``.
+        """
         i, j = self.viz_dims
         return position[i], position[j]
 
@@ -594,7 +610,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
                 n-dimensional space are projected to x/y.
 
         Examples:
-                linewidth=3, color="green"
+            >>> linewidth=3, color="green"
 
         Returns:
             The modified axes object.
@@ -682,9 +698,16 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
         self.viz_ymax = y_max + height / 20
 
     def _clip_line(self, p1, p2, box):
-        """Clips a line segment using the Cohen-Sutherland algorithm.
+        """Clip a line segment to a bounding box using the Cohen-Sutherland algorithm.
 
-        Returns the clipped line segment (p1, p2) or None if it's outside.
+        Args:
+            p1: Starting ``(x, y)`` coordinates of the line segment.
+            p2: Ending ``(x, y)`` coordinates of the line segment.
+            box: Clipping bounding box as ``(min_x, min_y, max_x, max_y)``.
+
+        Returns:
+            A tuple of clipped endpoints ``((x1, y1), (x2, y2))``, or ``None``
+            if the segment lies completely outside the bounding box.
         """
         x1, y1 = p1
         x2, y2 = p2
@@ -717,7 +740,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
                 outcode_out = outcode1 if outcode1 else outcode2
                 x, y = 0.0, 0.0
 
-                # Check for horizontal line
+                # Intersect with horizontal clipping boundaries (top/bottom)
                 if y1 != y2:
                     if outcode_out & TOP:
                         x = x1 + (x2 - x1) * (max_y - y1) / (y2 - y1)
@@ -726,7 +749,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
                         x = x1 + (x2 - x1) * (min_y - y1) / (y2 - y1)
                         y = min_y
 
-                # Check for vertical line
+                # Intersect with vertical clipping boundaries (left/right)
                 if x1 != x2:
                     if outcode_out & RIGHT:
                         y = y1 + (y2 - y1) * (max_x - x1) / (x2 - x1)
@@ -775,7 +798,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Keyword arguments passed to matplotlib's LineCollection.
 
         Examples:
-                lw=2, alpha=0.5, colors='red'
+            >>> lw=2, alpha=0.5, colors='red'
 
         Returns:
             The modified axes object
@@ -808,8 +831,8 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-                * Line properties like color, strokeDash, strokeWidth, opacity.
-                * Other kwargs (e.g., width, title) apply to the chart.
+            >>> * Line properties like color, strokeDash, strokeWidth, opacity.
+            >>> * Other kwargs (e.g., width, title) apply to the chart.
 
         Returns:
             An Altair Chart object representing the Voronoi diagram.
