@@ -375,7 +375,7 @@ class EventGenerator:
                 self._schedule_following()
 
     def _schedule_following(self) -> bool:
-        """Schedule the next execution at now + interval.
+        """Schedule the next execution at now + interval, not before schedule.start.
 
         Returns:
             True if it was scheduled. False if it would pass schedule.end;
@@ -390,6 +390,9 @@ class EventGenerator:
         except Exception:
             self._end(EventGeneratorState.FAILED)
             raise
+        if self.schedule.start is not None:
+            # Only matters for a resume before the first execution.
+            next_time = max(next_time, self.schedule.start)
         if self.schedule.end is not None and next_time > self.schedule.end:
             self._end(EventGeneratorState.FINISHED)
             return False
@@ -469,7 +472,7 @@ class EventGenerator:
         """Continue a paused generator (PAUSED -> ACTIVE).
 
         The next execution is at now + interval: a generator doesn't keep
-        its phase across a pause.
+        its phase across a pause. It is never before schedule.start.
 
         Returns:
             True if an execution was scheduled. False if the generator was
