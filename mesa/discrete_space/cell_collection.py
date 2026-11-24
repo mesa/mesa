@@ -58,8 +58,8 @@ class CellCollection[T: Cell]:
             cells: cells to add to the collection
             random: a seeded random number generator.
         """
-        if isinstance(cells, dict):
-            self._cells = cells
+        if isinstance(cells, Mapping):
+            self._cells = dict(cells)
         else:
             self._cells = {cell: cell._agents for cell in cells}
 
