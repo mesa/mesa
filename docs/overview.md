@@ -114,7 +114,7 @@ Mesa supports multiple approaches to advancing time and activating agents.
 Use the time advancement methods on `Model` to run your simulation:
 
 ```python
-model = MyModel(n_agents=5)
+model = MyModel(5)
 model.run_for(10)     # Run for 10 time units
 model.run_until(15)  # Run until absolute time 15
 ```
