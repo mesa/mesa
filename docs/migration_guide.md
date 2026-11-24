@@ -13,6 +13,8 @@ Recurring events follow the same lifecycle words as events and actions: `cancel(
 
 `pause()`, `resume()` and `cancel()` return whether they did something, and the new `state` property (an `EventGeneratorState`) tells the outcomes apart. `resume()` on a generator in a final state raises `ValueError` instead of doing nothing. A fixed `Schedule.interval` must now be finite.
 
+Inside the callback, `execution_count` already includes the current run, and `next_scheduled_time` is `None` until the next run is scheduled. A callback that checked `execution_count == 0` to detect its first run should check `== 1` instead.
+
 ```python
 # Old
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
