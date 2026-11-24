@@ -213,7 +213,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
         self.viz_ymax = y_max
 
     def _get_hexmesh(self, size: float = 1.0) -> list[list[tuple[float, float]]]:
-        """Generate hexagon vertices for the mesh. Yields list of list of vertex coordinates for each hexagon."""
+        """Generate hexagon vertices for the mesh. Returns list of list of vertex coordinates for each hexagon."""
 
         # Helper function for getting the vertices of a hexagon given the center and size
         def _get_hex_vertices(
