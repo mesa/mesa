@@ -1999,6 +1999,26 @@ def test_available_cells_recovers_after_agent_leaves(factory) -> None:
     assert cell in list(grid.cells_with_capacity)
 
 
+@pytest.mark.parametrize("factory", GRID_FACTORIES)
+def test_available_cells_respects_individual_capacity(factory) -> None:
+    """Full cells must be excluded even when grid capacity is unlimited."""
+    model = make_model()
+    grid = factory(None)
+
+    cell = grid._celllist[0]
+    cell.capacity = 1
+
+    agent = make_agent(model)
+    agent.move_to(cell)
+
+    assert cell.is_full
+    assert cell not in grid.cells_with_capacity
+    assert len(grid.cells_with_capacity) == len(grid._celllist) - 1
+
+    agent.cell = None
+    assert cell in grid.cells_with_capacity
+
+
 # ---------------------------------------------------------------------------
 # Section 3 — select_random_available_cell()
 # ---------------------------------------------------------------------------
@@ -2024,6 +2044,20 @@ def test_select_random_available_cell_raises_when_all_full(factory) -> None:
     grid = factory(1)
     for cell in grid._celllist:
         make_agent(model).move_to(cell)
+    with pytest.raises(IndexError, match="No available cells"):
+        grid.select_random_cell_with_capacity()
+
+
+@pytest.mark.parametrize("factory", GRID_FACTORIES)
+def test_random_available_cell_respects_individual_capacity(factory) -> None:
+    """Random selection must respect individual cell capacities."""
+    model = make_model()
+    grid = factory(None)
+
+    for cell in grid._celllist:
+        cell.capacity = 1
+        make_agent(model).move_to(cell)
+
     with pytest.raises(IndexError, match="No available cells"):
         grid.select_random_cell_with_capacity()
 

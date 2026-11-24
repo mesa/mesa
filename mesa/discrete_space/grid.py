@@ -454,8 +454,9 @@ class Grid(DiscreteSpace[T]):
         **is** still available. ``cells_with_capacity`` is therefore the correct
         API for models where agents share cells up to a finite limit.
 
-        For cells with ``capacity=None`` (unlimited), every cell is always
-        available regardless of how many agents it holds.
+        Availability is determined by each cell's individual capacity,
+        regardless of the grid's default capacity. Cells with unlimited
+        capacity are always available.
 
         Returns:
             CellCollection[T]: All cells where ``len(agents) < capacity``
@@ -469,8 +470,6 @@ class Grid(DiscreteSpace[T]):
             # Count how many cells still have room
             len(list(grid.cells_with_capacity))
         """
-        if self.capacity is None:
-            return self.all_cells
         return self.all_cells.select(lambda cell: not cell.is_full)
 
     def select_random_cell_with_capacity(self) -> Cell:
