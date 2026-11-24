@@ -1055,5 +1055,113 @@ def test_get_table_dataframe_nonexistent():
         dc.get_table_dataframe("nonexistent")
 
 
+# --- Regression tests for GitHub issue #4230 ---
+# DataCollector should support callable class instances as model reporters.
+
+
+class _AgentCountReporter:
+    """Callable class that accepts a model argument."""
+
+    def __init__(self):
+        self.call_count = 0
+
+    def __call__(self, model):
+        self.call_count += 1
+        return len(model.agents)
+
+
+class _ZeroArgReporter:
+    """Callable class that takes no arguments (beyond self)."""
+
+    def __call__(self):
+        return 42
+
+
+class _InternalTypeErrorReporter:
+    """Callable class that raises TypeError from inside the reporter."""
+
+    def __call__(self, model):
+        raise TypeError("Invalid model state")
+
+
+def test_callable_class_model_reporter():
+    """Callable class instances accepting (model) should work as model reporters.
+
+    Regression test for GitHub issue #4230.
+    """
+    reporter = _AgentCountReporter()
+    model = Model()
+    Agent(model)
+    dc = DataCollector(model_reporters={"agent_count": reporter})
+
+    dc.collect(model)
+
+    assert dc.model_vars["agent_count"] == [1]
+
+
+def test_zero_arg_bound_method_still_works():
+    """Zero-argument bound methods must continue to work after the callable-class fix."""
+
+    class MethodModel(Model):
+        def __init__(self):
+            super().__init__()
+            Agent(self)
+            self.datacollector = DataCollector(
+                model_reporters={"count": self.get_count}
+            )
+
+        def get_count(self):
+            return len(self.agents)
+
+    model = MethodModel()
+    model.datacollector.collect(model)
+
+    assert model.datacollector.model_vars["count"] == [1]
+
+
+def test_zero_arg_callable_class_still_works():
+    """Callable class instances taking no arguments must still work."""
+    dc = DataCollector(model_reporters={"const": _ZeroArgReporter()})
+    model = Model()
+
+    dc.collect(model)
+
+    assert dc.model_vars["const"] == [42]
+
+
+def test_callable_class_internal_typeerror_preserved():
+    """A TypeError raised *inside* a callable reporter must not be swallowed.
+
+    The signature-selection logic uses inspect.signature().bind() to decide
+    whether a reporter accepts the model. A TypeError raised during execution
+    is a genuine error, not a signature mismatch.
+    """
+    dc = DataCollector(model_reporters={"bad": _InternalTypeErrorReporter()})
+    model = Model()
+
+    with pytest.raises(RuntimeError, match="Invalid model state"):
+        dc.collect(model)
+
+
+def test_callable_class_invocation_count():
+    """A model-accepting callable reporter must be invoked exactly once per collect().
+
+    Validation may invoke it once on the first collect(). After that, each
+    subsequent collect() should invoke the reporter exactly once.
+    """
+    reporter = _AgentCountReporter()
+    model = Model()
+    Agent(model)
+    dc = DataCollector(model_reporters={"agent_count": reporter})
+
+    # First collect: validation call + collection call
+    dc.collect(model)
+    calls_after_first = reporter.call_count
+
+    # Second collect: should invoke the reporter exactly once more
+    dc.collect(model)
+    assert reporter.call_count == calls_after_first + 1
+
+
 if __name__ == "__main__":
     unittest.main()

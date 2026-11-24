@@ -33,6 +33,7 @@ Finally, DataCollector can create a pandas DataFrame from each collection.
 import contextlib
 import itertools
 import types
+import inspect
 import warnings
 from copy import deepcopy
 from functools import partial
@@ -188,13 +189,45 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
+        # For generic callables (including bound methods, callable class instances, etc.)
         if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
+            # Use signature inspection to decide how to call the reporter.
             try:
-                reporter()
-            except Exception as e:
-                raise RuntimeError(
-                    f"Method reporter '{name}' failed validation: {e!s}"
-                ) from e
+                sig = inspect.signature(reporter)
+            except (ValueError, TypeError):
+                # Cannot inspect, assume zero‑argument callable.
+                try:
+                    reporter()
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Method reporter '{name}' failed validation: {exc!s}"
+                    ) from exc
+            else:
+                try:
+                    sig.bind(model)
+                except TypeError:
+                    # Does not accept model; ensure zero‑arg callable.
+                    try:
+                        sig.bind()
+                    except TypeError as exc:
+                        raise RuntimeError(
+                            f"Method reporter '{name}' has an unsupported "
+                            "signature for validation"
+                        ) from exc
+                    try:
+                        reporter()
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Method reporter '{name}' failed validation: {exc!s}"
+                        ) from exc
+                else:
+                    # Reporter accepts model argument.
+                    try:
+                        reporter(model)
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Method reporter '{name}' failed validation: {exc!s}"
+                        ) from exc
 
         if isinstance(reporter, str):
             try:
@@ -391,9 +424,44 @@ class DataCollector:
                 elif isinstance(reporter, list):
                     self._check_list_reporter(var, reporter)
                     value = reporter[0](*reporter[1])
-                # Assume it's a callable otherwise (e.g., method)
+                # Generic callable (method, bound method, callable class instance, etc.)
                 else:
-                    value = reporter()
+                    # Use signature inspection to decide how to call the reporter.
+                    try:
+                        sig = inspect.signature(reporter)
+                    except (ValueError, TypeError):
+                        # Cannot inspect, assume zero‑argument callable.
+                        try:
+                            value = reporter()
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"Model reporter '{var}' failed during collection: {exc!s}"
+                            ) from exc
+                    else:
+                        try:
+                            sig.bind(model)
+                        except TypeError:
+                            # Does not accept model; ensure zero‑arg callable.
+                            try:
+                                sig.bind()
+                            except TypeError as exc:
+                                raise RuntimeError(
+                                    f"Model reporter '{var}' has unsupported signature for collection"
+                                ) from exc
+                            try:
+                                value = reporter()
+                            except Exception as exc:
+                                raise RuntimeError(
+                                    f"Model reporter '{var}' failed during collection: {exc!s}"
+                                ) from exc
+                        else:
+                            try:
+                                value = reporter(model)
+                            except Exception as exc:
+                                raise RuntimeError(
+                                    f"Model reporter '{var}' failed during collection: {exc!s}"
+                                ) from exc
+
 
                 # Store a copy so references cannot change values across steps.
                 model_values[var] = deepcopy(value)
