@@ -310,16 +310,6 @@ class MatplotlibBackend(AbstractRenderer):
             unique_sizes = np.unique(msize[mask_marker])
 
             for m_size in unique_sizes:
-                if m_size not in cache_entry["offset_images"]:
-                    im = OffsetImage(
-                        cache_entry["image"],
-                        zoom=cache_entry["base_zoom"] * m_size,
-                    )
-                    im.image.axes = self.ax
-                    cache_entry["offset_images"][m_size] = im
-
-                im = cache_entry["offset_images"][m_size]
-
                 size_marker_mask = mask_marker & (msize == m_size)
 
                 unique_zorders = np.unique(zorder[size_marker_mask])
@@ -327,6 +317,19 @@ class MatplotlibBackend(AbstractRenderer):
 
                 for z_order in unique_zorders:
                     for m_alpha in unique_alphas:
+                        cache_key = (m_size, m_alpha)
+
+                        if cache_key not in cache_entry["offset_images"]:
+                            im = OffsetImage(
+                                cache_entry["image"],
+                                zoom=cache_entry["base_zoom"] * m_size,
+                                alpha=m_alpha,
+                            )
+                            im.image.axes = self.ax
+                            cache_entry["offset_images"][cache_key] = im
+
+                        im = cache_entry["offset_images"][cache_key]
+
                         final_mask = (
                             (zorder == z_order) & (malpha == m_alpha) & size_marker_mask
                         )

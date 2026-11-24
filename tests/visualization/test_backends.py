@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 from matplotlib import pyplot as plt
+from PIL import Image
 
 from mesa import Model
 from mesa.discrete_space.grid import OrthogonalMooreGrid
@@ -149,6 +150,47 @@ def test_matplotlib_backend_collects_tuple_markers_without_flattening():
 
     assert data["marker"].shape == (2,)
     assert list(data["marker"]) == [(3, 0, 0), (3, 0, 0)]
+
+
+def test_matplotlib_backend_image_markers_respect_alpha(tmp_path):
+    """Image markers should respect portrayal alpha independently."""
+    image_path = tmp_path / "marker.png"
+    Image.new("RGBA", (24, 24), (255, 0, 0, 255)).save(image_path)
+
+    mb = MatplotlibBackend(space_drawer=MagicMock())
+    mb.initialize_canvas()
+
+    sizes = np.array([20, 20, 40, 40])
+    alphas = np.array([0.0, 0.5, 1.0, 0.25])
+
+    locations = np.array([[0, 0], [1, 1], [2, 2], [3, 3]])
+
+    arguments = {
+        "loc": locations,
+        "marker": np.array([str(image_path)] * 4, dtype=object),
+        "zorder": np.array([1, 1, 1, 1]),
+        "s": sizes,
+        "c": np.array(["red"] * 4),
+        "alpha": alphas,
+        "edgecolors": np.array(["black"] * 4),
+        "linewidths": np.array([1] * 4),
+    }
+
+    mb.draw_agents(arguments)
+
+    image_artists = mb.ax.artists
+
+    assert len(image_artists) == 4
+
+    expected_alphas = {
+        tuple(position): alpha for position, alpha in zip(locations, alphas)
+    }
+
+    actual_alphas_by_position = {
+        tuple(artist.xy): artist.offsetbox.image.get_alpha() for artist in image_artists
+    }
+
+    assert actual_alphas_by_position == pytest.approx(expected_alphas)
 
 
 def test_matplotlib_backend_draw_agents():
