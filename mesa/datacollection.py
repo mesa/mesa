@@ -189,13 +189,10 @@ class DataCollector:
                     f"Example: lambda m: len(m.agents)"
                 ) from e
 
-        # For generic callables (including bound methods, callable class instances, etc.)
+        # For generic callables (bound methods, callable class instances, etc.)
         if callable(reporter) and not isinstance(reporter, (types.LambdaType, partial)):
-            # Use signature inspection to decide how to call the reporter.
-            try:
-                sig = inspect.signature(reporter)
-            except (ValueError, TypeError):
-                # Cannot inspect, assume zero‑argument callable.
+            if isinstance(reporter, types.MethodType):
+                # Bound methods already have self bound; call with zero args.
                 try:
                     reporter()
                 except Exception as exc:
@@ -203,17 +200,12 @@ class DataCollector:
                         f"Method reporter '{name}' failed validation: {exc!s}"
                     ) from exc
             else:
+                # Callable class instance or other generic callable.
+                # Use signature inspection to decide how to invoke it.
                 try:
-                    sig.bind(model)
-                except TypeError:
-                    # Does not accept model; ensure zero‑arg callable.
-                    try:
-                        sig.bind()
-                    except TypeError as exc:
-                        raise RuntimeError(
-                            f"Method reporter '{name}' has an unsupported "
-                            "signature for validation"
-                        ) from exc
+                    sig = inspect.signature(reporter)
+                except (ValueError, TypeError):
+                    # Cannot inspect, assume zero-argument callable.
                     try:
                         reporter()
                     except Exception as exc:
@@ -221,13 +213,31 @@ class DataCollector:
                             f"Method reporter '{name}' failed validation: {exc!s}"
                         ) from exc
                 else:
-                    # Reporter accepts model argument.
                     try:
-                        reporter(model)
-                    except Exception as exc:
-                        raise RuntimeError(
-                            f"Method reporter '{name}' failed validation: {exc!s}"
-                        ) from exc
+                        sig.bind(model)
+                    except TypeError:
+                        # Does not accept model; ensure zero-arg callable.
+                        try:
+                            sig.bind()
+                        except TypeError as exc:
+                            raise RuntimeError(
+                                f"Method reporter '{name}' has an unsupported "
+                                "signature for validation"
+                            ) from exc
+                        try:
+                            reporter()
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"Method reporter '{name}' failed validation: {exc!s}"
+                            ) from exc
+                    else:
+                        # Reporter accepts model argument.
+                        try:
+                            reporter(model)
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"Method reporter '{name}' failed validation: {exc!s}"
+                            ) from exc
 
         if isinstance(reporter, str):
             try:
@@ -426,11 +436,8 @@ class DataCollector:
                     value = reporter[0](*reporter[1])
                 # Generic callable (method, bound method, callable class instance, etc.)
                 else:
-                    # Use signature inspection to decide how to call the reporter.
-                    try:
-                        sig = inspect.signature(reporter)
-                    except (ValueError, TypeError):
-                        # Cannot inspect, assume zero‑argument callable.
+                    if isinstance(reporter, types.MethodType):
+                        # Bound methods already have self bound; call with zero args.
                         try:
                             value = reporter()
                         except Exception as exc:
@@ -438,16 +445,12 @@ class DataCollector:
                                 f"Model reporter '{var}' failed during collection: {exc!s}"
                             ) from exc
                     else:
+                        # Callable class instance or other generic callable.
+                        # Use signature inspection to decide how to call the reporter.
                         try:
-                            sig.bind(model)
-                        except TypeError:
-                            # Does not accept model; ensure zero‑arg callable.
-                            try:
-                                sig.bind()
-                            except TypeError as exc:
-                                raise RuntimeError(
-                                    f"Model reporter '{var}' has unsupported signature for collection"
-                                ) from exc
+                            sig = inspect.signature(reporter)
+                        except (ValueError, TypeError):
+                            # Cannot inspect, assume zero-argument callable.
                             try:
                                 value = reporter()
                             except Exception as exc:
@@ -456,11 +459,28 @@ class DataCollector:
                                 ) from exc
                         else:
                             try:
-                                value = reporter(model)
-                            except Exception as exc:
-                                raise RuntimeError(
-                                    f"Model reporter '{var}' failed during collection: {exc!s}"
-                                ) from exc
+                                sig.bind(model)
+                            except TypeError:
+                                # Does not accept model; ensure zero-arg callable.
+                                try:
+                                    sig.bind()
+                                except TypeError as exc:
+                                    raise RuntimeError(
+                                        f"Model reporter '{var}' has unsupported signature for collection"
+                                    ) from exc
+                                try:
+                                    value = reporter()
+                                except Exception as exc:
+                                    raise RuntimeError(
+                                        f"Model reporter '{var}' failed during collection: {exc!s}"
+                                    ) from exc
+                            else:
+                                try:
+                                    value = reporter(model)
+                                except Exception as exc:
+                                    raise RuntimeError(
+                                        f"Model reporter '{var}' failed during collection: {exc!s}"
+                                    ) from exc
 
                 # Store a copy so references cannot change values across steps.
                 model_values[var] = deepcopy(value)

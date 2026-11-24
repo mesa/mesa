@@ -1156,11 +1156,35 @@ def test_callable_class_invocation_count():
 
     # First collect: validation call + collection call
     dc.collect(model)
-    calls_after_first = reporter.call_count
+    assert reporter.call_count == 2  # validation + collection
 
     # Second collect: should invoke the reporter exactly once more
     dc.collect(model)
-    assert reporter.call_count == calls_after_first + 1
+    assert reporter.call_count == 3
+
+
+def test_bound_method_with_optional_params():
+    """Bound methods with optional parameters must be called with zero args.
+
+    Regression test: a bound method like compute(self, delta=0.01) has
+    signature (delta=0.01) after binding self. sig.bind(model) would
+    incorrectly succeed, passing the model as the delta argument.
+    Bound methods must always be called with reporter().
+    """
+
+    class ParamModel(Model):
+        def __init__(self):
+            super().__init__()
+            self.datacollector = DataCollector(model_reporters={"result": self.compute})
+
+        def compute(self, delta: float = 0.01):
+            return delta
+
+    model = ParamModel()
+    model.datacollector.collect(model)
+
+    # Should return the default value (0.01), not the model object
+    assert model.datacollector.model_vars["result"] == [0.01]
 
 
 if __name__ == "__main__":
