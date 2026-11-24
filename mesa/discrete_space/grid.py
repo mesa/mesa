@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copyreg
 import math
+import warnings
 from collections.abc import Sequence
 from itertools import product
 from random import Random
@@ -173,6 +174,42 @@ class Grid(DiscreteSpace[T], HasPropertyLayers):
             raise ValueError("Torus must be a boolean.")
         if self.capacity is not None and not isinstance(self.capacity, float | int):
             raise ValueError("Capacity must be a number or None.")
+
+    def add_cell(self, cell: T):
+        """Add a cell to the grid.
+
+        .. deprecated:: 3.5.4
+            A grid has a fixed set of cells, and from Mesa 4.0 this raises a
+            ``TypeError``. Use a Network or VoronoiGrid if you need to add or
+            remove cells.
+        """
+        warnings.warn(
+            f"{type(self).__name__}.add_cell() is deprecated and will raise a "
+            "TypeError in Mesa 4.0: a grid has a fixed set of cells. Use a Network "
+            "or VoronoiGrid if you need to add or remove cells. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#grids-don-t-add-or-remove-cells",
+            FutureWarning,
+            stacklevel=2,
+        )
+        super().add_cell(cell)
+
+    def remove_cell(self, cell: T):
+        """Remove a cell from the grid.
+
+        .. deprecated:: 3.5.4
+            A grid has a fixed set of cells, and from Mesa 4.0 this raises a
+            ``TypeError``. Use a Network or VoronoiGrid if you need to add or
+            remove cells.
+        """
+        warnings.warn(
+            f"{type(self).__name__}.remove_cell() is deprecated and will raise a "
+            "TypeError in Mesa 4.0: a grid has a fixed set of cells. Use a Network "
+            "or VoronoiGrid if you need to add or remove cells. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#grids-don-t-add-or-remove-cells",
+            FutureWarning,
+            stacklevel=2,
+        )
+        super().remove_cell(cell)
 
     def select_random_empty_cell(self) -> T:  # noqa
         # Use a heuristic: try random sampling first for performance (O(1))

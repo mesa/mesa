@@ -350,19 +350,42 @@ def test_dynamic_modifications_to_space():
     assert cell1 in cell2.neighborhood
     assert cell2 in cell1.neighborhood
 
-    # test remove cell
+    # test remove cell, deprecated on grids
     neighbors = cell1.neighborhood
-    grid.remove_cell(cell1)
+    with pytest.warns(FutureWarning, match="remove_cell"):
+        grid.remove_cell(cell1)
     for neighbor in neighbors:
         assert cell1 not in neighbor.neighborhood
 
-    # test add_cells
-    grid.add_cell(cell1)
+    # test add_cells, deprecated on grids
+    with pytest.warns(FutureWarning, match="add_cell"):
+        grid.add_cell(cell1)
     for neighbor in neighbors:
         grid.add_connection(cell1, neighbor)
 
     for neighbor in neighbors:
         assert cell1 in neighbor.neighborhood
+
+
+@pytest.mark.parametrize(
+    "grid_class", [OrthogonalMooreGrid, OrthogonalVonNeumannGrid, HexGrid]
+)
+def test_grid_add_and_remove_cell_deprecated(grid_class):
+    """Adding or removing grid cells warns once, at the caller, and still works."""
+    grid = grid_class((3, 3), random=random.Random(42))
+    cell = grid._cells[(1, 1)]
+
+    with pytest.warns(FutureWarning, match="Network or VoronoiGrid") as record:
+        grid.remove_cell(cell)
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert (1, 1) not in grid._cells
+
+    with pytest.warns(FutureWarning, match="Network or VoronoiGrid") as record:
+        grid.add_cell(cell)
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert grid._cells[(1, 1)] is cell
 
 
 def test_neighborhood_cache_invalidated_on_topology_change():
