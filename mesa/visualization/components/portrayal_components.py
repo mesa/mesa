@@ -63,7 +63,10 @@ class AgentPortrayalStyle:
 
         Example:
             >>> def agent_portrayal(agent):
-            ...     primary_style = AgentPortrayalStyle(color="blue", marker="^", size=10, x=agent.pos[0], y=agent.pos[1])
+            ...     primary_style = AgentPortrayalStyle(
+            ...         color="blue", marker="^", size=10,
+            ...         x=agent.cell.coordinate[0], y=agent.cell.coordinate[1]
+            ...     )
             ...     if agent.type == 1:
             ...         primary_style.update(("color", "red"), ("size", 30))
             ...     return primary_style
