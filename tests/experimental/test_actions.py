@@ -2377,6 +2377,7 @@ class Probe(Action):
     def on_progress(self, delta):
         assert self.state is ActionState.ACTIVE
         self.deltas.append(delta)
+        assert self.progress == pytest.approx(sum(self.deltas))
 
     def on_stop(self):
         self.stops += 1
