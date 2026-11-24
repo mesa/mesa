@@ -77,7 +77,7 @@ def _resolve_weights(
         raise ValueError("All weights must be finite.")
     if any(x < 0 for x in w):
         raise ValueError("All weights must be non-negative.")
-    if not any(weight > 0 for weight in w):
+    if all(weight == 0 for weight in w):
         raise ValueError("Sum of weights must be strictly positive.")
 
     return w
