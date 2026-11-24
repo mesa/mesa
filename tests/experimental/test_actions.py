@@ -1492,11 +1492,11 @@ class TestOnIdle:
             model.run_for(2)
 
         assert agent.idle_calls == 1
-        # The warning names the agent, the action that ended and the time.
         (warning,) = record
-        assert f"Agent {agent.unique_id} stays idle" in str(warning.message)
-        assert "Step(state=COMPLETED" in str(warning.message)
-        assert "time 1.0" in str(warning.message)
+        assert str(warning.message).startswith(
+            "Chain.on_idle was not called after Step"
+        )
+        assert warning.filename.endswith("actions.py")
 
     def test_no_warning_when_on_idle_refills_the_slot(self):
         """An action that ends inside on_idle, followed by another, is fine."""

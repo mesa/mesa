@@ -678,9 +678,10 @@ class HasActions:
             At most one wake fires per agent per model time, so a
             zero-duration action started here cannot re-trigger the hook
             in the same instant. If the guard leaves the agent idle, a
-            ``RuntimeWarning`` names the agent, the action that ended and
-            the time, since the agent won't act again unless other model
-            code starts something. The wake is skipped silently when the
+            ``RuntimeWarning`` says so, since the agent won't act again
+            unless other model code starts something. To chain actions that
+            take no time, start the next one directly instead of from
+            on_idle(). The wake is skipped silently when the
             agent is busy again by the time the event runs -- interrupt_for()
             refills the slot synchronously, so no idle gap ever existed.
             If several actions end before the wake runs, they coalesce
@@ -711,14 +712,14 @@ class HasActions:
         if self.current_action is not None:
             return
         if self._last_wake_time == self.model.time:
+            # No agent id or time in the message, so Python's warning filter
+            # shows it once per action type instead of once per agent and step.
             warnings.warn(
-                f"Agent {self.unique_id} stays idle: {previous!r} ended at time "
-                f"{self.model.time}, after on_idle already ran at that time, "
-                f"and on_idle runs at most once per agent per model time. To "
-                f"chain actions that take no time, start the next one directly "
-                f"instead of from on_idle.",
+                f"{type(self).__name__}.on_idle was not called after "
+                f"{previous.name} ended, because it already ran for that agent "
+                f"at that time.",
                 RuntimeWarning,
-                stacklevel=2,
+                stacklevel=1,
             )
             return
         # Recorded only when on_idle actually runs, so a busy skip does not
