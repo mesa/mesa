@@ -20,21 +20,25 @@ hook: ``on_interrupt()``, ``on_complete()``, ``on_fail()`` or ``on_cancel()``.
 An exception from a hook propagates without rollback, and the remaining hooks
 of that transition don't run.
 
-Modelling work
---------------
+Modelling the effect of an action
+---------------------------------
 
-Pick the hook that matches when the work counts:
+Where you apply an action's effect decides what an interrupted action is
+worth:
 
-- **Only on finish.** Pay in ``on_complete()``. Work that is interrupted and
-  never resumed, or canceled, pays nothing::
+- In ``on_complete()``, the effect happens only when the action finishes.
+  An action that is interrupted and never resumed, or canceled, has no
+  effect::
 
       class Build(Action):
           def on_complete(self):
               self.agent.houses += 1
 
-- **Per attempt, as partial credit.** Pay in ``on_progress(delta)``. The
-  deltas add up to ``progress``, so an action interrupted and resumed any
-  number of times pays exactly what one uninterrupted run pays::
+- In ``on_progress(delta)``, the effect is applied each time an attempt
+  ends, in proportion to the work done. ``delta`` is the fraction of the
+  duration done since the last call, and the deltas add up to
+  ``progress``. An action that is interrupted and resumed has the same
+  total effect as one that runs without interruption::
 
       class Forage(Action):
           def __init__(self, sheep):
@@ -45,14 +49,12 @@ Pick the hook that matches when the work counts:
 
       sheep.start_action(Forage(sheep))
 
-- **Accrued live.** ``progress``, ``elapsed_time`` and ``remaining_time``
-  are computed from the model time while the action is ACTIVE, so other code
-  can read the work done so far without waiting for the attempt to end. Pay
-  the work itself in ``on_progress()`` as above.
+While an action is ACTIVE, ``progress``, ``elapsed_time`` and
+``remaining_time`` are computed from the model time, so other code can read
+how far along it is at any moment.
 
-To pay partial credit only when the action is canceled, read
-``self.progress`` in ``on_cancel()``. Final hooks fire once, so none of these
-can pay twice.
+To apply a partial effect only when the action is canceled, read
+``self.progress`` in ``on_cancel()``.
 """
 
 from __future__ import annotations
@@ -299,7 +301,8 @@ class Action:
 
         Runs while the action is still ACTIVE, before the completion
         requirements are checked, so a requirement sees all the work
-        reported. Pay partial credit here; the deltas add up to progress.
+        reported. Apply partial effects here; the deltas add up to
+        progress.
 
         Args:
             delta: Fraction of the duration done since the last report.

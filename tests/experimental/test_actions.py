@@ -1811,7 +1811,7 @@ class TestHookSequences:
 
 class TestProgressReporting:
     def test_interrupt_and_resume_at_the_same_time_changes_nothing(self):
-        """A pause of zero length pays the same as no pause, to the last bit."""
+        """A pause of zero length has the same effect as no pause, to the last bit."""
 
         class Forage(Action):
             def on_progress(self, delta):
@@ -1851,7 +1851,7 @@ class TestProgressReporting:
         assert seen == [(pytest.approx(0.2), pytest.approx(0.2))]
         assert action.progress == pytest.approx(0.2)
 
-    def test_progress_is_paid_before_the_completion_check(self):
+    def test_progress_is_reported_before_the_completion_check(self):
         """A requirement sees all the work, however often it was interrupted."""
         model, agent = make_model_and_agent()
         agent.stock = 0.0
@@ -2176,7 +2176,7 @@ class TestRealisticScenarios:
         model.run_for(2)  # 40% of 5.0 = 2.0 time units
 
         assert forage.state is ActionState.COMPLETED
-        # 18 for the first 60%, 12 for the rest: one forage, paid once.
+        # 18 for the first 60%, 12 for the rest: one forage, counted once.
         assert sheep.energy == pytest.approx(50.0 + 30.0)
 
     def test_sequential_actions(self):
