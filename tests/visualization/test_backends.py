@@ -10,11 +10,13 @@ import pytest
 from matplotlib import pyplot as plt
 
 from mesa import Model
+from mesa.discrete_space import HexGrid
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
 from mesa.visualization.backends.matplotlib_backend import _to_numpy_argument_array
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.space_drawers import HexSpaceDrawer
 
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
@@ -277,6 +279,45 @@ def test_altair_backend_draw_structure():
     ab = AltairBackend(space_drawer=MagicMock())
     ab.space_drawer.draw_altair = MagicMock(return_value="chart")
     assert ab.draw_structure() == "chart"
+
+
+def test_altair_backend_draw_property_hexgrid_fills_hexagons():
+    """A HexGrid property layer renders filled hexagons, not a square rect grid."""
+    space = HexGrid([3, 3], random=random.Random(42))
+    space.create_property_layer("test", default_value=0.0)
+    ab = AltairBackend(space_drawer=HexSpaceDrawer(space))
+
+    chart = ab.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
+            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+        ),
+    )
+
+    layer_spec = chart.to_dict()["layer"][0]
+    # Hex cells are drawn as filled closed polygons (a line mark with a fill),
+    # not the square rect grid used for orthogonal spaces.
+    assert layer_spec["mark"]["type"] == "line"
+    assert "fill" in layer_spec["encoding"]
+
+
+def test_altair_backend_draw_property_orthogonal_uses_rect():
+    """An orthogonal grid property layer still uses the square rect path."""
+    space = OrthogonalMooreGrid([3, 3], random=random.Random(42))
+    space.create_property_layer("test", default_value=0.0)
+    ab = AltairBackend(space_drawer=MagicMock())
+
+    chart = ab.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
+            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+        ),
+    )
+
+    layer_spec = chart.to_dict()["layer"][0]
+    assert layer_spec["mark"]["type"] == "rect"
 
 
 def test_altair_backend_collects_agent_data():

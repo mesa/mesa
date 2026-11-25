@@ -19,8 +19,9 @@ The skeleton of a model might look like this:
 
 ```python
 import mesa
+from mesa.discrete_space import CellAgent
 
-class MyAgent(mesa.Agent):
+class MyAgent(CellAgent):
     def __init__(self, model, age):
         super().__init__(model)
         self.age = age
@@ -78,7 +79,7 @@ Mesa implements discrete spaces through the `mesa.discrete_space` module, using 
 3. **Voronoi Space:**
    ```python
    # Create an irregular tessellation
-   mesh = mesa.discrete_space.VoronoiMesh(points)
+   mesh = mesa.discrete_space.VoronoiGrid(points)
    ```
 
 #### Property Layers

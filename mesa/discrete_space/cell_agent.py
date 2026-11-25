@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from mesa.agent import Agent
+from mesa.exceptions import SpaceException
 
 if TYPE_CHECKING:
     from mesa.discrete_space import Cell
@@ -24,7 +25,23 @@ if TYPE_CHECKING:
 class HasCellProtocol(Protocol):
     """Protocol for discrete space cell holders."""
 
-    cell: Cell
+    cell: Cell | None
+
+
+def _require_cell(agent: HasCellProtocol, action: str) -> Cell:
+    """Return the agent's current cell or raise SpaceException if unplaced."""
+    if agent.cell is None:
+        agent_id = getattr(agent, "unique_id", None)
+        label = (
+            f"{type(agent).__name__} {agent_id}"
+            if agent_id is not None
+            else type(agent).__name__
+        )
+        raise SpaceException(
+            f"Cannot {action} {label}: it is not in a cell. "
+            f"Place the agent in a cell before trying to {action} it."
+        )
+    return agent.cell
 
 
 class HasCell:
@@ -66,8 +83,13 @@ class BasicMovement:
 
         Args:
             direction: The direction to move in.
+
+        Raises:
+            SpaceException: If the agent is not in a cell.
+            ValueError: If there is no cell in the given direction.
         """
-        new_cell = self.cell.connections.get(direction)
+        cell = _require_cell(self, "move")
+        new_cell = cell.connections.get(direction)
         if new_cell is not None:
             self.cell = new_cell
         else:
@@ -119,19 +141,14 @@ class FixedAgent(Agent, FixedCell):
         """Remove the agent from the model and from its cell.
 
         Raises:
-            ValueError: If the agent is not in a cell. An unplaced fixed agent is
+            SpaceException: If the agent is not in a cell. An unplaced fixed agent is
                 treated as an error. The check runs before anything is removed, so
                 the agent is left untouched.
         """
-        if self.cell is None:
-            raise ValueError(
-                f"Cannot remove {type(self).__name__} {self.unique_id}: it is not "
-                "in a cell. A fixed agent has to be placed in a cell before it "
-                "can be removed."
-            )
+        cell = _require_cell(self, "remove")
         super().remove()
 
-        self.cell.remove_agent(self)
+        cell.remove_agent(self)
         self._mesa_cell = None
 
 
@@ -157,7 +174,12 @@ class Grid2DMovingAgent(CellAgent):
         Args:
             direction: The cardinal direction to move in.
             distance: The distance to move.
+
+        Raises:
+            SpaceException: If the agent is not in a cell.
+            ValueError: If the direction is invalid or no cell exists in that direction.
         """
+        _require_cell(self, "move")
         direction = direction.lower()  # Convert direction to lowercase
 
         if direction not in self.DIRECTION_MAP:
@@ -224,7 +246,12 @@ class HexGridMovingAgent(CellAgent):
         Args:
             direction: One of 'nw', 'ne', 'sw', 'se', 'w', 'e' (or aliases which are 'n' and 's').
             distance: Number of steps to take.
+
+        Raises:
+            SpaceException: If the agent is not in a cell.
+            ValueError: If the direction is invalid or no cell exists in that direction.
         """
+        _require_cell(self, "move")
         direction = direction.lower()
 
         for _ in range(distance):

@@ -1,6 +1,9 @@
 """Tests for mesa_signals."""
 
+import copy
 import doctest
+import gc
+import pickle
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -409,6 +412,26 @@ def test_computed_property():
     # Error should be raised when we try to evaluate the property
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = agent.c1
+
+    # Unrelated observable notifications should not clear active cycle tracking (#4234)
+    class UnrelatedNotificationAgent(Agent, HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.b = 10
+            self.a = value + 1
+            return value
+
+    unrelated_agent = UnrelatedNotificationAgent(model)
+    unrelated_agent.a = 1
+    unrelated_agent.b = 2
+    unrelated_agent.observe("b", ObservableSignals.CHANGED, lambda signal: None)
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = unrelated_agent.result
 
 
 def test_computed_dynamic_dependencies():
@@ -1035,6 +1058,67 @@ def test_observable_list_reverse_slice_batch(delete):
     )
 
 
+@pytest.mark.parametrize("batched", [False, True])
+def test_observable_list_set_payload_is_snapshot(batched):
+    """Assigning a one-shot iterable emits the stored values, batched or not."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    owner = Owner()
+    owner.items = [1, 2]
+    handler = Mock()
+    owner.observe("items", ListSignals.SET, handler)
+
+    values = (x * 2 for x in range(3))
+    if batched:
+        with owner.batch():
+            owner.items = values
+    else:
+        owner.items = values
+
+    handler.assert_called_once_with(
+        Message(
+            name="items",
+            signal_type=ListSignals.SET,
+            owner=owner,
+            additional_kwargs={"old": [1, 2], "new": [0, 2, 4]},
+        )
+    )
+
+    # Later mutations of the stored list must not reach the delivered payload.
+    owner.items.append(6)
+    assert handler.call_args.args[0].additional_kwargs["new"] == [0, 2, 4]
+
+
+def test_observable_list_set_old_payload_is_detached():
+    """The SET old payload is neither the shared fallback nor the replaced list."""
+
+    class Owner(HasEmitters):
+        items = ObservableList()
+
+    first, second = Owner(), Owner()
+    handler = Mock()
+    for owner in (first, second):
+        owner.observe("items", ListSignals.SET, handler)
+        owner.observe("items", ListSignals.APPENDED, handler)
+
+    first.items = [1]
+    old = handler.call_args.args[0].additional_kwargs["old"]
+    assert old == []
+    old.append("stale")
+    second.items = [2]
+    assert handler.call_args.args[0].additional_kwargs["old"] == []
+
+    first.items = [3]
+    old = handler.call_args.args[0].additional_kwargs["old"]
+    assert old == [1]
+    handler.reset_mock()
+    old.append(4)
+    handler.assert_not_called()
+    assert list(first.items) == [3]
+
+
 def test_observable_list_mutation():
     """Test that in-place mutations of ObservableList trigger computed property updates."""
 
@@ -1252,6 +1336,133 @@ def test_peek():
 
     # untracked_state remains clean because the framework does not know it looked at speed
     assert untracked_comp_state.is_dirty is False
+
+
+class CopyEmitter(HasEmitters):
+    """Emitter for the copy and pickle tests; defined here so pickle can find it."""
+
+    value = Observable()
+
+    def __init__(self):
+        """Create the emitter."""
+        super().__init__()
+        self.value = 0
+
+
+class SlottedCopyEmitter(CopyEmitter):
+    """Emitter with __slots__, which changes the state returned by __getstate__."""
+
+    __slots__ = ("extra",)
+
+    def __init__(self):
+        """Create the emitter."""
+        super().__init__()
+        self.extra = "kept"
+
+
+class CopyListener:
+    """Records the values it is notified of through a weakly referenced handler."""
+
+    def __init__(self, emitter):
+        """Subscribe to the emitter."""
+        self.emitter = emitter
+        self.received = []
+        emitter.observe("value", ObservableSignals.CHANGED, self.on_change)
+
+    def on_change(self, signal):
+        """Record the new value."""
+        self.received.append(signal.additional_kwargs["new"])
+
+
+def _pickle_round_trip(obj):
+    return pickle.loads(pickle.dumps(obj))  # noqa: S301
+
+
+copiers = pytest.mark.parametrize(
+    "copier", [copy.deepcopy, _pickle_round_trip], ids=["deepcopy", "pickle"]
+)
+
+
+@copiers
+@pytest.mark.parametrize("emitter_class", [CopyEmitter, SlottedCopyEmitter])
+def test_has_emitters_subscribers_survive_copy(copier, emitter_class):
+    """Copies of an emitter notify the copied subscribers, not the originals."""
+    emitter = emitter_class()
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    emitter_copy.value = 1
+    assert listener_copy.received == [1]
+    assert listener.received == []
+
+    # Copying must leave the live emitter and its weak references untouched.
+    emitter.value = 2
+    assert listener.received == [2]
+    assert listener_copy.received == [1]
+
+
+@copiers
+def test_has_emitters_slots_survive_copy(copier):
+    """State kept in __slots__ is restored next to the subscribers."""
+    emitter = SlottedCopyEmitter()
+    emitter.extra = "changed"
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    assert emitter_copy.extra == "changed"
+    emitter_copy.value = 1
+    assert listener_copy.received == [1]
+
+
+@copiers
+def test_has_emitters_copy_drops_dead_subscribers(copier):
+    """Subscribers that were already garbage collected are not copied."""
+    emitter = CopyEmitter()
+    listener = CopyListener(emitter)
+    assert emitter._has_subscribers("value", ObservableSignals.CHANGED)
+
+    del listener
+    gc.collect()
+
+    emitter_copy = copier(emitter)
+
+    assert not emitter_copy._has_subscribers("value", ObservableSignals.CHANGED)
+
+
+@copiers
+def test_has_emitters_copy_keeps_live_and_drops_dead_subscribers(copier):
+    """Only the subscribers that are still alive are carried over to the copy."""
+    emitter = CopyEmitter()
+    dead = CopyListener(emitter)
+    alive = CopyListener(emitter)
+
+    del dead
+    gc.collect()
+
+    emitter_copy, alive_copy = copier((emitter, alive))
+
+    refs = emitter_copy.subscribers[("value", ObservableSignals.CHANGED)]
+    assert [ref() for ref in refs] == [alive_copy.on_change]
+
+
+@copiers
+def test_has_emitters_bound_method_is_rebound_to_the_copy(copier):
+    """A bound-method handler follows its owner into the copy."""
+    emitter = CopyEmitter()
+    listener = CopyListener(emitter)
+
+    emitter_copy, listener_copy = copier((emitter, listener))
+
+    key = ("value", ObservableSignals.CHANGED)
+    (copy_ref,) = emitter_copy.subscribers[key]
+    assert copy_ref().__self__ is listener_copy
+    assert listener_copy.emitter is emitter_copy
+
+    # The original stays bound to the original listener.
+    (original_ref,) = emitter.subscribers[key]
+    assert original_ref().__self__ is listener
 
 
 @pytest.mark.parametrize("factory", [list, dict, set])
