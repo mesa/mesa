@@ -3,6 +3,43 @@
 ---
 title: Release History
 ---
+# 3.5.4 (2026-11-25)
+## Highlights
+Mesa 3.5.4 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes.
+
+Two deprecations prepare for Mesa 4.0. `EventGenerator.cancel()` is new and ends a generator for good; `EventGenerator.stop()` and calling `start()` directly now emit a `FutureWarning` naming the replacement, and `pause()` and `resume()` return whether they did something (#4244). `Grid.add_cell` and `Grid.remove_cell` now emit a `FutureWarning`, since Mesa 4.0 raises a `TypeError` there (#4217). See the [migration guide](https://mesa.readthedocs.io/latest/migration_guide.html).
+
+Several `EventGenerator` fixes may change results in models that were hitting a bug. A generator whose callback raises stays scheduled, so `model.step()` keeps running `step()` after an error (#4093). A generator whose interval raises is stopped instead of left active with nothing scheduled, a generator paused and resumed before its first execution no longer fires before `schedule.start`, and a NaN interval is rejected (#4243). `schedule_recurring` raises a `ValueError` for a callback that is already garbage-collected, such as an inline `functools.partial`, like `schedule_event` does (#4204).
+
+Other fixes cover the discrete space (`VoronoiGrid` with centroids far from the origin #4152 and duplicate centroids #4201), events (#4122), SolaraViz drawing agents added after the first step (#4207), the experimental signals (NumPy array values on an `Observable` #4071, `ObservableList` assignment payloads #3988, and deep-copying or pickling an object with subscribers, including a model #4056), and the experimental data recorders (empty snapshots #4168).
+
+## What's Changed
+### 🐛 Bugs fixed
+* Keep an EventGenerator scheduled when its callback raises by @AshNicolus in #4093
+* Fix data recorders' handling of empty snapshots by @codebreaker32 in #4168
+* fix(discrete_space): support VoronoiGrid centroids far from the origin by @atul-upadhyay-7 in #4152
+* Treat ambiguous Observable comparisons as changes by @atul-upadhyay-7 in #4071
+* Emit list snapshots in unbatched ObservableList SET signals by @ska2704 in #3988
+* Keep subscribers when a HasObservables object is deep-copied or pickled by @dietcoke-17 in #4056
+* Reject duplicate centroids in VoronoiGrid by @AshNicolus in #4201
+* fix(viz): render agents spawned after initial step in SolaraViz by @pojeesahil in #4207
+* fix(events): prevent removal of events from foreign lists by @arzaanxeng in #4122
+* Backport EventGenerator fixes for 3.5.4 by @EwoutH in #4243
+
+### 🛠 Enhancements
+* Reject dead callbacks in schedule_recurring by @RITVIKKAMASETTY in #4204
+
+### ⚠️ Deprecations
+* Deprecate adding and removing cells on grids by @AshNicolus in #4217
+* Add EventGenerator.cancel() and deprecate stop() and start() by @EwoutH in #4244
+
+### 📜 Documentation improvements
+* docs: fix incorrect Voronoi class in overview by @arzaanxeng in #4192
+* docs: fix agent registration in overview example by @arzaanxeng in #4191
+* docs: update tutorials 9 and 10 to current renderer APIs by @atul-upadhyay-7 in #4211
+
+**Full Changelog**: https://github.com/mesa/mesa/compare/v3.5.3...v3.5.4
+
 # 3.5.3 (2026-11-22)
 ## Highlights
 Mesa 3.5.3 is a maintenance release that backports bug fixes from the Mesa 4.0 development branch to the stable 3.5.x series. It contains no breaking changes, and adds support for Python 3.15 and Starlette 1.x.
