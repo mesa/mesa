@@ -19,6 +19,7 @@ from mesa.experimental.mesa_signals import (
     ObservableSignals,
     SignalType,
     computed_property,
+    core,
     emit,
     signal_types,
 )
@@ -33,6 +34,13 @@ from mesa.experimental.mesa_signals.signals_util import (
 def test_signal_type_docstrings():
     """Execute signal type examples in an isolated namespace."""
     result = doctest.testmod(signal_types, globs={})
+    assert result.failed == 0
+
+
+def test_core_docstrings():
+    """Execute core examples in an isolated namespace."""
+    result = doctest.testmod(core, globs={})
+    assert result.attempted > 0
     assert result.failed == 0
 
 
