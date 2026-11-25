@@ -1374,6 +1374,66 @@ class TestEventGeneratorPauseResume:
         assert gen.next_scheduled_time == 10.0
 
 
+class TestEventGeneratorCancel:
+    def test_cancel_is_final(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        model.run_for(2)
+
+        assert gen.cancel() is True
+        assert gen.cancel() is False
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen.resume() is False
+        with pytest.raises(ValueError, match="canceled"):
+            gen._start()
+
+        model.run_for(5)
+        assert fn.call_count == 2
+
+    def test_cancel_paused_generator(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        gen.pause()
+
+        assert gen.cancel() is True
+        assert not gen.is_paused
+        assert gen.resume() is False
+
+    def test_pause_and_resume_return_whether_they_acted(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, count=1))
+
+        assert gen.resume() is False  # not paused
+        assert gen.pause() is True
+        assert gen.pause() is False  # already paused
+        assert gen.resume() is True
+        model.run_for(5)
+        assert gen.pause() is False  # finished
+
+    def test_resume_returns_false_when_the_generator_ends(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=5.0, end=3.0))
+        gen.pause()
+
+        assert gen.resume() is False
+        assert not gen.is_active
+
+    @pytest.mark.parametrize("method", ["start", "stop"])
+    def test_start_and_stop_are_deprecated(self, setup, method):
+        """start() and stop() warn once, at the caller, and still work."""
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0))
+
+        with pytest.warns(
+            FutureWarning, match=rf"{method}\(\) is deprecated"
+        ) as record:
+            getattr(gen, method)()
+        assert len(record) == 1
+        assert record[0].filename == __file__
+        assert gen.is_active is (method == "start")
+
+
 class TestEventGeneratorPickle:
     def test_getstate_setstate(self):
         model = Model()
@@ -1409,6 +1469,18 @@ class TestEventGeneratorPickle:
         gen = EventGenerator.__new__(EventGenerator)
         gen.__setstate__(state)
         assert gen.function is None
+
+    def test_setstate_without_canceled(self):
+        """A generator pickled before 3.5.4 has no _canceled and can still start."""
+        model = Model()
+        fn = MagicMock()
+        state = EventGenerator(model, fn, Schedule(interval=1.0)).__getstate__()
+        del state["_canceled"]
+
+        gen = EventGenerator.__new__(EventGenerator)
+        gen.__setstate__(state)
+        gen._start()
+        assert gen.is_active
 
 
 class TestEventGeneratorWeakref:

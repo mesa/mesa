@@ -398,7 +398,7 @@ class DEVSimulator(Simulator):
 
         """
         # For pure DEVS, stop the default step scheduling
-        model._default_schedule.stop()
+        model._default_schedule.cancel()
         model._event_list.clear()
         super().setup(model)
 

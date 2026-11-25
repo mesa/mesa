@@ -162,9 +162,11 @@ model.schedule_recurring(
     func, Schedule(interval=1.0, count=10)
 )  # Limited to 10 executions
 
-# Stop a recurring event
+# Pause, resume or cancel a recurring event
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
-gen.stop()
+gen.pause()   # hold it; resume() continues at now + interval
+gen.resume()
+gen.cancel()  # end it for good
 
 # Advance time, processing all scheduled events along the way
 model.run_for(50)
