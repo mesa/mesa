@@ -69,9 +69,12 @@ class BaseObservable:
         """Initialize a BaseObservable.
 
         Args:
-            fallback_value: value a subclass may use when the attribute has not
-                been assigned yet (e.g., ContinuousState uses it as its initial
-                value)
+            fallback_value: value to use before the attribute has been
+                assigned. What that means is up to the subclass. Observable
+                returns it on read and reports it as ``old`` for the first
+                assignment; ContinuousState uses it as its initial value;
+                ObservableList ignores it, so reading an unassigned
+                ObservableList raises AttributeError.
         """
         super().__init__()
         self.public_name: str
@@ -135,13 +138,17 @@ class Observable(BaseObservable):
     signal such a change, assign a new value. For lists, use ObservableList,
     which also signals changes made in place.
 
-    Assign an initial value in ``__init__``: reading an Observable before it
-    has been assigned raises AttributeError. The value is stored on the
+    Assign an initial value in ``__init__``. Reading an Observable before it
+    has been assigned raises AttributeError, unless it was created with a
+    ``fallback_value``, which is returned instead. The fallback is shared by
+    all instances, so use an immutable value. The value is stored on the
     instance as ``_<name>``; setting that attribute directly bypasses the
     signal.
 
     Subscribers receive a Message whose ``additional_kwargs`` hold the ``old``
-    and ``new`` values. For the first assignment, ``old`` is None.
+    and ``new`` values. For the first assignment, ``old`` is the
+    ``fallback_value``, or None if there is none. Assigning a value equal to
+    the fallback therefore emits nothing.
 
     Examples:
         >>> from mesa.experimental.mesa_signals import (
@@ -159,6 +166,18 @@ class Observable(BaseObservable):
         >>> wallet.balance = 5
         balance {'old': 0, 'new': 5}
         >>> wallet.balance = 5  # an equal value emits nothing
+
+        With a ``fallback_value``, an unassigned Observable can be read, and
+        the fallback is the ``old`` value of the first assignment:
+
+        >>> class Meter(HasEmitters):
+        ...     reading = Observable(fallback_value=0)
+        >>> meter = Meter()
+        >>> meter.reading
+        0
+        >>> meter.observe("reading", ObservableSignals.CHANGED, report)
+        >>> meter.reading = 3
+        reading {'old': 0, 'new': 3}
 
     """
 
