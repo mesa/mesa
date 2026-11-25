@@ -22,6 +22,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
+from mesa.experimental.mesa_signals.core import BaseObservable
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     _AllSentinel,
@@ -1596,3 +1597,67 @@ def test_has_changed_propagates_other_errors():
 
     with pytest.raises(RuntimeError, match="broken comparison"):
         _has_changed(Broken(), 1)
+
+
+class FallbackModel(HasEmitters):
+    """A HasEmitters with an Observable with and one without a fallback value."""
+
+    with_fallback = Observable(fallback_value=5)
+    without_fallback = Observable()
+
+    @computed_property
+    def doubled(self):
+        """Return twice the Observable with a fallback value."""
+        return 2 * self.with_fallback
+
+
+def test_observable_fallback_value_before_assignment():
+    """Reading an Observable before assignment returns its fallback value."""
+    model = FallbackModel()
+    assert model.with_fallback == 5
+    assert model.doubled == 10
+
+
+def test_observable_without_fallback_value_raises_before_assignment():
+    """Without a fallback value, reading before assignment raises AttributeError."""
+    model = FallbackModel()
+    with pytest.raises(AttributeError):
+        _ = model.without_fallback
+
+
+def test_observable_fallback_value_is_old_value_of_first_assignment():
+    """The first assignment reports the fallback value as old value."""
+    model = FallbackModel()
+    handler = Mock()
+    model.observe("with_fallback", ObservableSignals.CHANGED, handler)
+
+    model.with_fallback = 5  # equal to the fallback value: no change
+    handler.assert_not_called()
+
+    model.with_fallback = 6
+    handler.assert_called_once()
+    assert handler.call_args.args[0].additional_kwargs == {"old": 5, "new": 6}
+    assert model.doubled == 12
+
+
+def test_observable_without_fallback_value_first_old_value_is_none():
+    """Without a fallback value, the first assignment reports None as old value."""
+    model = FallbackModel()
+    handler = Mock()
+    model.observe("without_fallback", ObservableSignals.CHANGED, handler)
+
+    model.without_fallback = 1
+    assert handler.call_args.args[0].additional_kwargs == {"old": None, "new": 1}
+
+
+def test_base_observable_set_raises():
+    """BaseObservable leaves storing values and emitting signals to subclasses."""
+
+    class Incomplete(BaseObservable):
+        pass
+
+    class Holder(HasEmitters):
+        value = Incomplete()
+
+    with pytest.raises(NotImplementedError, match="Incomplete"):
+        Holder().value = 1
