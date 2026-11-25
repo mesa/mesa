@@ -416,13 +416,19 @@ class EventGenerator:
             self._current_event = None
 
     def resume(self) -> None:
-        """Resume a paused event generator."""
+        """Resume a paused event generator.
+
+        The next execution is at now + interval, but never before schedule.start.
+        """
         if not self._active or not self._paused:
             return
 
         self._paused = False
 
         next_time = self._next_time_or_stop()
+        if self.schedule.start is not None:
+            # Only matters for a resume before the first execution.
+            next_time = max(next_time, self.schedule.start)
 
         if not self._should_stop(next_time):
             self._schedule_next(next_time)

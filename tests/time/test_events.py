@@ -1357,6 +1357,16 @@ class TestEventGeneratorPauseResume:
         model.run_for(0.1)
         assert fn.call_count == 1
 
+    def test_resume_before_the_first_execution_waits_for_start(self, setup):
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=5.0, start=10.0)).start()
+        model.run_until(2.0)
+        gen.pause()
+        model.run_until(4.0)
+        gen.resume()
+
+        assert gen.next_scheduled_time == 10.0
+
 
 class TestEventGeneratorPickle:
     def test_getstate_setstate(self):
