@@ -406,8 +406,9 @@ class NetworkSpaceDrawer(BaseSpaceDrawer):
         Args:
             ax: Matplotlib axes object to draw on.
             **draw_space_kwargs: Dictionaries of keyword arguments for styling.
-            * ``node_kwargs``: A dict passed to ``nx.draw_networkx_nodes`` (supports ``zorder``, default 1).
-            * ``edge_kwargs``: A dict passed to ``nx.draw_networkx_edges`` (supports ``zorder``, default 0).
+                Can also handle zorder for both nodes and edges if passed.
+                    * ``node_kwargs``: A dict passed to nx.draw_networkx_nodes.
+                    * ``edge_kwargs``: A dict passed to nx.draw_networkx_edges.
 
         Returns:
             The modified axes object.
