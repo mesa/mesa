@@ -312,12 +312,13 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             e.g., a SingleGrid, you can either explicitly implement your own agent.remove method or clean this up
             near where you are calling this method.
 
+            Datasets stay open, so a model can replace its whole population and keep
+            recording. Use ``model.data_registry.close()`` to close them.
+
         """
         # we need to wrap keys in a list to avoid a RunTimeError: dictionary changed size during iteration
         for agent in list(self._all_agents):
             agent.remove()
-
-        self.data_registry.close()  # this is needed to ensure GC works properly
 
     ### Event scheduling and time progression methods ###
     def schedule_event(
