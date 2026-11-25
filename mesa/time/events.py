@@ -330,13 +330,24 @@ class EventGenerator:
             return
 
         # Schedule next event if we shouldn't stop
-        next_time = self.model.time + self._get_interval()
+        next_time = self._next_time_or_stop()
         if not self._should_stop(next_time):
             self._schedule_next(next_time)
         else:
             self._active = False
             self._current_event = None
             self.model._event_generators.discard(self)
+
+    def _next_time_or_stop(self) -> float:
+        """Return now + interval; stop the generator if computing the interval raises.
+
+        Otherwise the generator would stay active with nothing scheduled.
+        """
+        try:
+            return self.model.time + self._get_interval()
+        except Exception:
+            self.stop()
+            raise
 
     def _schedule_next(self, time: float) -> None:
         """Schedule the next event at the given time."""
@@ -411,7 +422,7 @@ class EventGenerator:
 
         self._paused = False
 
-        next_time = self.model.time + self._get_interval()
+        next_time = self._next_time_or_stop()
 
         if not self._should_stop(next_time):
             self._schedule_next(next_time)

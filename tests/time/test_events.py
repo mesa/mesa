@@ -1199,6 +1199,44 @@ class TestEventGeneratorExceptions:
         assert not gen.is_active
         assert gen.next_scheduled_time is None
 
+    def test_raising_interval_stops_the_generator(self, setup):
+        """An interval that raises leaves the generator stopped, not active and unscheduled."""
+        model, fn = setup
+        intervals = iter([1.0])
+
+        def interval(model):
+            return next(intervals)  # StopIteration on the second call
+
+        gen = EventGenerator(model, fn, Schedule(interval=interval)).start()
+
+        with pytest.raises(StopIteration):
+            model.run_for(5)
+
+        assert fn.call_count == 1
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen not in model._event_generators
+
+    def test_raising_interval_on_resume_stops_the_generator(self, setup):
+        model, fn = setup
+        fail = False
+
+        def interval(model):
+            if fail:
+                raise RuntimeError("boom")
+            return 1.0
+
+        gen = EventGenerator(model, fn, Schedule(interval=interval)).start()
+        gen.pause()
+        fail = True
+
+        with pytest.raises(RuntimeError):
+            gen.resume()
+
+        assert not gen.is_active
+        assert not gen.is_paused
+        assert gen not in model._event_generators
+
 
 class TestEventGeneratorPauseResume:
     def test_full_lifecycle(self, setup):
