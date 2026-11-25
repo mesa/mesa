@@ -157,6 +157,7 @@ class Observable(BaseObservable):
                 old=old_value,
                 new=value,
             )
+            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
 class ComputedState:
@@ -270,8 +271,6 @@ class ComputedState:
         finally:
             CURRENT_COMPUTED = old_computed
             PROCESSING_SIGNALS.update(old_processing)
-            if old_computed is None:
-                PROCESSING_SIGNALS.clear()
 
         # Diffing engine: subscribe/unsubscribe as dependencies come and go.
         old_deps = {(p, attr) for p, attrs in old_parents.items() for attr in attrs}
