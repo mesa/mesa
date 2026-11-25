@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import itertools
 import types
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
@@ -255,6 +256,7 @@ class EventGenerator:
 
         self._active: bool = False
         self._paused: bool = False
+        self._canceled: bool = False
         self._current_event: Event | None = None
         self._execution_count: int = 0
 
@@ -309,7 +311,7 @@ class EventGenerator:
         fn = self.function()
         if fn is None or getattr(getattr(fn, "__self__", None), "_removed", False):
             # Stop the generator if weakref is dead or its agent was removed
-            self.stop()
+            self._stop()
             return  # Silent no-op (no error raised)
 
         # Execute the function. Reschedule even if it raises, so one failing
@@ -346,7 +348,7 @@ class EventGenerator:
         try:
             return self.model.time + self._get_interval()
         except Exception:
-            self.stop()
+            self._stop()
             raise
 
     def _schedule_next(self, time: float) -> None:
@@ -361,13 +363,34 @@ class EventGenerator:
     def start(self) -> EventGenerator:
         """Start the event generator.
 
+        .. deprecated:: 3.5.4
+            Use ``model.schedule_recurring()``, which starts the generator it
+            creates. From Mesa 4.0 ``start()`` is private.
+
         Returns:
             Self for method chaining
 
         Raises:
             ValueError: If schedule.start is in the past, e.g. when restarting
-                a stopped generator after its start time has passed.
+                a stopped generator after its start time has passed, or if the
+                generator was canceled.
         """
+        warnings.warn(
+            "EventGenerator.start() is deprecated and will be private in Mesa 4.0. "
+            "Use model.schedule_recurring(), which starts the generator, and "
+            "pause()/resume() instead of restarting one. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#eventgenerator-stop-and-start-removed-cancel-added",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self._start()
+
+    def _start(self) -> EventGenerator:
+        if self._canceled:
+            raise ValueError(
+                "Cannot start a canceled EventGenerator; "
+                "create a new one with model.schedule_recurring()."
+            )
         if self._active:
             return self
 
@@ -392,7 +415,35 @@ class EventGenerator:
         return self
 
     def stop(self) -> None:
-        """Stop the event generator immediately."""
+        """Stop the event generator immediately.
+
+        .. deprecated:: 3.5.4
+            Use ``cancel()`` to end it for good, or ``pause()`` and ``resume()``
+            to hold it. Mesa 4.0 removes ``stop()``.
+        """
+        warnings.warn(
+            "EventGenerator.stop() is deprecated and will be removed in Mesa 4.0. "
+            "Use cancel() to end a generator for good, or pause() and resume() "
+            "to hold it. "
+            "See: https://mesa.readthedocs.io/latest/migration_guide.html#eventgenerator-stop-and-start-removed-cancel-added",
+            FutureWarning,
+            stacklevel=2,
+        )
+        self._stop()
+
+    def cancel(self) -> bool:
+        """End the event generator for good; it can't be started or resumed again.
+
+        Returns:
+            True if the generator was running (active or paused), False if it
+            wasn't, because it had ended or was never started.
+        """
+        was_running = self._active
+        self._canceled = True
+        self._stop()
+        return was_running
+
+    def _stop(self) -> None:
         self._active = False
         self._paused = False
         if self._current_event is not None:
@@ -400,28 +451,37 @@ class EventGenerator:
             self._current_event = None
         self.model._event_generators.discard(self)
 
-    def pause(self) -> None:
+    def pause(self) -> bool:
         """Pause the event generator temporarily.
 
         This cancels the currently scheduled event but keeps the generator
         active in the model. Execution can be resumed later using resume().
+
+        Returns:
+            True if the generator was paused, False if it was already paused
+            or not running.
         """
         if not self._active or self._paused:
-            return
+            return False
 
         self._paused = True
 
         if self._current_event is not None:
             self._current_event.cancel()
             self._current_event = None
+        return True
 
-    def resume(self) -> None:
+    def resume(self) -> bool:
         """Resume a paused event generator.
 
         The next execution is at now + interval, but never before schedule.start.
+
+        Returns:
+            True if an execution was scheduled. False if the generator wasn't
+            paused, or if it ended because its count or end was reached.
         """
         if not self._active or not self._paused:
-            return
+            return False
 
         self._paused = False
 
@@ -432,9 +492,10 @@ class EventGenerator:
 
         if not self._should_stop(next_time):
             self._schedule_next(next_time)
-        else:
-            self._active = False
-            self.model._event_generators.discard(self)
+            return True
+        self._active = False
+        self.model._event_generators.discard(self)
+        return False
 
     def __getstate__(self) -> dict[str, Any]:
         """Prepare state for pickling."""
@@ -449,7 +510,9 @@ class EventGenerator:
         # Keep strong reference alive during entire method
         fn = state.pop("_fn_strong")
 
-        # Update state first (keeps references alive)
+        # Update state first (keeps references alive). Generators pickled
+        # before 3.5.4 have no _canceled.
+        self._canceled = False
         self.__dict__.update(state)
 
         # Now recreate weak reference

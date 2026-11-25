@@ -43,9 +43,9 @@ model.schedule_recurring(
     func, Schedule(interval=10, start=0)
 )  # Start immediately or at any other time
 
-# Save the event and stop it when needed
+# Save the generator and cancel it when needed
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
-gen.stop()
+gen.cancel()
 
 # Limit executions
 model.schedule_recurring(func, Schedule(interval=1.0, count=10))
