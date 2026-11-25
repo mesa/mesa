@@ -501,7 +501,7 @@ class AltairBackend(AbstractRenderer):
 
         Cell values are ordered to match ``HexSpaceDrawer.hexagons``, which iterates
         ``space.all_cells``. This is the same ordering the Matplotlib backend uses
-        (``data.T.ravel()``).
+        (``data.ravel()``).
 
         Args:
             data: The property layer values with shape ``(space.width, space.height)``.
@@ -517,7 +517,7 @@ class AltairBackend(AbstractRenderer):
         """
         hexagons = self.space_drawer.hexagons
         xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
-        values = data.T.ravel()
+        values = data.ravel()
 
         rows = []
         for cell_id, (vertices, value) in enumerate(zip(hexagons, values)):
