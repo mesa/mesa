@@ -22,6 +22,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
+from mesa.experimental.mesa_signals.core import PROCESSING_SIGNALS
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     _AllSentinel,
@@ -1596,3 +1597,90 @@ def test_has_changed_propagates_other_errors():
 
     with pytest.raises(RuntimeError, match="broken comparison"):
         _has_changed(Broken(), 1)
+
+
+def test_unrelated_notification_does_not_clear_cycle_tracking():
+    """Unrelated observable notifications must not clear active cycle tracking."""
+
+    class Emitter(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.b = 10
+            self.a = value + 1
+            return value
+
+    emitter = Emitter()
+    emitter.a = 1
+    emitter.b = 2
+
+    notified = []
+
+    def on_b(signal):
+        notified.append(signal.additional_kwargs["new"])
+
+    emitter.observe("b", ObservableSignals.CHANGED, on_b)
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = emitter.result
+
+    assert notified == [10]
+    assert not PROCESSING_SIGNALS
+
+
+def test_observer_evaluating_nested_computed_preserves_cycle_tracking():
+    """Nested computed evaluation inside an observer preserves outer cycle tracking."""
+
+    class Emitter(HasEmitters):
+        a = Observable()
+        b = Observable()
+        c = Observable()
+
+        @computed_property
+        def helper(self):
+            return self.c * 2
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.b = 10
+            self.a = value + 1
+            return value
+
+    emitter = Emitter()
+    emitter.a = 1
+    emitter.b = 2
+    emitter.c = 3
+
+    seen = []
+
+    def on_b(signal):
+        seen.append(emitter.helper)
+
+    emitter.observe("b", ObservableSignals.CHANGED, on_b)
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = emitter.result
+
+    assert seen == [6]
+    assert not PROCESSING_SIGNALS
+
+
+def test_computed_evaluation_does_not_leak_processing_signals():
+    """Completed computed evaluations restore PROCESSING_SIGNALS without leaking entries."""
+
+    class Emitter(HasEmitters):
+        a = Observable()
+
+        @computed_property
+        def doubled(self):
+            return self.a * 2
+
+    emitter = Emitter()
+    emitter.a = 5
+
+    assert emitter.doubled == 10
+    assert not PROCESSING_SIGNALS

@@ -157,7 +157,7 @@ class Observable(BaseObservable):
                 old=old_value,
                 new=value,
             )
-            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
+            PROCESSING_SIGNALS.discard(_hashable_signal(instance, self.public_name))
 
 
 class ComputedState:
@@ -270,6 +270,7 @@ class ComputedState:
             raise
         finally:
             CURRENT_COMPUTED = old_computed
+            PROCESSING_SIGNALS.clear()
             PROCESSING_SIGNALS.update(old_processing)
 
         # Diffing engine: subscribe/unsubscribe as dependencies come and go.
