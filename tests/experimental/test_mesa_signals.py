@@ -674,6 +674,68 @@ def test_computed_property_dependencies():
     assert agent.count_all == 3
 
 
+def test_explicit_dependency_recomputes_with_dynamic_dependency():
+    """Test recomputation when both explicit and dynamic dependencies change."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property(dependencies=[("a", ObservableSignals.CHANGED)])
+        def total(self):
+            return self.peek("a") + self.b
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+
+    assert model.total == 3
+    model.a = 2
+    assert model.total == 4
+
+
+def test_dynamic_dependency_recomputes():
+    """Test that changes to dynamically tracked dependencies trigger recomputation."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def total(self):
+            return self.a + self.b
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+
+    assert model.total == 3
+
+    model.b = 5
+
+    assert model.total == 6
+
+
+def test_explicit_dependency_recomputes():
+    """Test that changes to explicitly declared dependencies trigger recomputation."""
+
+    class Model(HasEmitters):
+        a = Observable()
+
+        @computed_property(dependencies=[("a", ObservableSignals.CHANGED)])
+        def total(self):
+            return self.peek("a") * 2
+
+    model = Model()
+    model.a = 2
+
+    assert model.total == 4
+
+    model.a = 5
+
+    assert model.total == 10
+
+
 def test_ObservableList_negative_index_normalization():
     """Test that __setitem__ with negative index emits normalized positive index."""
 
