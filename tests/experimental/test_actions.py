@@ -325,6 +325,66 @@ class TestStartResume:
         assert action.completed
 
 
+class TestHookEndsAction:
+    """A hook that ends its own action leaves nothing scheduled."""
+
+    def test_cancel_in_on_start_schedules_no_completion(self):
+        done = []
+
+        class CancelOnStart(Action):
+            def on_start(self):
+                self.cancel()
+
+            def on_resume(self):
+                pass
+
+            def on_complete(self):
+                done.append(self.model.time)
+
+        model, agent = make_model_and_agent()
+        action = CancelOnStart(agent, duration=5.0)
+        agent.start_action(action)
+        assert action.state is ActionState.INTERRUPTED
+
+        model.run_until(1.0)
+        action.start()
+        model.run_until(10.0)
+
+        # resumed at t=1 with 5 left, so it ends at t=6, not at the old t=5
+        assert done == [6.0]
+
+    def test_cancel_in_on_resume_schedules_no_completion(self):
+        done = []
+
+        class CancelOnResume(Action):
+            cancel_now = False
+
+            def on_resume(self):
+                if self.cancel_now:
+                    self.cancel()
+
+            def on_complete(self):
+                done.append(self.model.time)
+
+        model, agent = make_model_and_agent()
+        action = CancelOnResume(agent, duration=5.0)
+        agent.start_action(action)
+        model.run_until(1.0)
+        action.interrupt()  # 4 left
+
+        model.run_until(2.0)
+        action.cancel_now = True
+        action.start()
+        assert action.state is ActionState.INTERRUPTED
+
+        model.run_until(3.0)
+        action.cancel_now = False
+        action.start()
+        model.run_until(10.0)
+
+        assert done == [7.0]
+
+
 # --- Live progress ---
 
 

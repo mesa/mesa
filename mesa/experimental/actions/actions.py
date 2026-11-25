@@ -292,6 +292,8 @@ class Action:
         If a requirement does not hold the action moves to FAILED instead,
         firing on_fail() rather than on_start() or on_resume(). Inspect
         state after starting rather than assuming the action is ACTIVE.
+        The same holds if on_start() or on_resume() ends the action itself:
+        nothing is scheduled and the action keeps the state the hook gave it.
 
         Returns:
             Self, for chaining.
@@ -345,6 +347,10 @@ class Action:
             self.on_resume()
         else:
             self.on_start()
+
+        # A hook may have ended the action (cancel, interrupt, ...).
+        if self.state is not ActionState.ACTIVE:
+            return self
 
         # Calculate remaining time
         remaining = self.duration * (1.0 - self._progress)
