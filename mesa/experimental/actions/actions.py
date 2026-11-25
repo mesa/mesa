@@ -282,7 +282,7 @@ class Action:
 
         The action is ACTIVE and its completion is already scheduled.
         Override to acquire what the attempt needs (on_stop() releases it).
-        Not called on resume — see on_resume().
+        Not called directly on resume; on_resume() calls it by default.
         """
 
     def on_resume(self) -> None:
