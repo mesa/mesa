@@ -194,9 +194,6 @@ class MatplotlibBackend(AbstractRenderer):
                     )
             else:
                 aps = portray_input
-                # Set defaults if not provided
-                if aps.x is None and aps.y is None:
-                    aps.x, aps.y = self._get_agent_pos(agent, space)
                 if aps.tooltip is not None:
                     warnings.warn(
                         "The 'tooltip' attribute in AgentPortrayalStyle is "
@@ -207,10 +204,15 @@ class MatplotlibBackend(AbstractRenderer):
                     )
 
             # Collect agent data
-            arguments["loc"].append((aps.x, aps.y))
+            agent_x, agent_y = aps.x, aps.y
+            if agent_x is None and agent_y is None:
+                agent_x, agent_y = self._get_agent_pos(agent, space)
+            arguments["loc"].append((agent_x, agent_y))
 
             # Determine final size
-            size_to_collect = aps.size or default_size or class_default_size
+            size_to_collect = aps.size if aps.size is not None else default_size
+            if size_to_collect is None:
+                size_to_collect = class_default_size
             arguments["s"].append(size_to_collect)
             arguments["c"].append(aps.color)
             arguments["marker"].append(aps.marker)
