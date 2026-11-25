@@ -13,7 +13,7 @@ agent-side API lives on the HasActions mixin; when an action ends, the
 agent's on_idle() hook fires, and decisions about what to do next --
 chain another action, resume an interrupted one -- belong there.
 
-An action runs in one or more attempts: the first start, and every resume
+An action runs in one or more attempts: the start, and every resume
 after an interrupt. Each attempt that starts ends with exactly one
 ``on_stop()``, and each attempt end or final state fires exactly one outcome
 hook: ``on_interrupt()``, ``on_complete()``, ``on_fail()`` or ``on_cancel()``.
@@ -121,9 +121,9 @@ class Action:
         model: The model (shortcut for agent.model).
         name: Human-readable identifier. Defaults to the class name.
         duration: Time to complete. May be a callable(agent) -> float
-            for state-dependent duration, resolved at the first start.
+            for state-dependent duration, resolved when the action starts.
         priority: Importance level. Higher = more important. May be a
-            callable(agent) -> float, resolved once: at the first start, or
+            callable(agent) -> float, resolved once: when the action starts, or
             earlier if HasActions.interrupt_for weighs it against a running
             action.
         interruptible: Whether higher-priority actions can preempt this.
@@ -161,11 +161,11 @@ class Action:
             agent: The agent that will perform this action.
             duration: Time to complete. Either a float or a callable
                 that receives the agent and returns a float. Resolved
-                when the action first starts; must be finite and >= 0.
+                when the action starts; must be finite and >= 0.
             name: Human-readable name. Defaults to the class name.
             priority: Importance level for interruption decisions. Either
                 a float or a callable that receives the agent and returns
-                a float. Resolved once, at the first start or when
+                a float. Resolved once, when the action starts or when
                 interrupt_for first consults the agent's should_interrupt
                 with it; must not be NaN.
             interruptible: If False, interrupt() refuses unless forced.
@@ -195,11 +195,11 @@ class Action:
             completion_requirements
         )
 
-        # Store raw values (may be callables, resolved at the first start)
+        # Store raw values (may be callables, resolved at the start)
         self._duration_spec = duration
         self._priority_spec = priority
 
-        # Resolved values (set at the first start; priority possibly earlier,
+        # Resolved values (set at the start; priority possibly earlier,
         # see _resolve_priority)
         self.duration: float = 0.0
         self.priority: float = 0.0
@@ -280,7 +280,7 @@ class Action:
     # --- Lifecycle methods (override in subclasses) ---
 
     def on_start(self) -> None:
-        """Called when the first attempt begins.
+        """Called when the action starts.
 
         The action is ACTIVE and its completion is already scheduled.
         Override to acquire what the attempt needs (on_stop() releases it).
@@ -288,7 +288,7 @@ class Action:
         """
 
     def on_resume(self) -> None:
-        """Called when a later attempt begins, after an interruption.
+        """Called when the action resumes after an interruption.
 
         Default implementation calls on_start(), so whatever on_start()
         acquires is acquired again for every attempt. Override to handle
@@ -595,7 +595,7 @@ class Action:
     def _resolve_priority(self) -> None:
         """Resolve the priority spec against the agent, at most once.
 
-        Called at the first start, and from HasActions.interrupt_for before
+        Called at the start, and from HasActions.interrupt_for before
         it consults should_interrupt, since the incoming action has not
         started yet and its priority would otherwise still read 0.0. A
         callable spec is called at most once either way, unless it returned
@@ -736,7 +736,7 @@ class HasActions:
         3. An ACTIVE action is canceled with on_progress(delta), on_stop()
            and on_cancel(). Removal never completes an action, even a due one.
         4. Every INTERRUPTED action of this agent that is still referenced
-           is canceled, in the order they were first started, firing
+           is canceled, in the order they were started, firing
            on_cancel().
         5. The agent leaves the model.
 

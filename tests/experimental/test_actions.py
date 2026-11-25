@@ -886,7 +886,7 @@ class TestCallableDurationPriority:
         assert action.priority == 8.0
 
     def test_callable_duration_resolved_once(self):
-        """Duration callable is resolved at first start, not on resume."""
+        """Duration callable is resolved at the start, not on resume."""
         model, agent = make_model_and_agent()
         call_count = 0
 
@@ -1149,7 +1149,7 @@ class TestAgentRemoval:
 
 
 class TestResumeDetection:
-    """Verify on_start can distinguish first start from resume."""
+    """Verify on_start can distinguish the start from a resume."""
 
     def test_on_start_can_detect_resume(self):
         model, agent = make_model_and_agent()
