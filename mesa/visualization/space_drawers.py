@@ -91,7 +91,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Additional keyword arguments for styling.
 
         Examples:
-            >>> drawer.draw_matplotlib(figsize=(10, 10), color="blue", linewidth=2)
+                drawer.draw_matplotlib(figsize=(10, 10), color="blue", linewidth=2)
 
         Returns:
             The modified axes object
@@ -133,7 +133,7 @@ class OrthogonalSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-            >>> width=500, height=500, title="Grid".
+                width=500, height=500, title="Grid".
 
         Returns:
             Altair chart object
@@ -266,7 +266,7 @@ class HexSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Additional keyword arguments for styling.
 
         Examples:
-            >>> figsize=(8, 8), color="red", alpha=0.5.
+                figsize=(8, 8), color="red", alpha=0.5.
 
         Returns:
             The modified axes object
@@ -304,8 +304,8 @@ class HexSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-            >>> * Line properties like color, strokeDash, strokeWidth, opacity.
-            >>> * Other kwargs (e.g., width, title) apply to the chart.
+                * Line properties like color, strokeDash, strokeWidth, opacity.
+                * Other kwargs (e.g., width, title) apply to the chart.
 
         Returns:
             Altair chart object representing the hexagonal grid.
@@ -610,7 +610,7 @@ class ContinuousSpaceDrawer(BaseSpaceDrawer):
                 n-dimensional space are projected to x/y.
 
         Examples:
-            >>> linewidth=3, color="green"
+                linewidth=3, color="green"
 
         Returns:
             The modified axes object.
@@ -798,7 +798,7 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
             **draw_space_kwargs: Keyword arguments passed to matplotlib's LineCollection.
 
         Examples:
-            >>> lw=2, alpha=0.5, colors='red'
+                lw=2, alpha=0.5, colors='red'
 
         Returns:
             The modified axes object
@@ -831,8 +831,8 @@ class VoronoiSpaceDrawer(BaseSpaceDrawer):
             **draw_chart_kwargs: Additional keyword arguments for styling the chart.
 
         Examples:
-            >>> * Line properties like color, strokeDash, strokeWidth, opacity.
-            >>> * Other kwargs (e.g., width, title) apply to the chart.
+                * Line properties like color, strokeDash, strokeWidth, opacity.
+                * Other kwargs (e.g., width, title) apply to the chart.
 
         Returns:
             An Altair Chart object representing the Voronoi diagram.
