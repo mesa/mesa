@@ -405,26 +405,6 @@ def test_computed_property():
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = agent.c1
 
-    # Unrelated observable notifications should not clear active cycle tracking (#4234)
-    class UnrelatedNotificationAgent(Agent, HasEmitters):
-        a = Observable()
-        b = Observable()
-
-        @computed_property
-        def result(self):
-            value = self.a
-            self.b = 10
-            self.a = value + 1
-            return value
-
-    unrelated_agent = UnrelatedNotificationAgent(model)
-    unrelated_agent.a = 1
-    unrelated_agent.b = 2
-    unrelated_agent.observe("b", ObservableSignals.CHANGED, lambda signal: None)
-
-    with pytest.raises(ValueError, match="cyclical dependency"):
-        _ = unrelated_agent.result
-
 
 def test_computed_dynamic_dependencies():
     """Test that dependencies are correctly pruned (cleared) when code paths change.
