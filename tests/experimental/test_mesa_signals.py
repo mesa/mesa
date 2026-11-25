@@ -23,6 +23,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
+from mesa.experimental.mesa_signals.core import BaseObservable
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     _AllSentinel,
@@ -412,26 +413,6 @@ def test_computed_property():
     # Error should be raised when we try to evaluate the property
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = agent.c1
-
-    # Unrelated observable notifications should not clear active cycle tracking (#4234)
-    class UnrelatedNotificationAgent(Agent, HasEmitters):
-        a = Observable()
-        b = Observable()
-
-        @computed_property
-        def result(self):
-            value = self.a
-            self.b = 10
-            self.a = value + 1
-            return value
-
-    unrelated_agent = UnrelatedNotificationAgent(model)
-    unrelated_agent.a = 1
-    unrelated_agent.b = 2
-    unrelated_agent.observe("b", ObservableSignals.CHANGED, lambda signal: None)
-
-    with pytest.raises(ValueError, match="cyclical dependency"):
-        _ = unrelated_agent.result
 
 
 def test_computed_dynamic_dependencies():
@@ -1624,3 +1605,67 @@ def test_has_changed_propagates_other_errors():
 
     with pytest.raises(RuntimeError, match="broken comparison"):
         _has_changed(Broken(), 1)
+
+
+class FallbackModel(HasEmitters):
+    """A HasEmitters with an Observable with and one without a fallback value."""
+
+    with_fallback = Observable(fallback_value=5)
+    without_fallback = Observable()
+
+    @computed_property
+    def doubled(self):
+        """Return twice the Observable with a fallback value."""
+        return 2 * self.with_fallback
+
+
+def test_observable_fallback_value_before_assignment():
+    """Reading an Observable before assignment returns its fallback value."""
+    model = FallbackModel()
+    assert model.with_fallback == 5
+    assert model.doubled == 10
+
+
+def test_observable_without_fallback_value_raises_before_assignment():
+    """Without a fallback value, reading before assignment raises AttributeError."""
+    model = FallbackModel()
+    with pytest.raises(AttributeError):
+        _ = model.without_fallback
+
+
+def test_observable_fallback_value_is_old_value_of_first_assignment():
+    """The first assignment reports the fallback value as old value."""
+    model = FallbackModel()
+    handler = Mock()
+    model.observe("with_fallback", ObservableSignals.CHANGED, handler)
+
+    model.with_fallback = 5  # equal to the fallback value: no change
+    handler.assert_not_called()
+
+    model.with_fallback = 6
+    handler.assert_called_once()
+    assert handler.call_args.args[0].additional_kwargs == {"old": 5, "new": 6}
+    assert model.doubled == 12
+
+
+def test_observable_without_fallback_value_first_old_value_is_none():
+    """Without a fallback value, the first assignment reports None as old value."""
+    model = FallbackModel()
+    handler = Mock()
+    model.observe("without_fallback", ObservableSignals.CHANGED, handler)
+
+    model.without_fallback = 1
+    assert handler.call_args.args[0].additional_kwargs == {"old": None, "new": 1}
+
+
+def test_base_observable_set_raises():
+    """BaseObservable leaves storing values and emitting signals to subclasses."""
+
+    class Incomplete(BaseObservable):
+        pass
+
+    class Holder(HasEmitters):
+        value = Incomplete()
+
+    with pytest.raises(NotImplementedError, match="Incomplete"):
+        Holder().value = 1

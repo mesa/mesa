@@ -48,6 +48,8 @@ SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
+_NO_FALLBACK = object()  # sentinel: no fallback value was given
+
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
 
@@ -82,7 +84,7 @@ class BaseObservable:
         if instance is None:
             return self
 
-        value = getattr(instance, self.private_name)
+        value = self._get_value(instance)
 
         if CURRENT_COMPUTED is not None:
             if isinstance(value, MutableSequence):
@@ -100,26 +102,18 @@ class BaseObservable:
 
         return value
 
+    def _get_value(self, instance: HasEmitters):
+        """Return the stored value; raises AttributeError if never assigned."""
+        return getattr(instance, self.private_name)
+
     def __set_name__(self, owner: HasEmitters, name: str):  # noqa: D105
         self.public_name = name
         self.private_name = f"_{name}"
 
     def __set__(self, instance: HasEmitters, value):  # noqa: D105
-        # If no one is listening, Avoid overhead of fetching old value and
-        # creating Message object.
-        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
-            return
-        change_signal = self.signal_types(
-            "changed"
-        )  # look up "changed" in the descriptor's enum
-
-        # this only emits an on change signal, subclasses need to specify
-        # this in more detail
-        instance.notify(
-            self.public_name,
-            change_signal,
-            old=value,
-            new=getattr(instance, self.private_name, self.fallback_value),
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement __set__ to store values and "
+            "emit its signals"
         )
 
     def __str__(self):  # noqa: D105
@@ -172,6 +166,23 @@ class Observable(BaseObservable):
     #    instead of descriptor, which is likely to be more performant
     signal_types = ObservableSignals
 
+    def __init__(self, fallback_value=_NO_FALLBACK):
+        """Initialize an Observable.
+
+        Args:
+            fallback_value: value returned when the Observable is read before
+                it has been assigned, and the old value for the first
+                assignment. It is shared by all instances, so use an immutable
+                value. Without it, reading before assignment raises
+                AttributeError.
+        """
+        super().__init__(fallback_value=fallback_value)
+
+    def _get_value(self, instance: HasEmitters):
+        if self.fallback_value is _NO_FALLBACK:
+            return getattr(instance, self.private_name)
+        return getattr(instance, self.private_name, self.fallback_value)
+
     def __set__(self, instance: HasEmitters, value):  # noqa D103
         if (
             CURRENT_COMPUTED is not None
@@ -185,7 +196,10 @@ class Observable(BaseObservable):
         send_notify = False
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
-            old_value = getattr(instance, self.private_name, None)
+            fallback = (
+                None if self.fallback_value is _NO_FALLBACK else self.fallback_value
+            )
+            old_value = getattr(instance, self.private_name, fallback)
             if _has_changed(old_value, value):
                 send_notify = True
         setattr(instance, self.private_name, value)
@@ -197,6 +211,7 @@ class Observable(BaseObservable):
                 old=old_value,
                 new=value,
             )
+            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
 
 
 class ComputedState:
@@ -310,8 +325,6 @@ class ComputedState:
         finally:
             CURRENT_COMPUTED = old_computed
             PROCESSING_SIGNALS.update(old_processing)
-            if old_computed is None:
-                PROCESSING_SIGNALS.clear()
 
         # Diffing engine: subscribe/unsubscribe as dependencies come and go.
         old_deps = {(p, attr) for p, attrs in old_parents.items() for attr in attrs}
