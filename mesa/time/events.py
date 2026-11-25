@@ -198,7 +198,7 @@ class Schedule:
 
     def __post_init__(self):
         """Validate schedule parameters."""
-        if not callable(self.interval) and self.interval <= 0:
+        if not callable(self.interval) and not self.interval > 0:  # rejects NaN
             raise ValueError(f"Schedule interval must be > 0, got {self.interval}")
 
         if self.count is not None and self.count <= 0:
@@ -287,7 +287,7 @@ class EventGenerator:
         """Get the next interval value."""
         if callable(self.schedule.interval):
             interval = self.schedule.interval(self.model)
-            if interval <= 0:
+            if not interval > 0:  # rejects NaN
                 raise ValueError(f"Interval must be > 0, got {interval}")
             return interval
         return self.schedule.interval

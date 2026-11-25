@@ -58,6 +58,8 @@ class TestSchedule:
             Schedule(interval=0)
         with pytest.raises(ValueError):
             Schedule(interval=-1)
+        with pytest.raises(ValueError):
+            Schedule(interval=float("nan"))
 
     def test_rejects_nonpositive_count(self):
         with pytest.raises(ValueError):
@@ -821,6 +823,10 @@ class TestEventGeneratorInit:
             gen._get_interval()
 
         gen = EventGenerator(model, fn, Schedule(interval=lambda m: -1))
+        with pytest.raises(ValueError, match="> 0"):
+            gen._get_interval()
+
+        gen = EventGenerator(model, fn, Schedule(interval=lambda m: float("nan")))
         with pytest.raises(ValueError, match="> 0"):
             gen._get_interval()
 
