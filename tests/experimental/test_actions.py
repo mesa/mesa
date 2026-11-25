@@ -1,6 +1,7 @@
 """Tests for mesa.experimental.actions."""
 
 # ruff: noqa: D101, D102, D103, D107
+import copy
 import gc
 import math
 import pickle
@@ -11,6 +12,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.actions import Action, ActionState, HasActions
+from mesa.experimental.mesa_signals import HasEmitters
 from mesa.time import Priority
 
 # --- Helpers ---
@@ -18,6 +20,21 @@ from mesa.time import Priority
 
 class ActionAgent(HasActions, Agent):
     """Agent with action support, as models combine it."""
+
+
+class ActionsFirstAgent(HasActions, HasEmitters, Agent):
+    """Action agent that also emits signals, mixins in one order."""
+
+
+class EmittersFirstAgent(HasEmitters, HasActions, Agent):
+    """Action agent that also emits signals, mixins in the other order."""
+
+
+class Watcher:
+    """Subscriber whose bound method has to follow a copy."""
+
+    def handler(self, signal):
+        pass
 
 
 class TrackedAction(Action):
@@ -1090,6 +1107,25 @@ class TestAgentRemoval:
         assert agent2.kept.state is ActionState.CANCELED
         assert agent2.kept.canceled
         assert interrupted.state is ActionState.INTERRUPTED
+
+    @pytest.mark.parametrize(
+        "copier",
+        [copy.deepcopy, lambda m: pickle.loads(pickle.dumps(m))],  # noqa: S301
+    )
+    @pytest.mark.parametrize("agent_class", [ActionsFirstAgent, EmittersFirstAgent])
+    def test_copy_with_has_emitters(self, copier, agent_class):
+        """Other mixins' pickling hooks still run, in either order."""
+        model = Model()
+        agent = agent_class(model)
+        agent.watcher = Watcher()
+        agent.subscribers["key"].append(weakref.WeakMethod(agent.watcher.handler))
+        agent.kept = agent.start_action(TrackedAction(agent))
+        agent.kept.interrupt()
+
+        agent2 = next(iter(copier(model).agents))
+
+        assert len(agent2.subscribers["key"]) == 1
+        assert list(agent2._started_actions.items()) == [(id(agent2.kept), agent2.kept)]
 
     def test_remove_with_explicit_cleanup(self):
         """An override that cancels first, as before, still works."""

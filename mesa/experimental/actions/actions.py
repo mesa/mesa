@@ -57,11 +57,12 @@ can pay twice.
 
 from __future__ import annotations
 
+import copy
 import math
 import warnings
 from collections.abc import Callable, Iterable
 from enum import IntEnum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from weakref import WeakValueDictionary
 
 from mesa.time import Priority
@@ -659,6 +660,24 @@ class Action:
         )
 
 
+class _StartedActions(WeakValueDictionary[int, Action]):
+    """Started actions by id, in start order, held weakly.
+
+    Copied and pickled as the list of live actions and rebuilt under the
+    copies' ids, so HasActions needs no __getstate__/__setstate__ that could
+    bypass those of other mixins, such as HasEmitters.
+    """
+
+    def __init__(self, actions: Iterable[Action] = ()) -> None:
+        super().__init__((id(action), action) for action in actions)
+
+    def __reduce__(self):
+        return type(self), (list(self.values()),)
+
+    def __deepcopy__(self, memo: dict) -> _StartedActions:
+        return type(self)(copy.deepcopy(list(self.values()), memo))
+
+
 class HasActions:
     """Mixin that lets an agent perform Actions.
 
@@ -689,7 +708,7 @@ class HasActions:
         self._actions_closed: bool = False
         # Actions this agent started that haven't ended, by id, in start order.
         # Weak, so an interrupted action the model dropped isn't kept alive.
-        self._started_actions: WeakValueDictionary[int, Action] = WeakValueDictionary()
+        self._started_actions = _StartedActions()
         super().__init__(*args, **kwargs)
 
     @property
@@ -741,18 +760,6 @@ class HasActions:
                 if action.state is ActionState.INTERRUPTED:
                     action._cancel()
         super().remove()
-
-    def __getstate__(self) -> dict[str, Any]:
-        """Prepare state for pickling: weak references can't be pickled."""
-        state = self.__dict__.copy()
-        state["_started_actions"] = list(self._started_actions.values())
-        return state
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        """Restore state after unpickling, rebuilding the weak tracking."""
-        actions = state.pop("_started_actions")
-        self.__dict__.update(state)
-        self._started_actions = WeakValueDictionary((id(a), a) for a in actions)
 
     def start_action(self, action: Action) -> Action:
         """Start a PENDING action.
