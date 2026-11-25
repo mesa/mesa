@@ -268,10 +268,32 @@ class TableDataSet:
 
     @property
     def data(self) -> list[dict[str, Any]]:
-        """Return the data of the dataset."""
+        """Return the data of the dataset.
+
+        This is the live list of rows, not a copy. Rows are shared with any
+        data recorder, so modifying a returned row also modifies recorded data.
+        """
         if self.rows is None:
             raise RuntimeError(f"DataSet '{self.name}' has been closed")
         return self.rows
+
+    def get_rows_since(self, index: int) -> list[dict[str, Any]]:
+        """Return the rows added since the given row index.
+
+        Rows are only ever appended, so a row index identifies a position in
+        the table that stays valid. The returned list is new, but the row dicts
+        are shared with the dataset.
+
+        Args:
+            index: the number of rows already seen
+
+        Raises:
+            RuntimeError: if the dataset has been closed
+
+        """
+        if self.rows is None:
+            raise RuntimeError(f"DataSet '{self.name}' has been closed")
+        return self.rows[index:]
 
     def close(self):
         """Close the data set."""
