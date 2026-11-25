@@ -10,7 +10,6 @@ import contextlib
 import copy
 import itertools
 import math
-import numbers
 import operator
 import warnings
 import weakref
@@ -36,6 +35,62 @@ if TYPE_CHECKING:
 
 
 _MISSING = object()
+
+# numpy scalars (other than np.float64) are not subclasses of int / float
+_INT_TYPES = (int, np.integer)
+_FLOAT_TYPES = (float, np.floating)
+
+
+def _normalize_count(value: Any, name: str) -> int | float:
+    """Check that value is a real number and return it as a plain Python int or float.
+
+    Accepts Python and numpy integers and floats. Booleans (Python and numpy) are rejected.
+
+    Args:
+        value: the value to check
+        name: the name of the argument, used in the error message
+
+    Raises:
+        TypeError: If value is not an integer or float, or is a boolean.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, _INT_TYPES + _FLOAT_TYPES
+    ):
+        raise TypeError(
+            f"{name} must be an integer or float, got {type(value).__name__}."
+        )
+    return int(value) if isinstance(value, _INT_TYPES) else float(value)
+
+
+def _resolve_at_most(at_most: Any, size: int) -> int | float:
+    """Turn an ``at_most`` argument into a maximum count.
+
+    Args:
+        at_most: a non-negative integer, a fraction in (0.0, 1.0], or infinity
+        size: the number of items the fraction applies to
+
+    Returns:
+        The maximum number of items to select; infinity if there is no limit.
+
+    Raises:
+        TypeError: If at_most is not an integer or float, or is a boolean.
+        ValueError: If at_most is a negative integer, or a float not in the range (0.0, 1.0].
+    """
+    at_most = _normalize_count(at_most, "at_most")
+
+    if isinstance(at_most, int):
+        if at_most < 0:
+            raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
+        return at_most
+
+    if at_most == float("inf"):
+        return at_most
+
+    if not (0.0 < at_most <= 1.0):  # also rejects NaN
+        raise ValueError(
+            f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
+        )
+    return int(size * at_most)  # Note that it rounds down (floor)
 
 
 def _resolve_weights(
@@ -211,7 +266,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
     def select(
         self,
         filter_func: Callable[[A], bool] | None = None,
-        at_most: int | float = float("inf"),
+        at_most: int | float | np.integer | np.floating = float("inf"),
         inplace: bool = False,
         agent_type: type[A] | None = None,
     ) -> AbstractAgentSet[A]:
@@ -220,7 +275,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         Args:
             filter_func (Callable[[Agent], bool], optional): A function that takes an Agent and returns True if the
                 agent should be included in the result. Defaults to None, meaning no filtering is applied.
-            at_most (int | float, optional): The maximum amount of agents to select. Defaults to infinity.
+            at_most (int | float, optional): The maximum amount of agents to select (numpy integers and floats are accepted). Defaults to infinity.
               - If an integer, at most the first number of matching agents are selected.
               - If a float between 0 and 1, at most that fraction of original the agents are selected.
             inplace (bool, optional): If True, modifies the current AbstractAgentSet; otherwise, returns a new AbstractAgentSet. Defaults to False.
@@ -241,19 +296,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if filter_func is None and agent_type is None and at_most == inf:
             return self if inplace else copy.copy(self)
 
-        if isinstance(at_most, bool) or not isinstance(at_most, (int, float)):
-            raise TypeError(
-                f"at_most must be an integer or float, got {type(at_most).__name__}."
-            )
-
-        if isinstance(at_most, float) and at_most != inf:
-            if not (0.0 < at_most <= 1.0):
-                raise ValueError(
-                    f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
-                )
-            at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
-        elif isinstance(at_most, int) and at_most < 0:
-            raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
+        at_most = _resolve_at_most(at_most, len(self))
 
         def agent_generator(
             filter_func: Callable[[A], bool] | None,
@@ -277,7 +320,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
 
     def select_random(
         self,
-        n: int | float = 1,
+        n: int | float | np.integer | np.floating = 1,
         *,
         weights: str | Callable[[A], float] | Sequence[float] | None = None,
         replace: bool = False,
@@ -286,7 +329,7 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         """Select a random or weighted sample of agents from the AbstractAgentSet.
 
         Args:
-            n (int | float, optional): The number or fraction of agents to select. Defaults to 1.
+            n (int | float, optional): The number or fraction of agents to select (numpy integers and floats are accepted). Defaults to 1.
                 - If an integer >= 1, the number of agents to select.
                 - If a float in (0, 1], the fraction of agents to select.
             weights (str | Callable[[Agent], float] | Sequence[float] | None, optional): Weights for selection.
@@ -307,12 +350,9 @@ class AbstractAgentSet[A: Agent](ABC, MutableSet[A]):
         if len(self) == 0:
             raise ValueError("Cannot sample from an empty AgentSet.")
 
-        # numbers.Integral / numbers.Real also cover numpy scalars such as np.int64
-        if isinstance(n, (bool, np.bool_)) or not isinstance(n, numbers.Real):
-            raise TypeError(f"n must be an integer or float, got {type(n).__name__}.")
+        n = _normalize_count(n, "n")
 
-        if isinstance(n, numbers.Integral):
-            n = int(n)
+        if isinstance(n, int):
             if n <= 0:
                 raise ValueError(f"n must be a positive integer, got {n}.")
             sample_size = n
@@ -994,7 +1034,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
     def select(
         self,
         filter_func: Callable[[A], bool] | None = None,
-        at_most: int | float = float("inf"),
+        at_most: int | float | np.integer | np.floating = float("inf"),
         inplace: bool = False,
         agent_type: type[A] | None = None,
     ) -> AbstractAgentSet[A]:
@@ -1011,7 +1051,7 @@ class _HardKeyAgentSet[A: Agent](AbstractAgentSet[A]):
 
     def select_random(
         self,
-        n: int | float = 1,
+        n: int | float | np.integer | np.floating = 1,
         *,
         weights: str | Callable[[A], float] | Sequence[float] | None = None,
         replace: bool = False,
