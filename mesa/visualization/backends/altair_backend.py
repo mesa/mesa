@@ -292,10 +292,13 @@ class AltairBackend(AbstractRenderer):
                 for key, value in tooltip.items():
                     column_data[key][i] = value
 
-        for key, values in column_data.items():
-            df[key] = values
-
-        tooltip_list.extend(sorted(all_tooltips_key))
+        # Keep tooltip values separate from the columns used by the encodings.
+        # Generated field names also avoid Altair's shorthand and nested-field syntax
+        # in user labels, while titles preserve those labels on hover.
+        for i, key in enumerate(sorted(all_tooltips_key)):
+            field = f"_mesa_tooltip_{i}"
+            df[field] = column_data[key]
+            tooltip_list.append(alt.Tooltip(field=field, title=key))
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")
