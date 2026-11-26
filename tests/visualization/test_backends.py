@@ -556,6 +556,50 @@ def test_backends_handle_errors():
         mb.draw_agents(arguments, edgecolors="blue")
 
 
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
+    """Shared AgentPortrayalStyle instances should not be mutated during data collection."""
+
+    class DummyAgent:
+        def __init__(self, position):
+            self.position = position
+
+    class DummySpace:
+        pass
+
+    portrayal = AgentPortrayalStyle(x=None, y=None)
+    space = DummySpace()
+    space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
+
+    backend = backend_cls(space_drawer=MagicMock())
+    data = backend.collect_agent_data(space, lambda agent: portrayal)
+
+    assert data["loc"].tolist() == [[0, 1], [2, 3]]
+    assert (portrayal.x, portrayal.y) == (None, None)
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_collect_agent_data_preserves_explicit_coordinates(backend_cls):
+    """Explicit x, y coordinates should be used and not mutated."""
+
+    class DummyAgent:
+        def __init__(self, position):
+            self.position = position
+
+    class DummySpace:
+        pass
+
+    portrayal = AgentPortrayalStyle(x=10, y=20)
+    space = DummySpace()
+    space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
+
+    backend = backend_cls(space_drawer=MagicMock())
+    data = backend.collect_agent_data(space, lambda agent: portrayal)
+
+    assert data["loc"].tolist() == [[10, 20], [10, 20]]
+    assert (portrayal.x, portrayal.y) == (10, 20)
+
+
 @pytest.mark.parametrize(
     ("edgecolors", "expected"),
     [
