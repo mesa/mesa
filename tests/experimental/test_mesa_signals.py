@@ -990,6 +990,59 @@ def test_observable_list_reverse_slice(values, index, delete):
     )
 
 
+def test_unrelated_notification_does_not_clear_cycle_tracking():
+    """Test that unrelated observable notifications preserve active cycle tracking."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.b = 10
+            self.a = value + 1
+            return value
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+
+    def callback(signal):
+        return None
+
+    model.observe("b", ObservableSignals.CHANGED, callback)
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = model.result
+
+
+def test_peek_nested_computed_property_preserves_cycle_tracking():
+    """Test that peek() preserves cycle tracking across nested computed evaluations."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def helper(self):
+            return self.b
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.peek("helper")
+            self.a = value + 1
+            return value
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = model.result
+
+
 def test_observable_list_reverse_slice_assignment_wrong_size():
     """Invalid extended slice assignments leave values and signals unchanged."""
 
