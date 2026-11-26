@@ -1000,13 +1000,15 @@ def test_unrelated_notification_does_not_clear_cycle_tracking():
         @computed_property
         def result(self):
             value = self.a
-            self.b = 10
-            self.a = value + 1
+            if self.trigger_cycle:
+                self.b = 10
+                self.a = value + 1
             return value
 
     model = Model()
     model.a = 1
     model.b = 2
+    model.trigger_cycle = True
 
     def callback(signal):
         return None
@@ -1015,6 +1017,14 @@ def test_unrelated_notification_does_not_clear_cycle_tracking():
 
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = model.result
+
+    # Exercise the successful return path.
+    successful_model = Model()
+    successful_model.a = 1
+    successful_model.b = 2
+    successful_model.trigger_cycle = False
+
+    assert successful_model.result == 1
 
 
 def test_peek_nested_computed_property_preserves_cycle_tracking():
@@ -1032,15 +1042,25 @@ def test_peek_nested_computed_property_preserves_cycle_tracking():
         def result(self):
             value = self.a
             self.peek("helper")
-            self.a = value + 1
+            if self.trigger_cycle:
+                self.a = value + 1
             return value
 
     model = Model()
     model.a = 1
     model.b = 2
+    model.trigger_cycle = True
 
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = model.result
+
+    # Exercise the successful return path.
+    successful_model = Model()
+    successful_model.a = 1
+    successful_model.b = 2
+    successful_model.trigger_cycle = False
+
+    assert successful_model.result == 1
 
 
 def test_observable_list_reverse_slice_assignment_wrong_size():
