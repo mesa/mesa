@@ -630,3 +630,90 @@ def test_to_numpy_argument_array_mixed_face_colors():
     uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
     result = _to_numpy_argument_array("c", uniform)
     assert result.shape == (2, 4)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "x",
+        "y",
+        "size",
+        "shape",
+        "opacity",
+        "strokeWidth",
+        "original_color",
+        "is_filled",
+        "original_stroke",
+        "viz_fill_color",
+        "viz_stroke_color",
+    ],
+)
+@pytest.mark.parametrize("colors", [["red", "blue"], [2, 4]])
+def test_altair_tooltip_does_not_overwrite_rendering_columns(key, colors):
+    """Tooltip fields must not change position, styling, or color inference."""
+    backend = AltairBackend(space_drawer=MagicMock())
+    backend.space_drawer.get_viz_limits.return_value = (0, 10, 0, 10)
+    arguments = {
+        "loc": np.array([[1, 2], [3, 4]]),
+        "size": np.array([5, 10]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([0.5, 1.0]),
+        "strokeWidth": np.array([1, 2]),
+        "color": np.array(colors),
+        "filled": np.array([True, False]),
+        "stroke": np.array(["black", "green"]),
+        "tooltip": np.array([None, None]),
+    }
+    control = backend.draw_agents(arguments)
+    arguments["tooltip"] = np.array([{key: 99}, {key: None}], dtype=object)
+    chart = backend.draw_agents(arguments)
+    for column in control.data:
+        assert chart.data[column].equals(control.data[column])
+    encoding = chart.to_dict()["encoding"]
+    control_encoding = control.to_dict()["encoding"]
+    assert {k: v for k, v in encoding.items() if k != "tooltip"} == {
+        k: v for k, v in control_encoding.items() if k != "tooltip"
+    }
+    tooltip = encoding["tooltip"][0]
+    assert tooltip["title"] == key
+    assert tooltip["field"] not in control.data
+    assert chart.data[tooltip["field"]].iloc[0] == 99
+    assert np.isnan(chart.data[tooltip["field"]].iloc[1])
+
+
+def test_altair_tooltip_heterogeneous_keys_and_labels():
+    """Preserve labels and missing values without interpreting field syntax."""
+    backend = AltairBackend(space_drawer=MagicMock())
+    backend.space_drawer.get_viz_limits.return_value = (0, 10, 0, 10)
+    arguments = {
+        "loc": np.array([[1, 2], [3, 4], [5, 6]]),
+        "size": np.array([5, 5, 5]),
+        "shape": np.array(["circle"] * 3),
+        "opacity": np.ones(3),
+        "strokeWidth": np.ones(3),
+        "color": np.array(["red"] * 3),
+        "filled": np.ones(3, dtype=bool),
+        "stroke": np.array(["black"] * 3),
+        "tooltip": np.array(
+            [
+                {"x": 99, "rate:Q": 1, "a.b": "first"},
+                {"_mesa_tooltip_0": "user", "empty": None, "a[b]": "second"},
+                None,
+            ],
+            dtype=object,
+        ),
+    }
+    chart = backend.draw_agents(arguments)
+    tooltips = chart.to_dict()["encoding"]["tooltip"]
+    assert [t["title"] for t in tooltips] == sorted(
+        ["x", "rate:Q", "a.b", "_mesa_tooltip_0", "empty", "a[b]"]
+    )
+    fields = {t["title"]: t["field"] for t in tooltips}
+    assert len(set(fields.values())) == len(fields)
+    assert chart.data[fields["x"]].iloc[0] == 99
+    assert chart.data[fields["_mesa_tooltip_0"]].iloc[1] == "user"
+    assert chart.data[fields["a.b"]].iloc[0] == "first"
+    assert chart.data[fields["a[b]"]].iloc[1] == "second"
+    assert chart.data[fields["empty"]].isna().all()
+    assert chart.data[list(fields.values())].iloc[2].isna().all()
+    assert chart.data["x"].tolist() == [1, 3, 5]
