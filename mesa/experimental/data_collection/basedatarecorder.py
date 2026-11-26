@@ -278,9 +278,24 @@ class BaseDataRecorder(ABC):
 
     @abstractmethod
     def _store_dataset_snapshot(
-        self, dataset_name: str, time: int | float, data: Any
+        self,
+        dataset_name: str,
+        time: int | float,
+        data: Any,
+        is_overwrite: bool = False,
     ) -> None:
-        """Store a single snapshot of data."""
+        """Store a single snapshot of data.
+
+        Args:
+            dataset_name: Name of the dataset being stored.
+            time: Simulation time of this snapshot.
+            data: The data to store.
+            is_overwrite: If True, replace the most recently stored
+                snapshot for this dataset instead of appending a new one.
+                Every concrete recorder gets this from both collection
+                paths (the observable-driven one and manual ``collect()``)
+                whenever two snapshots land on the same ``time``.
+        """
 
     def collect(self) -> None:
         """Manually trigger collection (for manual mode or testing).
@@ -294,7 +309,17 @@ class BaseDataRecorder(ABC):
             if not config.enabled:
                 continue
 
-            self._record_dataset(name, current_time)
+            # A second collect() at the same time (e.g. two manual calls
+            # between real steps) replaces the prior snapshot for that time
+            # instead of appending a duplicate, matching _on_time_change.
+            # _record_dataset() ignores this for append-only datasets, since
+            # their rows never change and an overwrite would otherwise drop
+            # rows the new snapshot doesn't re-include.
+            is_overwrite = current_time == config._last_collection
+
+            self._record_dataset(name, current_time, is_overwrite)
+            config._last_collection = current_time
+
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
 

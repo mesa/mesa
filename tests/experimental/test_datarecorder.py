@@ -186,6 +186,46 @@ def test_base_recorder_manual_collect():
     assert len(recorder.storage["agent_data"].blocks) > 0
 
 
+def test_base_recorder_manual_collect_same_time_overwrites():
+    """A second collect() at the same model.time replaces, not duplicates.
+
+    collect()'s own docstring recommends calling it manually "for manual
+    mode or testing", and the observable-driven path already treats a
+    second collection at the same time as an overwrite (see
+    _on_time_change). Manual collect() must do the same, or every repeated
+    manual call silently appends a duplicate row for that time.
+    """
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"agent_data": DatasetConfig()})
+    recorder.clear()
+
+    recorder.collect()
+    recorder.collect()
+    recorder.collect()
+
+    storage = recorder.storage["agent_data"]
+    assert len(storage.blocks) == 1
+
+    df = recorder.get_table_dataframe("agent_data")
+    assert (df["time"] == model.time).sum() == 5  # 5 agents, one snapshot
+
+
+def test_base_recorder_manual_collect_distinct_times_append():
+    """collect() calls at genuinely different times still each append."""
+    model = MockModel(n=5)
+    recorder = DataRecorder(model, config={"agent_data": DatasetConfig()})
+    recorder.clear()
+
+    recorder.collect()
+    model.step()
+    recorder.collect()
+    model.step()
+    recorder.collect()
+
+    storage = recorder.storage["agent_data"]
+    assert len(storage.blocks) == 3
+
+
 def test_base_recorder_get_all_dataframes():
     """Test get_all_dataframes method."""
     model = MockModel(n=5)
@@ -337,9 +377,12 @@ def test_data_recorder_window_eviction_custom():
     recorder = DataRecorder(model, config={"custom_data": DatasetConfig(window_size=2)})
     recorder.clear()
 
-    # Fill window
+    # Fill window across three distinct times, so the third collect()
+    # evicts the first on genuine eviction, not a same-time overwrite.
     recorder.collect()
+    model.step()
     recorder.collect()
+    model.step()
     recorder.collect()  # Should evict first
 
     storage = recorder.storage["custom_data"]
@@ -504,6 +547,13 @@ def test_json_recorder_numpy_dataset_ids_stay_aligned_after_removal(tmp_path):
 
     # Removing agent 1 moves agent 4's row into row 0 (swap-with-last).
     next(agent for agent in model.agents if agent.unique_id == 1).remove()
+
+    # Advance to a distinct time so the second collect() below isn't an
+    # overwrite of the first. Auto-collection is disabled across the step so
+    # it doesn't fire its own snapshot at the old time and clobber "before".
+    recorder.disable_dataset("numpy_data")
+    model.step()
+    recorder.enable_dataset("numpy_data")
     recorder.collect()
 
     before, after = recorder.data["numpy_data"]
