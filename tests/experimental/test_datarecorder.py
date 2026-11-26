@@ -546,6 +546,13 @@ def test_json_recorder_numpy_dataset_ids_stay_aligned_after_removal(tmp_path):
 
     # Removing agent 1 moves agent 4's row into row 0 (swap-with-last).
     next(agent for agent in model.agents if agent.unique_id == 1).remove()
+
+    # Advance to a distinct time so the second collect() below isn't an
+    # overwrite of the first. Auto-collection is disabled across the step so
+    # it doesn't fire its own snapshot at the old time and clobber "before".
+    recorder.disable_dataset("numpy_data")
+    model.step()
+    recorder.enable_dataset("numpy_data")
     recorder.collect()
 
     before, after = recorder.data["numpy_data"]
