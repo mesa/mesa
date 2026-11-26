@@ -296,6 +296,86 @@ class TestThresholdCrossing:
         assert tram.brake_events[1] == pytest.approx(18.75)
 
 
+class TestChainedRateDerivatives:
+    """Validates the time derivative of scaled, negative, and composite chained rates."""
+
+    def test_scaled_and_combined_chained_rates(self, model: TramModel) -> None:
+        """Ensure scaling, signs, and combined states in chained rates integrate correctly."""
+
+        class ChainedAgent(Agent, HasEmitters):
+            acceleration = Observable(fallback_value=0.0)
+            speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+            current = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+
+            scaled = ContinuousState(fallback_value=0.0, rate=lambda a: 2 * a.speed)
+            negative = ContinuousState(fallback_value=0.0, rate=lambda a: -a.speed)
+            combined = ContinuousState(
+                fallback_value=0.0, rate=lambda a: a.speed + a.current
+            )
+            offset = ContinuousState(fallback_value=0.0, rate=lambda a: a.speed + 5)
+
+            # Define Thresholds on each so their trajectory is tracked
+            _t_scaled = Threshold(state=scaled, limit=100.0, callback="dummy")
+            _t_neg = Threshold(
+                state=negative, limit=-100.0, callback="dummy", direction="falling"
+            )
+            _t_comb = Threshold(state=combined, limit=100.0, callback="dummy")
+            _t_off = Threshold(state=offset, limit=100.0, callback="dummy")
+
+            def __init__(self, model: Model) -> None:
+                super().__init__(model)
+                self.acceleration = 1.0
+                self.speed = 0.0
+                self.current = 0.0
+                self.scaled = 0.0
+                self.negative = 0.0
+                self.combined = 0.0
+                self.offset = 0.0
+
+            def dummy(self) -> None:
+                pass
+
+        agent = ChainedAgent(model)
+        model.run_until(4.0)
+
+        # Acceleration = 1.0 from rest: speed(t) = t, current(t) = t
+        # scaled = 2 * speed -> rate' = 2, value(4) = 0.5 * 2 * 4^2 = 16
+        # negative = -speed -> rate' = -1, value(4) = -0.5 * 1 * 4^2 = -8
+        # combined = speed + current -> rate' = 2, value(4) = 16
+        # offset = speed + 5 -> rate(0) = 5, rate' = 1, value(4) = 5*4 + 0.5*1*4^2 = 28
+        assert agent.scaled == pytest.approx(16.0)
+        assert agent.negative == pytest.approx(-8.0)
+        assert agent.combined == pytest.approx(16.0)
+        assert agent.offset == pytest.approx(28.0)
+
+    def test_chained_rate_fuel_threshold(self, model: TramModel) -> None:
+        """Ensure negative scaled chained rate triggers Threshold at the correct analytical time."""
+
+        class Truck(Agent, HasEmitters):
+            acceleration = Observable(fallback_value=0.0)
+            speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+            fuel = ContinuousState(fallback_value=0.0, rate=lambda a: -0.5 * a.speed)
+            _empty = Threshold(
+                state=fuel, limit=0.0, callback="out_of_fuel", direction="falling"
+            )
+
+            def __init__(self, model: Model) -> None:
+                super().__init__(model)
+                self.empty_at = None
+                self.acceleration = 1.0
+                self.speed = 0.0
+                self.fuel = 4.0
+
+            def out_of_fuel(self) -> None:
+                self.empty_at = self.model.time
+
+        truck = Truck(model)
+        model.run_until(2.0)
+        assert truck.fuel == pytest.approx(3.0)
+        model.run_until(10.0)
+        assert truck.empty_at == pytest.approx(4.0)
+
+
 class TestDemoIntegration:
     """Validates the full piecewise hybrid kinematics system end-to-end."""
 

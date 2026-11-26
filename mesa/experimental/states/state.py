@@ -136,18 +136,59 @@ class ContinuousState(BaseObservable):
     def _find_chained_rate(
         self, comp_state: ComputedState, instance: HasEmitters
     ) -> float:
-        """Return the rate-of-the-rate if this state's rate depends on another ContinuousState.
+        """Estimate the derivative of the complete rate expression.
 
-        Scans the dependencies the rate callable's ComputedState recorded for one
-        that is a ContinuousState descriptor on the instance's class.
+        ContinuousState dependencies are projected forward and backward
+        without changing the model time or notifying Observable subscribers.
         """
+        dependencies = []
+
         for parent, attrs in comp_state.parents.items():
             for attr_name in attrs:
                 descriptor = getattr(type(parent), attr_name, None)
-                if isinstance(descriptor, ContinuousState):
-                    return descriptor.get_rate(parent)
 
-        return 0.0
+                if isinstance(descriptor, ContinuousState):
+                    dep_state = descriptor._get_state(parent)
+                    descriptor._refresh_rate_if_dirty(dep_state, parent)
+                    dependencies.append((descriptor, parent, dep_state))
+
+        if not dependencies:
+            return 0.0
+
+        h = 1.0
+
+        def evaluate_at(offset: float) -> float:
+            snapshots = []
+
+            try:
+                for descriptor, parent, dep_state in dependencies:
+                    parent_time = parent.model.peek("time", 0.0)
+
+                    snapshots.append(
+                        (
+                            dep_state,
+                            dep_state["base_value"],
+                            dep_state["last_time"],
+                        )
+                    )
+
+                    dt = parent_time + offset - dep_state["last_time"]
+                    projected_value = descriptor._extrapolate(dep_state, dt)
+
+                    dep_state["base_value"] = projected_value
+                    dep_state["last_time"] = parent_time
+
+                return float(comp_state.func(instance))
+
+            finally:
+                for dep_state, base_value, last_time in snapshots:
+                    dep_state["base_value"] = base_value
+                    dep_state["last_time"] = last_time
+
+        rate_at_0 = evaluate_at(0.0)
+        rate_at_h = evaluate_at(h)
+
+        return (rate_at_h - rate_at_0) / h
 
     def _extrapolate(self, state: dict[str, Any], dt: float) -> float:
         """Project the value forward by dt using the cached base and rates."""
