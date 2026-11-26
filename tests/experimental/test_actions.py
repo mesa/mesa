@@ -1,6 +1,7 @@
 """Tests for mesa.experimental.actions."""
 
 # ruff: noqa: D101, D102, D103, D107
+import contextlib
 import copy
 import gc
 import math
@@ -12,6 +13,7 @@ import pytest
 
 from mesa import Agent, Model
 from mesa.experimental.actions import Action, ActionState, HasActions
+from mesa.experimental.actions.actions import _FINAL_STATES as _FINAL
 from mesa.experimental.mesa_signals import HasEmitters
 from mesa.time import Priority
 
@@ -2327,6 +2329,240 @@ class TestRealisticScenarios:
 
         assert trade.state is ActionState.FAILED
         assert not trader.filled
+
+
+# --- Invariants under random use ---
+
+
+class Probe(Action):
+    """Action that counts its hooks and sometimes makes lifecycle calls in them."""
+
+    def __init__(self, agent, rng, **kwargs):
+        fail_start = rng.random() < 0.1
+        fail_completion = rng.random() < 0.1
+        super().__init__(
+            agent,
+            duration=rng.choice([0.0, 0.5, 1.0, 2.5, rng.uniform(0.1, 3.0)]),
+            priority=rng.choice([0.0, 1.0, 2.0, -math.inf, math.inf]),
+            interruptible=rng.random() < 0.8,
+            start_requirements=lambda a: not fail_start,
+            completion_requirements=lambda a: not fail_completion,
+            **kwargs,
+        )
+        self.rng = rng
+        self.starts = 0
+        self.stops = 0
+        self.deltas = []
+        self.outcomes = {"interrupt": 0, "complete": 0, "fail": 0, "cancel": 0}
+
+    def _meddle(self):
+        """Occasionally re-enter the lifecycle, as models may."""
+        roll = self.rng.random()
+        with contextlib.suppress(ValueError):
+            if roll < 0.05:
+                self.interrupt(force=True)
+            elif roll < 0.08:
+                self.cancel()
+            elif roll < 0.11 and self.state is ActionState.INTERRUPTED:
+                self.resume()
+
+    def on_start(self):
+        self.starts += 1
+        self._meddle()
+
+    def on_resume(self):
+        self.starts += 1
+        self._meddle()
+
+    def on_progress(self, delta):
+        assert self.state is ActionState.ACTIVE
+        self.deltas.append(delta)
+        assert self.progress == pytest.approx(sum(self.deltas))
+
+    def on_stop(self):
+        self.stops += 1
+
+    def on_interrupt(self):
+        self.outcomes["interrupt"] += 1
+        self._meddle()
+
+    def on_complete(self):
+        self.outcomes["complete"] += 1
+
+    def on_fail(self):
+        self.outcomes["fail"] += 1
+
+    def on_cancel(self):
+        self.outcomes["cancel"] += 1
+
+
+class RandomAgent(ActionAgent):
+    def __init__(self, model):
+        super().__init__(model)
+        self.probes = []
+
+    def new_probe(self):
+        probe = Probe(self, self.model.random)
+        self.probes.append(probe)
+        return probe
+
+    def on_idle(self, previous):
+        if self.model.random.random() < 0.5:
+            self.start_action(self.new_probe())
+
+
+class TestInvariants:
+    """Random lifecycle calls, with the invariants checked between all of them."""
+
+    def check(self, model, agents, finals):
+        live_events = [
+            e for e in model._event_list._events if not e.CANCELED and e.fn is not None
+        ]
+        for agent in agents:
+            if getattr(agent, "_removed", False):
+                assert agent.current_action is None
+                assert agent._wake_event is None
+            for probe in agent.probes:
+                state = probe.state
+                # 1. the slot holds exactly the ACTIVE action
+                assert (agent.current_action is probe) == (state is ActionState.ACTIVE)
+                # 2. one live completion event, at the deadline, only while ACTIVE
+                completions = [e for e in live_events if e.fn() == probe._do_complete]
+                if state is ActionState.ACTIVE:
+                    assert completions == [probe._event]
+                    assert probe._event.time == probe._deadline
+                else:
+                    assert completions == []
+                    assert probe._event is None
+                # 3. reported progress
+                if state is ActionState.ACTIVE:
+                    assert probe._reported <= probe.progress
+                else:
+                    assert probe._reported == probe.progress
+                assert math.isclose(
+                    math.fsum(probe.deltas), probe._reported, abs_tol=1e-12
+                )
+                # 4. one on_stop per ended attempt, one final outcome per final state
+                assert probe.starts == probe._attempts
+                ended = probe._attempts - (state is ActionState.ACTIVE)
+                assert probe.stops == ended
+                final_hooks = sum(
+                    probe.outcomes[k] for k in ("complete", "fail", "cancel")
+                )
+                assert final_hooks == (state in _FINAL)
+                # 5. final means final
+                if state in _FINAL:
+                    assert finals.setdefault(id(probe), state) is state
+                # 6. a removed agent left nothing running
+                if getattr(agent, "_removed", False):
+                    assert state not in (ActionState.ACTIVE, ActionState.INTERRUPTED)
+
+    def snapshot(self, model, agents, probes=None):
+        """What a call that raises ValueError must leave unchanged."""
+        if probes is None:
+            probes = [p for a in agents for p in a.probes]
+        return (
+            len(model._event_list),
+            [a.current_action for a in agents],
+            [(p.state, p.progress, p._attempts) for p in probes],
+        ), probes
+
+    def advance(self, model, agents, finals, until):
+        """Run events up to `until` one by one, checking in between."""
+        while True:
+            try:
+                event = model._event_list.pop_event()
+            except IndexError:
+                break
+            if event.time > until:
+                model._event_list.add_event(event)
+                break
+            model.time = float(event.time)
+            event.execute()
+            self.check(model, agents, finals)
+        model.time = float(until)
+
+    @pytest.mark.parametrize("seed", range(8))
+    def test_random_lifecycle(self, seed):
+        model = Model(rng=seed)
+        rng = model.random
+        agents = [RandomAgent(model) for _ in range(4)]
+        finals = {}
+
+        def op_start(agent):
+            probe = agent.new_probe()
+            if agent.is_busy and rng.random() < 0.7:
+                agent.interrupt_for(probe)
+            else:
+                agent.start_action(probe)
+
+        def op_resume(agent):
+            interrupted = [p for p in agent.probes if p.is_resumable]
+            if interrupted:
+                probe = rng.choice(interrupted)
+                if rng.random() < 0.5:
+                    agent.interrupt_for(probe)
+                else:
+                    probe.resume()
+
+        def op_cancel_any(agent):
+            open_probes = [p for p in agent.probes if p.state not in _FINAL]
+            if open_probes:
+                rng.choice(open_probes).cancel()
+
+        keep_alive = []  # events hold their callables weakly
+
+        def op_at_deadline(agent):
+            """Make a random call at the exact time the current action is due."""
+            current = agent.current_action
+            if current is None:
+                return
+            calls = [
+                lambda: agent.interrupt_action(force=True),
+                agent.cancel_action,
+                lambda: agent.interrupt_for(agent.new_probe()),
+                lambda: agent.interrupt_for(current),
+            ]
+            call = rng.choice(calls)
+
+            def run():
+                with contextlib.suppress(ValueError):
+                    call()
+
+            keep_alive.append(run)
+            model.schedule_event(run, at=current._deadline, priority=Priority.HIGH)
+
+        ops = [
+            (op_start, 4),
+            (op_at_deadline, 1),
+            (lambda a: a.interrupt_action(force=rng.random() < 0.3), 2),
+            (lambda a: a.cancel_action(), 1),
+            (op_resume, 2),
+            (op_cancel_any, 1),
+            (lambda a: a.remove(), 0.15),
+        ]
+        functions, weights = zip(*ops)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)  # dropped wakes
+            for _ in range(400):
+                if rng.random() < 0.35:
+                    step = rng.choice([0.0, 0.5, 1.0, rng.uniform(0, 2)])
+                    self.advance(model, agents, finals, model.time + step)
+                    continue
+                agent = rng.choice(agents)
+                if getattr(agent, "_removed", False):
+                    agents.append(RandomAgent(model))
+                    continue
+                (op,) = rng.choices(functions, weights)
+                before, probes = self.snapshot(model, agents)
+                try:
+                    op(agent)
+                except ValueError:
+                    # validation errors are raised before anything changes
+                    assert self.snapshot(model, agents, probes)[0] == before
+                self.check(model, agents, finals)
+
+        assert finals, "the run should have ended some actions"
 
 
 # --- Wake contract (on_idle) ---
