@@ -285,6 +285,10 @@ class Action:
         The action is ACTIVE and its completion is already scheduled.
         Override to acquire what the attempt needs (on_stop() releases it).
         Not called directly on resume; on_resume() calls it by default.
+
+        A zero-duration action is already due while this runs: cancel() or
+        interrupt() from here completes it, and on_complete() runs before
+        on_start() returns.
         """
 
     def on_resume(self) -> None:
@@ -498,7 +502,7 @@ class Action:
         else:
             self.on_start()
 
-        # An instant action completes here, unless the hook ended it.
+        # An instant action completes here, unless the hook removed its agent.
         if self._deadline <= now and self._state is ActionState.ACTIVE:
             self._complete()
         return True
