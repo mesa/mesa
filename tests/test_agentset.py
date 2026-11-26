@@ -142,6 +142,56 @@ def test_agentset():
     assert len(another_set) == len(other_agents)
 
 
+@pytest.mark.parametrize(
+    ("at_most", "expected"),
+    [
+        (np.int8(2), 2),
+        (np.int64(2), 2),
+        (np.uint8(2), 2),
+        (np.uint64(0), 0),
+        (np.float16(0.5), 5),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32(1.0), 10),
+        (np.float32("inf"), 10),
+    ],
+)
+def test_agentset_select_accepts_numpy_numbers(at_most, expected):
+    """Test that numpy integer and float scalars are accepted for at_most."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(10)], random=model.random)
+
+    assert len(agentset.select(lambda a: True, at_most=at_most)) == expected
+
+
+@pytest.mark.parametrize(
+    "at_most",
+    [
+        np.int64(-1),
+        np.float32(0.0),
+        np.float32(-0.5),
+        np.float32(1.5),
+        np.float32("nan"),
+    ],
+)
+def test_agentset_select_rejects_invalid_numpy_values(at_most):
+    """Test that out-of-range numpy values raise a ValueError."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(10)], random=model.random)
+
+    with pytest.raises(ValueError):
+        agentset.select(at_most=at_most)
+
+
+def test_agentset_select_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    model = Model(rng=42)
+    agentset = AgentSet([AgentTest(model) for _ in range(3)], random=model.random)
+
+    with pytest.raises(TypeError, match="at_most must be an integer or float"):
+        agentset.select(at_most=np.True_)
+
+
 def test_agentset_initialization():
     """Test agentset initialization."""
     model = Model()
@@ -1609,3 +1659,51 @@ def test_model_agents_set_operations_no_leak_on_remove():
 
     assert ref2() is None
     assert set(diff) == {a3}
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        [1e308, 1e308],
+        [8e307, 1e308],
+        np.array([1e308, 1e308]),
+    ],
+)
+def test_select_random_weighted_overflow(weights):
+    """Weighted sampling should accept large finite weights."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(2)]
+    agentset = AgentSet(agents, random=model.random)
+
+    selected = agentset.select_random(
+        1,
+        weights=weights,
+        replace=True,
+    )
+
+    assert len(selected) == 1
+    assert selected.to_list()[0] in agents
+
+
+def test_weighted_overflow_preserves_selection():
+    """Scaling large weights preserves seeded selections."""
+    model = Model(rng=42)
+    agents = [AgentTest(model) for _ in range(3)]
+
+    large_weights = [8e307, 1e308, 9e307]
+    normalized = [w / max(large_weights) for w in large_weights]
+
+    large_set = AgentSet(agents, random=Random(42))
+    normalized_set = AgentSet(agents, random=Random(42))
+
+    large_draws = [
+        large_set.select_random(1, weights=large_weights, replace=True).to_list()[0]
+        for _ in range(100)
+    ]
+
+    normalized_draws = [
+        normalized_set.select_random(1, weights=normalized, replace=True).to_list()[0]
+        for _ in range(100)
+    ]
+
+    assert large_draws == normalized_draws

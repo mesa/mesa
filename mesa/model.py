@@ -136,7 +136,7 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             self._user_step,
             Schedule(interval=1.0, start=1.0),
             priority=Priority.HIGH,
-        ).start()
+        )._start()
         self.step = self._wrapped_step
 
         # setup agent registration data structures
@@ -258,10 +258,10 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
         """
-        # Add to main storage
-        self._all_agents.add(agent)
+        # Set the id before storing the agent: an agent may hash by unique_id
         agent.unique_id = self.agent_id_counter
         self.agent_id_counter += 1
+        self._all_agents.add(agent)
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled
@@ -378,14 +378,20 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             priority: Priority level for generated events
 
         Returns:
-            The EventGenerator (can be used to stop)
+            The EventGenerator, which can be paused, resumed or canceled.
 
         Raises:
-            ValueError: If the schedule start time is in the past.
+            ValueError: If the schedule start time is in the past, or if nothing
+                else keeps the function alive (e.g., an inline functools.partial).
         """
+        callback_ref = _create_callable_reference(function)
+        function = None
+        function = callback_ref()
+        if function is None:
+            raise ValueError("function must be alive at Event creation.")
+
         generator = EventGenerator(self, function, schedule, priority)
-        generator.start()
-        return generator
+        return generator._start()
 
     @emit("model", ModelSignals.RUN_ENDED, when="after")
     def run_for(self, duration: float | int) -> None:

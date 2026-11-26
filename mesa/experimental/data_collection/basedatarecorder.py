@@ -44,7 +44,10 @@ class DatasetConfig:
         interval: Collection frequency in time units
         start_time: First time to begin collection
         end_time: Last time to collect (None = collect forever)
-        window_size: Max snapshots to keep (None = keep all, N = sliding window)
+        window_size: Max snapshots to keep (None = keep all, N = sliding window).
+            For a TableDataSet each snapshot holds the rows added since the
+            previous collection, so the window keeps the rows of the last N
+            collections rather than the last N rows.
         enabled: Whether collection is active
         _next_collection: Next scheduled collection time (internal)
 
@@ -174,6 +177,9 @@ class BaseDataRecorder(ABC):
             dataset = self.registry[name]
             self._initialize_dataset_storage(name, dataset)
 
+        # Append-only datasets (TableDataSet): rows recorded so far per dataset
+        self._rows_recorded: dict[str, int] = {}
+
         self._subscribe_to_model()
 
     def _subscribe_to_model(self) -> None:
@@ -196,13 +202,7 @@ class BaseDataRecorder(ABC):
             ):
                 continue
 
-            dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
-
-            self._store_dataset_snapshot(
-                name, current_time, data_snapshot, is_overwrite
-            )
-
+            self._record_dataset(name, current_time, is_overwrite)
             config._last_collection = current_time
 
             # Update next collection time (may auto-disable)
@@ -223,10 +223,54 @@ class BaseDataRecorder(ABC):
 
             is_overwrite = current_time == config._last_collection
 
-            dataset = self.registry.datasets[name]
-            self._store_dataset_snapshot(name, current_time, dataset.data, is_overwrite)
-
+            self._record_dataset(name, current_time, is_overwrite)
             config._last_collection = current_time
+
+    def _record_dataset(
+        self, name: str, time: int | float, is_overwrite: bool = False
+    ) -> None:
+        """Record the current data of a dataset at the given time.
+
+        This is the single place where all collection paths (time changes,
+        the end of a run, and manual ``collect()``) record a dataset.
+
+        Args:
+            name: name of the dataset
+            time: the simulation time to record the data at
+            is_overwrite: whether this replaces what is already recorded at
+                this time. Ignored for append-only datasets: their recorded
+                rows never change, so there is nothing to replace, and an
+                overwrite would delete rows the snapshot does not include again.
+        """
+        dataset = self.registry.datasets[name]
+        if self._is_append_only(dataset):
+            is_overwrite = False
+        data_snapshot = self._take_snapshot(name, dataset)
+        self._store_dataset_snapshot(name, time, data_snapshot, is_overwrite)
+
+    @staticmethod
+    def _is_append_only(dataset: Any) -> bool:
+        """Return whether rows are only ever added to the dataset.
+
+        Such a dataset (e.g., a TableDataSet) defines ``get_rows_since``. The
+        method is looked up on the type, so only dataset classes that define
+        it qualify (not, e.g., objects with dynamic attributes such as mocks).
+        """
+        return getattr(type(dataset), "get_rows_since", None) is not None
+
+    def _take_snapshot(self, name: str, dataset: Any) -> Any:
+        """Return the data to store for a dataset at this collection.
+
+        For an append-only dataset only the rows added since the previous
+        collection are returned, because the dataset itself is cumulative.
+        For all other datasets this is simply ``dataset.data``.
+        """
+        if not self._is_append_only(dataset):
+            return dataset.data
+
+        rows = dataset.get_rows_since(self._rows_recorded.get(name, 0))
+        self._rows_recorded[name] = self._rows_recorded.get(name, 0) + len(rows)
+        return rows
 
     @abstractmethod
     def _initialize_dataset_storage(self, dataset_name: str, dataset: Any) -> None:
@@ -268,14 +312,14 @@ class BaseDataRecorder(ABC):
             # A second collect() at the same time (e.g. two manual calls
             # between real steps) replaces the prior snapshot for that time
             # instead of appending a duplicate, matching _on_time_change.
+            # _record_dataset() ignores this for append-only datasets, since
+            # their rows never change and an overwrite would otherwise drop
+            # rows the new snapshot doesn't re-include.
             is_overwrite = current_time == config._last_collection
 
-            dataset = self.registry.datasets[name]
-            data_snapshot = dataset.data
-            self._store_dataset_snapshot(
-                name, current_time, data_snapshot, is_overwrite
-            )
+            self._record_dataset(name, current_time, is_overwrite)
             config._last_collection = current_time
+
             if (current_time - config.start_time) % config.interval == 0:
                 config.update_next_collection(current_time)
 

@@ -2,6 +2,7 @@
 # ruff: noqa: D101, D102
 
 import gc
+import math
 import pickle
 from collections.abc import Callable
 from functools import partial
@@ -13,6 +14,7 @@ from mesa import Model
 from mesa.time import (
     Event,
     EventGenerator,
+    EventGeneratorState,
     EventList,
     Priority,
     Schedule,
@@ -58,6 +60,12 @@ class TestSchedule:
             Schedule(interval=0)
         with pytest.raises(ValueError):
             Schedule(interval=-1)
+
+    @pytest.mark.parametrize("interval", [math.inf, math.nan])
+    def test_rejects_non_finite_interval(self, interval):
+        """NaN slipped past the old <= 0 check and broke event ordering."""
+        with pytest.raises(ValueError, match="finite"):
+            Schedule(interval=interval)
 
     def test_rejects_nonpositive_count(self):
         with pytest.raises(ValueError):
@@ -300,6 +308,24 @@ class TestEventListBasics:
             el.add_event(Event(i, fn, priority=Priority.DEFAULT))
         el.clear()
         assert len(el) == 0
+
+    def test_remove_event_from_different_list(self):
+        """Removing an event from another list must not cancel it."""
+        queue_a = EventList()
+        queue_b = EventList()
+        fn = MagicMock()
+
+        event = Event(5, fn)
+        queue_b.add_event(event)
+
+        queue_a.remove(event)
+
+        assert not event.CANCELED
+        assert len(queue_b) == 1
+        assert event in queue_b
+
+        queue_b.pop_event().execute()
+        fn.assert_called_once()
 
 
 class TestEventListPeekAhead:
@@ -829,13 +855,13 @@ class TestEventGeneratorInit:
         assert gen._get_interval() == 2.0
 
 
-class TestEventGeneratorStartStop:
+class TestEventGeneratorStart:
     def test_start_with_schedule_start(self, setup):
         """Test start uses schedule.start time."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=5.0))
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=5.0))
 
-        assert gen.start() is gen
+        assert gen.state is EventGeneratorState.ACTIVE
         assert gen.is_active
 
         model.run_for(4.9)
@@ -846,8 +872,7 @@ class TestEventGeneratorStartStop:
     def test_start_without_schedule_start(self, setup):
         """Test start defaults to now + interval when schedule.start is None."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=2.0))
-        gen.start()
+        model.schedule_recurring(fn, Schedule(interval=2.0))
 
         model.run_for(1.9)
         fn.assert_not_called()
@@ -858,146 +883,100 @@ class TestEventGeneratorStartStop:
         """Starting a generator whose schedule.start has passed must not rewind time."""
         model, fn = setup
         model.run_until(5.0)
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=1.0))
+        generators = set(model._event_generators)
 
         with pytest.raises(ValueError, match="in the past"):
-            gen.start()
+            model.schedule_recurring(fn, Schedule(interval=1.0, start=1.0))
+        assert model._event_generators == generators
+
+    def test_starts_once(self, setup):
+        """A generator runs one schedule; a fresh run is a new generator."""
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+
+        with pytest.raises(ValueError, match="schedule_recurring"):
+            gen._start()
+
+    def test_new_generator_is_pending(self, setup):
+        model, fn = setup
+        gen = EventGenerator(model, fn, Schedule(interval=1.0))
+
+        assert gen.state is EventGeneratorState.PENDING
+        assert not gen.is_active
+        assert gen.pause() is False
+        with pytest.raises(ValueError, match="PENDING"):
+            gen.resume()
+
+
+class TestEventGeneratorCancel:
+    def test_cancel(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+
+        assert gen.cancel() is True
+        assert gen.state is EventGeneratorState.CANCELED
         assert not gen.is_active
         assert gen not in model._event_generators
 
-    def test_restart_after_schedule_start_passed_raises(self, setup):
-        """Restarting a stopped generator with a past schedule.start must not replay old events."""
-        model, fn = setup
-        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=1.0))
-        model.run_until(5.0)
-        gen.stop()
-        fn.reset_mock()
-
-        with pytest.raises(ValueError, match="in the past"):
-            gen.start()
-
-        model.run_for(3.0)
-        fn.assert_not_called()
-        assert model.time == 8.0
-
-    def test_restart_after_count_exhausted_does_not_fire(self, setup):
-        """Restarting a generator whose count is used up must not exceed count."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, count=2)).start()
-        model.run_for(5.0)
-        assert fn.call_count == 2
-        assert not gen.is_active
-
-        gen.start()
-        assert not gen.is_active
-
-        model.run_for(5.0)
-        assert fn.call_count == 2
-
-    def test_start_when_active_is_noop(self, setup):
-        """Test that starting when active does nothing."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
-        event_count = len(model._event_list)
-
-        gen.start()  # No-op
-        assert len(model._event_list) == event_count
-
-    def test_stop(self, setup):
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start().stop()
-        assert not gen.is_active
-
         model.run_for(5.0)
         fn.assert_not_called()
 
-    def test_stop_from_within_callback(self, setup):
-        """Stopping from the callback must not reschedule a next event."""
+    def test_cancel_is_final(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        gen.cancel()
+
+        assert gen.cancel() is False
+        assert gen.pause() is False
+        with pytest.raises(ValueError, match="CANCELED"):
+            gen.resume()
+        model.run_for(5.0)
+        fn.assert_not_called()
+
+    def test_cancel_while_paused(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        gen.pause()
+
+        assert gen.cancel() is True
+        model.run_for(5.0)
+        fn.assert_not_called()
+        assert (gen.is_active, gen.is_paused) == (False, False)
+
+    def test_cancel_from_within_callback(self, setup):
+        """Canceling from the callback must not reschedule a next event."""
         model, _ = setup
         calls = []
         gen = None
 
         def cb():
             calls.append(model.time)
-            gen.stop()
+            gen.cancel()
 
-        gen = EventGenerator(model, cb, Schedule(interval=1.0, start=1.0))
-        gen.start()
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0, start=1.0))
         model.run_for(5.0)
 
         assert calls == [1.0]
-        assert not gen.is_active
+        assert gen.state is EventGeneratorState.CANCELED
         assert gen.next_scheduled_time is None
 
-    def test_pause_from_within_callback(self, setup):
-        """Pausing from the callback must not reschedule until resume."""
-        model, _ = setup
-        calls = []
-        gen = None
-
-        def cb():
-            calls.append(model.time)
-            if len(calls) == 1:
-                gen.pause()
-
-        gen = EventGenerator(model, cb, Schedule(interval=1.0, start=1.0))
-        gen.start()
+    def test_finished_is_final(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, count=2))
         model.run_for(5.0)
-        assert calls == [1.0]
-        assert gen.next_scheduled_time is None
 
-        gen.resume()
-        model.run_for(2.0)
-        assert calls == [1.0, 6.0, 7.0]
-
-    def test_restart_from_within_callback(self, setup):
-        """Restarting from the callback must not double-schedule the generator."""
-        model, _ = setup
-        calls = []
-        gen = None
-
-        def cb():
-            calls.append(model.time)
-            if len(calls) == 1:
-                gen.stop()
-                gen.start()
-
-        gen = EventGenerator(model, cb, Schedule(interval=1.0))
-        gen.start()
-        model.run_for(4.0)
-
-        # One call per step, never doubled.
-        assert calls == [1.0, 2.0, 3.0, 4.0]
-        assert len(calls) == len(set(calls))
-
-    def test_pause_resume_from_within_callback(self, setup):
-        """Pausing and resuming from the callback must not double-schedule either."""
-        model, _ = setup
-        calls = []
-        gen = None
-
-        def cb():
-            calls.append(model.time)
-            if len(calls) == 1:
-                gen.pause()
-                gen.resume()
-
-        gen = EventGenerator(model, cb, Schedule(interval=1.0))
-        gen.start()
-        model.run_for(4.0)
-
-        # resume() schedules a new event too, so this must not double up either.
-        assert calls == [1.0, 2.0, 3.0, 4.0]
-        assert len(calls) == len(set(calls))
+        assert gen.state is EventGeneratorState.FINISHED
+        assert gen.cancel() is False
+        with pytest.raises(ValueError, match="FINISHED"):
+            gen.resume()
+        model.run_for(5.0)
+        assert fn.call_count == 2
 
 
 class TestEventGeneratorExecution:
     def test_recurring_execution(self, setup):
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=2.0, start=0.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=2.0, start=0.0))
 
         model.run_for(7.0)
         assert fn.call_count == 4  # t=0, 2, 4, 6
@@ -1006,21 +985,20 @@ class TestEventGeneratorExecution:
     def test_schedule_end(self, setup):
         """Test schedule.end stops execution."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=0.0, end=2.5))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=0.0, end=2.5))
 
         model.run_for(5.0)
         assert fn.call_count == 3  # t=0, 1, 2
-        assert not gen.is_active
+        assert gen.state is EventGeneratorState.FINISHED
 
     def test_first_event_after_end_does_not_fire(self, setup):
         """A generator whose first event would fall after schedule.end never fires."""
         model, fn = setup
         model.run_for(10.0)
-        gen = EventGenerator(model, fn, Schedule(interval=5.0, end=12.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=5.0, end=12.0))
 
-        assert not gen.is_active
+        assert gen.state is EventGeneratorState.FINISHED
+        assert gen not in model._event_generators
 
         model.run_for(20.0)
         fn.assert_not_called()
@@ -1028,50 +1006,52 @@ class TestEventGeneratorExecution:
     def test_schedule_count(self, setup):
         """Test schedule.count limits executions."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0, start=0.0, count=3))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=0.0, count=3))
 
         model.run_for(10.0)
         assert fn.call_count == 3
         assert gen.execution_count == 3
-        assert not gen.is_active
+        assert gen.state is EventGeneratorState.FINISHED
 
     def test_count_reached_before_end(self, setup):
         """Test count reached before end."""
         model, fn = setup
-        gen = EventGenerator(
-            model, fn, Schedule(interval=1.0, start=0.0, end=100, count=2)
+        model.schedule_recurring(
+            fn, Schedule(interval=1.0, start=0.0, end=100, count=2)
         )
-        gen.start()
         model.run_for(10.0)
         assert fn.call_count == 2
+
+    def test_last_execution_computes_no_interval(self, setup):
+        """Once the count is used up, the interval isn't asked for another time."""
+        model, fn = setup
+        asked = []
+
+        def interval(m):
+            asked.append(m.time)
+            return 1.0
+
+        gen = model.schedule_recurring(fn, Schedule(interval=interval, count=2))
+        model.run_for(5.0)
+
+        assert asked == [0.0, 1.0]
+        assert gen.state is EventGeneratorState.FINISHED
 
     def test_callable_interval(self, setup):
         """Test callable interval evaluated each time."""
         model, fn = setup
         intervals = iter([1.0, 2.0, 1.0, 1.0])
         schedule = Schedule(interval=lambda m: next(intervals), start=0.0)
-        gen = EventGenerator(model, fn, schedule)
-        gen.start()
+        model.schedule_recurring(fn, schedule)
 
         model.run_for(4.5)
         assert fn.call_count == 4  # t=0, 1, 3, 4
-
-    def test_callable_interval_negative_raises(self, setup):
-        """Test if callable interval raises exception if return is negative."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(start=1, interval=lambda m: -0.5))
-        gen.start()
-
-        with pytest.raises(ValueError):
-            model.run_for(3)
 
     def test_functools_partial(self, setup):
         """Test using functools.partial for arguments."""
         model, fn = setup
         partial_func = partial(fn, "a", k="v")
-        gen = EventGenerator(model, partial_func, Schedule(interval=1.0, start=0.0))
-        gen.start()
+        model.schedule_recurring(partial_func, Schedule(interval=1.0, start=0.0))
 
         model.run_for(0.5)
         fn.assert_called_once_with("a", k="v")
@@ -1087,14 +1067,12 @@ class TestEventGeneratorExecution:
         def func_b():
             order.append("H")
 
-        low = EventGenerator(
-            model, func_a, Schedule(interval=1.0, start=1.0), Priority.LOW
+        model.schedule_recurring(
+            func_a, Schedule(interval=1.0, start=1.0), Priority.LOW
         )
-        high = EventGenerator(
-            model, func_b, Schedule(interval=1.0, start=1.0), Priority.HIGH
+        model.schedule_recurring(
+            func_b, Schedule(interval=1.0, start=1.0), Priority.HIGH
         )
-        low.start()
-        high.start()
 
         model.run_for(1.5)
         assert order == ["H", "L"]
@@ -1108,36 +1086,30 @@ class TestEventGeneratorIntrospection:
         assert not gen.is_active
         assert gen.next_scheduled_time is None
 
-        gen.start()
+        gen._start()
         assert gen.is_active
         assert gen.next_scheduled_time == model.time + 2.0
 
-        gen.stop()
+        gen.cancel()
         assert not gen.is_active
         assert gen.next_scheduled_time is None
 
     def test_is_paused_through_lifecycle(self, setup):
-        """is_paused tells a paused generator apart from a running or stopped one."""
+        """is_paused tells a paused generator apart from a running or ended one."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        assert (gen.is_active, gen.is_paused) == (False, False)
-
-        # pausing before start does nothing
-        gen.pause()
-        assert gen.is_paused is False
-
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
         assert (gen.is_active, gen.is_paused) == (True, False)
 
         gen.pause()
         assert (gen.is_active, gen.is_paused) == (True, True)
+        assert gen.state is EventGeneratorState.PAUSED
 
         gen.resume()
         assert (gen.is_active, gen.is_paused) == (True, False)
 
-        # stopping a paused generator clears the paused state too
+        # canceling a paused generator clears the paused state too
         gen.pause()
-        gen.stop()
+        gen.cancel()
         assert (gen.is_active, gen.is_paused) == (False, False)
 
     def test_is_paused_inside_callback(self, setup):
@@ -1147,34 +1119,125 @@ class TestEventGeneratorIntrospection:
         gen = None
 
         def cb():
-            # while firing, next_scheduled_time is the current event, not a future one
-            seen.append((gen.is_paused, gen.next_scheduled_time == model.time))
+            # while firing, nothing is scheduled yet
+            seen.append((gen.is_paused, gen.next_scheduled_time))
             gen.pause()
             seen.append((gen.is_paused, gen.next_scheduled_time))
 
-        gen = EventGenerator(model, cb, Schedule(interval=1.0))
-        gen.start()
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0))
         model.run_for(3.0)
 
-        assert seen == [(False, True), (True, None)]  # fired once, then paused
+        assert seen == [(False, None), (True, None)]  # fired once, then paused
         assert gen.is_active
         assert gen.is_paused
+
+
+class TestEventGeneratorExceptions:
+    """Exceptions reach the caller; only one computing the next time ends the generator."""
+
+    def test_failed_call_counts_toward_count(self, setup):
+        """A call that raised still counts, so count stays an upper bound on calls."""
+        model, fn = setup
+        fn.side_effect = [RuntimeError("boom"), None, None]
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=1.0, count=2))
+
+        with pytest.raises(RuntimeError):
+            model.run_until(1)
+        model.run_until(10)
+
+        assert fn.call_count == 2
+        assert not gen.is_active
+
+    def test_cancel_in_failing_callback_is_respected(self, setup):
+        """A callback that cancels its generator and then raises is not rescheduled."""
+        model, fn = setup
+        gen = None
+
+        def cancel_and_raise():
+            gen.cancel()
+            raise RuntimeError("boom")
+
+        fn.side_effect = cancel_and_raise
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0, start=1.0))
+
+        with pytest.raises(RuntimeError):
+            model.run_for(5)
+        model.run_for(5)
+
+        assert fn.call_count == 1
+        assert gen.state is EventGeneratorState.CANCELED
+        assert gen.next_scheduled_time is None
+
+    def test_interval_error_fails_the_generator(self, setup):
+        model, fn = setup
+        intervals = iter([1.0])
+
+        def interval(m):
+            return next(intervals)  # StopIteration on the second call
+
+        gen = model.schedule_recurring(fn, Schedule(interval=interval))
+
+        with pytest.raises(StopIteration):
+            model.run_for(5)
+
+        assert gen.state is EventGeneratorState.FAILED
+        assert not gen.is_active
+        assert gen.next_scheduled_time is None
+        assert gen not in model._event_generators
+        model.run_for(5)
+        assert fn.call_count == 1
+
+    @pytest.mark.parametrize("bad", [-0.5, 0, math.inf, math.nan])
+    def test_invalid_callable_interval_fails_the_generator(self, setup, bad):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(start=1, interval=lambda m: bad))
+
+        with pytest.raises(ValueError, match="finite and > 0"):
+            model.run_for(3)
+        assert gen.state is EventGeneratorState.FAILED
+
+    def test_interval_error_at_start(self, setup):
+        model, fn = setup
+
+        def interval(m):
+            raise KeyError("no interval")
+
+        with pytest.raises(KeyError):
+            model.schedule_recurring(fn, Schedule(interval=interval))
+        assert not any(g.function() is fn for g in model._event_generators)
+
+    def test_both_raise(self, setup):
+        """The interval's error surfaces, with the callback's as its context."""
+        model, fn = setup
+        fn.side_effect = RuntimeError("callback")
+        calls = iter([1.0])
+
+        def interval(m):
+            if next(calls, None) is None:
+                raise KeyError("interval")
+            return 1.0
+
+        gen = model.schedule_recurring(fn, Schedule(interval=interval))
+        with pytest.raises(KeyError) as excinfo:
+            model.run_for(5)
+
+        assert isinstance(excinfo.value.__context__, RuntimeError)
+        assert gen.state is EventGeneratorState.FAILED
 
 
 class TestEventGeneratorPauseResume:
     def test_full_lifecycle(self, setup):
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
 
         model.run_for(1.0)
         assert fn.call_count == 1
 
-        gen.pause()
+        assert gen.pause() is True
         model.run_for(10.0)
         assert fn.call_count == 1
 
-        gen.resume()
+        assert gen.resume() is True
         model.run_for(1.0)
         assert fn.call_count == 2
 
@@ -1189,21 +1252,19 @@ class TestEventGeneratorPauseResume:
     def test_pause_idempotent(self, setup):
         """Calling pause multiple times should be safe."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
-        gen.pause()
-        gen.pause()
-        gen.pause()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        assert gen.pause() is True
+        assert gen.pause() is False
+        assert gen.pause() is False
         model.run_for(5.0)
         assert fn.call_count == 0
 
     def test_resume_idempotent(self, setup):
         """Calling resume while running should do nothing."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
-        gen.resume()
-        gen.resume()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
+        assert gen.resume() is False
+        assert gen.resume() is False
         model.run_for(1.0)
         assert fn.call_count == 1
 
@@ -1217,37 +1278,114 @@ class TestEventGeneratorPauseResume:
             if call_count["n"] == 1:
                 gen.pause()
 
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=1.0))
         model.run_for(5.0)
         assert call_count["n"] == 1
 
-    def test_stop_while_paused(self, setup):
-        """Stopping while paused should fully deactivate generator."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
-        gen.pause()
-        gen.stop()
+    def test_pause_from_within_callback(self, setup):
+        """Pausing from the callback must not reschedule until resume."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            if len(calls) == 1:
+                gen.pause()
+
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0, start=1.0))
         model.run_for(5.0)
-        assert fn.call_count == 0
+        assert calls == [1.0]
+        assert gen.next_scheduled_time is None
+
+        gen.resume()
+        model.run_for(2.0)
+        assert calls == [1.0, 6.0, 7.0]
+
+    def test_pause_resume_from_within_callback(self, setup):
+        """Pausing and resuming from the callback must not double-schedule."""
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            if len(calls) == 1:
+                gen.pause()
+                gen.resume()
+
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0))
+        model.run_for(4.0)
+
+        # resume() schedules a new event too, so this must not double up either.
+        assert calls == [1.0, 2.0, 3.0, 4.0]
+
+    def test_pause_resume_in_the_last_callback_respects_count(self, setup):
+        """The count is used up before the call, so resume() finishes instead."""
+        model, _ = setup
+        calls = []
+        resumed = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            gen.pause()
+            resumed.append(gen.resume())
+
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0, count=1))
+        model.run_for(5.0)
+
+        assert calls == [1.0]
+        assert resumed == [False]
+        assert gen.execution_count == 1
+        assert gen.state is EventGeneratorState.FINISHED
+
+    def test_pause_resume_then_raise_in_the_last_callback(self, setup):
+        model, _ = setup
+        calls = []
+        gen = None
+
+        def cb():
+            calls.append(model.time)
+            gen.pause()
+            gen.resume()
+            raise RuntimeError("after resume")
+
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0, count=1))
+        with pytest.raises(RuntimeError):
+            model.run_for(5.0)
+        model.run_for(5.0)
+
+        assert calls == [1.0]
+        assert gen.state is EventGeneratorState.FINISHED
+
+    def test_pause_in_the_last_callback_finishes(self, setup):
+        """A spent generator isn't left PAUSED."""
+        model, _ = setup
+        gen = None
+
+        def cb():
+            gen.pause()
+
+        gen = model.schedule_recurring(cb, Schedule(interval=1.0, count=1))
+        model.run_for(5.0)
+
+        assert gen.state is EventGeneratorState.FINISHED
         assert not gen.is_active
 
-    def test_resume_after_stop(self, setup):
-        """Resume should do nothing after stop."""
+    def test_resume_passing_end_finishes(self, setup):
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.start()
-        gen.stop()
-        gen.resume()
-        model.run_for(5.0)
-        assert fn.call_count == 0
+        gen = model.schedule_recurring(fn, Schedule(interval=2.0, end=3.0))
+        gen.pause()
+        model.run_for(2.0)
+
+        assert gen.resume() is False
+        assert gen.state is EventGeneratorState.FINISHED
 
     def test_next_scheduled_time_updates(self, setup):
         """next_scheduled_time should reflect pause/resume state."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=2.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=2.0))
         assert gen.next_scheduled_time is not None
 
         gen.pause()
@@ -1256,19 +1394,10 @@ class TestEventGeneratorPauseResume:
         gen.resume()
         assert gen.next_scheduled_time is not None
 
-    def test_pause_before_start_is_safe(self, setup):
-        """Pausing before start should be a no-op."""
-        model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=1.0))
-        gen.pause()  # should not crash
-        model.run_for(5.0)
-        assert fn.call_count == 0
-
     def test_resume_schedules_from_current_time(self, setup):
         """Resume should schedule next execution relative to current time."""
         model, fn = setup
-        gen = EventGenerator(model, fn, Schedule(interval=2.0))
-        gen.start()
+        gen = model.schedule_recurring(fn, Schedule(interval=2.0))
 
         model.run_for(1.0)
         gen.pause()
@@ -1279,6 +1408,16 @@ class TestEventGeneratorPauseResume:
         assert fn.call_count == 0
         model.run_for(0.1)
         assert fn.call_count == 1
+
+    def test_resume_before_the_first_execution_waits_for_start(self, setup):
+        model, fn = setup
+        gen = model.schedule_recurring(fn, Schedule(interval=5.0, start=10.0))
+        model.run_until(2.0)
+        gen.pause()
+        model.run_until(4.0)
+        gen.resume()
+
+        assert gen.next_scheduled_time == 10.0
 
 
 class TestEventGeneratorPickle:
@@ -1306,8 +1445,7 @@ class TestEventGeneratorPickle:
             "function": None,
             "schedule": Schedule(interval=1.0),
             "priority": Priority.DEFAULT,
-            "_active": False,
-            "_paused": False,
+            "_state": EventGeneratorState.PENDING,
             "_current_event": None,
             "_execution_count": 0,
             "model": Model(),
@@ -1326,8 +1464,7 @@ class TestEventGeneratorWeakref:
         def temp_func():
             call_count[0] += 1
 
-        gen = EventGenerator(model, temp_func, Schedule(interval=1.0))
-        gen.start()
+        gen = model.schedule_recurring(temp_func, Schedule(interval=1.0))
 
         model.run_for(1.0)
         assert call_count[0] == 1
@@ -1337,5 +1474,5 @@ class TestEventGeneratorWeakref:
         gc.collect()
 
         model.run_for(1.0)
-        assert not gen.is_active
+        assert gen.state is EventGeneratorState.CANCELED
         assert call_count[0] == 1

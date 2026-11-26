@@ -283,7 +283,8 @@ def test_altair_canvas_with_property_layer(with_agents):
         assert chart.layer[2].to_dict()["mark"]["type"] == "point"
 
 
-def test_hexgrid_property_layer_alignment():
+@pytest.mark.parametrize("backend", ["matplotlib", "altair"])
+def test_hexgrid_property_layer_alignment(backend):
     """Test that property layer values on HexGrid align with their cell coordinates."""
     model = mesa.Model(rng=42)
     grid = HexGrid((4, 2), random=model.random)
@@ -291,12 +292,18 @@ def test_hexgrid_property_layer_alignment():
     grid.property_layers["sugar"][3, 0] = 10.0
 
     model.grid = grid
-    sr = SpaceRenderer(model, backend="matplotlib")
+    sr = SpaceRenderer(model, backend=backend)
     sr.setup_property_layer(lambda _: PropertyLayerStyle(colormap="viridis"))
     sr.render()
 
-    poly = sr.backend_renderer.ax.collections[1]
-    facecolors = np.array(poly.get_facecolors())
-    max_idx = np.argmax(facecolors[:, 0])
     cells = list(grid.all_cells)
-    assert cells[max_idx].coordinate == (3, 0)
+    if backend == "matplotlib":
+        poly = sr.backend_renderer.ax.collections[1]
+        facecolors = np.array(poly.get_facecolors())
+        max_idx = np.argmax(facecolors[:, 0])
+        assert cells[max_idx].coordinate == (3, 0)
+    else:
+        chart = sr.canvas.layer[1]
+        data = next(iter(chart.to_dict()["datasets"].values()))
+        max_idx = max(data, key=lambda row: row["value"])["cell"]
+        assert cells[max_idx].coordinate == (3, 0)
