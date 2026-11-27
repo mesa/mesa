@@ -641,6 +641,32 @@ def test_voronoigrid():
             VoronoiGrid(duplicated, random=random.Random(42))
 
 
+@pytest.mark.parametrize(
+    ("points", "edges"),
+    [
+        # [3, 8], [4, 6], [6, 7] and [4, 9] share a circle, raised StopIteration
+        ([[4, 6], [6, 8], [6, 7], [3, 8], [4, 9]], 7),
+        # [4, 8], [4, 7], [3, 9] and [2, 6] share a circle, raised KeyError
+        ([[4, 8], [1, 7], [4, 7], [3, 9], [2, 6], [9, 3]], 10),
+        # nearly on one line, the long edge along the hull was missing
+        ([[95.9, 98.5], [7.0, 98.9], [62.7, 98.6]], 3),
+    ],
+)
+def test_voronoigrid_full_triangulation(points, edges):
+    """Every pair of centroids whose regions share an edge is connected."""
+    grid = VoronoiGrid(points, random=random.Random(42))
+
+    # A full triangulation of n points, h of them on the hull, has 3n - 3 - h
+    # edges. Which diagonal joins points on one circle can vary, so only the
+    # count is checked.
+    found = {
+        frozenset((cell.coordinate, other.coordinate))
+        for cell in grid.all_cells.cells
+        for other in cell.connections.values()
+    }
+    assert len(found) == edges
+
+
 def test_voronoigrid_far_from_origin():
     """VoronoiGrid accepts centroids far from the origin, e.g. UTM coordinates."""
     base = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
@@ -656,16 +682,57 @@ def test_voronoigrid_far_from_origin():
     for connection in grid._cells[0].connections.values():
         assert connection.coordinate in [1, 3]
 
-    # Voronoi regions and nearest-cell lookup work at these coordinates
-    vor_coors, regions = grid._get_voronoi_regions()
-    assert len(regions) == len(far)
+    # Nearest-cell lookup works at these coordinates
     cell = grid.find_nearest_cell((500_000.1, 4_100_001.1))
     assert cell.coordinate == 0
 
-    # Region coordinates are translated back to the original coordinate system
-    for coordinate in vor_coors:
-        assert abs(coordinate[0] - offset[0]) < 20_000
-        assert abs(coordinate[1] - offset[1]) < 20_000
+    # Polygons are translated back to the original coordinate system
+    vertices = np.concatenate([cell.properties["polygon"] for cell in grid.all_cells])
+    assert vertices.min(axis=0) == pytest.approx([offset[0], offset[1] + 1])
+    assert vertices.max(axis=0) == pytest.approx([offset[0] + 1.1, offset[1] + 3])
+
+
+def test_voronoigrid_bounds():
+    """Polygons are clipped to bounds, by default the centroids' bounding box."""
+    lattice = [[x, y] for x in range(3) for y in range(3)]
+
+    grid = VoronoiGrid(lattice, random=random.Random(42))
+    areas = [cell.properties["area"] for cell in grid.all_cells]
+    assert areas == pytest.approx([0.25, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5, 0.25])
+
+    grid = VoronoiGrid(
+        lattice, random=random.Random(42), bounds=[[-0.5, 2.5], [-0.5, 2.5]]
+    )
+    assert [cell.properties["area"] for cell in grid.all_cells] == pytest.approx(
+        [1] * 9
+    )
+
+    with pytest.raises(ValueError, match="contain every centroid"):
+        VoronoiGrid(lattice, random=random.Random(42), bounds=[[0, 1], [0, 2]])
+
+
+def test_voronoigrid_cells_tile_bounds():
+    """The polygons cover the bounds without gaps or overlaps."""
+    rng = random.Random(3)
+    points = [[rng.uniform(0, 100), rng.uniform(0, 100)] for _ in range(100)]
+    grid = VoronoiGrid(points, random=random.Random(42), bounds=[[0, 100], [0, 100]])
+
+    areas = [cell.properties["area"] for cell in grid.all_cells]
+    assert sum(areas) == pytest.approx(10_000)
+
+
+@pytest.mark.parametrize(
+    ("points", "connections"),
+    [
+        ([[0.5, 0.5]], [[]]),
+        ([[0, 0], [1, 1]], [[1], [0]]),
+        ([[0, 0], [2, 2], [1, 1], [3, 3]], [[2], [2, 3], [0, 1], [1]]),
+    ],
+)
+def test_voronoigrid_centroids_on_one_line(points, connections):
+    """With all centroids on one line, each cell borders the next one along it."""
+    grid = VoronoiGrid(points, random=random.Random(42))
+    assert [sorted(cell.connections) for cell in grid.all_cells] == connections
 
 
 def test_voronoigrid_far_from_origin_matches_near_origin_connectivity():

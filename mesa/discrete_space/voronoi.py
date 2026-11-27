@@ -13,174 +13,39 @@ divisions, like territories, service areas, or natural regions.
 """
 
 from collections.abc import Callable, Sequence
-from itertools import combinations
+from itertools import pairwise
 from random import Random
 
 import numpy as np
-from scipy.spatial import KDTree
+from numpy.typing import ArrayLike
+from scipy.spatial import Delaunay, KDTree, QhullError
 
 from mesa.discrete_space.cell import Cell
 from mesa.discrete_space.discrete_space import DiscreteSpace
-
-
-class Delaunay:
-    """Class to compute a Delaunay triangulation in 2D.
-
-    ref: http://github.com/jmespadero/pyDelaunay2D
-    """
-
-    def __init__(self, center: tuple = (0, 0), radius: int = 9999) -> None:
-        """Init and create a new frame to contain the triangulation.
-
-        Args:
-            center: Optional position for the center of the frame. Default (0,0)
-            radius: Optional distance from corners to the center.
-        """
-        center = np.asarray(center)
-        # Create coordinates for the corners of the frame
-        self.coords = [
-            center + radius * np.array((-1, -1)),
-            center + radius * np.array((+1, -1)),
-            center + radius * np.array((+1, +1)),
-            center + radius * np.array((-1, +1)),
-        ]
-
-        # Create two dicts to store triangle neighbours and circumcircles.
-        self.triangles = {}
-        self.circles = {}
-
-        # Create two CCW triangles for the frame
-        triangle1 = (0, 1, 3)
-        triangle2 = (2, 3, 1)
-        self.triangles[triangle1] = [triangle2, None, None]
-        self.triangles[triangle2] = [triangle1, None, None]
-
-        # Compute circumcenters and circumradius for each triangle
-        for t in self.triangles:
-            self.circles[t] = self._circumcenter(t)
-
-    def _circumcenter(self, triangle: list) -> tuple:
-        """Compute circumcenter and circumradius of a triangle in 2D."""
-        points = np.asarray([self.coords[v] for v in triangle])
-        points2 = np.dot(points, points.T)
-        a = np.block(
-            [[2 * points2, np.array([[1], [1], [1]])], [np.array([[1, 1, 1, 0]])]]
-        )
-
-        b = np.hstack((np.sum(points * points, axis=1), [1]))
-        x = np.linalg.solve(a, b)
-        bary_coords = x[:-1]
-        center = np.dot(bary_coords, points)
-
-        radius = np.sum(np.square(points[0] - center))  # squared distance
-        return (center, radius)
-
-    def _in_circle(self, triangle: list, point: list) -> bool:
-        """Check if point p is inside of precomputed circumcircle of triangle."""
-        center, radius = self.circles[triangle]
-        return np.sum(np.square(center - point)) <= radius
-
-    def add_point(self, point: Sequence) -> None:
-        """Add a point to the current DT, and refine it using Bowyer-Watson."""
-        point_index = len(self.coords)
-        self.coords.append(np.asarray(point))
-
-        bad_triangles = []
-        for triangle in self.triangles:
-            if self._in_circle(triangle, point):
-                bad_triangles.append(triangle)
-
-        boundary = []
-        triangle = bad_triangles[0]
-        edge = 0
-
-        while True:
-            opposite_triangle = self.triangles[triangle][edge]
-            if opposite_triangle not in bad_triangles:
-                boundary.append(
-                    (
-                        triangle[(edge + 1) % 3],
-                        triangle[(edge - 1) % 3],
-                        opposite_triangle,
-                    )
-                )
-                edge = (edge + 1) % 3
-                if boundary[0][0] == boundary[-1][1]:
-                    break
-            else:
-                edge = (self.triangles[opposite_triangle].index(triangle) + 1) % 3
-                triangle = opposite_triangle
-
-        for triangle in bad_triangles:
-            del self.triangles[triangle]
-            del self.circles[triangle]
-
-        new_triangles = []
-        for e0, e1, opposite_triangle in boundary:
-            triangle = (point_index, e0, e1)
-            self.circles[triangle] = self._circumcenter(triangle)
-            self.triangles[triangle] = [opposite_triangle, None, None]
-            if opposite_triangle:
-                for i, neighbor in enumerate(self.triangles[opposite_triangle]):
-                    if neighbor and e1 in neighbor and e0 in neighbor:
-                        self.triangles[opposite_triangle][i] = triangle
-
-            new_triangles.append(triangle)
-
-        n = len(new_triangles)
-        for i, triangle in enumerate(new_triangles):
-            self.triangles[triangle][1] = new_triangles[(i + 1) % n]  # next
-            self.triangles[triangle][2] = new_triangles[(i - 1) % n]  # previous
-
-    def export_triangles(self) -> list:
-        """Export the current list of Delaunay triangles."""
-        triangles_list = [
-            (a - 4, b - 4, c - 4)
-            for (a, b, c) in self.triangles
-            if a > 3 and b > 3 and c > 3
-        ]
-        return triangles_list
-
-    def export_voronoi_regions(self):
-        """Export coordinates and regions of Voronoi diagram as indexed data."""
-        use_vertex = {i: [] for i in range(len(self.coords))}
-        vor_coors = []
-        index = {}
-        for triangle_index, (a, b, c) in enumerate(sorted(self.triangles)):
-            vor_coors.append(self.circles[(a, b, c)][0])
-            use_vertex[a] += [(b, c, a)]
-            use_vertex[b] += [(c, a, b)]
-            use_vertex[c] += [(a, b, c)]
-
-            index[(a, b, c)] = triangle_index
-            index[(c, a, b)] = triangle_index
-            index[(b, c, a)] = triangle_index
-
-        regions = {}
-        for i in range(4, len(self.coords)):
-            vertex = use_vertex[i][0][0]
-            region = []
-            for _ in range(len(use_vertex[i])):
-                triangle = next(
-                    triangle for triangle in use_vertex[i] if triangle[0] == vertex
-                )
-                region.append(index[triangle])
-                vertex = triangle[1]
-            regions[i - 4] = region
-
-        return vor_coors, regions
 
 
 def round_float(x: float) -> int:  # noqa
     return int(x * 500)
 
 
+def _clip(polygon: list, p: Sequence, q: Sequence) -> list:
+    """Clip a convex polygon to the half-plane that is closer to p than to q."""
+    nx, ny = q[0] - p[0], q[1] - p[1]
+    offset = (nx * (p[0] + q[0]) + ny * (p[1] + q[1])) / 2
+    clipped = []
+    for a, b in zip(polygon, polygon[1:] + polygon[:1]):
+        da = nx * a[0] + ny * a[1] - offset
+        db = nx * b[0] + ny * b[1] - offset
+        if da <= 0:
+            clipped.append(a)
+        if da * db < 0:
+            t = da / (da - db)
+            clipped.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
+    return clipped
+
+
 class VoronoiGrid(DiscreteSpace):
     """Voronoi meshed GridSpace."""
-
-    triangulation: Delaunay
-    voronoi_coordinates: list
-    regions: list
 
     def __init__(
         self,
@@ -188,6 +53,7 @@ class VoronoiGrid(DiscreteSpace):
         capacity: int | Callable | None = None,
         random: Random | None = None,
         cell_klass: type[Cell] = Cell,
+        bounds: ArrayLike | None = None,
     ) -> None:
         """A Voronoi Tessellation Grid.
 
@@ -201,7 +67,11 @@ class VoronoiGrid(DiscreteSpace):
                 callable computing the (int) capacity of a cell from its (float) polygon area
             random (Random): random number generator
             cell_klass (type[Cell]): type of cell class
+            bounds: ``[[x_min, x_max], [y_min, y_max]]``, the area the cell polygons
+                are clipped to. Defaults to the bounding box of the centroids.
 
+        Raises:
+            ValueError: if bounds does not contain every centroid.
         """
         # Separate callable capacity from numeric capacity before passing to base class
         if callable(capacity):
@@ -235,9 +105,20 @@ class VoronoiGrid(DiscreteSpace):
         self._kdtree_cells: list[Cell] = list(self._cells.values())
         self._kdtree_dirty = False
 
-        self.regions = None
-        self.triangulation = None
-        self.voronoi_coordinates = None
+        centroids = np.asarray(centroids_coordinates, dtype=float)
+        if bounds is None:
+            bounds = np.column_stack((centroids.min(axis=0), centroids.max(axis=0)))
+        self.bounds = np.asarray(bounds, dtype=float)
+        if self.bounds.shape != (2, 2) or not np.all(
+            (self.bounds[:, 0] <= centroids) & (centroids <= self.bounds[:, 1])
+        ):
+            raise ValueError(
+                "bounds must be [[x_min, x_max], [y_min, y_max]] and contain every centroid"
+            )
+        # Work around the center of the bounds: large absolute coordinates
+        # (e.g. UTM) lose floating-point precision in the triangulation.
+        self._offset = self.bounds.mean(axis=1)
+        self._points = (centroids - self._offset).tolist()
 
         self._connect_cells()
         self._build_cell_polygons()
@@ -296,27 +177,23 @@ class VoronoiGrid(DiscreteSpace):
             self._kdtree_dirty = True
 
     def _connect_cells(self) -> None:
-        """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
-        # Triangulate around the centroid bounding-box center instead of the
-        # origin. The Delaunay frame only covers +-9999 around its center, so
-        # centroids far from the origin (e.g. UTM eastings and northings)
-        # crash the triangulation, and even inside the frame large absolute
-        # coordinates lose floating-point precision. Recentring avoids both.
-        centroids = np.asarray(self.centroids_coordinates, dtype=float)
-        mins = centroids.min(axis=0)
-        maxs = centroids.max(axis=0)
-        self._voronoi_offset = (mins + maxs) / 2
-        extent = float(np.linalg.norm(maxs - mins))
-        radius = max(9999.0, extent * 10)
-        self.triangulation = Delaunay(radius=radius)
-        for centroid in centroids - self._voronoi_offset:
-            self.triangulation.add_point(centroid)
+        """Connect cells whose Voronoi regions share an edge, using a Delaunay triangulation."""
+        try:
+            indptr, indices = Delaunay(self._points).vertex_neighbor_vertices
+            neighbors = [indices[indptr[i] : indptr[i + 1]] for i in self._cells]
+        except QhullError:
+            # Fewer than three centroids, or all on one line: each region is a
+            # strip that borders the next centroid along the line.
+            points = np.asarray(self._points)
+            order = np.argsort(points @ (points[-1] - points[0]))
+            neighbors = [[] for _ in self._cells]
+            for i, j in pairwise(order):
+                neighbors[i].append(j)
+                neighbors[j].append(i)
 
-        for point in self.triangulation.export_triangles():
-            for i, j in combinations(point, 2):
-                # Use integer indices as connection keys
-                self._cells[i].connect(self._cells[j], j)
-                self._cells[j].connect(self._cells[i], i)
+        for i, cell in self._cells.items():
+            for j in neighbors[i]:
+                cell.connect(self._cells[int(j)], int(j))
 
     def _validate_parameters(self) -> None:
         if self.capacity is not None and not isinstance(self.capacity, float | int):
@@ -339,19 +216,6 @@ class VoronoiGrid(DiscreteSpace):
                 )
             seen.add(tuple(coordinate))
 
-    def _get_voronoi_regions(self) -> tuple:
-        if self.voronoi_coordinates is None or self.regions is None:
-            (
-                voronoi_coordinates,
-                self.regions,
-            ) = self.triangulation.export_voronoi_regions()
-            # Region coordinates come from the recentred triangulation;
-            # translate them back to the original coordinate system.
-            self.voronoi_coordinates = [
-                coordinate + self._voronoi_offset for coordinate in voronoi_coordinates
-            ]
-        return self.voronoi_coordinates, self.regions
-
     @staticmethod
     def _compute_polygon_area(polygon: list) -> float:
         polygon = np.array(polygon)
@@ -365,16 +229,21 @@ class VoronoiGrid(DiscreteSpace):
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
     def _build_cell_polygons(self):
-        coordinates, regions = self._get_voronoi_regions()
-        for region in regions:
-            polygon = [coordinates[i] for i in regions[region]]
-            self._cells[region].properties["polygon"] = polygon
+        (x_min, x_max), (y_min, y_max) = self.bounds - self._offset[:, None]
+        box = [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
+        for i, cell in self._cells.items():
+            # A Voronoi region is the part of the plane closer to its centroid
+            # than to any other, and its Delaunay neighbours alone fix its edges.
+            polygon = box
+            for j in cell.connections:
+                polygon = _clip(polygon, self._points[i], self._points[j])
             polygon_area = self._compute_polygon_area(polygon)
-            self._cells[region].properties["area"] = polygon_area
+            cell.properties["polygon"] = list(np.array(polygon) + self._offset)
+            cell.properties["area"] = polygon_area
             if self.capacity is not None:
                 # User provided a fixed capacity — use it directly.
-                self._cells[region].capacity = self.capacity
+                cell.capacity = self.capacity
             elif self.capacity_function is not None:
                 # No fixed capacity but a function was provided — derive from area.
-                self._cells[region].capacity = self.capacity_function(polygon_area)
+                cell.capacity = self.capacity_function(polygon_area)
             # else: both are None — cell capacity stays None (no limit).
