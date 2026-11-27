@@ -5,6 +5,7 @@ import pickle
 import random
 import random as stdlib_random
 import sys
+from types import MappingProxyType
 
 import networkx as nx
 import numpy as np
@@ -1023,6 +1024,42 @@ def test_cell_collection():
     assert len(cells) == len(collection)
 
 
+def test_cell_collection_accepts_non_dict_mapping():
+    """CellCollection preserves values from any Mapping, not just dicts."""
+    cell = Cell((0,), random=random.Random(1))
+    agent = CellAgent(Model())
+    supplied_agents = [agent]
+    cells = MappingProxyType({cell: supplied_agents})
+
+    collection = CellCollection(cells, random=random.Random(1))
+
+    assert collection[cell] is supplied_agents
+    assert list(collection.agents) == [agent]
+
+
+def test_cell_collection_snapshots_input_mapping():
+    """Mutating the constructor mapping cannot change a collection afterward."""
+    cell1 = Cell((0,), random=random.Random(1))
+    cell2 = Cell((1,), random=random.Random(1))
+    source = {cell1: cell1._agents}
+    collection = CellCollection(source, random=random.Random(1))
+    cached_cells = collection.cells
+
+    source[cell2] = cell2._agents
+    assert len(collection) == 1
+    assert list(collection) == [cell1]
+    assert collection.cells is cached_cells
+    assert collection.cells == (cell1,)
+    assert collection.select_random_cell() is cell1
+
+    del source[cell1]
+    assert len(collection) == 1
+    assert list(collection) == [cell1]
+    assert collection.cells is cached_cells
+    assert collection.cells == (cell1,)
+    assert collection.select_random_cell() is cell1
+
+
 def test_cell_collection_cells_is_an_immutable_tuple():
     """CellCollection.cells is a tuple, so changing it cannot change the collection (#4142)."""
     cell1 = Cell((0, 0), random=random.Random(1))
@@ -1041,6 +1078,48 @@ def test_cell_collection_cells_is_an_immutable_tuple():
 
     # The tuple is built once, so reading it again costs nothing.
     assert collection.cells is cells
+
+
+@pytest.mark.parametrize(
+    ("at_most", "expected"),
+    [
+        (np.int8(2), 2),
+        (np.int64(2), 2),
+        (np.uint8(2), 2),
+        (np.float16(0.5), 5),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32("inf"), 10),
+    ],
+)
+def test_cell_collection_select_accepts_numpy_numbers(at_most, expected):
+    """Test that numpy integer and float scalars are accepted for at_most."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    assert len(collection.select(lambda c: True, at_most=at_most)) == expected
+
+
+@pytest.mark.parametrize(
+    "at_most",
+    [np.int64(-1), np.float32(0.0), np.float32(1.5), np.float32("nan")],
+)
+def test_cell_collection_select_rejects_invalid_numpy_values(at_most):
+    """Test that out-of-range numpy values raise a ValueError."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    with pytest.raises(ValueError):
+        collection.select(at_most=at_most)
+
+
+def test_cell_collection_select_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(3)], random=rng)
+
+    with pytest.raises(TypeError, match="at_most must be an integer or float"):
+        collection.select(at_most=np.True_)
 
 
 def test_empty_cell_collection():

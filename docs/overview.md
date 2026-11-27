@@ -115,9 +115,9 @@ Mesa supports multiple approaches to advancing time and activating agents.
 Use the time advancement methods on `Model` to run your simulation:
 
 ```python
-model = MyModel()
-model.run_for(100)     # Run for 100 time units
-model.run_until(50.0)  # Run until absolute time 50
+model = MyModel(5)
+model.run_for(10)     # Run for 10 time units
+model.run_until(15)  # Run until absolute time 15
 ```
 By default, the model's `step()` method is scheduled to run every 1.0 time units, so `model.run_for(10)` executes 10 steps.
 
@@ -159,9 +159,11 @@ model.schedule_recurring(func, Schedule(interval=10))            # Every 10 time
 model.schedule_recurring(func, Schedule(interval=10, start=0))   # Starting immediately
 model.schedule_recurring(func, Schedule(interval=1.0, count=10)) # Limited to 10 executions
 
-# Stop a recurring event
+# Pause, resume or cancel a recurring event
 gen = model.schedule_recurring(func, Schedule(interval=5.0))
-gen.stop()
+gen.pause()   # hold it; resume() continues at now + interval
+gen.resume()
+gen.cancel()  # end it for good
 
 # Advance time, processing all scheduled events along the way
 model.run_for(50)

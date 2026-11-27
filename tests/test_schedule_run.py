@@ -228,7 +228,23 @@ class TestScheduleRecurring:
         model.run_for(10)
         assert log == [2.0, 4.0, 6.0, 8.0, 10.0]
 
-    def test_stop_generator(self):
+    def test_rejects_inline_partial(self):
+        """An inline partial is already dead, so it must fail at scheduling time."""
+        model = SimpleModel()
+        log = []
+
+        def record(value):
+            log.append(value)
+
+        with pytest.raises(ValueError, match="alive"):
+            model.schedule_recurring(partial(record, "x"), Schedule(interval=1.0))
+
+        callback = partial(record, "x")  # a partial kept in a variable still works
+        model.schedule_recurring(callback, Schedule(interval=1.0))
+        model.run_for(2)
+        assert log == ["x", "x"]
+
+    def test_cancel_generator(self):
         model = SimpleModel()
         log = []
 
@@ -237,7 +253,7 @@ class TestScheduleRecurring:
 
         gen = model.schedule_recurring(record, Schedule(interval=1.0, start=1.0))
         model.run_for(3)
-        gen.stop()
+        gen.cancel()
         model.run_for(3)
         assert len(log) == 3
 
