@@ -1420,3 +1420,95 @@ def test_table_dataset_overwrite_keeps_recorded_rows(recorder_cls, tmp_path):
     df = model.recorder.get_table_dataframe("events")
     assert list(df["what"]) == [1, 2]
     assert list(df["what"]) == list(df["time"])
+
+
+@pytest.mark.parametrize("existing_file", [False, True])
+def test_json_save_encoding_failure_preserves_destination(tmp_path, existing_file):
+    """An encoding failure leaves the destination untouched and no temporary file."""
+    model = Model()
+    model.value = 1
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = JSONDataRecorder(model, {"state": DatasetConfig()}, output_dir=tmp_path)
+    model.step()
+    destination = tmp_path / "state.json"
+    if existing_file:
+        recorder.save_to_json()
+        original = destination.read_bytes()
+    model.value = object()
+    model.step()
+
+    with pytest.raises(TypeError):
+        recorder.save_to_json()
+
+    if existing_file:
+        assert destination.read_bytes() == original
+        assert json.loads(destination.read_text())
+    else:
+        assert not destination.exists()
+    assert set(tmp_path.iterdir()) == ({destination} if existing_file else set())
+
+
+def test_json_save_replaces_existing_file(tmp_path):
+    """A successful save replaces the old data and leaves no temporary file."""
+    model = Model()
+    model.value = np.int64(1)
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = JSONDataRecorder(model, {"state": DatasetConfig()}, output_dir=tmp_path)
+    model.step()
+    recorder.save_to_json()
+    destination = tmp_path / "state.json"
+    original = destination.read_bytes()
+    model.value = np.int64(2)
+    model.step()
+    recorder.save_to_json()
+
+    assert destination.read_bytes() != original
+    assert json.loads(destination.read_text())[-1]["data"]["value"] == 2
+    assert set(tmp_path.iterdir()) == {destination}
+
+
+@pytest.mark.parametrize("failure", ["write", "replace"])
+def test_json_save_io_failure_preserves_destination(tmp_path, monkeypatch, failure):
+    """Failed writes or replacements preserve the prior file and clean up."""
+    model = Model()
+    model.value = 1
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = JSONDataRecorder(model, {"state": DatasetConfig()}, output_dir=tmp_path)
+    model.step()
+    recorder.save_to_json()
+    destination = tmp_path / "state.json"
+    original = destination.read_bytes()
+
+    def fail_write(data, stream, **kwargs):
+        stream.write("[")
+        raise OSError("write failed")
+
+    def fail_replace(source, target):
+        raise OSError("replace failed")
+
+    if failure == "write":
+        monkeypatch.setattr(json, "dump", fail_write)
+    else:
+        monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError, match=f"{failure} failed"):
+        recorder.save_to_json()
+
+    assert destination.read_bytes() == original
+    assert set(tmp_path.iterdir()) == {destination}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_json_save_preserves_existing_permissions(tmp_path):
+    """Replacing a saved file keeps its existing permission bits."""
+    model = Model()
+    model.value = 1
+    model.data_registry.track_model(model, "state", fields=["value"])
+    recorder = JSONDataRecorder(model, {"state": DatasetConfig()}, output_dir=tmp_path)
+    destination = tmp_path / "state.json"
+    destination.write_text("[]")
+    destination.chmod(0o640)
+    model.step()
+    recorder.save_to_json()
+
+    assert destination.stat().st_mode & 0o777 == 0o640
+    assert json.loads(destination.read_text())[-1]["data"]["value"] == 1
