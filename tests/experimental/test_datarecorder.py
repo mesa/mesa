@@ -2,6 +2,7 @@
 
 import json
 import os
+import sqlite3
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
@@ -1420,3 +1421,36 @@ def test_table_dataset_overwrite_keeps_recorded_rows(recorder_cls, tmp_path):
     df = model.recorder.get_table_dataframe("events")
     assert list(df["what"]) == [1, 2]
     assert list(df["what"]) == list(df["time"])
+
+
+@pytest.mark.parametrize("numpy_dataset", [False, True])
+def test_sql_empty_overwrite_survives_reopen(tmp_path, numpy_dataset):
+    """An empty overwrite stays deleted after the database connection closes."""
+
+    class TrackedAgent(Agent):
+        """Keep NumPy field descriptors local to this test."""
+
+        def __init__(self, model):
+            super().__init__(model)
+            self.value = 1
+
+    model = Model()
+    if numpy_dataset:
+        model.data_registry.track_agents_numpy(TrackedAgent, "agents", fields=["value"])
+    else:
+        model.data_registry.track_agents(model.agents, "agents", fields=["value"])
+    agent = TrackedAgent(model)
+    db_path = tmp_path / "snapshots.db"
+    recorder = SQLDataRecorder(model, {"agents": DatasetConfig()}, db_path=db_path)
+    try:
+        model.run_for(1)
+        assert recorder.get_table_dataframe("agents")["time"].tolist() == [0, 1]
+        agent.remove()
+        model.run_for(1)  # overwrite the previous run-end snapshot with no agents
+        assert recorder.get_table_dataframe("agents")["time"].tolist() == [0]
+    finally:
+        recorder.conn.close()
+
+    with sqlite3.connect(db_path) as connection:
+        rows = connection.execute('SELECT time FROM "agents"').fetchall()
+    assert rows == [(0.0,)]
