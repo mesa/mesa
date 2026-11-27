@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -1451,6 +1452,6 @@ def test_sql_empty_overwrite_survives_reopen(tmp_path, numpy_dataset):
     finally:
         recorder.conn.close()
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         rows = connection.execute('SELECT time FROM "agents"').fetchall()
     assert rows == [(0.0,)]
