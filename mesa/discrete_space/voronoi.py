@@ -297,8 +297,19 @@ class VoronoiGrid(DiscreteSpace):
 
     def _connect_cells(self) -> None:
         """Connect cells to neighbors based on given centroids and using Delaunay Triangulation."""
-        self.triangulation = Delaunay()
-        for centroid in self.centroids_coordinates:
+        # Triangulate around the centroid bounding-box center instead of the
+        # origin. The Delaunay frame only covers +-9999 around its center, so
+        # centroids far from the origin (e.g. UTM eastings and northings)
+        # crash the triangulation, and even inside the frame large absolute
+        # coordinates lose floating-point precision. Recentring avoids both.
+        centroids = np.asarray(self.centroids_coordinates, dtype=float)
+        mins = centroids.min(axis=0)
+        maxs = centroids.max(axis=0)
+        self._voronoi_offset = (mins + maxs) / 2
+        extent = float(np.linalg.norm(maxs - mins))
+        radius = max(9999.0, extent * 10)
+        self.triangulation = Delaunay(radius=radius)
+        for centroid in centroids - self._voronoi_offset:
             self.triangulation.add_point(centroid)
 
         for point in self.triangulation.export_triangles():
@@ -316,21 +327,39 @@ class VoronoiGrid(DiscreteSpace):
         ):
             raise ValueError("Centroids should be a list of lists")
         dimension_1 = len(self.centroids_coordinates[0])
+        seen = set()
         for coordinate in self.centroids_coordinates:
             if dimension_1 != len(coordinate):
                 raise ValueError("Centroid coordinates should be a homogeneous array")
+            # Two identical centroids have no border between them, so the
+            # triangulation fails or never finishes
+            if tuple(coordinate) in seen:
+                raise ValueError(
+                    f"Centroids must be distinct, {list(coordinate)} appears more than once"
+                )
+            seen.add(tuple(coordinate))
 
     def _get_voronoi_regions(self) -> tuple:
         if self.voronoi_coordinates is None or self.regions is None:
             (
-                self.voronoi_coordinates,
+                voronoi_coordinates,
                 self.regions,
             ) = self.triangulation.export_voronoi_regions()
+            # Region coordinates come from the recentred triangulation;
+            # translate them back to the original coordinate system.
+            self.voronoi_coordinates = [
+                coordinate + self._voronoi_offset for coordinate in voronoi_coordinates
+            ]
         return self.voronoi_coordinates, self.regions
 
     @staticmethod
     def _compute_polygon_area(polygon: list) -> float:
         polygon = np.array(polygon)
+        # The shoelace formula is translation-invariant, so recentre on the
+        # first vertex before summing. At large absolute coordinates (e.g.
+        # utm) the cross products reach ~1e13 and their cancellation loses
+        # several digits of area precision.
+        polygon = polygon - polygon[0]
         x = polygon[:, 0]
         y = polygon[:, 1]
         return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))

@@ -1,6 +1,7 @@
 """Tests for model.py."""
 
 import numpy as np
+import pytest
 
 from mesa.agent import Agent, AgentSet
 from mesa.model import Model
@@ -37,6 +38,30 @@ def test_running():
     model = TestModel()
     model.run_model()
     assert model.time == 10.0
+
+
+def test_step_continues_after_exception():
+    """An exception in step() reaches the caller, and later steps still run."""
+
+    class FailOnce(Model):
+        def __init__(self):
+            super().__init__()
+            self.steps_run = 0
+
+        def step(self):
+            self.steps_run += 1
+            if self.steps_run == 2:
+                raise RuntimeError("boom")
+
+    model = FailOnce()
+    model.step()
+    with pytest.raises(RuntimeError, match="boom"):
+        model.step()
+    for _ in range(3):
+        model.step()
+
+    assert model.steps_run == 5
+    assert model.time == 5.0
 
 
 def test_rng(rng=23):
@@ -101,6 +126,33 @@ def test_agent_remove():
 
     model.remove_all_agents()
     assert len(model.agents) == 0
+
+
+def test_agents_hashed_by_unique_id():
+    """Agents that hash by unique_id are found, stepped and removed like any other."""
+
+    class Building(Agent):
+        def __eq__(self, other):
+            return isinstance(other, Building) and self.unique_id == other.unique_id
+
+        def __hash__(self):
+            return hash(self.unique_id)
+
+        def step(self):
+            self.model.stepped += 1
+
+    model = Model(rng=42)
+    model.stepped = 0
+    buildings = Building.create_agents(model, 10).to_list()
+    assert buildings[0] != buildings[1]  # each agent has its own id
+    assert all(building in model.agents for building in buildings)
+
+    model.agents.shuffle_do("step")
+    assert model.stepped == 10
+
+    buildings[0].remove()
+    assert buildings[0] not in model.agents
+    assert len(model.agents) == len(model.agents_by_type[Building]) == 9
 
 
 def test_agents_by_type_keeps_empty_bucket():

@@ -10,10 +10,13 @@ import pytest
 from matplotlib import pyplot as plt
 
 from mesa import Model
+from mesa.discrete_space import HexGrid
 from mesa.discrete_space.grid import OrthogonalMooreGrid
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.visualization.backends import AltairBackend, MatplotlibBackend
+from mesa.visualization.backends.matplotlib_backend import _to_numpy_argument_array
 from mesa.visualization.components import AgentPortrayalStyle, PropertyLayerStyle
+from mesa.visualization.space_drawers import HexSpaceDrawer
 
 
 @pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
@@ -278,6 +281,45 @@ def test_altair_backend_draw_structure():
     assert ab.draw_structure() == "chart"
 
 
+def test_altair_backend_draw_property_hexgrid_fills_hexagons():
+    """A HexGrid property layer renders filled hexagons, not a square rect grid."""
+    space = HexGrid([3, 3], random=random.Random(42))
+    space.create_property_layer("test", default_value=0.0)
+    ab = AltairBackend(space_drawer=HexSpaceDrawer(space))
+
+    chart = ab.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
+            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+        ),
+    )
+
+    layer_spec = chart.to_dict()["layer"][0]
+    # Hex cells are drawn as filled closed polygons (a line mark with a fill),
+    # not the square rect grid used for orthogonal spaces.
+    assert layer_spec["mark"]["type"] == "line"
+    assert "fill" in layer_spec["encoding"]
+
+
+def test_altair_backend_draw_property_orthogonal_uses_rect():
+    """An orthogonal grid property layer still uses the square rect path."""
+    space = OrthogonalMooreGrid([3, 3], random=random.Random(42))
+    space.create_property_layer("test", default_value=0.0)
+    ab = AltairBackend(space_drawer=MagicMock())
+
+    chart = ab.draw_property_layer(
+        space,
+        space.property_layers,
+        lambda l: PropertyLayerStyle(  # noqa: E741
+            colormap="viridis", alpha=0.5, vmin=0, vmax=1, colorbar=True
+        ),
+    )
+
+    layer_spec = chart.to_dict()["layer"][0]
+    assert layer_spec["mark"]["type"] == "rect"
+
+
 def test_altair_backend_collects_agent_data():
     """Test collect_agent_data."""
     ab = AltairBackend(space_drawer=MagicMock())
@@ -512,3 +554,79 @@ def test_backends_handle_errors():
     }
     with pytest.raises(ValueError):
         mb.draw_agents(arguments, edgecolors="blue")
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
+    """Shared AgentPortrayalStyle instances should not be mutated during data collection."""
+
+    class DummyAgent:
+        def __init__(self, position):
+            self.position = position
+
+    class DummySpace:
+        pass
+
+    portrayal = AgentPortrayalStyle(x=None, y=None)
+    space = DummySpace()
+    space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
+
+    backend = backend_cls(space_drawer=MagicMock())
+    data = backend.collect_agent_data(space, lambda agent: portrayal)
+
+    assert data["loc"].tolist() == [[0, 1], [2, 3]]
+    assert (portrayal.x, portrayal.y) == (None, None)
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_collect_agent_data_preserves_explicit_coordinates(backend_cls):
+    """Explicit x, y coordinates should be used and not mutated."""
+
+    class DummyAgent:
+        def __init__(self, position):
+            self.position = position
+
+    class DummySpace:
+        pass
+
+    portrayal = AgentPortrayalStyle(x=10, y=20)
+    space = DummySpace()
+    space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
+
+    backend = backend_cls(space_drawer=MagicMock())
+    data = backend.collect_agent_data(space, lambda agent: portrayal)
+
+    assert data["loc"].tolist() == [[10, 20], [10, 20]]
+    assert (portrayal.x, portrayal.y) == (10, 20)
+
+
+@pytest.mark.parametrize(
+    ("edgecolors", "expected"),
+    [
+        ([None, None], []),
+        (["black", None], ["black", "none"]),
+        ([(1.0, 0.0, 0.0, 1.0), None], [(1.0, 0.0, 0.0, 1.0), "none"]),
+    ],
+)
+def test_to_numpy_argument_array_edgecolors(edgecolors, expected):
+    """Edgecolors normalize None to "none", or drop entirely if unused by anyone."""
+    result = _to_numpy_argument_array("edgecolors", edgecolors)
+    assert result.tolist() == expected
+
+
+def test_to_numpy_argument_array_preserves_tuple_markers():
+    """Equal-length tuple marker specs must not collapse into a 2D array."""
+    result = _to_numpy_argument_array("marker", [(3, 0, 0), (3, 0, 0)])
+    assert result.shape == (2,)
+    assert list(result) == [(3, 0, 0), (3, 0, 0)]
+
+
+def test_to_numpy_argument_array_mixed_face_colors():
+    """Face colors can be a mix of named and RGBA colors."""
+    mixed = ["blue", (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", mixed)
+    assert list(result) == mixed
+
+    uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
+    result = _to_numpy_argument_array("c", uniform)
+    assert result.shape == (2, 4)

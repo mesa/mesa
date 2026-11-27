@@ -21,11 +21,16 @@ from mesa.examples.advanced.wolf_sheep.model import WolfSheepScenario
 from mesa.examples.basic.boid_flockers.model import BoidsScenario
 from mesa.examples.basic.boltzmann_wealth_model.model import BoltzmannScenario
 from mesa.examples.basic.schelling.model import SchellingScenario
+from mesa.visualization import SpaceRenderer
 from mesa.visualization.components import AgentPortrayalStyle
-from mesa.visualization.components.matplotlib_components import (
-    PlotMatplotlib,
-    SpaceMatplotlib,
-)
+from mesa.visualization.components.matplotlib_components import PlotMatplotlib
+from mesa.visualization.solara_viz import SpaceRendererComponent
+
+
+def space_component(model, agent_portrayal):
+    """Render the model's space with a matplotlib SpaceRenderer."""
+    renderer = SpaceRenderer(model).setup_agents(agent_portrayal).render()
+    return SpaceRendererComponent(model, renderer)
 
 
 def run_model_test(
@@ -43,9 +48,7 @@ def run_model_test(
     """
     try:
         # Create visualizations for the initial model state
-        space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
-        )
+        space_viz = space_component(model, agent_portrayal)
         initial_graph = None
 
         if measure_config:
@@ -65,9 +68,7 @@ def run_model_test(
         model.run_for(steps)
 
         # Create new visualizations for the updated model state
-        space_viz = SpaceMatplotlib(
-            model=model, agent_portrayal=agent_portrayal, property_layer_portrayal=None
-        )
+        space_viz = space_component(model, agent_portrayal)
         changed_graph = None
 
         if measure_config:

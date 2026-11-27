@@ -27,6 +27,7 @@ from mesa.experimental.mesa_signals.signals_util import (
     ALL,
     Message,
     SignalType,
+    _has_changed,
     create_weakref,
 )
 
@@ -47,17 +48,34 @@ SignalSpec = str | SignalType | type(ALL) | Iterable[str | SignalType]
 
 _hashable_signal = namedtuple("_HashableSignal", "instance name")
 
+_NO_FALLBACK = object()  # sentinel: no fallback value was given
+
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
 
 
 class BaseObservable:
-    """Base class for all Observables."""
+    """Base class for all Observables.
+
+    An Observable is a descriptor declared as a class attribute of a
+    HasEmitters subclass. It stores its value on the instance as ``_<name>``
+    and defines the signal types it can emit (``signal_types``). Subclasses
+    decide when to emit them.
+    """
 
     signal_types: type[SignalType] = SignalType
 
     def __init__(self, fallback_value=None):
-        """Initialize a BaseObservable."""
+        """Initialize a BaseObservable.
+
+        Args:
+            fallback_value: value to use before the attribute has been
+                assigned. What that means is up to the subclass. Observable
+                returns it on read and reports it as ``old`` for the first
+                assignment; ContinuousState uses it as its initial value;
+                ObservableList ignores it, so reading an unassigned
+                ObservableList raises AttributeError.
+        """
         super().__init__()
         self.public_name: str
         self.private_name: str
@@ -69,7 +87,7 @@ class BaseObservable:
         if instance is None:
             return self
 
-        value = getattr(instance, self.private_name)
+        value = self._get_value(instance)
 
         if CURRENT_COMPUTED is not None:
             if isinstance(value, MutableSequence):
@@ -87,26 +105,18 @@ class BaseObservable:
 
         return value
 
+    def _get_value(self, instance: HasEmitters):
+        """Return the stored value; raises AttributeError if never assigned."""
+        return getattr(instance, self.private_name)
+
     def __set_name__(self, owner: HasEmitters, name: str):  # noqa: D105
         self.public_name = name
         self.private_name = f"_{name}"
 
     def __set__(self, instance: HasEmitters, value):  # noqa: D105
-        # If no one is listening, Avoid overhead of fetching old value and
-        # creating Message object.
-        if not instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
-            return
-        change_signal = self.signal_types(
-            "changed"
-        )  # look up "changed" in the descriptor's enum
-
-        # this only emits an on change signal, subclasses need to specify
-        # this in more detail
-        instance.notify(
-            self.public_name,
-            change_signal,
-            old=value,
-            new=getattr(instance, self.private_name, self.fallback_value),
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement __set__ to store values and "
+            "emit its signals"
         )
 
     def __str__(self):  # noqa: D105
@@ -116,13 +126,81 @@ class BaseObservable:
 class Observable(BaseObservable):
     """Observable descriptor.
 
-    An observable is an attribute that emits ObservableSignals.CHANGED whenever it is changed to a different value.
+    Assigning a value to an Observable emits ObservableSignals.CHANGED to its
+    subscribers if the new value differs from the current one, compared with
+    ``!=``. Assigning an equal value emits nothing. If the comparison has no
+    single truth value, as for NumPy arrays with more than one element, the
+    assignment is treated as a change.
+
+    Observables signal on assignment only. Changes made in place to a mutable
+    value are not observed: appending to a list, setting an element of a NumPy
+    array, or changing an attribute of an object held in the Observable. To
+    signal such a change, assign a new value. For lists, use ObservableList,
+    which also signals changes made in place.
+
+    Assign an initial value in ``__init__``. Reading an Observable before it
+    has been assigned raises AttributeError, unless it was created with a
+    ``fallback_value``, which is returned instead. The fallback is shared by
+    all instances, so use an immutable value. The value is stored on the
+    instance as ``_<name>``; setting that attribute directly bypasses the
+    signal.
+
+    Subscribers receive a Message whose ``additional_kwargs`` hold the ``old``
+    and ``new`` values. For the first assignment, ``old`` is the
+    ``fallback_value``, or None if there is none. Assigning a value equal to
+    the fallback therefore emits nothing.
+
+    Examples:
+        >>> from mesa.experimental.mesa_signals import (
+        ...     HasEmitters, Observable, ObservableSignals
+        ... )
+        >>> class Wallet(HasEmitters):
+        ...     balance = Observable()
+        ...     def __init__(self):
+        ...         super().__init__()
+        ...         self.balance = 0
+        >>> def report(message):
+        ...     print(message.name, message.additional_kwargs)
+        >>> wallet = Wallet()
+        >>> wallet.observe("balance", ObservableSignals.CHANGED, report)
+        >>> wallet.balance = 5
+        balance {'old': 0, 'new': 5}
+        >>> wallet.balance = 5  # an equal value emits nothing
+
+        With a ``fallback_value``, an unassigned Observable can be read, and
+        the fallback is the ``old`` value of the first assignment:
+
+        >>> class Meter(HasEmitters):
+        ...     reading = Observable(fallback_value=0)
+        >>> meter = Meter()
+        >>> meter.reading
+        0
+        >>> meter.observe("reading", ObservableSignals.CHANGED, report)
+        >>> meter.reading = 3
+        reading {'old': 0, 'new': 3}
 
     """
 
     # fixme: when we go to 3.13, we might explore changing this into a property
     #    instead of descriptor, which is likely to be more performant
     signal_types = ObservableSignals
+
+    def __init__(self, fallback_value=_NO_FALLBACK):
+        """Initialize an Observable.
+
+        Args:
+            fallback_value: value returned when the Observable is read before
+                it has been assigned, and the old value for the first
+                assignment. It is shared by all instances, so use an immutable
+                value. Without it, reading before assignment raises
+                AttributeError.
+        """
+        super().__init__(fallback_value=fallback_value)
+
+    def _get_value(self, instance: HasEmitters):
+        if self.fallback_value is _NO_FALLBACK:
+            return getattr(instance, self.private_name)
+        return getattr(instance, self.private_name, self.fallback_value)
 
     def __set__(self, instance: HasEmitters, value):  # noqa D103
         if (
@@ -137,8 +215,11 @@ class Observable(BaseObservable):
         send_notify = False
         old_value = None
         if instance._has_subscribers(self.public_name, ObservableSignals.CHANGED):
-            old_value = getattr(instance, self.private_name, None)
-            if old_value != value:
+            fallback = (
+                None if self.fallback_value is _NO_FALLBACK else self.fallback_value
+            )
+            old_value = getattr(instance, self.private_name, fallback)
+            if _has_changed(old_value, value):
                 send_notify = True
         setattr(instance, self.private_name, value)
 
@@ -290,8 +371,15 @@ def computed_property(
 ) -> property:
     """Decorator to create a computed property.
 
-    Acts like @property, but automatically tracks dependencies (Observables)
-    accessed during the function execution and updates them using a diffing engine.
+    Acts like @property, but the value is cached. The Observables read while
+    computing it become its dependencies. When a dependency signals a change,
+    the cached value is marked stale and ObservableSignals.CHANGED is emitted
+    for the computed property, with only ``old`` in the message: the new value
+    is computed the next time the property is read, not when the dependency
+    changes.
+
+    A computed property must not assign to an Observable it depends on; doing
+    so raises ValueError (cyclical dependency).
 
     Args:
         func: The function to be decorated.
@@ -327,7 +415,7 @@ def computed_property(
                             break
                         for attr, old_val in observations.items():
                             current_val = getattr(parent, attr)
-                            if current_val != old_val:
+                            if _has_changed(old_val, current_val):
                                 changed = True
                                 break
                         if changed:
@@ -356,13 +444,33 @@ def computed_property(
 
 
 class HasEmitters:
-    """HasEmitters class.
+    """Mixin that lets an object hold Observables and emit signals.
+
+    Declare Observables, ObservableLists and computed properties as class
+    attributes; HasEmitters discovers them when the subclass is created. A
+    subclass's ``__init__`` must call ``super().__init__()``.
+
+    Other code subscribes with ``observe`` (one instance) or ``observe_class``
+    (all instances of the class). Handlers are called with a Message
+    describing the signal.
+
+    Subscriptions hold their handlers by weak reference, so subscribing does
+    not keep a handler alive. A bound method stays subscribed as long as its
+    object exists. A lambda, or a function defined inside another function, is
+    dropped as soon as nothing else refers to it, and is then no longer called.
+    Keep a reference to such a handler, or use a method or a module-level
+    function instead.
+
+    Subscriptions are kept when the object is deep-copied or pickled, as far
+    as their handlers come along. A bound method is re-bound to a copy of its
+    object, so it stays subscribed only if that object is copied along with
+    this one, for example because it is held in one of its attributes;
+    otherwise the copy loses the subscription. A module-level function stays
+    subscribed as the same function; for pickle it must be importable by name.
 
     Attributes:
         subscribers: mapping of observables/emitters and signal type to subscribers
         observables: mapping of observables/emitters to their available signal types
-
-    HasEmitters automatically discovers the observables/emitters defined on the class.
 
     """
 
@@ -390,6 +498,51 @@ class HasEmitters:
         self._batch_context = None
         self._suppress = False
 
+    def __getstate__(self):
+        """Return the state for pickle and deepcopy.
+
+        Subscribers are stored as weak references, which can be neither pickled nor
+        deep-copied. Live subscribers are therefore replaced by strong references to
+        their handlers, and subscribers that have already been collected are dropped.
+        ``__setstate__`` turns the handlers back into weak references.
+
+        Notes:
+            A bound method of an object that is copied along with the emitter is
+            re-bound to the copy. A plain function or closure is not copied by
+            ``deepcopy`` and, for ``pickle``, has to be importable by name, so
+            handlers that must follow a copy should be bound methods.
+        """
+        state = super().__getstate__()
+        # A subclass with __slots__ returns a (dict, slots) tuple. The subscribers
+        # always live in the instance dict, which is copied so that the live object
+        # keeps its weak references.
+        instance_state, slot_state = (
+            state if isinstance(state, tuple) else (state, None)
+        )
+        instance_state = dict(instance_state)
+        instance_state["subscribers"] = {
+            key: [handler for ref in refs if (handler := ref()) is not None]
+            for key, refs in instance_state.get("subscribers", {}).items()
+        }
+        return instance_state if slot_state is None else (instance_state, slot_state)
+
+    def __setstate__(self, state) -> None:
+        """Restore the state and re-create the weak references to the subscribers."""
+        instance_state, slot_state = (
+            state if isinstance(state, tuple) else (state, None)
+        )
+        # The handlers in the state keep the subscribers alive while this runs.
+        instance_state["subscribers"] = defaultdict(
+            list,
+            {
+                key: [create_weakref(handler) for handler in handlers]
+                for key, handlers in instance_state.get("subscribers", {}).items()
+            },
+        )
+        self.__dict__.update(instance_state)
+        for name, value in (slot_state or {}).items():
+            setattr(self, name, value)
+
     def _has_subscribers(self, name: str, signal_type: str | SignalType) -> bool:
         """Check if there are any subscribers for a given observable and signal type."""
         key = (name, signal_type)
@@ -411,10 +564,16 @@ class HasEmitters:
     ):
         """Subscribe to the Observable <name> for signal_type.
 
+        The handler is called with a Message for every matching signal. It is
+        held by weak reference, so it must stay alive by other means (see
+        HasEmitters).
+
         Args:
-            observable_name: name of the Observable to subscribe to
-            signal_type: the type of signal on the Observable to subscribe to
-            handler: the handler to call
+            observable_name: name of the Observable to subscribe to, an iterable
+                of names, or ALL for every Observable of this object
+            signal_type: the type of signal to subscribe to (a SignalType member
+                or its string value), an iterable of these, or ALL
+            handler: the callable to call with a Message
 
         Raises:
             ValueError: if the Observable <name> is not registered or if the Observable
@@ -661,12 +820,15 @@ class HasEmitters:
         """Subscribe at the class level to the Observable <name> for signal_type.
 
         All instances of this class will trigger the handler when they emit this signal.
-        Handlers are stored as weak references to prevent memory leaks during experiments.
+        The handler is held by weak reference, so it must stay alive by other
+        means (see HasEmitters).
 
         Args:
-            observable_name: name of the Observable to subscribe to
-            signal_type: the type of signal on the Observable to subscribe to
-            handler: the handler to call
+            observable_name: name of the Observable to subscribe to, an iterable
+                of names, or ALL for every Observable of this class
+            signal_type: the type of signal to subscribe to (a SignalType member
+                or its string value), an iterable of these, or ALL
+            handler: the callable to call with a Message
         """
         cls._register_observer(
             cls._class_subscribers, observable_name, signal_type, handler

@@ -22,6 +22,10 @@ from functools import cached_property
 from random import Random
 from typing import TYPE_CHECKING, TypeVar
 
+import numpy as np
+
+from mesa.agentset import _resolve_at_most
+
 if TYPE_CHECKING:
     from mesa.discrete_space.cell import Cell
     from mesa.discrete_space.cell_agent import CellAgent
@@ -35,7 +39,7 @@ class CellCollection[T: Cell]:
     """An immutable collection of cells.
 
     Attributes:
-        cells (List[Cell]): The list of cells this collection represents
+        cells (tuple[Cell, ...]): The cells this collection represents
         agents (List[CellAgent]) : List of agents occupying the cells in this collection
         random (Random) : The random number generator
 
@@ -58,8 +62,8 @@ class CellCollection[T: Cell]:
             cells: cells to add to the collection
             random: a seeded random number generator.
         """
-        if isinstance(cells, dict):
-            self._cells = cells
+        if isinstance(cells, Mapping):
+            self._cells = dict(cells)
         else:
             self._cells = {cell: cell._agents for cell in cells}
 
@@ -91,8 +95,9 @@ class CellCollection[T: Cell]:
         return f"CellCollection({self._cells})"
 
     @cached_property
-    def cells(self) -> list[T]:  # noqa
-        return list(self._cells.keys())
+    def cells(self) -> tuple[T, ...]:
+        """The cells in this collection, as a tuple."""
+        return tuple(self._cells)
 
     @property
     def agents(self) -> Iterable[CellAgent]:  # noqa
@@ -143,13 +148,13 @@ class CellCollection[T: Cell]:
     def select(
         self,
         filter_func: Callable[[T], bool] | None = None,
-        at_most: int | float = float("inf"),
+        at_most: int | float | np.integer | np.floating = float("inf"),
     ):
         """Select cells based on filter function.
 
         Args:
             filter_func: filter function
-            at_most: The maximum amount of cells to select. Defaults to infinity.
+            at_most: The maximum amount of cells to select (numpy integers and floats are accepted). Defaults to infinity.
               - If an integer, at most the first number of matching cells is selected.
               - If a float between 0 and 1, at most that fraction of original number of cells
 
@@ -164,19 +169,7 @@ class CellCollection[T: Cell]:
         if filter_func is None and at_most == float("inf"):
             return self
 
-        if isinstance(at_most, bool) or not isinstance(at_most, (int, float)):
-            raise TypeError(
-                f"at_most must be an integer or float, got {type(at_most).__name__}."
-            )
-
-        if isinstance(at_most, float) and at_most != float("inf"):
-            if not (0.0 < at_most <= 1.0):
-                raise ValueError(
-                    f"Fractional at_most must be in the range (0.0, 1.0], got {at_most}."
-                )
-            at_most = int(len(self) * at_most)  # Note that it rounds down (floor)
-        elif isinstance(at_most, int) and at_most < 0:
-            raise ValueError(f"Integer at_most must be non-negative, got {at_most}.")
+        at_most = _resolve_at_most(at_most, len(self))
 
         def cell_generator(filter_func, at_most):
             count = 0

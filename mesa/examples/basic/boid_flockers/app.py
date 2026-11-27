@@ -15,8 +15,8 @@ for angle in range(0, 360, 10):
 def boid_draw(agent):
     neighbors = len(agent.neighbors)
 
-    # Calculate the angle
-    deg = agent.angle
+    # The marker points up (+y), so rotate it by the angle from +y
+    deg = agent.angle - 90
     # Round to nearest 10 degrees
     rounded_deg = round(deg / 10) * 10 % 360
 

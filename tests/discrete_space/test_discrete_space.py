@@ -5,6 +5,7 @@ import pickle
 import random
 import random as stdlib_random
 import sys
+from types import MappingProxyType
 
 import networkx as nx
 import numpy as np
@@ -24,6 +25,7 @@ from mesa.discrete_space import (
     OrthogonalVonNeumannGrid,
     VoronoiGrid,
 )
+from mesa.discrete_space.cell_agent import BasicMovement, HasCell
 from mesa.discrete_space.voronoi import round_float
 from mesa.exceptions import (
     AgentMissingException,
@@ -353,20 +355,6 @@ def test_dynamic_modifications_to_space():
     assert cell1 in cell2.neighborhood
     assert cell2 in cell1.neighborhood
 
-    # test remove cell
-    neighbors = cell1.neighborhood
-    grid.remove_cell(cell1)
-    for neighbor in neighbors:
-        assert cell1 not in neighbor.neighborhood
-
-    # test add_cells
-    grid.add_cell(cell1)
-    for neighbor in neighbors:
-        grid.add_connection(cell1, neighbor)
-
-    for neighbor in neighbors:
-        assert cell1 in neighbor.neighborhood
-
 
 def test_neighborhood_cache_invalidated_on_topology_change():
     """connect() and disconnect() must invalidate the cached neighborhood.
@@ -643,6 +631,74 @@ def test_voronoigrid():
 
     with pytest.raises(ValueError):
         VoronoiGrid([[0, 1], [0, 1, 1]], random=random.Random(42))
+
+    # Identical centroids used to raise IndexError, or never finish
+    for duplicated in (
+        [[0, 0], [10, 0], [0, 10], [10, 10], [5, 5], [5, 5]],
+        [[0, 0], [10, 0], [0, 10], [0, 0]],
+    ):
+        with pytest.raises(ValueError, match="distinct"):
+            VoronoiGrid(duplicated, random=random.Random(42))
+
+
+def test_voronoigrid_far_from_origin():
+    """VoronoiGrid accepts centroids far from the origin, e.g. UTM coordinates."""
+    base = [[0, 1], [1, 3], [1.1, 1], [1, 1]]
+    offset = (500_000.0, 4_100_000.0)
+    far = [[x + offset[0], y + offset[1]] for x, y in base]
+
+    grid = VoronoiGrid(far, random=random.Random(42))
+
+    assert len(grid._cells) == len(far)
+
+    # Same tessellation shape as the identical near-origin point set
+    assert len(grid._cells[0].connections.values()) == 2
+    for connection in grid._cells[0].connections.values():
+        assert connection.coordinate in [1, 3]
+
+    # Voronoi regions and nearest-cell lookup work at these coordinates
+    vor_coors, regions = grid._get_voronoi_regions()
+    assert len(regions) == len(far)
+    cell = grid.find_nearest_cell((500_000.1, 4_100_001.1))
+    assert cell.coordinate == 0
+
+    # Region coordinates are translated back to the original coordinate system
+    for coordinate in vor_coors:
+        assert abs(coordinate[0] - offset[0]) < 20_000
+        assert abs(coordinate[1] - offset[1]) < 20_000
+
+
+def test_voronoigrid_far_from_origin_matches_near_origin_connectivity():
+    """Translating the centroids does not change the tessellation's edges."""
+
+    def edges(points):
+        grid = VoronoiGrid(points, random=random.Random(42))
+        return {
+            tuple(sorted((cell.coordinate, other.coordinate)))
+            for cell in grid.all_cells.cells
+            for other in cell.connections.values()
+        }
+
+    base = [[0, 1], [1, 3], [1.1, 1], [1, 1], [2.3, 2.1], [0.4, 2.6]]
+    far = [[x + 15_000.0, y - 28_000.0] for x, y in base]
+
+    assert edges(far) == edges(base)
+
+
+def test_voronoigrid_area_precision_far_from_origin():
+    """Polygon areas stay precise when centroids are far from the origin."""
+    rng = random.Random(7)
+    base = [[rng.uniform(0, 50), rng.uniform(0, 50)] for _ in range(60)]
+    near = VoronoiGrid(base, random=random.Random(42))
+    for offset in [(500_000.0, 4_100_000.0), (5e6, 4.1e7)]:
+        far = VoronoiGrid(
+            [[x + offset[0], y + offset[1]] for x, y in base],
+            random=random.Random(42),
+        )
+        for i in range(60):
+            a_far = far._cells[i].properties["area"]
+            a_near = near._cells[i].properties["area"]
+            assert abs(a_far - a_near) / a_near < 1e-6
 
 
 def test_empties_space():
@@ -942,6 +998,104 @@ def test_cell_collection():
 
     cells = collection.select()
     assert len(cells) == len(collection)
+
+
+def test_cell_collection_accepts_non_dict_mapping():
+    """CellCollection preserves values from any Mapping, not just dicts."""
+    cell = Cell((0,), random=random.Random(1))
+    agent = CellAgent(Model())
+    supplied_agents = [agent]
+    cells = MappingProxyType({cell: supplied_agents})
+
+    collection = CellCollection(cells, random=random.Random(1))
+
+    assert collection[cell] is supplied_agents
+    assert list(collection.agents) == [agent]
+
+
+def test_cell_collection_snapshots_input_mapping():
+    """Mutating the constructor mapping cannot change a collection afterward."""
+    cell1 = Cell((0,), random=random.Random(1))
+    cell2 = Cell((1,), random=random.Random(1))
+    source = {cell1: cell1._agents}
+    collection = CellCollection(source, random=random.Random(1))
+    cached_cells = collection.cells
+
+    source[cell2] = cell2._agents
+    assert len(collection) == 1
+    assert list(collection) == [cell1]
+    assert collection.cells is cached_cells
+    assert collection.cells == (cell1,)
+    assert collection.select_random_cell() is cell1
+
+    del source[cell1]
+    assert len(collection) == 1
+    assert list(collection) == [cell1]
+    assert collection.cells is cached_cells
+    assert collection.cells == (cell1,)
+    assert collection.select_random_cell() is cell1
+
+
+def test_cell_collection_cells_is_an_immutable_tuple():
+    """CellCollection.cells is a tuple, so changing it cannot change the collection (#4142)."""
+    cell1 = Cell((0, 0), random=random.Random(1))
+    cell2 = Cell((0, 1), random=random.Random(1))
+    collection = CellCollection([cell1, cell2], random=random.Random(1))
+
+    cells = collection.cells
+    assert isinstance(cells, tuple)
+    assert cells == (cell1, cell2)
+    assert not hasattr(cells, "clear")
+    assert not hasattr(cells, "append")
+
+    assert len(collection) == 2
+    assert list(collection) == [cell1, cell2]
+    assert collection.select_random_cell() in {cell1, cell2}
+
+    # The tuple is built once, so reading it again costs nothing.
+    assert collection.cells is cells
+
+
+@pytest.mark.parametrize(
+    ("at_most", "expected"),
+    [
+        (np.int8(2), 2),
+        (np.int64(2), 2),
+        (np.uint8(2), 2),
+        (np.float16(0.5), 5),
+        (np.float32(0.5), 5),
+        (np.float64(0.5), 5),
+        (np.float32("inf"), 10),
+    ],
+)
+def test_cell_collection_select_accepts_numpy_numbers(at_most, expected):
+    """Test that numpy integer and float scalars are accepted for at_most."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    assert len(collection.select(lambda c: True, at_most=at_most)) == expected
+
+
+@pytest.mark.parametrize(
+    "at_most",
+    [np.int64(-1), np.float32(0.0), np.float32(1.5), np.float32("nan")],
+)
+def test_cell_collection_select_rejects_invalid_numpy_values(at_most):
+    """Test that out-of-range numpy values raise a ValueError."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(10)], random=rng)
+
+    with pytest.raises(ValueError):
+        collection.select(at_most=at_most)
+
+
+def test_cell_collection_select_rejects_numpy_bool():
+    """Test that numpy booleans are rejected like Python booleans."""
+    rng = random.Random()
+    collection = CellCollection([Cell((i,), random=rng) for i in range(3)], random=rng)
+
+    with pytest.raises(TypeError, match="at_most must be an integer or float"):
+        collection.select(at_most=np.True_)
 
 
 def test_empty_cell_collection():
@@ -1447,6 +1601,62 @@ def test_hexGridMovingAgent():
     assert agent.cell.coordinate == (4, 2)
 
 
+def test_move_unplaced_agent_raises():
+    """Moving an unplaced discrete-space agent raises SpaceException with context."""
+    grid = OrthogonalMooreGrid((5, 5), torus=False, random=random.Random(42))
+    hex_grid = HexGrid((5, 5), torus=False, random=random.Random(42))
+    model = Model()
+
+    cell_agent = CellAgent(model)
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot move CellAgent {cell_agent.unique_id}:.*not in a cell",
+    ):
+        cell_agent.move_relative((1, 0))
+    assert cell_agent.cell is None
+
+    # Removing from cell leaves agent unplaced and still raises cleanly
+    cell_agent.cell = grid[2, 2]
+    cell_agent.move_relative((1, 0))
+    assert cell_agent.cell == grid[3, 2]
+    cell_agent.cell = None
+    with pytest.raises(SpaceException, match="not in a cell"):
+        cell_agent.move_relative((1, 0))
+
+    grid_agent = Grid2DMovingAgent(model)
+    for distance in (1, 0):
+        with pytest.raises(
+            SpaceException,
+            match=f"Cannot move Grid2DMovingAgent {grid_agent.unique_id}:.*not in a cell",
+        ):
+            grid_agent.move("up", distance=distance)
+    assert grid_agent.cell is None
+    grid_agent.cell = grid[2, 2]
+    grid_agent.move("up")
+    assert grid_agent.cell == grid[1, 2]
+
+    hex_agent = HexGridMovingAgent(model)
+    for distance in (1, 0):
+        with pytest.raises(
+            SpaceException,
+            match=f"Cannot move HexGridMovingAgent {hex_agent.unique_id}:.*not in a cell",
+        ):
+            hex_agent.move("nw", distance=distance)
+    assert hex_agent.cell is None
+    hex_agent.cell = hex_grid[2, 2]
+    hex_agent.move("nw")
+    assert hex_agent.cell.coordinate == (2, 1)
+
+    class BareMover(HasCell, BasicMovement):
+        pass
+
+    bare_mover = BareMover()
+    with pytest.raises(
+        SpaceException, match="Cannot move BareMover: it is not in a cell"
+    ):
+        bare_mover.move_relative((1, 0))
+
+
 def test_patch():  # noqa: D103
     cell1 = Cell((1,), capacity=None, random=random.Random())
     cell2 = Cell((2,), capacity=None, random=random.Random())
@@ -1640,11 +1850,14 @@ def test_fixed_agent_assign_none_while_unplaced():
 
 
 def test_fixed_agent_remove_unplaced_raises():
-    """Removing an unplaced fixed agent raises and leaves the agent untouched."""
+    """Removing an unplaced fixed agent raises SpaceException and leaves it untouched."""
     model = Model()
     agent = FixedAgent(model)
 
-    with pytest.raises(ValueError, match="not in a cell"):
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot remove FixedAgent {agent.unique_id}:.*not in a cell",
+    ):
         agent.remove()
 
     # the check runs before anything is removed
@@ -1653,14 +1866,17 @@ def test_fixed_agent_remove_unplaced_raises():
 
 
 def test_fixed_agent_remove_twice_raises():
-    """A second remove() raises, since the agent is no longer in a cell."""
+    """A second remove() raises SpaceException, since the agent is no longer in a cell."""
     model = Model()
     cell = Cell((1,), capacity=None, random=random.Random())
     agent = FixedAgent(model)
     agent.cell = cell
 
     agent.remove()
-    with pytest.raises(ValueError, match="not in a cell"):
+    with pytest.raises(
+        SpaceException,
+        match=f"Cannot remove FixedAgent {agent.unique_id}:.*not in a cell",
+    ):
         agent.remove()
 
 
@@ -2112,3 +2328,20 @@ def test_select_random_empty_cell_probe_budget_is_honoured(monkeypatch):
     calls = _spy_on_fallback_scan(monkeypatch)
     assert grid.select_random_empty_cell().is_empty
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("factory", GRID_FACTORIES)
+def test_grid_add_and_remove_cell_raise(factory) -> None:
+    """A grid has a fixed set of cells, so add_cell and remove_cell raise."""
+    grid = factory(1)
+    cell = grid._cells[(1, 1)]
+    neighbors = list(cell.neighborhood)
+
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.remove_cell(cell)
+    with pytest.raises(TypeError, match="Network or VoronoiGrid"):
+        grid.add_cell(grid.cell_klass((1, 1), capacity=1, random=grid.random))
+
+    assert grid._cells[(1, 1)] is cell
+    assert list(cell.neighborhood) == neighbors
+    assert len(grid.all_cells) == 16
