@@ -606,6 +606,35 @@ def test_network_undirected_remove_cell_unchanged():
     assert list(grid.G.nodes) == [0, 2]
 
 
+def test_network_remove_connection_self_loop_and_multigraph():
+    """Network.remove_connection cleanly handles self-loops and parallel edges."""
+    # Self-loop on undirected graph
+    g_self = nx.Graph([(0, 1), (0, 0)])
+    grid_self = Network(g_self, random=random.Random(42))
+    assert _connected_to(grid_self._cells[0]) == {0, 1}
+    grid_self.remove_connection(grid_self._cells[0], grid_self._cells[0])
+    assert _connected_to(grid_self._cells[0]) == {1}
+    assert (0, 0) not in grid_self.G.edges
+
+    # MultiGraph with parallel edges
+    mg = nx.MultiGraph()
+    mg.add_edge(0, 1)
+    mg.add_edge(0, 1)
+    grid_multi = Network(mg, random=random.Random(42))
+    assert _connected_to(grid_multi._cells[0]) == {1}
+    assert _connected_to(grid_multi._cells[1]) == {0}
+
+    # Removing first edge keeps connection active because another parallel edge remains
+    grid_multi.remove_connection(grid_multi._cells[0], grid_multi._cells[1])
+    assert _connected_to(grid_multi._cells[0]) == {1}
+    assert _connected_to(grid_multi._cells[1]) == {0}
+
+    # Removing second edge fully disconnects cells
+    grid_multi.remove_connection(grid_multi._cells[0], grid_multi._cells[1])
+    assert _connected_to(grid_multi._cells[0]) == set()
+    assert _connected_to(grid_multi._cells[1]) == set()
+
+
 def test_voronoigrid():
     """Test VoronoiGrid."""
     # Index 0: [0, 1]
