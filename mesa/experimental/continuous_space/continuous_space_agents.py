@@ -41,6 +41,9 @@ class ContinuousSpaceAgent(Agent):
             raise ValueError(f"Position must have {self.space.ndims} dimensions.")
 
         if not self.space.in_bounds(value):
+            # NaN and inf are never in bounds, and a torus would wrap them to NaN.
+            if not np.isfinite(position).all():
+                raise ValueError(f"point {value} has a NaN or infinite coordinate")
             if self.space.torus:
                 value = self.space.torus_correct(value)
             else:
