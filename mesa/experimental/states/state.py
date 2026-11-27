@@ -226,8 +226,14 @@ class ContinuousState(BaseObservable):
         """Re-evaluate the rate and second-order rate together so they never drift."""
         comp_state = state.get("rate_computed")
         if comp_state is not None and comp_state.is_dirty:
-            state["current_rate"] = self._evaluate_rate(instance)
-            state["second_order_rate"] = self._find_chained_rate(comp_state, instance)
+            rate = self._evaluate_rate(instance)
+            second_order = self._find_chained_rate(comp_state, instance)
+            current_time = instance.model.peek("time", 0.0)
+            dt = current_time - state["last_time"]
+            if dt != 0.0 and second_order != 0.0:
+                rate -= second_order * dt
+            state["current_rate"] = rate
+            state["second_order_rate"] = second_order
 
     def get_rate(self, instance: HasEmitters) -> float:
         """Return the current rate for the instance, evaluating lazily if needed.

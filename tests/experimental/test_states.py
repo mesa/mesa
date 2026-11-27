@@ -225,6 +225,26 @@ class TestContinuousStateExtrapolation:
         pos_immediately_after = tram.position
         assert pos_immediately_after == pytest.approx(pos_before)
 
+    def test_lazy_first_read_preserves_initial_trajectory(
+        self, model: TramModel
+    ) -> None:
+        """Ensure chained state rate evaluated on first read aligns with baseline (#4253)."""
+
+        class Probe(Agent, HasEmitters):
+            acceleration = Observable(fallback_value=0.0)
+            speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+            pos = ContinuousState(fallback_value=0.0, rate=lambda a: a.speed)
+
+            def __init__(self, model: Model) -> None:
+                super().__init__(model)
+                self.acceleration = 1.0
+                self.speed = 0.0
+                self.pos = 0.0
+
+        probe = Probe(model)
+        model.run_until(4.0)
+        assert probe.pos == pytest.approx(8.0)
+
 
 class TestThresholdCrossing:
     """Validates analytical intersection solving for thresholds."""
