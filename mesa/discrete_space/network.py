@@ -201,9 +201,12 @@ class Network(DiscreteSpace[Cell]):
         """Remove a connection between the two cells.
 
         On a directed graph, only the connection from cell1 to cell2 is removed.
+        Handles self-loops and parallel edges (MultiGraph) cleanly.
         """
-        if self.G.is_directed():
-            cell1.disconnect(cell2)
-        else:
-            super().remove_connection(cell1, cell2)
         self.G.remove_edge(cell1.coordinate, cell2.coordinate)
+
+        # Only disconnect cells if no remaining edges exist between them in G
+        if not self.G.has_edge(cell1.coordinate, cell2.coordinate):
+            cell1.disconnect(cell2)
+            if not self.G.is_directed() and cell1 != cell2:
+                cell2.disconnect(cell1)
