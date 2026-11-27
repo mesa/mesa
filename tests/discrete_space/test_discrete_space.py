@@ -635,7 +635,6 @@ def test_network_remove_connection_self_loop_and_multigraph():
     assert _connected_to(grid_multi._cells[1]) == set()
 
 
-
 def test_voronoigrid():
     """Test VoronoiGrid."""
     # Index 0: [0, 1]
