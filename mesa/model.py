@@ -258,10 +258,10 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             is no need to use this if you are subclassing Agent and calling its
             super in the ``__init__`` method.
         """
-        # Add to main storage
-        self._all_agents.add(agent)
+        # Set the id before storing the agent: an agent may hash by unique_id
         agent.unique_id = self.agent_id_counter
         self.agent_id_counter += 1
+        self._all_agents.add(agent)
 
         # because AgentSet requires model, we cannot use defaultdict
         # tricks with a function won't work because model then cannot be pickled

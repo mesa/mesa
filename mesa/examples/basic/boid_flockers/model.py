@@ -96,7 +96,7 @@ class BoidFlockers(Model):
     def calculate_angles(self):
         d1 = np.array([agent.direction[0] for agent in self.agents])
         d2 = np.array([agent.direction[1] for agent in self.agents])
-        self.agent_angles = np.degrees(np.arctan2(d1, d2))
+        self.agent_angles = np.degrees(np.arctan2(d2, d1))
         for agent, angle in zip(self.agents, self.agent_angles):
             agent.angle = angle
 

@@ -141,10 +141,13 @@ class AltairBackend(AbstractRenderer):
                     )
             else:
                 aps = portray_input
-                if aps.x is None and aps.y is None:
-                    aps.x, aps.y = self._get_agent_pos(agent, space)
 
-            arguments["loc"].append((aps.x, aps.y))
+            if aps.x is None and aps.y is None:
+                agent_x, agent_y = self._get_agent_pos(agent, space)
+            else:
+                agent_x, agent_y = aps.x, aps.y
+
+            arguments["loc"].append((agent_x, agent_y))
 
             size_to_collect = aps.size if aps.size is not None else default_size
             if size_to_collect is None:
@@ -501,7 +504,7 @@ class AltairBackend(AbstractRenderer):
 
         Cell values are ordered to match ``HexSpaceDrawer.hexagons``, which iterates
         ``space.all_cells``. This is the same ordering the Matplotlib backend uses
-        (``data.T.ravel()``).
+        (``data.ravel()``).
 
         Args:
             data: The property layer values with shape ``(space.width, space.height)``.
@@ -517,7 +520,7 @@ class AltairBackend(AbstractRenderer):
         """
         hexagons = self.space_drawer.hexagons
         xmin, xmax, ymin, ymax = self.space_drawer.get_viz_limits()
-        values = data.T.ravel()
+        values = data.ravel()
 
         rows = []
         for cell_id, (vertices, value) in enumerate(zip(hexagons, values)):
