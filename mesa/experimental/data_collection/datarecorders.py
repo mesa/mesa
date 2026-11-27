@@ -604,7 +604,9 @@ class SQLDataRecorder(BaseDataRecorder):
             case dict():
                 self._store_dict_data(dataset_name, time, data)
             case _:
-                pass
+                if is_overwrite:
+                    # No to_sql call follows to commit an empty snapshot's DELETE.
+                    self.conn.commit()
 
     def _store_numpy_data(self, dataset_name: str, time: int | float, data: np.ndarray):
         """Store numpy array as SQL records."""
