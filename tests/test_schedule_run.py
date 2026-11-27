@@ -65,10 +65,18 @@ class TestRunFor:
         model = SimpleModel()
         model.run_for(5)
         with pytest.warns(
-            RuntimeWarning, match=r"end time 4\.0 is earlier than current time 5\.0"
+            RuntimeWarning, match=r"end_time 4\.0 is earlier than current time 5\.0"
         ):
             model.run_for(-1)
         assert model.time == 5.0
+
+    @pytest.mark.parametrize("duration", [float("nan"), float("inf"), float("-inf")])
+    def test_rejects_non_finite_duration(self, duration):
+        """run_for should reject non-finite durations."""
+        model = SimpleModel()
+
+        with pytest.raises(ValueError, match="duration must be a finite number"):
+            model.run_for(duration)
 
 
 class TestRunUntil:
@@ -105,6 +113,14 @@ class TestRunUntil:
         model.run_until(model.time)
         assert fired == [3.0]
         assert not [w for w in recwarn if issubclass(w.category, RuntimeWarning)]
+
+    @pytest.mark.parametrize("end_time", [float("nan"), float("inf"), float("-inf")])
+    def test_rejects_non_finite_end_time(self, end_time):
+        """run_until should reject non-finite end times."""
+        model = SimpleModel()
+
+        with pytest.raises(ValueError, match="end_time must be a finite number"):
+            model.run_until(end_time)
 
 
 # --- schedule_event ---
@@ -159,13 +175,10 @@ class TestScheduleEvent:
     def test_at_and_after_exclusive(self):
         model = SimpleModel()
 
-        def noop():
-            pass
-
         with pytest.raises(ValueError):
-            model.schedule_event(noop, at=1.0, after=1.0)
+            model.schedule_event(lambda: None, at=1.0, after=1.0)
         with pytest.raises(ValueError):
-            model.schedule_event(noop)
+            model.schedule_event(lambda: None)
 
     def test_inline_lambda_with_strong_reference(self):
         model = SimpleModel()
@@ -200,6 +213,25 @@ class TestScheduleEvent:
 
         with pytest.raises(ValueError, match="Cannot schedule event in the past"):
             model.schedule_event(noop, at=5)
+
+    def test_rejects_nan_event_time(self):
+        """schedule_event should reject NaN event times."""
+        model = SimpleModel()
+
+        with pytest.raises(ValueError, match="finite"):
+            model.schedule_event(lambda: None, at=float("nan"))
+
+    @pytest.mark.parametrize("time", [float("nan"), float("inf"), float("-inf")])
+    @pytest.mark.parametrize("argument", ["at", "after"])
+    def test_schedule_event_rejects_non_finite_time(self, time, argument):
+        """Scheduling an event with a non-finite time should raise ValueError."""
+        model = SimpleModel()
+        initial_event_count = len(model._event_list)
+
+        with pytest.raises(ValueError, match="finite"):
+            model.schedule_event(lambda: None, **{argument: time})
+
+        assert len(model._event_list) == initial_event_count
 
 
 # --- schedule_recurring ---
