@@ -30,8 +30,8 @@ class ContinuousSpaceAgent(Agent):
 
     @property
     def position(self) -> np.ndarray:
-        """Position of the agent."""
-        return self.space.agent_positions[self._mesa_index]
+        """Position of the agent, as a copy. Assign a new position to move the agent."""
+        return self.space.agent_positions[self._mesa_index].copy()
 
     @position.setter
     def position(self, value: np.ndarray) -> None:
