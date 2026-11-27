@@ -73,6 +73,19 @@ Grids also take two new arguments, `cell_size` and `origin`, that place them in 
 
 - Ref: [Discussion #2585](https://github.com/mesa/mesa/discussions/2585)
 
+### `VoronoiGrid` uses scipy and clips cells to bounds
+`VoronoiGrid` now builds its triangulation with `scipy.spatial.Delaunay` instead of a vendored implementation. Neighbours along the hull that used to be missed are now connected, and the order of `cell.connections` changes, so seeded runs give different results. Cells on the hull used to reach far past the centroids, with areas in the millions. Their polygons are now clipped to the new `bounds` argument, which defaults to the bounding box of the centroids. The `Delaunay` class and the `triangulation`, `voronoi_coordinates` and `regions` attributes are removed; use `cell.properties["polygon"]` instead.
+
+```python
+# Old
+grid = VoronoiGrid(centroids, capacity=round_float)  # huge capacity on the hull
+
+# New
+grid = VoronoiGrid(centroids, capacity=round_float, bounds=[[0, 100], [0, 100]])
+```
+
+- Ref: [PR #4219](https://github.com/mesa/mesa/pull/4219)
+
 ### Experimental meta-agents API reworked
 
 Meta-agents still live in `mesa.experimental.meta_agents`, but the API has been rewritten. The old helpers (`create_meta_agent`, unbound `MetaAgent(...)`, `agent.meta_agent`, `agent.meta_agents`, and `constituting_*` mutators) are gone. A membership manager on the model tracks who belongs to which group; read and write memberships only through `model.meta_agents`.
