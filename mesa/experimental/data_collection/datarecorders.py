@@ -19,6 +19,7 @@ import json
 import os
 import pathlib
 import sqlite3
+import tempfile
 import warnings
 from collections import deque
 from dataclasses import dataclass, field
@@ -394,8 +395,19 @@ class JSONDataRecorder(BaseDataRecorder):
         """Save all data to JSON files."""
         for name, snapshots in self.data.items():
             filepath = self.output_dir / f"{name}.json"
-            with open(filepath, "w") as f:
-                json.dump(list(snapshots), f, indent=2, cls=NumpyJSONEncoder)
+            temporary_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", dir=filepath.parent, delete=False
+                ) as f:
+                    temporary_path = pathlib.Path(f.name)
+                    json.dump(list(snapshots), f, indent=2, cls=NumpyJSONEncoder)
+                if filepath.exists():
+                    temporary_path.chmod(filepath.stat().st_mode)
+                os.replace(temporary_path, filepath)
+            finally:
+                if temporary_path is not None:
+                    temporary_path.unlink(missing_ok=True)
 
 
 class ParquetDataRecorder(BaseDataRecorder):
