@@ -143,6 +143,104 @@ def model() -> TramModel:
     return TramModel()
 
 
+class Truck(Agent, HasEmitters):
+    """Mirrors the reproducer in mesa/mesa#4210.
+
+    Fuel burns in proportion to speed while the truck accelerates from rest,
+    so the fuel curve is quadratic and the out-of-fuel threshold fires at t=4.
+    """
+
+    acceleration = Observable(fallback_value=0.0)
+    speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+    fuel = ContinuousState(fallback_value=0.0, rate=lambda a: -0.5 * a.speed)
+    _empty = Threshold(
+        state=fuel, limit=0.0, callback="out_of_fuel", direction="falling"
+    )
+
+    def __init__(self, model: Model) -> None:
+        """Initialize the Truck agent."""
+        super().__init__(model)
+        self.empty_at: float | None = None
+        self.acceleration = 1.0
+        self.speed = 0.0
+        self.fuel = 4.0
+
+    def out_of_fuel(self) -> None:
+        """Record when the tank runs dry."""
+        self.empty_at = self.model.time
+
+
+class ChainedRateProbe(Agent, HasEmitters):
+    """Agent with chained states whose rates scale, negate, and sum another state.
+
+    Mirrors the rate table in mesa/mesa#4210.
+    """
+
+    acceleration = Observable(fallback_value=0.0)
+    speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+    current = ContinuousState(fallback_value=0.0, rate=lambda a: a.acceleration)
+    pos_speed = ContinuousState(fallback_value=0.0, rate=lambda a: a.speed)
+    pos_speed_plus5 = ContinuousState(fallback_value=0.0, rate=lambda a: a.speed + 5)
+    pos_2speed = ContinuousState(fallback_value=0.0, rate=lambda a: 2 * a.speed)
+    pos_neg_speed = ContinuousState(fallback_value=0.0, rate=lambda a: -a.speed)
+    pos_speed_plus_current = ContinuousState(
+        fallback_value=0.0, rate=lambda a: a.speed + a.current
+    )
+
+    def __init__(self, model: Model) -> None:
+        """Initialize the probe agent."""
+        super().__init__(model)
+        self.speed = 0.0
+        self.current = 0.0
+        self.pos_speed = 0.0
+        self.pos_speed_plus5 = 0.0
+        self.pos_2speed = 0.0
+        self.pos_neg_speed = 0.0
+        self.pos_speed_plus_current = 0.0
+
+    def depart(self) -> None:
+        """Apply acceleration after construction, like Tram.depart()."""
+        self.acceleration = 1.0
+
+
+class TestChainedRateDerivative:
+    """Validates the second-order term for scaled, signed, and summed chained rates.
+
+    Regression tests for mesa/mesa#4210: ``_find_chained_rate`` used to return
+    the rate of the first ContinuousState the rate reads, ignoring scaling,
+    signs, and further dependencies.
+    """
+
+    def test_fuel_burn_proportional_to_speed(self, model: TramModel) -> None:
+        """Ensure fuel burning at 0.5 * speed empties the tank at t=4."""
+        truck = Truck(model)
+        model.run_until(2.0)
+        assert truck.fuel == pytest.approx(3.0)  # 4 - 0.25 * 2^2
+        model.run_until(10.0)
+        assert truck.empty_at == pytest.approx(4.0)
+
+    def test_scaled_signed_and_summed_rates(self, model: TramModel) -> None:
+        """Ensure the rate table from #4210 reads correctly at t=4."""
+        probe = ChainedRateProbe(model)
+        probe.depart()
+        # Pin the t=0 baseline: rates are cached at first evaluation, and the
+        # issue's harness evaluates them at t=0 (via its Threshold).
+        assert probe.pos_speed == pytest.approx(0.0)
+        assert probe.pos_speed_plus5 == pytest.approx(0.0)
+        assert probe.pos_2speed == pytest.approx(0.0)
+        assert probe.pos_neg_speed == pytest.approx(0.0)
+        assert probe.pos_speed_plus_current == pytest.approx(0.0)
+
+        model.run_until(4.0)
+
+        assert probe.speed == pytest.approx(4.0)
+        assert probe.pos_speed == pytest.approx(8.0)
+        assert probe.pos_speed_plus5 == pytest.approx(28.0)
+        assert probe.pos_2speed == pytest.approx(16.0)
+        assert probe.pos_neg_speed == pytest.approx(-8.0)
+        assert probe.pos_speed_plus_current == pytest.approx(16.0)
+
+
 class TestInitOrderingRace:
     """Validates the handling of observable initialization race conditions."""
 

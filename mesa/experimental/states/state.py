@@ -136,18 +136,62 @@ class ContinuousState(BaseObservable):
     def _find_chained_rate(
         self, comp_state: ComputedState, instance: HasEmitters
     ) -> float:
-        """Return the rate-of-the-rate if this state's rate depends on another ContinuousState.
+        """Return the rate-of-the-rate if this state's rate depends on a ContinuousState.
 
-        Scans the dependencies the rate callable's ComputedState recorded for one
-        that is a ContinuousState descriptor on the instance's class.
+        The second-order rate is the time derivative of the rate function. It is
+        measured by evaluating the rate at two times: once at the current model
+        time, and once with every ContinuousState the rate reads shifted to its
+        extrapolated value one time unit later, then dividing the difference by
+        that unit. For a rate that is linear in the states it reads, and whose
+        dependencies' own rates are constant, the difference is exact, so
+        scaled, signed, and summed chained rates all integrate correctly --
+        see mesa/mesa#4210. When a dependency's own rate is itself changing,
+        the difference is the derivative at the midpoint of the unit, which is
+        the correct second-order approximation for the quadratic trajectory.
+
+        Shifting is done by temporarily replacing each dependency's baseline
+        with its extrapolated value at ``current_time + 1`` and its timestamp
+        with the current time, so reads during the probe return the shifted
+        values. Both are restored exactly afterwards, and the rate is
+        re-evaluated one final time so the cached value is the unshifted one.
+        ``ComputedState.evaluate`` emits no signals, so the probe evaluation
+        cannot trigger snapshots or threshold recalculation.
         """
+        chained: list[tuple[ContinuousState, HasEmitters]] = []
         for parent, attrs in comp_state.parents.items():
             for attr_name in attrs:
                 descriptor = getattr(type(parent), attr_name, None)
                 if isinstance(descriptor, ContinuousState):
-                    return descriptor.get_rate(parent)
+                    chained.append((descriptor, parent))
 
-        return 0.0
+        if not chained:
+            return 0.0
+
+        base_rate = float(comp_state.value)
+        current_time = instance.model.peek("time", 0.0)
+        horizon = 1.0
+
+        saved: list[tuple[dict[str, Any], float, float]] = []
+        try:
+            for descriptor, parent in chained:
+                dep_state = descriptor._get_state(parent)
+                shifted_value = descriptor._extrapolate(
+                    dep_state, (current_time + horizon) - dep_state["last_time"]
+                )
+                saved.append(
+                    (dep_state, dep_state["base_value"], dep_state["last_time"])
+                )
+                dep_state["base_value"] = shifted_value
+                dep_state["last_time"] = current_time
+            shifted_rate = self._evaluate_rate(instance)
+        finally:
+            for dep_state, base_value, last_time in saved:
+                dep_state["base_value"] = base_value
+                dep_state["last_time"] = last_time
+
+        # Restore the cached rate: the probe left it at the shifted value.
+        self._evaluate_rate(instance)
+        return (shifted_rate - base_rate) / horizon
 
     def _extrapolate(self, state: dict[str, Any], dt: float) -> float:
         """Project the value forward by dt using the cached base and rates."""
