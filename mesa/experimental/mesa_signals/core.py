@@ -722,10 +722,17 @@ def descriptor_generator(
     This handles both legacy BaseObservable descriptors and new @computed_properties.
     """
     emitters = defaultdict(set)
+    seen = set()
+
     for base in cls.__mro__:
         base_dict = vars(base)
 
         for name, entry in base_dict.items():
+            if name in seen:
+                continue
+
+            seen.add(name)
+
             if isinstance(entry, ComputedProperty):
                 yield name, entry.signal_types
             elif isinstance(entry, BaseObservable):
