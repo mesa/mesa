@@ -36,7 +36,7 @@ class AwesomeModel(Model):
 
 class AwesomeAgent(Agent):
   # ...
-  def __init__(self, model, ...):
+  def __init__(self, model):
     super().__init__(model)
     # ...
 
@@ -69,8 +69,9 @@ class AwesomeModel(Model):
     interesting_number = self.random.random()
     print(interesting_number)
 
->>> model0 = AwesomeModel(rng=0)
->>> model1 = AwesomeModel(rng=0)
->>> model0.random.random() == model1.random.random()
-True
+model0 = AwesomeModel(rng=0)
+model1 = AwesomeModel(rng=0)
+
+print(model0.random.random() == model1.random.random())
+# True
 ```
