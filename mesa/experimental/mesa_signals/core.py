@@ -52,6 +52,7 @@ _NO_FALLBACK = object()  # sentinel: no fallback value was given
 
 CURRENT_COMPUTED: ComputedState | None = None  # the current Computed that is evaluating
 PROCESSING_SIGNALS: set[_hashable_signal] = set()
+EVALUATION_DEPTH = 0
 
 
 class BaseObservable:
@@ -230,7 +231,7 @@ class Observable(BaseObservable):
                 old=old_value,
                 new=value,
             )
-            PROCESSING_SIGNALS.clear()  # we have notified our children, so we can clear this out
+            PROCESSING_SIGNALS.discard(_hashable_signal(instance, self.public_name))
 
 
 class ComputedState:
@@ -322,16 +323,14 @@ class ComputedState:
         Returns:
             The newly computed value.
         """
-        global CURRENT_COMPUTED  # noqa: PLW0603
+        global CURRENT_COMPUTED, EVALUATION_DEPTH  # noqa: PLW0603
 
         old_computed = CURRENT_COMPUTED
-        # Save and reset PROCESSING_SIGNALS so that `self.func` accessing an
-        # Observable that is itself derived from this same ComputedState
-        # (e.g. a rate function reading the ContinuousState it drives) does
-        # not falsely trigger a cyclical-dependency error.
-        old_processing = set(PROCESSING_SIGNALS)
-        PROCESSING_SIGNALS.clear()
-
+        # Preserve PROCESSING_SIGNALS across nested computed-property evaluations.
+        # Clearing the set here could remove cycle-tracking information belonging
+        # to an outer evaluation. The signals are cleaned up when the corresponding
+        # observable notification occurs or when the outermost evaluation finishes.
+        EVALUATION_DEPTH += 1
         CURRENT_COMPUTED = self
         old_parents = self.parents
         self.parents = weakref.WeakKeyDictionary()
@@ -343,7 +342,9 @@ class ComputedState:
             raise
         finally:
             CURRENT_COMPUTED = old_computed
-            PROCESSING_SIGNALS.update(old_processing)
+            EVALUATION_DEPTH -= 1
+            if EVALUATION_DEPTH == 0:
+                PROCESSING_SIGNALS.clear()
 
         # Diffing engine: subscribe/unsubscribe as dependencies come and go.
         old_deps = {(p, attr) for p, attrs in old_parents.items() for attr in attrs}

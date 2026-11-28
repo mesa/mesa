@@ -23,7 +23,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
-from mesa.experimental.mesa_signals.core import BaseObservable
+from mesa.experimental.mesa_signals.core import PROCESSING_SIGNALS, BaseObservable
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     _AllSentinel,
@@ -988,6 +988,84 @@ def test_observable_list_reverse_slice(values, index, delete):
             additional_kwargs=payload,
         )
     )
+
+
+def test_unrelated_notification_does_not_clear_cycle_tracking():
+    """Test that unrelated observable notifications preserve active cycle tracking."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def result(self):
+            value = self.a
+            if self.trigger_cycle:
+                self.b = 10
+                self.a = value + 1
+            return value
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+    model.trigger_cycle = True
+
+    def callback(signal):
+        return None
+
+    model.observe("b", ObservableSignals.CHANGED, callback)
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = model.result
+    assert set() == PROCESSING_SIGNALS
+
+    # Exercise the successful return path.
+    successful_model = Model()
+    successful_model.a = 1
+    successful_model.b = 2
+    successful_model.trigger_cycle = False
+
+    assert successful_model.result == 1
+    assert set() == PROCESSING_SIGNALS
+
+
+def test_peek_nested_computed_property_preserves_cycle_tracking():
+    """Test that peek() preserves cycle tracking across nested computed evaluations."""
+
+    class Model(HasEmitters):
+        a = Observable()
+        b = Observable()
+
+        @computed_property
+        def helper(self):
+            return self.b
+
+        @computed_property
+        def result(self):
+            value = self.a
+            self.peek("helper")
+            if self.trigger_cycle:
+                self.a = value + 1
+            return value
+
+    model = Model()
+    model.a = 1
+    model.b = 2
+    model.trigger_cycle = True
+
+    with pytest.raises(ValueError, match="cyclical dependency"):
+        _ = model.result
+
+    assert set() == PROCESSING_SIGNALS
+
+    # Exercise the successful return path.
+    successful_model = Model()
+    successful_model.a = 1
+    successful_model.b = 2
+    successful_model.trigger_cycle = False
+
+    assert successful_model.result == 1
+    assert set() == PROCESSING_SIGNALS
 
 
 def test_observable_list_reverse_slice_assignment_wrong_size():
