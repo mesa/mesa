@@ -280,6 +280,12 @@ class ContinuousState(BaseObservable):
         state["base_value"] = float(value)
         state["last_time"] = current_time
 
+        # A chained rate is never marked dirty, so re-read it at the new anchor.
+        comp_state = state["rate_computed"]
+        if comp_state is not None:
+            state["current_rate"] = self._evaluate_rate(instance)
+            state["second_order_rate"] = self._find_chained_rate(comp_state, instance)
+
         if has_subscribers:
             instance.notify(
                 self.public_name,
