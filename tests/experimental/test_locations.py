@@ -204,6 +204,24 @@ def test_continuous_location_bounds_and_torus(model):
     np.testing.assert_allclose(citizen.lifestyle, [0.25, 0.75])
 
 
+@pytest.mark.parametrize("point", [[np.nan, 0.5], [0.5, np.inf], [-np.inf, 0.5]])
+def test_continuous_location_rejects_nan_and_inf(model, point):
+    """NaN or infinite coordinates raise in bounded and torus spaces; nothing moves."""
+    citizen = Citizen(model)
+    citizen.view = [0.0, 0.0]  # bounded space
+    citizen.lifestyle = [0.5, 0.5]  # torus space
+    for name, before in (("view", [0.0, 0.0]), ("lifestyle", [0.5, 0.5])):
+        with pytest.raises(ValueError, match="NaN or infinite"):
+            setattr(citizen, name, point)
+        np.testing.assert_array_equal(getattr(citizen, name), before)
+
+    newcomer = Citizen(model)
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        newcomer.lifestyle = point
+    assert newcomer.lifestyle is None
+    assert newcomer not in model.traits.active_agents
+
+
 def test_continuous_locations_in_several_spaces(model):
     """One agent can be in several continuous spaces, next to other agents."""
     citizens = [Citizen(model) for _ in range(5)]

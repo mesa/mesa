@@ -260,9 +260,27 @@ def test_agent_position_is_a_copy():
         agent.position += np.array([1.0, 0.0])
     assert agent.position.tolist() == [9.5, 5.0]
 
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        agent.position += np.array([np.nan, 0.0])
+    assert agent.position.tolist() == [9.5, 5.0]
+
     before = agent.position
     agent.position = [6.0, 5.0]
     assert before.tolist() == [9.5, 5.0]
+
+
+@pytest.mark.parametrize("torus", [False, True])
+@pytest.mark.parametrize("point", [[np.nan, 5.0], [5.0, np.inf], [-np.inf, 5.0]])
+def test_agent_position_rejects_nan_and_inf(torus, point):
+    """NaN or infinite coordinates raise in bounded and torus spaces; nothing moves."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], torus=torus, random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [3.0, 3.0]
+
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        agent.position = point
+    np.testing.assert_array_equal(agent.position, [3.0, 3.0])
 
 
 def test_continuous_space_torus_out_of_bounds_query():
