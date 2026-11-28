@@ -560,6 +560,50 @@ def test_backends_handle_errors():
 def test_collect_agent_data_does_not_mutate_shared_portrayal(backend_cls):
     """Shared AgentPortrayalStyle instances should not be mutated during data collection."""
 
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend])
+def test_collect_agent_data_preserves_explicit_zero_size(backend_cls):
+    """Explicit size=0 should be preserved and not replaced by default_size."""
+
+
+@pytest.mark.parametrize(
+    ("portrayal_size", "default_size", "expected_size"),
+    [
+        (0, 100, 0),  # Explicit zero preserved (the bug)
+        (5, 100, 5),  # Explicit positive preserved
+        (None, 100, 100),  # size=None -> default_size
+        (None, 0, 0),  # size=None -> default_size=0
+        (None, None, 50),  # Both None -> class default
+    ],
+)
+def test_collect_agent_data_size_fallback(portrayal_size, default_size, expected_size):
+    """Test size fallback logic: explicit size preserved, None falls back correctly."""
+
+    class DummyAgent:
+        def __init__(self, position):
+            self.position = position
+
+    class DummySpace:
+        pass
+
+    portrayal = AgentPortrayalStyle(size=portrayal_size)
+    space = DummySpace()
+    space.agents = [DummyAgent((0, 1)), DummyAgent((2, 3))]
+
+    backend = MatplotlibBackend(space_drawer=MagicMock())
+    data = backend.collect_agent_data(
+        space,
+        lambda agent: portrayal,
+        default_size=default_size,
+    )
+
+    assert data["s"].tolist() == [expected_size, expected_size]
+
+
+@pytest.mark.parametrize("backend_cls", [MatplotlibBackend, AltairBackend])
+def test_collect_agent_data_uses_space_coordinates_when_portrayal_none(backend_cls):
+    """Space coordinates should be used when portrayal x, y are None."""
+
     class DummyAgent:
         def __init__(self, position):
             self.position = position
