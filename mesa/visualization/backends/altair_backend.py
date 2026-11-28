@@ -6,6 +6,7 @@ from dataclasses import fields
 import altair as alt
 import numpy as np
 import pandas as pd
+from altair.utils.core import infer_vegalite_type_for_pandas
 from matplotlib.colors import to_rgb
 
 import mesa
@@ -292,13 +293,31 @@ class AltairBackend(AbstractRenderer):
                 for key, value in tooltip.items():
                     column_data[key][i] = value
 
-        # Keep tooltip values separate from the columns used by the encodings.
-        # Generated field names also avoid Altair's shorthand and nested-field syntax
-        # in user labels, while titles preserve those labels on hover.
-        for i, key in enumerate(sorted(all_tooltips_key)):
-            field = f"_mesa_tooltip_{i}"
+        # Prefix the original label so post-processing can find the column.
+        tooltip_fields = set()
+        for key in sorted(all_tooltips_key, key=str):
+            title = str(key)
+            field = f"tooltip_{title}"
+            if field in tooltip_fields:
+                raise ValueError(
+                    f"Tooltip keys must have distinct string labels: {title!r}"
+                )
+            tooltip_fields.add(field)
             df[field] = column_data[key]
-            tooltip_list.append(alt.Tooltip(field=field, title=key))
+            inferred_type = infer_vegalite_type_for_pandas(df[field])
+            if isinstance(inferred_type, tuple):
+                inferred_type = inferred_type[0]
+            # Vega-Lite treats dots and brackets as paths unless escaped.
+            escaped_field = field.replace("\\", "\\\\")
+            for character in ".[]":
+                escaped_field = escaped_field.replace(character, f"\\{character}")
+            tooltip_list.append(
+                alt.Tooltip(
+                    field=escaped_field,
+                    title=title,
+                    type=inferred_type,
+                )
+            )
 
         # Handle custom colormapping
         cmap = kwargs.pop("cmap", "viridis")
