@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import traceback
+import warnings
 from collections.abc import Iterable
 from concurrent.futures import BrokenExecutor, as_completed
 from typing import TYPE_CHECKING, Any
@@ -181,6 +182,18 @@ def _safe_call(
     return ref, None
 
 
+def _is_mpi_executor(executor: Executor | None) -> bool:
+    """Whether ``executor`` comes from mpi4py (e.g. ``MPIPoolExecutor``).
+
+    Keyed on the executor's class rather than on environment variables: it is
+    the executor that decides where runs execute and how outcomes travel back,
+    and checking its module avoids importing mpi4py (an optional dependency).
+    """
+    if executor is None:
+        return False
+    return type(executor).__module__.split(".")[0] == "mpi4py"
+
+
 def run_scenarios(
     scenarios: Iterable[Scenario],
     config: RunConfiguration,
@@ -208,6 +221,11 @@ def run_scenarios(
             ``DiskStore``: threads share one stream writer and can silently
             corrupt the output. Use a ``ProcessPoolExecutor`` or run
             sequentially instead.
+            On a cluster, pass an ``mpi4py.futures.MPIPoolExecutor`` and launch
+            the script under MPI, e.g. ``mpiexec -n 8 python -m mpi4py.futures
+            script.py``. Combine it with a ``DiskStore`` whose directory is on
+            a filesystem every rank can reach; workers then write their own
+            output and only small references travel to rank 0.
         store: the Storage backend to use
         progress: whether to display the progress
             Display a progress bar via ``tqdm`` if installed.
@@ -217,6 +235,16 @@ def run_scenarios(
     """
     if store is None:
         store = InMemoryStore()
+
+    if _is_mpi_executor(executor) and isinstance(store, InMemoryStore):
+        warnings.warn(
+            "Running on an MPI executor with an InMemoryStore: every outcome is "
+            "pickled through MPI back to rank 0 and held in its memory. Pass "
+            "store=DiskStore(<directory on a filesystem shared by all ranks>) "
+            "so workers write their own output instead.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     scenarios = list(scenarios)
     writer = store.writer()

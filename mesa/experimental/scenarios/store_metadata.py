@@ -13,7 +13,10 @@ with the small root-written files that describe a parameter sweep:
                       lines, root-written, replayed with tolerance for a torn
                       final line. This log only contains ABORTED, SUCCEEDED,
                       or FAILED. By comparing with scenarios.json, PENDING runs
-                      can easily be identified.
+                      can easily be identified. Every line records the session
+                      that produced it. A SUCCEEDED line is the *commit point*
+                      of a run: the run's data counts only if it lies in the
+                      files of the session named on that line.
 
 """
 
@@ -23,10 +26,11 @@ import inspect
 import json
 import os
 import subprocess
+import time
 import warnings
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import numpy as np
 
@@ -38,8 +42,9 @@ if TYPE_CHECKING:
     from mesa.experimental.scenarios.scenario import Scenario
 
 #: Bump on any change to file layout, filename conventions, or the schema of
-#: the files below. PR 5 only records this; enforcement on resume is PR 8.
-STORE_FORMAT_VERSION = 1
+#: the files below. ``DiskStore.from_directory`` refuses other versions.
+#: Version 2: every ``status.log`` line records the ``session`` that wrote it.
+STORE_FORMAT_VERSION = 2
 
 STORE_MANIFEST = "store.json"
 SCENARIOS_MANIFEST = "scenarios.json"
@@ -300,45 +305,107 @@ def read_scenarios_manifest(
 # ---------------------------------------------------------------------------
 
 
-def append_status(
-    store_dir: Path,
-    run_id: RunId,
-    status: Status,
-    failure: FailureInfo | None = None,
-) -> None:
-    """Append one status line. Root-only.
+class StatusEntry(NamedTuple):
+    """The last recorded status of one run, as replayed from ``status.log``."""
 
-    Args:
-        store_dir: root directory of the store.
-        run_id: run_id of the current run.
-        status: status of the current run.
-        failure: failure info from the current run.
+    status: Status
+    failure: FailureInfo | None
+    session: str
 
-    One JSON object per line; the write is flushed so a completed run's
-    status survives if the root is being killed immediately after. Opening per
-    append keeps this function stateless; a store may later hold the handle
-    open if append frequency warrants it.
+
+class StatusLog:
+    """Root-side, append-only handle on ``status.log``.
+
+    Keeps one line-buffered file handle open instead of reopening the file for
+    every status line, which on a shared filesystem costs a metadata round trip
+    per run. Line buffering hands every completed line to the OS immediately,
+    so a root killed at any point loses at most the line it was writing (the
+    reader tolerates a torn final line).
+
+    Surviving a *node* crash needs an ``fsync``. It happens on the first append
+    after ``sync_interval`` seconds have passed, and on ``close``. Losing the
+    unsynced tail is safe by design: a run whose status line is missing reads as
+    PENDING and is simply run again. Data it wrote is ignored, because a run's
+    data only counts in the session named on its SUCCEEDED line.
+
+    Not safe for concurrent writers; only the root writes the log.
     """
-    line: dict[str, Any] = {
-        "scenario_id": run_id.scenario_id,
-        "replication_id": run_id.replication_id,
-        "status": status.value,
-    }
-    if failure is not None:
-        line["failure"] = {
-            "origin": failure.origin.value,
-            "exception_type": failure.exception_type,
-            "message": failure.message,
-            "traceback": failure.traceback,
+
+    def __init__(self, store_dir: Path, *, sync_interval: float = 5.0):
+        """Open (creating if needed) ``status.log`` in ``store_dir`` for appending.
+
+        Args:
+            store_dir: root directory of the store.
+            sync_interval: minimum seconds between ``fsync`` calls while appending.
+        """
+        self._file = (store_dir / STATUS_LOG).open("a", buffering=1)
+        self._sync_interval = sync_interval
+        self._last_sync = time.monotonic()
+        self._dirty = False
+
+    def append(
+        self,
+        run_id: RunId,
+        status: Status,
+        failure: FailureInfo | None = None,
+        *,
+        session: str,
+    ) -> None:
+        """Append one status line.
+
+        Args:
+            run_id: run_id of the current run.
+            status: status of the current run.
+            failure: failure info from the current run.
+            session: the session that produced this status. For SUCCEEDED
+                this is the session whose files hold the run's data.
+        """
+        line: dict[str, Any] = {
+            "scenario_id": run_id.scenario_id,
+            "replication_id": run_id.replication_id,
+            "status": status.value,
+            "session": session,
         }
-    with (store_dir / STATUS_LOG).open("a") as f:
-        f.write(json.dumps(line) + "\n")
-        f.flush()
+        if failure is not None:
+            line["failure"] = {
+                "origin": failure.origin.value,
+                "exception_type": failure.exception_type,
+                "message": failure.message,
+                "traceback": failure.traceback,
+            }
+        self._file.write(json.dumps(line) + "\n")
+        self._dirty = True
+        if time.monotonic() - self._last_sync >= self._sync_interval:
+            self.sync()
+
+    def sync(self) -> None:
+        """Force everything appended so far to stable storage."""
+        if self._file.closed or not self._dirty:
+            return
+        self._file.flush()
+        os.fsync(self._file.fileno())
+        self._dirty = False
+        self._last_sync = time.monotonic()
+
+    def close(self) -> None:
+        """Sync and close the handle. Safe to call more than once."""
+        if self._file.closed:
+            return
+        self.sync()
+        self._file.close()
+
+    def __enter__(self) -> StatusLog:
+        """Return self, for use as a context manager."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the log on leaving the ``with`` block."""
+        self.close()
 
 
 def read_status(
     store_dir: Path,
-) -> dict[RunId, tuple[Status, FailureInfo | None]]:
+) -> dict[RunId, StatusEntry]:
     """Read the status log and return the latest read status for each unique run.
 
     Args:
@@ -351,12 +418,13 @@ def read_status(
     but corruption, and raises.
 
     Returns:
-        Mapping of RunId to its final (Status, FailureInfo or None). Runs
-        never marked do not appear; callers derive PENDING from the scenario
-        manifest minus this mapping.
+        Mapping of RunId to its final ``StatusEntry`` (status, failure or
+        None, and the session that recorded it). Runs never marked do not
+        appear; callers derive PENDING from the scenario manifest minus this
+        mapping.
     """
     path = store_dir / STATUS_LOG
-    result: dict[RunId, tuple[Status, FailureInfo | None]] = {}
+    result: dict[RunId, StatusEntry] = {}
     if not path.exists():
         return result
 
@@ -389,5 +457,5 @@ def read_status(
                 message=f["message"],
                 traceback=f["traceback"],
             )
-        result[run_id] = (Status(entry["status"]), failure)
+        result[run_id] = StatusEntry(Status(entry["status"]), failure, entry["session"])
     return result

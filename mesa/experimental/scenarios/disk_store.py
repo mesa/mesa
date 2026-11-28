@@ -9,7 +9,7 @@ Layout::
     store_dir/
     ├── store.json          # format version, sessions, provenance (written once)
     ├── scenarios.json      # authoritative, seed-complete (written once)
-    ├── status.log          # append-only, root-written, torn-tail-tolerant
+    ├── status.log          # append-only, root-written, torn-tail-tolerant, session-tagged
     └── outputs/
         └── {output_name}/
             └── worker-{session}-{host}-{uuid}.arrow
@@ -33,12 +33,31 @@ writes to both — appends a log line and updates the record — so they
 never disagree, and a fresh process reconstructs the records by replaying the
 log. The RunRecord ``output`` field is always None: DiskStore never
 funnels outcomes to root, so output is resolved on demand by retrieve_output.
+
+Durability: when is a run committed?
+------------------------------------
+A run is committed when its SUCCEEDED line is in ``status.log``. That line
+names the session whose worker files hold the run's data, and
+``retrieve_output`` reads only the files of that session. Data and status are
+written by different processes (worker and root), so a kill can land between
+the two. The design makes every such outcome safe without any rollback:
+
+- data written, status line missing: the run reads as PENDING and is run again;
+  the orphaned rows sit in a session that no SUCCEEDED line names, so they are
+  never read;
+- a run that failed half-way through writing its outputs (the ``WRITING``
+  failure): same thing, the leftover rows are never read;
+- a run repeated in a later session: only the later session's rows are read.
+
+What the status line does not guarantee, unless ``durability="fsync"``, is that
+the data survived a crash of the *node* the worker ran on (see ``DiskStore``).
 """
 
 from __future__ import annotations
 
 import uuid
 import warnings
+import weakref
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -48,7 +67,11 @@ import pyarrow.compute as pc
 import pyarrow.ipc as pa_ipc
 
 from mesa.experimental.scenarios import store_metadata
-from mesa.experimental.scenarios.disk_writer import DiskStreamWriter, _validate_schemas
+from mesa.experimental.scenarios.disk_writer import (
+    DiskStreamWriter,
+    _validate_durability,
+    _validate_schemas,
+)
 from mesa.experimental.scenarios.exceptions import (
     ScenarioAbortedException,
     ScenarioFailedException,
@@ -71,8 +94,20 @@ class DiskStore:
 
     Not safe with thread-backed executors (``ThreadPoolExecutor``): worker
     threads share one stream writer, which can silently corrupt the output
-    files. Use a ``ProcessPoolExecutor`` or run sequentially
+    files. Use a ``ProcessPoolExecutor``, an MPI executor, or run sequentially
     (``executor=None``).
+
+    Under MPI (``mpi4py.futures.MPIPoolExecutor``, launched with e.g.
+    ``mpiexec -n 8 python -m mpi4py.futures script.py``), workers write their
+    Arrow files directly, so ``store_dir`` must be on a filesystem that every
+    rank can reach (a shared or parallel filesystem, not node-local scratch).
+    Only small key-only references travel back to rank 0. ``mpi4py.futures``
+    workers exit without closing their Arrow files cleanly; that is harmless,
+    because reads tolerate a missing end-of-stream marker.
+
+    Call ``close()`` (or use the store as a context manager) when done, so the
+    status log is synced to disk. If you forget, a finalizer does it at garbage
+    collection or interpreter exit.
     """
 
     def __init__(
@@ -81,6 +116,7 @@ class DiskStore:
         *,
         schemas: dict[str, pa.Schema] | None = None,
         on_schema_conflict: str = "warn",
+        durability: str = "flush",
     ):
         """Create a new store rooted at ``store_dir``.
 
@@ -104,9 +140,22 @@ class DiskStore:
                 differ across workers — ``"warn"`` unifies with null-fill and
                 warns, ``"raise"`` raises. Within-worker deviation is always an
                 error, caught earlier by the writer.
+            durability: what a worker guarantees about a run's data before it
+                reports the run as done. ``"flush"`` (default) hands the data
+                to the operating system: it survives the worker or root
+                process being killed (e.g. a walltime limit) but not the
+                worker's *node* crashing, and on NFS-style filesystems another
+                node may not see it until the worker's files are closed.
+                ``"fsync"`` additionally forces the data (and the new files'
+                directory entries) to stable storage before the run is
+                reported, which also covers node loss and makes the data
+                visible across nodes, at the cost of a filesystem round trip
+                per output per run. Prefer ``"fsync"`` on flaky nodes or
+                NFS-style shared filesystems; on Lustre/GPFS and local disks
+                ``"flush"`` is normally enough.
 
         Raises:
-            ValueError: if ``on_schema_conflict`` is invalid, or if any
+            ValueError: if ``on_schema_conflict`` or ``durability`` is invalid, or if any
                 schema in ``schemas`` declares a reserved identity column
                 (``scenario_id`` or ``replication_id`` — see
                 ``disk_writer._validate_schemas``).
@@ -117,8 +166,10 @@ class DiskStore:
                 f"on_schema_conflict must be 'warn' or 'raise', "
                 f"got {on_schema_conflict!r}"
             )
+        _validate_durability(durability)
         self.store_dir = Path(store_dir)
         self.on_schema_conflict = on_schema_conflict
+        self.durability = durability
         self.schemas = schemas or {}
         _validate_schemas(self.schemas)
         self.session: str | None = uuid.uuid4().hex[
@@ -132,6 +183,15 @@ class DiskStore:
         # record's status is updated in place by mark_* and is the in-process
         # source of truth. status.log is the durable shadow.
         self._records: dict[RunId, RunRecord] = {}
+
+        # For each SUCCEEDED run, the session whose files hold its data. This
+        # is what makes the SUCCEEDED status line the commit point.
+        self._commit_session: dict[RunId, str] = {}
+
+        # status.log handle, opened on the first status write and closed by
+        # close() or, as a safety net, by the finalizer.
+        self._status_log: store_metadata.StatusLog | None = None
+        self._finalizer: weakref.finalize | None = None
 
     # -- construction --------------------------------------------------------
 
@@ -184,12 +244,23 @@ class DiskStore:
         self = cls.__new__(cls)
         self.store_dir = store_dir
         self.on_schema_conflict = on_schema_conflict
+        self.durability = "flush"
+        self.schemas = {}
         self.session = None
+        self._status_log = None
+        self._finalizer = None
 
         self._records = {}
+        self._commit_session = {}
         for scenario in scenarios:
             run_id = RunId(scenario.scenario_id, scenario.replication_id)
-            status, failure = statuses.get(run_id, (Status.PENDING, None))
+            entry = statuses.get(run_id)
+            if entry is None:
+                status, failure = Status.PENDING, None
+            else:
+                status, failure = entry.status, entry.failure
+                if status == Status.SUCCEEDED:
+                    self._commit_session[run_id] = entry.session
             self._records[run_id] = RunRecord(
                 scenario=scenario, status=status, failure=failure
             )
@@ -212,7 +283,12 @@ class DiskStore:
                 "from_directory, which is read-only); resuming a sweep is "
                 "not yet supported, so writer() is unavailable"
             )
-        return DiskStreamWriter(self.store_dir, self.session, schemas=self.schemas)
+        return DiskStreamWriter(
+            self.store_dir,
+            self.session,
+            schemas=self.schemas,
+            durability=self.durability,
+        )
 
     def write_scenarios(
         self, scenarios: list[Scenario], config: RunConfiguration
@@ -278,13 +354,53 @@ class DiskStore:
     def _record_status(
         self, run_id: RunId, status: Status, failure: FailureInfo | None
     ) -> None:
-        """Write one status transition through to the log and the record."""
+        """Write one status transition through to the log and the record.
+
+        The log line carries this store's session. For SUCCEEDED that makes it
+        the commit point: it names the session whose files hold the run's data.
+        """
         record = self._records.get(run_id)
         if record is None:
             raise ScenarioNotFoundException(run_id)
-        store_metadata.append_status(self.store_dir, run_id, status, failure)
+        if self.session is None:
+            raise RuntimeError(
+                "this DiskStore has no active session (it was loaded via "
+                "from_directory, which is read-only); it cannot record status"
+            )
+        self._get_status_log().append(run_id, status, failure, session=self.session)
         record.status = status
         record.failure = failure
+        if status == Status.SUCCEEDED:
+            self._commit_session[run_id] = self.session
+        else:
+            self._commit_session.pop(run_id, None)
+
+    def _get_status_log(self) -> store_metadata.StatusLog:
+        """Return the open status log, opening it (and its finalizer) if needed."""
+        if self._status_log is None:
+            self._status_log = store_metadata.StatusLog(self.store_dir)
+            # The callback is a bound method of the log, not of self, so the
+            # finalizer does not keep this store alive.
+            self._finalizer = weakref.finalize(self, self._status_log.close)
+        return self._status_log
+
+    def close(self) -> None:
+        """Sync and close the status log. Safe to call more than once.
+
+        The store stays usable: the next status write reopens the log.
+        """
+        if self._finalizer is not None:
+            self._finalizer()  # runs StatusLog.close once, then deactivates
+        self._status_log = None
+        self._finalizer = None
+
+    def __enter__(self) -> DiskStore:
+        """Return self, for use as a context manager."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the store on leaving the ``with`` block."""
+        self.close()
 
     # -- status queries ------------------------------------------------------
 
@@ -334,9 +450,12 @@ class DiskStore:
         Status-gated to match ``InMemoryStore``: a pending run is not ready, a
         failed or aborted run raises with its diagnostics, and only a succeeded
         run's outcome is returned. The outcome is assembled by fanning over
-        every output directory's worker files, filtering to this ``run_id``.
+        every output directory's worker files *of the session that committed
+        the run* (the one named on its SUCCEEDED status line), filtering to this
+        ``run_id``. Rows the run left in any other session — from an earlier
+        attempt, or from a write that failed half-way — are never read.
 
-        Every output present in the sweep appears as a key. A frame may be
+        Every output present in that session appears as a key. A frame may be
         empty (zero rows): the run wrote a valid zero-row batch, or — in
         sweeps where not every run produces every output — the run never
         wrote to that output at all. The two are indistinguishable on read
@@ -345,10 +464,10 @@ class DiskStore:
         as reconciled across workers), which equals the run's original
         columns in the common stable-schema case.
 
-        Note: this reads *every* worker file on each call — no assembled table
-        is cached — so retrieving N runs individually re-reads the whole sweep N
-        times. Acceptable while whole-sweep reads dominate and per-run retrieval
-        is occasional.
+        Note: this reads *every* worker file of the session on each call — no
+        assembled table is cached — so retrieving N runs individually re-reads
+        the whole session N times. Acceptable while whole-sweep reads dominate
+        and per-run retrieval is occasional.
 
         fixme: if per-run access becomes common, a future revision may
           take a ``RunId`` or list of ``RunId`` and/or cache the assembled tables.
@@ -364,7 +483,8 @@ class DiskStore:
             raise ScenarioNotReadyException(run_id)
 
         result: dict[str, pd.DataFrame] = {}
-        for output_name, table in self._read_all_outputs().items():
+        session = self._commit_session[run_id]
+        for output_name, table in self._read_all_outputs(session).items():
             keep = pc.and_(
                 pc.equal(table["scenario_id"], run_id.scenario_id),
                 pc.equal(table["replication_id"], run_id.replication_id),
@@ -372,32 +492,39 @@ class DiskStore:
             result[output_name] = table.filter(keep).to_pandas()
         return result
 
-    def _output_names(self) -> list[str]:
-        """Names of outputs that have at least one worker file on disk."""
+    @staticmethod
+    def _session_glob(session: str) -> str:
+        """Glob matching the worker files of one session (see ``disk_writer``)."""
+        return f"worker-{session}-*.arrow"
+
+    def _output_names(self, session: str) -> list[str]:
+        """Names of outputs with at least one worker file of ``session``."""
         outputs_dir = self.store_dir / "outputs"
         if not outputs_dir.exists():
             return []
+        pattern = self._session_glob(session)
         return sorted(
-            p.name
-            for p in outputs_dir.iterdir()
-            if p.is_dir() and any(p.glob("*.arrow"))
+            p.name for p in outputs_dir.iterdir() if p.is_dir() and any(p.glob(pattern))
         )
 
-    def _read_all_outputs(self) -> dict[str, pa.Table]:
-        """Read every output to a single Arrow table, one per output name.
+    def _read_all_outputs(self, session: str) -> dict[str, pa.Table]:
+        """Read every output of one session to a single Arrow table per output name.
 
-        Fans over each output directory's worker files. Truncation-tolerant: a
-        worker killed mid-batch leaves an unterminated stream, read to its last
-        complete batch. Cross-worker schema deviation is reconciled here per
-        ``on_schema_conflict``.
+        Fans over each output directory's worker files of ``session``.
+        Truncation-tolerant: a worker killed mid-batch leaves an unterminated
+        stream, read to its last complete batch. Cross-worker schema deviation
+        is reconciled here per ``on_schema_conflict``.
         """
-        return {name: self._read_one_output(name) for name in self._output_names()}
+        return {
+            name: self._read_one_output(name, session)
+            for name in self._output_names(session)
+        }
 
-    def _read_one_output(self, output_name: str) -> pa.Table:
-        """Assemble one output's table across all its worker files."""
+    def _read_one_output(self, output_name: str, session: str) -> pa.Table:
+        """Assemble one output's table across the worker files of ``session``."""
         output_dir = self.store_dir / "outputs" / output_name
         tables = []
-        for path in sorted(output_dir.glob("*.arrow")):
+        for path in sorted(output_dir.glob(self._session_glob(session))):
             table = self._read_stream_file(path)
             if table is not None:
                 tables.append(table)

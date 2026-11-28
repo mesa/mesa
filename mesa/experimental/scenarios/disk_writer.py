@@ -33,8 +33,8 @@ worker's file distinct along every axis that can collide:
   - ``host``     not needed for uniqueness now that the uuid provides it, but
                  kept alongside it so a file can still be eyeballed to the
                  node that produced it — an opaque uuid can't be read that
-                 way the way a pid once could. Useful once PR 6 adds MPI
-                 across nodes;
+                 way the way a pid once could. Useful for MPI runs across
+                 nodes;
   - ``session``  distinguishes invocations (resume) — an Arrow IPC
                  stream cannot be reopened once its end-of-stream marker is
                  written, so a resumed sweep opens NEW files rather than
@@ -85,6 +85,25 @@ means the frame handed to pyarrow always matches the declared schema
 exactly, so pyarrow's own schema-mismatch error behavior (which may differ
 across pyarrow versions and was not something this module wanted to depend
 on) is never exercised.
+
+Durability. ``write_batch`` hands each batch straight to the operating system
+(``pa.OSFile`` is unbuffered), so a run's data survives the worker being
+killed as soon as ``to_reference`` returns. With ``durability="fsync"`` the
+writer also forces the data to stable storage — and, when it creates a stream,
+the new file's and output directory's entries — before returning, which covers
+the worker's *node* crashing and makes the data visible to other nodes on
+NFS-style filesystems. The root records a run as SUCCEEDED only after
+``to_reference`` returns, so the durability level applies to every run the
+status log calls committed.
+
+A clean shutdown is best-effort and nothing depends on it. Closing the streams
+at process exit (the ``atexit`` hook below, which writes each stream's
+end-of-stream marker) does not happen in every worker: workers of
+``mpi4py.futures`` exit without running ``atexit`` handlers (checked with
+mpi4py 4.1 on MPICH, launched via ``mpiexec -n 3 python -m mpi4py.futures``),
+and a killed worker never gets to either. The reader returns every complete
+batch of a stream whether or not the marker is there (see
+``DiskStore._read_stream_file``).
 
 Concurrency preconditions:
 
@@ -153,6 +172,37 @@ _HOST = socket.gethostname()
 
 # NOT a module-level uuid — see the module docstring's ``uuid`` bullet.
 # _instance_uuid() on DiskStreamWriter is where this actually lives now.
+
+_DURABILITY_MODES = ("flush", "fsync")
+
+
+def _validate_durability(durability: str) -> None:
+    """Reject an unknown durability mode.
+
+    Shared by ``DiskStore.__init__`` and ``DiskStreamWriter.__init__`` for the
+    same reason as ``_validate_schemas``: one definition of the valid modes.
+
+    Raises:
+        ValueError: if ``durability`` is not one of ``"flush"`` or ``"fsync"``.
+    """
+    if durability not in _DURABILITY_MODES:
+        raise ValueError(
+            f"durability must be one of {_DURABILITY_MODES}, got {durability!r}"
+        )
+
+
+def _fsync_directory(path: Path) -> None:
+    """Flush a directory's entries to stable storage, so a new file in it survives a crash.
+
+    A no-op on Windows, where directories cannot be opened for syncing.
+    """
+    if os.name == "nt":
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _validate_schemas(schemas: dict[str, pa.Schema]) -> None:
@@ -350,7 +400,8 @@ class DiskStreamWriter:
     """Stateless, per-job-pickleable handle that appends run outcomes to disk.
 
     Carries only configuration — the store directory, the session token, a
-    lazily-minted uuid, and an optional per-output schema map. All mutable
+    lazily-minted uuid, an optional per-output schema map, and the durability
+    mode. All mutable
     state about open streams and fixed schemas lives in the module-level
     registry, keyed per output and per worker process. Constructed by
     ``DiskStore.writer()`` and re-pickled with every job.
@@ -368,6 +419,7 @@ class DiskStreamWriter:
         store_dir: Path,
         session: str,
         schemas: dict[str, pa.Schema] | None = None,
+        durability: str = "flush",
     ):
         """Initialize the writer.
 
@@ -387,14 +439,19 @@ class DiskStreamWriter:
                 undeclared column is warned about once and the column
                 dropped (schema is authoritative). Outputs absent here keep
                 the existing infer-from-first-batch behavior.
+            durability: ``"flush"`` (default) or ``"fsync"``; see the module
+                docstring and ``DiskStore``.
 
         Raises:
             ValueError: if any schema in ``schemas`` declares a reserved
-                identity column — see ``_validate_schemas``.
+                identity column — see ``_validate_schemas`` — or if
+                ``durability`` is not a known mode.
         """
+        _validate_durability(durability)
         self.store_dir = Path(store_dir)
         self.session = session
         self.schemas = schemas or {}
+        self.durability = durability
         _validate_schemas(self.schemas)
         # Must stay None here — never set eagerly. See the module
         # docstring's ``uuid`` bullet: an eagerly-set value would be baked
@@ -432,6 +489,17 @@ class DiskStreamWriter:
         raised exception into a recorded ``WRITING`` ``FailureInfo`` so one bad
         run never aborts the sweep.
 
+        Everything that can be checked in advance is checked before the first
+        write. A failure *during* the write loop (the disk filling up, say) can
+        still leave some outputs with this run's batch and others without,
+        because an Arrow stream is append-only and cannot be rolled back. That
+        is harmless: the run is recorded FAILED, and ``DiskStore`` only reads a
+        run's rows from the session that recorded it SUCCEEDED, so the leftover
+        rows are never served as a result.
+
+        With ``durability="fsync"`` the batches are forced to stable storage
+        before this returns; the root records SUCCEEDED only afterwards.
+
         Assumes extraction's postcondition has already run: every frame in
         ``outcome`` has at least one column. A columnless frame is rejected
         upstream in ``RunConfiguration.__call__`` as an ``EXTRACTING`` failure,
@@ -462,10 +530,15 @@ class DiskStreamWriter:
             self._check_schema(name, batch.schema)
 
         # --- all validated; now write ---
-        # fixme a write in this loop might fail, leaving partially written output
-        #   resume semantics should handle this explicitly
+        # A failure inside this loop can leave partially written output; that is
+        # safe by design (see the docstring): the run ends up FAILED, and rows
+        # from a session that did not commit the run are never read.
         for name, batch in batches.items():
             self._append(name, batch)
+
+        if self.durability == "fsync":
+            for name in batches:
+                self._sync_stream(name)
 
         return DiskReference(run_id)
 
@@ -663,3 +736,13 @@ class DiskStreamWriter:
         _SINKS[key] = sink
         _STREAMS[key] = pa.ipc.new_stream(sink, schema)
         _SCHEMAS[key] = schema
+        if self.durability == "fsync":
+            # make the new file's and output directory's entries durable too;
+            # syncing the file's data alone would not survive a crash if the
+            # directory entry pointing at it was never written.
+            _fsync_directory(path.parent)
+            _fsync_directory(path.parent.parent)
+
+    def _sync_stream(self, name: str) -> None:
+        """Force everything written so far to this worker's stream for ``name`` to disk."""
+        os.fsync(_SINKS[(self.session, name)].fileno())

@@ -1,5 +1,6 @@
 """Tests for DiskStore: manifests, status tracking, and outcome read-back."""
 
+import gc
 import json
 import warnings
 from concurrent.futures import ProcessPoolExecutor
@@ -23,7 +24,7 @@ from mesa.experimental.scenarios import (
     run_scenarios,
     store_metadata,
 )
-from mesa.experimental.scenarios.disk_writer import DiskReference
+from mesa.experimental.scenarios.disk_writer import DiskReference, DiskStreamWriter
 from mesa.experimental.scenarios.exceptions import FailureInfo, FailureOrigin
 from mesa.experimental.scenarios.store import RunId, Status
 
@@ -131,7 +132,9 @@ def test_mark_succeeded_writes_through_to_status_log(populated_disk_store):
 
     assert store.check_status(run_id) == Status.SUCCEEDED
     logged = store_metadata.read_status(store.store_dir)
-    assert logged[run_id] == (Status.SUCCEEDED, None)
+    assert logged[run_id] == store_metadata.StatusEntry(
+        Status.SUCCEEDED, None, store.session
+    )
 
 
 def test_mark_failed_writes_through_to_status_log(populated_disk_store):
@@ -143,9 +146,12 @@ def test_mark_failed_writes_through_to_status_log(populated_disk_store):
     store.mark_failed(run_id, failure)
 
     assert store.check_status(run_id) == Status.FAILED
-    logged_status, logged_failure = store_metadata.read_status(store.store_dir)[run_id]
+    logged_status, logged_failure, logged_session = store_metadata.read_status(
+        store.store_dir
+    )[run_id]
     assert logged_status == Status.FAILED
     assert logged_failure == failure
+    assert logged_session == store.session
 
 
 def test_mark_aborted_writes_through_to_status_log(populated_disk_store):
@@ -157,9 +163,12 @@ def test_mark_aborted_writes_through_to_status_log(populated_disk_store):
     store.mark_aborted(run_id, failure)
 
     assert store.check_status(run_id) == Status.ABORTED
-    logged_status, logged_failure = store_metadata.read_status(store.store_dir)[run_id]
+    logged_status, logged_failure, logged_session = store_metadata.read_status(
+        store.store_dir
+    )[run_id]
     assert logged_status == Status.ABORTED
     assert logged_failure == failure
+    assert logged_session == store.session
 
 
 def test_mark_succeeded_unknown_run_id_raises(disk_store):
@@ -428,11 +437,11 @@ def test_unify_warns_and_null_fills_on_cross_worker_schema_conflict(tmp_path):
     table_b = pa.table(
         {"scenario_id": [1], "replication_id": [-1], "value": [2.0], "extra": [3]}
     )
-    _write_worker_file(output_dir, "worker-a.arrow", table_a)
-    _write_worker_file(output_dir, "worker-b.arrow", table_b)
+    _write_worker_file(output_dir, "worker-s0-a.arrow", table_a)
+    _write_worker_file(output_dir, "worker-s0-b.arrow", table_b)
 
     with pytest.warns(UserWarning, match="unifying"):
-        table = store._read_one_output("results")
+        table = store._read_one_output("results", "s0")
 
     assert table.num_rows == 2
     assert "extra" in table.column_names
@@ -449,11 +458,11 @@ def test_unify_raises_on_cross_worker_schema_conflict_when_configured(tmp_path):
     table_b = pa.table(
         {"scenario_id": [1], "replication_id": [-1], "value": [2.0], "extra": [3]}
     )
-    _write_worker_file(output_dir, "worker-a.arrow", table_a)
-    _write_worker_file(output_dir, "worker-b.arrow", table_b)
+    _write_worker_file(output_dir, "worker-s0-a.arrow", table_a)
+    _write_worker_file(output_dir, "worker-s0-b.arrow", table_b)
 
     with pytest.raises(ValueError, match="schema conflict"):
-        store._read_one_output("results")
+        store._read_one_output("results", "s0")
 
 
 def test_unify_no_conflict_when_worker_schemas_match(tmp_path):
@@ -463,12 +472,12 @@ def test_unify_no_conflict_when_worker_schemas_match(tmp_path):
 
     table_a = pa.table({"scenario_id": [0], "replication_id": [-1], "value": [1.0]})
     table_b = pa.table({"scenario_id": [1], "replication_id": [-1], "value": [2.0]})
-    _write_worker_file(output_dir, "worker-a.arrow", table_a)
-    _write_worker_file(output_dir, "worker-b.arrow", table_b)
+    _write_worker_file(output_dir, "worker-s0-a.arrow", table_a)
+    _write_worker_file(output_dir, "worker-s0-b.arrow", table_b)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        table = store._read_one_output("results")
+        table = store._read_one_output("results", "s0")
 
     assert table.num_rows == 2
 
@@ -537,3 +546,171 @@ def test_run_scenarios_disk_store_without_schema_hits_corner_case(tmp_path):
     assert len(store.failed()) == 1
     [failure_record] = store.failed().values()
     assert failure_record.failure.origin == FailureOrigin.WRITING
+
+
+# ============================================================
+# Commit semantics: the SUCCEEDED line names the session holding the data
+# ============================================================
+
+
+def _write_and_commit(store, session, run_id, outcome):
+    """Write a run's data under ``session`` and record it SUCCEEDED in that session."""
+    ref = DiskStreamWriter(store.store_dir, session).to_reference(run_id, outcome)
+    store.session = session
+    store.mark_succeeded(ref)
+
+
+def _run_id(scenario):
+    return RunId(scenario.scenario_id, scenario.replication_id)
+
+
+def test_retrieve_output_reads_only_the_committing_session(populated_disk_store):
+    """Rows from an earlier, uncommitted attempt are ignored once a later session commits."""
+    store, scenarios = populated_disk_store
+    run_id = _run_id(scenarios[0])
+
+    # an earlier attempt wrote its data, but the root never recorded the run
+    DiskStreamWriter(store.store_dir, "attempt1").to_reference(
+        run_id, {"results": pd.DataFrame({"x": [1]})}
+    )
+    # a later session repeats the run and commits it
+    _write_and_commit(store, "attempt2", run_id, {"results": pd.DataFrame({"x": [2]})})
+
+    assert store.retrieve_output(run_id)["results"]["x"].tolist() == [2]
+
+
+def test_commit_session_survives_reload(populated_disk_store):
+    """A store reattached with from_directory reads from the session on the status line."""
+    store, scenarios = populated_disk_store
+    run_id = _run_id(scenarios[0])
+    DiskStreamWriter(store.store_dir, "attempt1").to_reference(
+        run_id, {"results": pd.DataFrame({"x": [1]})}
+    )
+    _write_and_commit(store, "attempt2", run_id, {"results": pd.DataFrame({"x": [2]})})
+
+    reloaded = DiskStore.from_directory(store.store_dir, Scenario)
+
+    assert reloaded.retrieve_output(run_id)["results"]["x"].tolist() == [2]
+
+
+def test_partial_write_failure_leaves_rows_that_are_never_served(
+    populated_disk_store, monkeypatch
+):
+    """A failure between two outputs strands rows, which neither this nor a retry reads."""
+    store, scenarios = populated_disk_store
+    run_a, run_b = _run_id(scenarios[0]), _run_id(scenarios[1])
+
+    def outcome(value):
+        return {
+            "first": pd.DataFrame({"x": [value]}),
+            "second": pd.DataFrame({"y": [value]}),
+        }
+
+    original_append = DiskStreamWriter._append
+
+    def failing_append(self, name, batch):
+        if name == "second":
+            raise OSError("disk full")
+        original_append(self, name, batch)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(DiskStreamWriter, "_append", failing_append)
+        with pytest.raises(OSError, match="disk full"):
+            store.writer().to_reference(run_a, outcome(1))
+    store.mark_failed(
+        run_a, FailureInfo(FailureOrigin.WRITING, "OSError", "disk full", "")
+    )
+
+    # the orphan row is really on disk ...
+    ref_b = store.writer().to_reference(run_b, outcome(2))
+    store.mark_succeeded(ref_b)
+    assert len(store._read_one_output("first", store.session)) == 2
+    # ... but another run only ever sees its own rows, and the failed run is not served
+    assert store.retrieve_output(run_b)["first"]["scenario_id"].tolist() == [
+        run_b.scenario_id
+    ]
+    with pytest.raises(ScenarioFailedException):
+        store.retrieve_output(run_a)
+
+    # a retry in a later session ignores the orphan
+    _write_and_commit(store, "retry", run_a, outcome(9))
+    assert store.retrieve_output(run_a)["first"]["x"].tolist() == [9]
+
+
+# ============================================================
+# durability
+# ============================================================
+
+
+def test_durability_rejects_unknown_mode(tmp_path):
+    """Only 'flush' and 'fsync' are valid durability modes."""
+    with pytest.raises(ValueError, match="durability"):
+        DiskStore(tmp_path / "store", durability="always")
+
+
+def test_writer_inherits_the_stores_durability(tmp_path):
+    """The writer handed to workers carries the store's durability mode."""
+    assert DiskStore(tmp_path / "a").writer().durability == "flush"
+    assert DiskStore(tmp_path / "b", durability="fsync").writer().durability == "fsync"
+
+
+# ============================================================
+# status log lifecycle
+# ============================================================
+
+
+def test_close_is_idempotent_and_the_store_stays_usable(populated_disk_store):
+    """close() syncs and releases the log; a later status write reopens it."""
+    store, scenarios = populated_disk_store
+    run_0, run_1 = _run_id(scenarios[0]), _run_id(scenarios[1])
+    failure = FailureInfo(FailureOrigin.RUNNING, "E", "m", "")
+
+    store.mark_failed(run_0, failure)
+    assert store._status_log is not None
+    store.close()
+    store.close()
+    assert store._status_log is None
+
+    store.mark_failed(run_1, failure)
+    store.close()
+    assert set(store_metadata.read_status(store.store_dir)) == {run_0, run_1}
+
+
+def test_context_manager_closes_the_status_log(tmp_path, scenario_list, basic_config):
+    """Leaving the with-block closes the status log."""
+    with DiskStore(tmp_path / "store") as store:
+        store.write_scenarios(scenario_list, basic_config)
+        store.mark_failed(
+            _run_id(scenario_list[0]), FailureInfo(FailureOrigin.RUNNING, "E", "m", "")
+        )
+        log = store._status_log
+        assert not log._file.closed
+    assert log._file.closed
+
+
+def test_finalizer_closes_the_status_log_when_the_store_is_collected(
+    tmp_path, scenario_list, basic_config
+):
+    """Forgetting close() is covered: dropping the store syncs and closes the log."""
+    store = DiskStore(tmp_path / "store")
+    store.write_scenarios(scenario_list, basic_config)
+    store.mark_failed(
+        _run_id(scenario_list[0]), FailureInfo(FailureOrigin.RUNNING, "E", "m", "")
+    )
+    log = store._status_log
+
+    del store
+    gc.collect()
+
+    assert log._file.closed
+
+
+def test_from_directory_store_cannot_record_status(populated_disk_store):
+    """A store attached read-only has no session, so it refuses to write status."""
+    store, scenarios = populated_disk_store
+    reloaded = DiskStore.from_directory(store.store_dir, Scenario)
+
+    with pytest.raises(RuntimeError, match="from_directory"):
+        reloaded.mark_failed(
+            _run_id(scenarios[0]), FailureInfo(FailureOrigin.RUNNING, "E", "m", "")
+        )
