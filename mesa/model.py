@@ -147,6 +147,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
             [], random=self.random
         )  # an agenset with all agents
 
+        # Callbacks that must run on agent removal regardless of signal state.
+        # The AGENT_REMOVED signal can be suppressed or batched away, so it is
+        # not a reliable hook for internal cleanup.
+        self._agent_removal_callbacks: list[Callable[[A], None]] = []
+
         self.data_registry = DataRegistry()
 
     def _wrapped_step(self) -> None:
@@ -246,6 +251,21 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         """
         return self._agents_by_type
 
+    def _register_agent_removal_callback(self, callback: Callable[[A], None]) -> None:
+        """Register a callback to run whenever an agent is deregistered.
+
+        Callbacks are invoked eagerly by ``deregister_agent``, independently of
+        the suppressible ``AGENT_REMOVED`` signal. Registering the same callback
+        twice has no effect.
+        """
+        if callback not in self._agent_removal_callbacks:
+            self._agent_removal_callbacks.append(callback)
+
+    def _unregister_agent_removal_callback(self, callback: Callable[[A], None]) -> None:
+        """Unregister a callback previously added with ``_register_agent_removal_callback``."""
+        if callback in self._agent_removal_callbacks:
+            self._agent_removal_callbacks.remove(callback)
+
     @emit("agents", ModelSignals.AGENT_ADDED)
     def register_agent(self, agent: A):
         """Register the agent with the model.
@@ -292,6 +312,11 @@ class Model[A: Agent, S: Scenario](HasEmitters):
         self._all_agents.remove(agent)
 
         _mesa_logger.debug(f"deregistered agent with agent_id {agent.unique_id}")
+
+        # Run cleanup callbacks even when the AGENT_REMOVED signal is suppressed
+        # or batched. Iterate a snapshot so callbacks may unregister themselves.
+        for callback in tuple(self._agent_removal_callbacks):
+            callback(agent)
 
     def run_model(self) -> None:
         """Run the model until the end condition is reached.

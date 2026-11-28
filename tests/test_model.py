@@ -182,3 +182,26 @@ def test_agents_by_type_keeps_empty_bucket():
     assert Prey in model.agent_types
     assert len(model.agents_by_type[Prey]) == 0
     assert len(model.agents_by_type[Predator]) == 3
+
+
+def test_agent_removal_callbacks_dedupe_and_unregister():
+    """Agent-removal callbacks run once, and unregistering stops future calls."""
+    model = Model()
+    calls = []
+
+    def callback(agent):
+        calls.append(agent)
+
+    model._register_agent_removal_callback(callback)
+    model._register_agent_removal_callback(callback)
+
+    first = Agent(model)
+    first.remove()
+    assert calls == [first]
+
+    model._unregister_agent_removal_callback(callback)
+    model._unregister_agent_removal_callback(callback)  # repeated call is a no-op
+
+    second = Agent(model)
+    second.remove()
+    assert calls == [first]

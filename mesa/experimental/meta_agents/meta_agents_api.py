@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from mesa.agent import Agent, AgentSet
-from mesa.experimental.mesa_signals import ModelSignals
-from mesa.experimental.mesa_signals.signals_util import Message
 
 from .backend import MembershipBackend, RelationKey, Triplet
 from .meta_agent import (
@@ -80,17 +78,7 @@ class MetaAgents:
         self.model = model
         self.backend = backend or MembershipBackend()
         model.meta_agents = self
-        self.model.observe("agents", ModelSignals.AGENT_REMOVED, self._on_agent_removed)
-
-    def _on_agent_removed(self, signal: Message | Any) -> None:
-        """Deactivate memberships when a live agent leaves the model."""
-        if hasattr(signal, "additional_kwargs"):
-            args = signal.additional_kwargs.get("args")
-            agent = args[0] if args else signal.additional_kwargs.get("agent")
-        else:
-            agent = signal
-        if agent is not None:
-            self.deactivate(agent)
+        self.model._register_agent_removal_callback(self.deactivate)
 
     def _resolve_group(self, group: Hashable) -> Any:
         """Resolve a group from a live object or group name."""
