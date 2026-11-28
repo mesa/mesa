@@ -540,6 +540,23 @@ class CellLocation(_Location):
         return self._space(agent).find_nearest_cell(point)
 
 
+def _check_cell_agent(agent: Agent, cell: Cell) -> None:
+    """Refuse a CellAgent's first cell in a space where a location has one."""
+    state = agent.__dict__
+    for location in agent._mesa_locations:
+        other = state.get(location._key)
+        if (
+            isinstance(location, CellLocation)
+            and other is not None
+            and location._space(agent)._cells.get(cell.coordinate) is cell
+        ):
+            raise ValueError(
+                f"{type(agent).__name__}.cell would put the agent in "
+                f"model.{location.space_name}, where it already has {location.name}: "
+                "an agent has at most one cell in a discrete space."
+            )
+
+
 class _Handle:
     """Keeps an agent's row in a ContinuousSpace, for one ContinuousLocation."""
 

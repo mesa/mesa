@@ -8,7 +8,13 @@ import numpy as np
 import pytest
 
 from mesa import Agent, Model
-from mesa.discrete_space import CellAgent, HexGrid, Network, OrthogonalMooreGrid
+from mesa.discrete_space import (
+    CellAgent,
+    FixedAgent,
+    HexGrid,
+    Network,
+    OrthogonalMooreGrid,
+)
 from mesa.exceptions import CellFullException
 from mesa.experimental.continuous_space import ContinuousSpace, ContinuousSpaceAgent
 from mesa.experimental.locations import CellLocation, ContinuousLocation
@@ -116,6 +122,27 @@ def test_one_cell_per_agent_in_a_discrete_space(model):
     with pytest.raises(ValueError, match="already has cell"):
         settler.home = model.ground[2, 2]
     assert model.ground[2, 2].agents == [settler]
+
+
+@pytest.mark.parametrize("base", [CellAgent, FixedAgent])
+def test_cell_agent_cell_after_a_location_in_the_same_space(model, base):
+    """A CellAgent's cell is refused where a location already placed the agent."""
+
+    class Settler(base):
+        home = CellLocation("ground")
+
+    settler = Settler(model)
+    settler.home = model.ground[2, 2]
+    for target in (model.ground[2, 2], model.ground[3, 3]):
+        with pytest.raises(ValueError, match="already has home"):
+            settler.cell = target
+        assert settler.cell is None
+        assert model.ground[2, 2].agents == [settler]
+        assert settler not in model.ground[3, 3].agents
+
+    settler.home = None
+    settler.cell = model.ground[3, 3]  # no other cell there now
+    assert model.ground[3, 3].agents == [settler]
 
 
 @pytest.mark.parametrize("second_space", ["ground", "alias"])
