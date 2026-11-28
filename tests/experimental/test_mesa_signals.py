@@ -14,6 +14,7 @@ from mesa.experimental.mesa_signals import (
     ALL,
     HasEmitters,
     ListSignals,
+    ModelSignals,
     Observable,
     ObservableList,
     ObservableSignals,
@@ -674,24 +675,27 @@ def test_computed_property_dependencies():
     assert agent.count_all == 3
 
 
-def test_explicit_dependency_recomputes_with_dynamic_dependency():
-    """Test recomputation when both explicit and dynamic dependencies change."""
+def test_explicit_emit_dependency_recomputes_with_dynamic_dependency():
+    """Test recomputation with an explicit model signal and a dynamic Observable dependency."""
 
-    class Model(HasEmitters):
-        a = Observable()
-        b = Observable()
+    class Crowd(Model):
+        capacity = Observable()
 
-        @computed_property(dependencies=[("a", ObservableSignals.CHANGED)])
-        def total(self):
-            return self.peek("a") + self.b
+        def __init__(self):
+            super().__init__()
+            self.capacity = 10
 
-    model = Model()
-    model.a = 1
-    model.b = 2
+        @computed_property(dependencies=[("agents", ModelSignals.AGENT_ADDED)])
+        def pressure(self):
+            return len(self.agents) / self.capacity
 
-    assert model.total == 3
-    model.a = 2
-    assert model.total == 4
+    model = Crowd()
+
+    Agent.create_agents(model, 3)
+    assert model.pressure == pytest.approx(0.3)
+
+    Agent.create_agents(model, 2)
+    assert model.pressure == pytest.approx(0.5)
 
 
 def test_dynamic_dependency_recomputes():
@@ -716,24 +720,29 @@ def test_dynamic_dependency_recomputes():
     assert model.total == 6
 
 
-def test_explicit_dependency_recomputes():
-    """Test that changes to explicitly declared dependencies trigger recomputation."""
+def test_computed_property_recomputes_when_dependency_changes_back():
+    """Test recomputation when a dependency changes and returns to its original value."""
+    evaluations = []
 
     class Model(HasEmitters):
         a = Observable()
 
-        @computed_property(dependencies=[("a", ObservableSignals.CHANGED)])
+        @computed_property
         def total(self):
-            return self.peek("a") * 2
+            evaluations.append(1)
+            return self.a * 2
 
     model = Model()
+    model.a = 1
+
+    assert model.total == 2
+    assert len(evaluations) == 1
+
     model.a = 2
+    model.a = 1
 
-    assert model.total == 4
-
-    model.a = 5
-
-    assert model.total == 10
+    assert model.total == 2
+    assert len(evaluations) == 2
 
 
 def test_ObservableList_negative_index_normalization():
