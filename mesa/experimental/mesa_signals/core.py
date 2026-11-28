@@ -403,28 +403,7 @@ def computed_property(
                 state = getattr(self, key)
 
             if state.is_dirty:
-                changed = False
-
-                # Check if parents actually changed
-                if not state.parents:
-                    changed = True
-                else:
-                    for parent, observations in state.parents.items():
-                        if parent is None:
-                            changed = True
-                            break
-                        for attr, old_val in observations.items():
-                            current_val = getattr(parent, attr)
-                            if _has_changed(old_val, current_val):
-                                changed = True
-                                break
-                        if changed:
-                            break
-
-                if changed:
-                    state.evaluate()
-
-                state.is_dirty = False
+                state.evaluate()
 
             if CURRENT_COMPUTED is not None:
                 CURRENT_COMPUTED._record_access(
