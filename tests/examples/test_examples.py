@@ -1,6 +1,7 @@
 # noqa: D100
 import copy
 import gc
+import random
 import weakref
 
 import pytest
@@ -108,6 +109,26 @@ def test_virus_on_network():  # noqa: D103
     del model
     gc.collect()
     assert ref() is None
+
+
+def test_virus_on_network_reproducibility():
+    """The model RNG controls both the network and the collected trajectory."""
+    global_state = random.getstate()
+    try:
+        random.seed(1)
+        first = VirusOnNetwork(num_nodes=30, avg_node_degree=4, rng=123)
+        random.seed(2)
+        second = VirusOnNetwork(num_nodes=30, avg_node_degree=4, rng=123)
+    finally:
+        random.setstate(global_state)
+
+    assert set(first.grid.G.edges()) == set(second.grid.G.edges())
+
+    first.run_for(10)
+    second.run_for(10)
+    assert first.datacollector.get_model_vars_dataframe().equals(
+        second.datacollector.get_model_vars_dataframe()
+    )
 
 
 def test_boid_flockers():  # noqa: D103
