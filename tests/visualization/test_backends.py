@@ -6,6 +6,7 @@ from typing import ClassVar
 from unittest.mock import MagicMock
 
 import numpy as np
+import pandas as pd
 import pytest
 from matplotlib import pyplot as plt
 
@@ -630,3 +631,169 @@ def test_to_numpy_argument_array_mixed_face_colors():
     uniform = [(1.0, 0.0, 0.0, 1.0), (1.0, 0.0, 0.0, 1.0)]
     result = _to_numpy_argument_array("c", uniform)
     assert result.shape == (2, 4)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "x",
+        "y",
+        "size",
+        "shape",
+        "opacity",
+        "strokeWidth",
+        "original_color",
+        "is_filled",
+        "original_stroke",
+        "viz_fill_color",
+        "viz_stroke_color",
+    ],
+)
+@pytest.mark.parametrize("colors", [["red", "blue"], [2, 4]])
+def test_altair_tooltip_does_not_overwrite_rendering_columns(key, colors):
+    """Tooltip fields must not change position, styling, or color inference."""
+    backend = AltairBackend(space_drawer=MagicMock())
+    backend.space_drawer.get_viz_limits.return_value = (0, 10, 0, 10)
+    arguments = {
+        "loc": np.array([[1, 2], [3, 4]]),
+        "size": np.array([5, 10]),
+        "shape": np.array(["circle", "square"]),
+        "opacity": np.array([0.5, 1.0]),
+        "strokeWidth": np.array([1, 2]),
+        "color": np.array(colors),
+        "filled": np.array([True, False]),
+        "stroke": np.array(["black", "green"]),
+        "tooltip": np.array([None, None]),
+    }
+    control = backend.draw_agents(arguments)
+    arguments["tooltip"] = np.array([{key: 99}, {key: None}], dtype=object)
+    chart = backend.draw_agents(arguments)
+    for column in control.data:
+        assert chart.data[column].equals(control.data[column])
+    encoding = chart.to_dict()["encoding"]
+    control_encoding = control.to_dict()["encoding"]
+    assert {k: v for k, v in encoding.items() if k != "tooltip"} == {
+        k: v for k, v in control_encoding.items() if k != "tooltip"
+    }
+    tooltip = encoding["tooltip"][0]
+    assert tooltip["title"] == key
+    assert tooltip["field"] not in control.data
+    assert chart.data[tooltip["field"]].iloc[0] == 99
+    assert np.isnan(chart.data[tooltip["field"]].iloc[1])
+
+
+def test_altair_tooltip_heterogeneous_keys_and_labels():
+    """Preserve labels and missing values without interpreting field syntax."""
+    backend = AltairBackend(space_drawer=MagicMock())
+    backend.space_drawer.get_viz_limits.return_value = (0, 10, 0, 10)
+    arguments = {
+        "loc": np.array([[1, 2], [3, 4], [5, 6]]),
+        "size": np.array([5, 5, 5]),
+        "shape": np.array(["circle"] * 3),
+        "opacity": np.ones(3),
+        "strokeWidth": np.ones(3),
+        "color": np.array(["red"] * 3),
+        "filled": np.ones(3, dtype=bool),
+        "stroke": np.array(["black"] * 3),
+        "tooltip": np.array(
+            [
+                {"x": 99, "rate:Q": 1, "a.b": "first"},
+                {"_mesa_tooltip_0": "user", "empty": None, "a[b]": "second"},
+                None,
+            ],
+            dtype=object,
+        ),
+    }
+    chart = backend.draw_agents(arguments)
+    tooltips = chart.to_dict()["encoding"]["tooltip"]
+    assert [t["title"] for t in tooltips] == sorted(
+        ["x", "rate:Q", "a.b", "_mesa_tooltip_0", "empty", "a[b]"]
+    )
+    fields = {t["title"]: f"tooltip_{t['title']}" for t in tooltips}
+    assert len(set(fields.values())) == len(fields)
+    assert chart.data[fields["x"]].iloc[0] == 99
+    assert chart.data[fields["_mesa_tooltip_0"]].iloc[1] == "user"
+    assert chart.data[fields["a.b"]].iloc[0] == "first"
+    assert chart.data[fields["a[b]"]].iloc[1] == "second"
+    assert chart.data[fields["empty"]].isna().all()
+    assert chart.data[list(fields.values())].iloc[2].isna().all()
+    assert chart.data["x"].tolist() == [1, 3, 5]
+
+
+def _tooltip_chart(tooltips):
+    backend = AltairBackend(space_drawer=MagicMock())
+    backend.space_drawer.get_viz_limits.return_value = (0, 10, 0, 10)
+    count = len(tooltips)
+    return backend.draw_agents(
+        {
+            "loc": np.ones((count, 2)),
+            "size": np.ones(count),
+            "shape": np.array(["circle"] * count),
+            "opacity": np.ones(count),
+            "strokeWidth": np.ones(count),
+            "color": np.array(["red"] * count),
+            "filled": np.ones(count, dtype=bool),
+            "stroke": np.array(["black"] * count),
+            "tooltip": np.array(tooltips, dtype=object),
+        }
+    )
+
+
+def test_altair_tooltip_names_are_stable_for_post_processing():
+    """Adding another tooltip does not rename existing data columns."""
+    first = _tooltip_chart([{"wealth": 3}])
+    second = _tooltip_chart([{"age": 4, "wealth": 3}])
+    assert first.data["tooltip_wealth"].equals(second.data["tooltip_wealth"])
+    from mesa.visualization import SpaceRenderer  # noqa: PLC0415
+
+    renderer = SpaceRenderer.__new__(SpaceRenderer)
+    renderer.post_process = lambda chart: chart.transform_filter(
+        "datum.tooltip_wealth > 2"
+    )
+    assert renderer.post_process(second).to_dict()["transform"] == [
+        {"filter": "datum.tooltip_wealth > 2"}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([1, 2], "quantitative"),
+        (["a", "b"], "nominal"),
+        ([pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-02")], "temporal"),
+        ([None, None], "nominal"),
+    ],
+)
+def test_altair_tooltip_types(values, expected):
+    """Tooltip specifications retain the inferred measurement type."""
+    chart = _tooltip_chart([{"value": value} for value in values])
+    assert chart.to_dict()["encoding"]["tooltip"][0]["type"] == expected
+
+
+@pytest.mark.parametrize("key", [7, None, (1, 2)])
+def test_altair_tooltip_titles_are_strings(key):
+    """Non-string dictionary keys become valid tooltip titles."""
+    chart = _tooltip_chart([{key: 3, "other": 4}])
+    tooltip = next(
+        t for t in chart.to_dict()["encoding"]["tooltip"] if t["title"] == str(key)
+    )
+    assert tooltip["field"] == f"tooltip_{key}"
+
+
+def test_altair_tooltip_duplicate_string_labels():
+    """Ambiguous labels cannot silently overwrite another tooltip column."""
+    with pytest.raises(ValueError, match="distinct string labels"):
+        _tooltip_chart([{1: 2, "1": 3}])
+
+
+@pytest.mark.parametrize("key", ["a.b", "a[b]", "a\\b", "rate:Q"])
+def test_altair_tooltip_special_fields_are_literal(key):
+    """Encoding field paths escape punctuation while dataframe names stay literal."""
+    chart = _tooltip_chart([{key: 3}])
+    tooltip = chart.to_dict()["encoding"]["tooltip"][0]
+    field = f"tooltip_{key}"
+    escaped = field.replace("\\", "\\\\")
+    for character in ".[]":
+        escaped = escaped.replace(character, f"\\{character}")
+    assert tooltip["field"] == escaped
+    assert chart.data[field].iloc[0] == 3

@@ -80,6 +80,31 @@ For detailed tutorials, please refer to:
 ```
 
 
+### Agent tooltip columns and post-processing
+
+In the Altair backend, agent tooltip values are stored in columns named
+`tooltip_{key}`, using `str(key)` for the label. For example, `tooltip={"wealth": 5}`
+adds a `tooltip_wealth` column to the agent chart's dataframe. The displayed hover
+label is still `wealth`. Tooltip values do not overwrite rendering columns such
+as `x`, `y` or `size`.
+
+Post-processing code that previously used the original tooltip key as a column
+name must use the prefixed name instead. For example, on the agent chart:
+
+```python
+def post_process(agent_chart):
+    return agent_chart.transform_filter("datum.tooltip_wealth > 0")
+```
+
+If the renderer combines several charts into layers, apply the change to the
+agent layer. Dataframe column names preserve punctuation in keys. When using
+these names in an Altair encoding, escape dots, brackets and backslashes so
+Vega-Lite treats the name as a literal field rather than a nested path. Tooltip
+encodings created by Mesa already do this. Different tooltip keys must have
+distinct string labels: keys such as `1` and `"1"` in the same chart raise
+`ValueError` rather than silently replacing one another.
+
+
 ## Command Console
 
 ```{eval-rst}
