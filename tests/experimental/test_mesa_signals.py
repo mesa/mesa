@@ -23,7 +23,7 @@ from mesa.experimental.mesa_signals import (
     emit,
     signal_types,
 )
-from mesa.experimental.mesa_signals.core import BaseObservable
+from mesa.experimental.mesa_signals.core import PROCESSING_SIGNALS, BaseObservable
 from mesa.experimental.mesa_signals.signals_util import (
     Message,
     _AllSentinel,
@@ -1017,6 +1017,7 @@ def test_unrelated_notification_does_not_clear_cycle_tracking():
 
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = model.result
+    assert set() == PROCESSING_SIGNALS
 
     # Exercise the successful return path.
     successful_model = Model()
@@ -1025,6 +1026,7 @@ def test_unrelated_notification_does_not_clear_cycle_tracking():
     successful_model.trigger_cycle = False
 
     assert successful_model.result == 1
+    assert set() == PROCESSING_SIGNALS
 
 
 def test_peek_nested_computed_property_preserves_cycle_tracking():
@@ -1054,6 +1056,8 @@ def test_peek_nested_computed_property_preserves_cycle_tracking():
     with pytest.raises(ValueError, match="cyclical dependency"):
         _ = model.result
 
+    assert set() == PROCESSING_SIGNALS
+
     # Exercise the successful return path.
     successful_model = Model()
     successful_model.a = 1
@@ -1061,6 +1065,7 @@ def test_peek_nested_computed_property_preserves_cycle_tracking():
     successful_model.trigger_cycle = False
 
     assert successful_model.result == 1
+    assert set() == PROCESSING_SIGNALS
 
 
 def test_observable_list_reverse_slice_assignment_wrong_size():

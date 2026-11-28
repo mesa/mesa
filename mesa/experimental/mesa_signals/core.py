@@ -231,6 +231,7 @@ class Observable(BaseObservable):
                 old=old_value,
                 new=value,
             )
+            PROCESSING_SIGNALS.discard(_hashable_signal(instance, self.public_name))
 
 
 class ComputedState:
@@ -325,10 +326,10 @@ class ComputedState:
         global CURRENT_COMPUTED, EVALUATION_DEPTH  # noqa: PLW0603
 
         old_computed = CURRENT_COMPUTED
-        # Save and reset PROCESSING_SIGNALS so that `self.func` accessing an
-        # Observable that is itself derived from this same ComputedState
-        # (e.g. a rate function reading the ContinuousState it drives) does
-        # not falsely trigger a cyclical-dependency error.
+        # Preserve PROCESSING_SIGNALS across nested computed-property evaluations.
+        # Clearing the set here could remove cycle-tracking information belonging
+        # to an outer evaluation. The signals are cleaned up when the corresponding
+        # observable notification occurs or when the outermost evaluation finishes.
         EVALUATION_DEPTH += 1
         CURRENT_COMPUTED = self
         old_parents = self.parents
