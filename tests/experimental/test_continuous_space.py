@@ -249,6 +249,26 @@ def test_agent_position_invalid_dimensions():
         agent.position = np.array([5.0])
 
 
+def test_agent_position_is_a_copy():
+    """A rejected move leaves the agent in place, and a saved position doesn't change."""
+    model = Model(rng=42)
+    space = ContinuousSpace([[0, 10], [0, 10]], random=model.random)
+    agent = ContinuousSpaceAgent(space, model)
+    agent.position = [9.5, 5.0]
+
+    with pytest.raises(ValueError):
+        agent.position += np.array([1.0, 0.0])
+    assert agent.position.tolist() == [9.5, 5.0]
+
+    with pytest.raises(ValueError, match="NaN or infinite"):
+        agent.position += np.array([np.nan, 0.0])
+    assert agent.position.tolist() == [9.5, 5.0]
+
+    before = agent.position
+    agent.position = [6.0, 5.0]
+    assert before.tolist() == [9.5, 5.0]
+
+
 @pytest.mark.parametrize("torus", [False, True])
 @pytest.mark.parametrize("point", [[np.nan, 5.0], [5.0, np.inf], [-np.inf, 5.0]])
 def test_agent_position_rejects_nan_and_inf(torus, point):
