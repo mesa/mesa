@@ -884,6 +884,56 @@ def test_ObservableList_slice_setitem():
     )
 
 
+def test_overridden_observable_is_not_registered():
+    """Test that a property overriding an inherited Observable is not registered."""
+
+    class Parent(HasEmitters):
+        value = Observable()
+
+    class Child(Parent):
+        @property
+        def value(self):
+            return 100
+
+    assert "value" not in Child.observables
+
+
+def test_inherited_observable_remains_registered():
+    """Test that an inherited Observable remains registered when not overridden."""
+
+    class Parent(HasEmitters):
+        value = Observable()
+
+    class Child(Parent):
+        pass
+
+    assert "value" in Child.observables
+
+
+def test_overridden_observable_remains_registered():
+    """Test that an Observable overriding an inherited Observable is registered."""
+
+    class Parent(HasEmitters):
+        value = Observable()
+
+    class Child(Parent):
+        value = Observable()
+
+    assert "value" in Child.observables
+
+
+def test_non_observable_attribute_overrides_inherited_observable():
+    """Test that a regular class attribute overriding an inherited Observable is not registered."""
+
+    class Parent(HasEmitters):
+        value = Observable()
+
+    class Child(Parent):
+        value = 42
+
+    assert "value" not in Child.observables
+
+
 def test_ObservableList_slice_delitem():
     """Test that __delitem__ with a slice emits a REMOVED signal with normalized index."""
 
