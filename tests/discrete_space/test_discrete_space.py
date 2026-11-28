@@ -1000,6 +1000,24 @@ def test_cell_collection():
     assert len(cells) == len(collection)
 
 
+def test_cell_collection_getitem_does_not_mutate_cell():
+    """Test that modifying retrieved agents preserves cell occupancy."""
+    model = Model(rng=42)
+    grid = OrthogonalMooreGrid((3, 3), random=model.random)
+
+    cell = grid[(1, 1)]
+    agent = CellAgent(model)
+    agent.cell = cell
+
+    grid.all_cells[cell].clear()
+
+    assert cell.agents == [agent]
+    assert not cell.is_empty
+    assert not cell.empty
+    assert agent.cell is cell
+    assert agent in model.agents
+
+
 def test_cell_collection_accepts_non_dict_mapping():
     """CellCollection preserves values from any Mapping, not just dicts."""
     cell = Cell((0,), random=random.Random(1))

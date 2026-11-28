@@ -84,8 +84,16 @@ class CellCollection[T: Cell]:
     def __iter__(self):  # noqa
         return iter(self._cells)
 
-    def __getitem__(self, key: T) -> Iterable[CellAgent]:  # noqa
-        return self._cells[key]
+    def __getitem__(self, key: T) -> Iterable[CellAgent]:
+        """Return agents associated with a cell.
+
+        Copy internal cell agent lists to protect cell occupancy,
+        while preserving independently supplied mapping values.
+        """
+        agents = self._cells[key]
+        if agents is key._agents:
+            return agents.copy()
+        return agents
 
     # @cached_property
     def __len__(self) -> int:  # noqa
